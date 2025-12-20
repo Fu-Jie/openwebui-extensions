@@ -101,11 +101,11 @@ HTML_WRAPPER_TEMPLATE = """
 
 class Action:
     class Valves(BaseModel):
-        show_status: bool = Field(
+        SHOW_STATUS: bool = Field(
             default=True,
             description="Whether to show operation status updates in the chat interface.",
         )
-        LLM_MODEL_ID: str = Field(
+        MODEL_ID: str = Field(
             default="",
             description="Built-in LLM Model ID used for processing. If empty, uses the current conversation's model.",
         )
@@ -231,7 +231,7 @@ class Action:
         done: bool = False,
     ):
         """Emits a status update event."""
-        if self.valves.show_status and emitter:
+        if self.valves.SHOW_STATUS and emitter:
             await emitter(
                 {"type": "status", "data": {"description": description, "done": done}}
             )
@@ -301,7 +301,7 @@ class Action:
             )
 
             # 5. Determine Model
-            target_model = self.valves.LLM_MODEL_ID
+            target_model = self.valves.MODEL_ID
             if not target_model:
                 target_model = body.get("model")
                 # Note: No hardcoded fallback here, relies on system/user context
@@ -361,5 +361,10 @@ class Action:
 
             # Append error to chat (optional)
             body["messages"][-1]["content"] += f"\n\n❌ **Error**: {error_msg}"
+
+            await self._emit_status(__event_emitter__, "Processing failed.", done=True)
+            await self._emit_notification(
+                __event_emitter__, "Action failed, please check logs.", "error"
+            )
 
         return body

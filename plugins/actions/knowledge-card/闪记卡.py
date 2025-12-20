@@ -71,24 +71,24 @@ HTML_WRAPPER_TEMPLATE = """
 
 class Action:
     class Valves(BaseModel):
-        model_id: str = Field(
+        MODEL_ID: str = Field(
             default="",
             description="用于生成卡片内容的模型 ID。如果为空，则使用当前模型。",
         )
-        min_text_length: int = Field(
+        MIN_TEXT_LENGTH: int = Field(
             default=50, description="生成闪记卡所需的最小文本长度（字符数）。"
         )
-        max_text_length: int = Field(
+        MAX_TEXT_LENGTH: int = Field(
             default=2000,
             description="建议的最大文本长度。超过此长度建议使用深度分析工具。",
         )
-        language: str = Field(
+        LANGUAGE: str = Field(
             default="zh", description="卡片内容的目标语言 (例如 'zh', 'en')。"
         )
-        show_status: bool = Field(
+        SHOW_STATUS: bool = Field(
             default=True, description="是否在聊天界面显示状态更新。"
         )
-        clear_previous_html: bool = Field(
+        CLEAR_PREVIOUS_HTML: bool = Field(
             default=False,
             description="是否强制清除旧的插件结果（如果为 True，则不合并，直接覆盖）。",
         )
@@ -103,7 +103,7 @@ class Action:
         __event_emitter__: Optional[Any] = None,
         __request__: Optional[Any] = None,
     ) -> Optional[dict]:
-        print(f"action:{__name__} triggered")
+        logger.info(f"Action: {__name__} 触发")
 
         if not __event_emitter__:
             return body
@@ -118,49 +118,32 @@ class Action:
 
         # Check text length
         text_length = len(target_message)
-        if text_length < self.valves.min_text_length:
-            if __event_emitter__:
-                await __event_emitter__(
-                    {
-                        "type": "notification",
-                        "data": {
-                            "type": "warning",
-                            "content": f"文本过短（{text_length}字符），建议至少{self.valves.min_text_length}字符。",
-                        },
-                    }
-                )
+        if text_length < self.valves.MIN_TEXT_LENGTH:
+            await self._emit_notification(
+                __event_emitter__,
+                f"文本内容过短 ({text_length} 字符)，建议至少 {self.valves.MIN_TEXT_LENGTH} 字符。",
+                "warning",
+            )
             return body
 
-        if text_length > self.valves.max_text_length:
-            if __event_emitter__:
-                await __event_emitter__(
-                    {
-                        "type": "notification",
-                        "data": {
-                            "type": "info",
-                            "content": f"文本较长（{text_length}字符），建议使用'墨海拾贝'进行深度分析。",
-                        },
-                    }
-                )
+        if text_length > self.valves.MAX_TEXT_LENGTH:
+            await self._emit_notification(
+                __event_emitter__,
+                f"文本较长（{text_length}字符），建议使用'墨海拾贝'进行深度分析。",
+                "info",
+            )
 
         # Notify user that we are generating the card
-        if self.valves.show_status:
-            await __event_emitter__(
-                {
-                    "type": "notification",
-                    "data": {
-                        "type": "info",
-                        "content": "⚡ 正在生成闪记卡...",
-                    },
-                }
-            )
+        await self._emit_notification(__event_emitter__, "⚡ 正在生成闪记卡...", "info")
 
         try:
             # 1. Extract information using LLM
             user_id = __user__.get("id") if __user__ else "default"
             user_obj = Users.get_user_by_id(user_id)
 
-            model = self.valves.model_id if self.valves.model_id else body.get("model")
+            target_model = (
+                self.valves.MODEL_ID if self.valves.MODEL_ID else body.get("model")
+            )
 
             system_prompt = f"""
 你是一个闪记卡生成专家，专注于创建适合学习和记忆的知识卡片。你的任务是将文本提炼成简洁、易记的学习卡片。
@@ -175,7 +158,7 @@ class Action:
 4. "tags": 列出 2-4 个分类标签（每个 2-5 字）
 5. "category": 选择一个主分类（如：概念、技能、事实、方法等）
 
-目标语言: {self.valves.language}
+目标语言: {self.valves.LANGUAGE}
 
 重要原则：
 - **极简主义**: 每个要点都要精炼到极致
@@ -188,7 +171,7 @@ class Action:
             prompt = f"请将以下文本提炼成一张学习记忆卡片：\n\n{target_message}"
 
             payload = {
-                "model": model,
+                "model": target_model,
                 "messages": [
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": prompt},
@@ -210,16 +193,9 @@ class Action:
                 card_data = json.loads(content)
             except Exception as e:
                 logger.error(f"Failed to parse JSON: {e}, content: {content}")
-                if self.valves.show_status:
-                    await __event_emitter__(
-                        {
-                            "type": "notification",
-                            "data": {
-                                "type": "error",
-                                "content": "生成卡片数据失败，请重试。",
-                            },
-                        }
-                    )
+                await self._emit_notification(
+                    __event_emitter__, "生成卡片数据失败，请重试。", "error"
+                )
                 return body
 
             # 2. Generate HTML components
@@ -235,12 +211,12 @@ class Action:
             if match:
                 existing_html_block = match.group(1)
 
-            if self.valves.clear_previous_html:
+            if self.valves.CLEAR_PREVIOUS_HTML:
                 body["messages"][-1]["content"] = self._remove_existing_html(
                     body["messages"][-1]["content"]
                 )
                 final_html = self._merge_html(
-                    "", card_content, card_style, "", self.valves.language
+                    "", card_content, card_style, "", self.valves.LANGUAGE
                 )
             else:
                 if existing_html_block:
@@ -252,42 +228,42 @@ class Action:
                         card_content,
                         card_style,
                         "",
-                        self.valves.language,
+                        self.valves.LANGUAGE,
                     )
                 else:
                     final_html = self._merge_html(
-                        "", card_content, card_style, "", self.valves.language
+                        "", card_content, card_style, "", self.valves.LANGUAGE
                     )
 
             html_embed_tag = f"```html\n{final_html}\n```"
             body["messages"][-1]["content"] += f"\n\n{html_embed_tag}"
 
-            if self.valves.show_status:
-                await __event_emitter__(
-                    {
-                        "type": "notification",
-                        "data": {
-                            "type": "success",
-                            "content": "⚡ 闪记卡生成成功！",
-                        },
-                    }
-                )
+            await self._emit_notification(
+                __event_emitter__, "⚡ 闪记卡生成成功！", "success"
+            )
 
             return body
 
         except Exception as e:
             logger.error(f"Error generating knowledge card: {e}")
-            if self.valves.show_status:
-                await __event_emitter__(
-                    {
-                        "type": "notification",
-                        "data": {
-                            "type": "error",
-                            "content": f"生成知识卡片时出错: {str(e)}",
-                        },
-                    }
-                )
+            await self._emit_notification(
+                __event_emitter__, f"生成知识卡片时出错: {str(e)}", "error"
+            )
             return body
+
+    async def _emit_status(self, emitter, description: str, done: bool = False):
+        """发送状态更新事件。"""
+        if self.valves.SHOW_STATUS and emitter:
+            await emitter(
+                {"type": "status", "data": {"description": description, "done": done}}
+            )
+
+    async def _emit_notification(self, emitter, content: str, ntype: str = "info"):
+        """发送通知事件 (info/success/warning/error)。"""
+        if emitter:
+            await emitter(
+                {"type": "notification", "data": {"type": ntype, "content": content}}
+            )
 
     def _remove_existing_html(self, content: str) -> str:
         """移除内容中已有的插件生成 HTML 代码块 (通过标记识别)。"""

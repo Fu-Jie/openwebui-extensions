@@ -394,10 +394,10 @@ SCRIPT_TEMPLATE_MINDMAP = """
 
 class Action:
     class Valves(BaseModel):
-        show_status: bool = Field(
+        SHOW_STATUS: bool = Field(
             default=True, description="是否在聊天界面显示操作状态更新。"
         )
-        LLM_MODEL_ID: str = Field(
+        MODEL_ID: str = Field(
             default="",
             description="用于文本分析的内置LLM模型ID。如果为空，则使用当前对话的模型。",
         )
@@ -432,6 +432,20 @@ class Action:
             )
             extracted_content = llm_output.strip()
         return extracted_content.replace("</script>", "<\\/script>")
+
+    async def _emit_status(self, emitter, description: str, done: bool = False):
+        """发送状态更新事件。"""
+        if self.valves.SHOW_STATUS and emitter:
+            await emitter(
+                {"type": "status", "data": {"description": description, "done": done}}
+            )
+
+    async def _emit_notification(self, emitter, content: str, ntype: str = "info"):
+        """发送通知事件 (info/success/warning/error)。"""
+        if emitter:
+            await emitter(
+                {"type": "notification", "data": {"type": ntype, "content": content}}
+            )
 
     def _remove_existing_html(self, content: str) -> str:
         """移除内容中已有的插件生成 HTML 代码块 (通过标记识别)。"""
@@ -522,16 +536,9 @@ class Action:
             current_year = now.strftime("%Y")
             current_timezone_str = "未知时区"
 
-        if __event_emitter__:
-            await __event_emitter__(
-                {
-                    "type": "notification",
-                    "data": {
-                        "type": "info",
-                        "content": "智绘心图已启动，正在为您生成思维导图...",
-                    },
-                }
-            )
+        await self._emit_notification(
+            __event_emitter__, "智绘心图已启动，正在为您生成思维导图...", "info"
+        )
 
         messages = body.get("messages")
         if (
@@ -540,13 +547,7 @@ class Action:
             or not messages[-1].get("content")
         ):
             error_message = "无法获取有效的用户消息内容。"
-            if __event_emitter__:
-                await __event_emitter__(
-                    {
-                        "type": "notification",
-                        "data": {"type": "error", "content": error_message},
-                    }
-                )
+            await self._emit_notification(__event_emitter__, error_message, "error")
             return {
                 "messages": [{"role": "assistant", "content": f"❌ {error_message}"}]
             }
@@ -564,30 +565,18 @@ class Action:
 
         if len(long_text_content) < self.valves.MIN_TEXT_LENGTH:
             short_text_message = f"文本内容过短({len(long_text_content)}字符)，无法进行有效分析。请提供至少{self.valves.MIN_TEXT_LENGTH}字符的文本。"
-            if __event_emitter__:
-                await __event_emitter__(
-                    {
-                        "type": "notification",
-                        "data": {"type": "warning", "content": short_text_message},
-                    }
-                )
+            await self._emit_notification(
+                __event_emitter__, short_text_message, "warning"
+            )
             return {
                 "messages": [
                     {"role": "assistant", "content": f"⚠️ {short_text_message}"}
                 ]
             }
 
-        if self.valves.show_status and __event_emitter__:
-            await __event_emitter__(
-                {
-                    "type": "status",
-                    "data": {
-                        "description": "智绘心图: 深入分析文本结构...",
-                        "done": False,
-                        "hidden": False,
-                    },
-                }
-            )
+        await self._emit_status(
+            __event_emitter__, "智绘心图: 深入分析文本结构...", False
+        )
 
         try:
             unique_id = f"id_{int(time.time() * 1000)}"
@@ -602,7 +591,7 @@ class Action:
             )
 
             # 确定使用的模型
-            target_model = self.valves.LLM_MODEL_ID
+            target_model = self.valves.MODEL_ID
             if not target_model:
                 target_model = body.get("model")
 
@@ -682,26 +671,10 @@ class Action:
             html_embed_tag = f"```html\n{final_html}\n```"
             body["messages"][-1]["content"] = f"{long_text_content}\n\n{html_embed_tag}"
 
-            if self.valves.show_status and __event_emitter__:
-                await __event_emitter__(
-                    {
-                        "type": "status",
-                        "data": {
-                            "description": "智绘心图: 绘制完成！",
-                            "done": True,
-                            "hidden": False,
-                        },
-                    }
-                )
-                await __event_emitter__(
-                    {
-                        "type": "notification",
-                        "data": {
-                            "type": "success",
-                            "content": f"思维导图已生成，{user_name}！",
-                        },
-                    }
-                )
+            await self._emit_status(__event_emitter__, "智绘心图: 绘制完成！", True)
+            await self._emit_notification(
+                __event_emitter__, f"思维导图已生成，{user_name}！", "success"
+            )
             logger.info("Action: 智绘心图 (v12) completed successfully")
 
         except Exception as e:
@@ -712,26 +685,9 @@ class Action:
                 "content"
             ] = f"{long_text_content}\n\n❌ **错误:** {user_facing_error}"
 
-            if __event_emitter__:
-                if self.valves.show_status:
-                    await __event_emitter__(
-                        {
-                            "type": "status",
-                            "data": {
-                                "description": "智绘心图: 处理失败。",
-                                "done": True,
-                                "hidden": False,
-                            },
-                        }
-                    )
-                await __event_emitter__(
-                    {
-                        "type": "notification",
-                        "data": {
-                            "type": "error",
-                            "content": f"智绘心图生成失败, {user_name}！",
-                        },
-                    }
-                )
+            await self._emit_status(__event_emitter__, "智绘心图: 处理失败。", True)
+            await self._emit_notification(
+                __event_emitter__, f"智绘心图生成失败, {user_name}！", "error"
+            )
 
         return body

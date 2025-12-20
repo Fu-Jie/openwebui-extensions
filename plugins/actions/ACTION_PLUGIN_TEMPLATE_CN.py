@@ -101,11 +101,11 @@ HTML_WRAPPER_TEMPLATE = """
 
 class Action:
     class Valves(BaseModel):
-        show_status: bool = Field(
+        SHOW_STATUS: bool = Field(
             default=True,
             description="是否在聊天界面显示操作状态更新。",
         )
-        LLM_MODEL_ID: str = Field(
+        MODEL_ID: str = Field(
             default="",
             description="用于处理的内置 LLM 模型 ID。如果为空，则使用当前对话的模型。",
         )
@@ -242,7 +242,7 @@ class Action:
         done: bool = False,
     ):
         """发送状态更新事件。"""
-        if self.valves.show_status and emitter:
+        if self.valves.SHOW_STATUS and emitter:
             await emitter(
                 {"type": "status", "data": {"description": description, "done": done}}
             )
@@ -312,7 +312,7 @@ class Action:
             )
 
             # 5. 确定模型
-            target_model = self.valves.LLM_MODEL_ID
+            target_model = self.valves.MODEL_ID
             if not target_model:
                 target_model = body.get("model")
                 # 注意: 这里没有硬编码的回退，依赖于系统/用户上下文

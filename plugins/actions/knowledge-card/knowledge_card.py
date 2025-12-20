@@ -71,27 +71,27 @@ HTML_WRAPPER_TEMPLATE = """
 
 class Action:
     class Valves(BaseModel):
-        model_id: str = Field(
+        MODEL_ID: str = Field(
             default="",
             description="Model ID used for generating card content. If empty, uses the current model.",
         )
-        min_text_length: int = Field(
+        MIN_TEXT_LENGTH: int = Field(
             default=50,
             description="Minimum text length required to generate a flashcard (characters).",
         )
-        max_text_length: int = Field(
+        MAX_TEXT_LENGTH: int = Field(
             default=2000,
             description="Recommended maximum text length. For longer texts, deep analysis tools are recommended.",
         )
-        language: str = Field(
+        LANGUAGE: str = Field(
             default="en",
             description="Target language for card content (e.g., 'en', 'zh').",
         )
-        show_status: bool = Field(
+        SHOW_STATUS: bool = Field(
             default=True,
             description="Whether to show status updates in the chat interface.",
         )
-        clear_previous_html: bool = Field(
+        CLEAR_PREVIOUS_HTML: bool = Field(
             default=False,
             description="Whether to force clear previous plugin results (if True, overwrites instead of merging).",
         )
@@ -106,7 +106,7 @@ class Action:
         __event_emitter__: Optional[Any] = None,
         __request__: Optional[Any] = None,
     ) -> Optional[dict]:
-        print(f"action:{__name__} triggered")
+        logger.info(f"Action: {__name__} triggered")
 
         if not __event_emitter__:
             return body
@@ -121,49 +121,34 @@ class Action:
 
         # Check text length
         text_length = len(target_message)
-        if text_length < self.valves.min_text_length:
-            if __event_emitter__:
-                await __event_emitter__(
-                    {
-                        "type": "notification",
-                        "data": {
-                            "type": "warning",
-                            "content": f"Text too short ({text_length} chars), recommended at least {self.valves.min_text_length} chars.",
-                        },
-                    }
-                )
+        if text_length < self.valves.MIN_TEXT_LENGTH:
+            await self._emit_notification(
+                __event_emitter__,
+                f"Text too short ({text_length} chars), recommended at least {self.valves.MIN_TEXT_LENGTH} chars.",
+                "warning",
+            )
             return body
 
-        if text_length > self.valves.max_text_length:
-            if __event_emitter__:
-                await __event_emitter__(
-                    {
-                        "type": "notification",
-                        "data": {
-                            "type": "info",
-                            "content": f"Text quite long ({text_length} chars), consider using 'Deep Reading' for deep analysis.",
-                        },
-                    }
-                )
+        if text_length > self.valves.MAX_TEXT_LENGTH:
+            await self._emit_notification(
+                __event_emitter__,
+                f"Text quite long ({text_length} chars), consider using 'Deep Reading' for deep analysis.",
+                "info",
+            )
 
         # Notify user that we are generating the card
-        if self.valves.show_status:
-            await __event_emitter__(
-                {
-                    "type": "notification",
-                    "data": {
-                        "type": "info",
-                        "content": "⚡ Generating Flash Card...",
-                    },
-                }
-            )
+        await self._emit_notification(
+            __event_emitter__, "⚡ Generating Flash Card...", "info"
+        )
 
         try:
             # 1. Extract information using LLM
             user_id = __user__.get("id") if __user__ else "default"
             user_obj = Users.get_user_by_id(user_id)
 
-            model = self.valves.model_id if self.valves.model_id else body.get("model")
+            target_model = (
+                self.valves.MODEL_ID if self.valves.MODEL_ID else body.get("model")
+            )
 
             system_prompt = f"""
 You are a Flash Card Generation Expert, specializing in creating knowledge cards suitable for learning and memorization. Your task is to distill text into concise, easy-to-remember flashcards.
@@ -178,7 +163,7 @@ Please extract the following fields and return them in JSON format:
 4. "tags": List 2-4 classification tags (1-3 words each).
 5. "category": Choose a main category (e.g., Concept, Skill, Fact, Method, etc.).
 
-Target Language: {self.valves.language}
+Target Language: {self.valves.LANGUAGE}
 
 Important Principles:
 - **Minimalism**: Refine each point to the extreme.
@@ -191,7 +176,7 @@ Important Principles:
             prompt = f"Please refine the following text into a learning flashcard:\n\n{target_message}"
 
             payload = {
-                "model": model,
+                "model": target_model,
                 "messages": [
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": prompt},
@@ -213,16 +198,11 @@ Important Principles:
                 card_data = json.loads(content)
             except Exception as e:
                 logger.error(f"Failed to parse JSON: {e}, content: {content}")
-                if self.valves.show_status:
-                    await __event_emitter__(
-                        {
-                            "type": "notification",
-                            "data": {
-                                "type": "error",
-                                "content": "Failed to generate card data, please try again.",
-                            },
-                        }
-                    )
+                await self._emit_notification(
+                    __event_emitter__,
+                    "Failed to generate card data, please try again.",
+                    "error",
+                )
                 return body
 
             # 2. Generate HTML components
@@ -238,12 +218,12 @@ Important Principles:
             if match:
                 existing_html_block = match.group(1)
 
-            if self.valves.clear_previous_html:
+            if self.valves.CLEAR_PREVIOUS_HTML:
                 body["messages"][-1]["content"] = self._remove_existing_html(
                     body["messages"][-1]["content"]
                 )
                 final_html = self._merge_html(
-                    "", card_content, card_style, "", self.valves.language
+                    "", card_content, card_style, "", self.valves.LANGUAGE
                 )
             else:
                 if existing_html_block:
@@ -255,42 +235,42 @@ Important Principles:
                         card_content,
                         card_style,
                         "",
-                        self.valves.language,
+                        self.valves.LANGUAGE,
                     )
                 else:
                     final_html = self._merge_html(
-                        "", card_content, card_style, "", self.valves.language
+                        "", card_content, card_style, "", self.valves.LANGUAGE
                     )
 
             html_embed_tag = f"```html\n{final_html}\n```"
             body["messages"][-1]["content"] += f"\n\n{html_embed_tag}"
 
-            if self.valves.show_status:
-                await __event_emitter__(
-                    {
-                        "type": "notification",
-                        "data": {
-                            "type": "success",
-                            "content": "⚡ Flash Card generated successfully!",
-                        },
-                    }
-                )
+            await self._emit_notification(
+                __event_emitter__, "⚡ Flash Card generated successfully!", "success"
+            )
 
             return body
 
         except Exception as e:
             logger.error(f"Error generating knowledge card: {e}")
-            if self.valves.show_status:
-                await __event_emitter__(
-                    {
-                        "type": "notification",
-                        "data": {
-                            "type": "error",
-                            "content": f"Error generating knowledge card: {str(e)}",
-                        },
-                    }
-                )
+            await self._emit_notification(
+                __event_emitter__, f"Error generating knowledge card: {str(e)}", "error"
+            )
             return body
+
+    async def _emit_status(self, emitter, description: str, done: bool = False):
+        """Emits a status update event."""
+        if self.valves.SHOW_STATUS and emitter:
+            await emitter(
+                {"type": "status", "data": {"description": description, "done": done}}
+            )
+
+    async def _emit_notification(self, emitter, content: str, ntype: str = "info"):
+        """Emits a notification event (info/success/warning/error)."""
+        if emitter:
+            await emitter(
+                {"type": "notification", "data": {"type": ntype, "content": content}}
+            )
 
     def _remove_existing_html(self, content: str) -> str:
         """Removes existing plugin-generated HTML code blocks from the content."""

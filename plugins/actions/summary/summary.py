@@ -305,11 +305,11 @@ CONTENT_TEMPLATE_SUMMARY = """
 
 class Action:
     class Valves(BaseModel):
-        show_status: bool = Field(
+        SHOW_STATUS: bool = Field(
             default=True,
             description="Whether to show operation status updates in the chat interface.",
         )
-        LLM_MODEL_ID: str = Field(
+        MODEL_ID: str = Field(
             default="",
             description="Built-in LLM Model ID used for text analysis. If empty, uses the current conversation's model.",
         )
@@ -380,6 +380,20 @@ class Action:
             "keypoints_html": keypoints_html,
             "actions_html": actions_html,
         }
+
+    async def _emit_status(self, emitter, description: str, done: bool = False):
+        """Emits a status update event."""
+        if self.valves.SHOW_STATUS and emitter:
+            await emitter(
+                {"type": "status", "data": {"description": description, "done": done}}
+            )
+
+    async def _emit_notification(self, emitter, content: str, ntype: str = "info"):
+        """Emits a notification event (info/success/warning/error)."""
+        if emitter:
+            await emitter(
+                {"type": "notification", "data": {"type": ntype, "content": content}}
+            )
 
     def _remove_existing_html(self, content: str) -> str:
         """Removes existing plugin-generated HTML code blocks from the content."""
@@ -485,13 +499,9 @@ class Action:
 
             if len(original_content) < self.valves.MIN_TEXT_LENGTH:
                 short_text_message = f"Text content too short ({len(original_content)} chars), recommended at least {self.valves.MIN_TEXT_LENGTH} chars for effective deep analysis.\n\n💡 Tip: For short texts, consider using '⚡ Flash Card' for quick refinement."
-                if __event_emitter__:
-                    await __event_emitter__(
-                        {
-                            "type": "notification",
-                            "data": {"type": "warning", "content": short_text_message},
-                        }
-                    )
+                await self._emit_notification(
+                    __event_emitter__, short_text_message, "warning"
+                )
                 return {
                     "messages": [
                         {"role": "assistant", "content": f"⚠️ {short_text_message}"}
@@ -500,37 +510,22 @@ class Action:
 
             # Recommend for longer texts
             if len(original_content) < self.valves.RECOMMENDED_MIN_LENGTH:
-                if __event_emitter__:
-                    await __event_emitter__(
-                        {
-                            "type": "notification",
-                            "data": {
-                                "type": "info",
-                                "content": f"Text length is {len(original_content)} chars. Recommended {self.valves.RECOMMENDED_MIN_LENGTH}+ chars for best analysis results.",
-                            },
-                        }
-                    )
-
-            if __event_emitter__:
-                await __event_emitter__(
-                    {
-                        "type": "notification",
-                        "data": {
-                            "type": "info",
-                            "content": "📖 Deep Reading started, analyzing deeply...",
-                        },
-                    }
+                await self._emit_notification(
+                    __event_emitter__,
+                    f"Text length is {len(original_content)} chars. Recommended {self.valves.RECOMMENDED_MIN_LENGTH}+ chars for best analysis results.",
+                    "info",
                 )
-                if self.valves.show_status:
-                    await __event_emitter__(
-                        {
-                            "type": "status",
-                            "data": {
-                                "description": "📖 Deep Reading: Analyzing text, extracting essence...",
-                                "done": False,
-                            },
-                        }
-                    )
+
+            await self._emit_notification(
+                __event_emitter__,
+                "📖 Deep Reading started, analyzing deeply...",
+                "info",
+            )
+            await self._emit_status(
+                __event_emitter__,
+                "📖 Deep Reading: Analyzing text, extracting essence...",
+                False,
+            )
 
             formatted_user_prompt = USER_PROMPT_GENERATE_SUMMARY.format(
                 user_name=user_name,
@@ -542,7 +537,7 @@ class Action:
             )
 
             # Determine model to use
-            target_model = self.valves.LLM_MODEL_ID
+            target_model = self.valves.MODEL_ID
             if not target_model:
                 target_model = body.get("model")
 
@@ -611,25 +606,14 @@ class Action:
             html_embed_tag = f"```html\n{final_html}\n```"
             body["messages"][-1]["content"] = f"{original_content}\n\n{html_embed_tag}"
 
-            if self.valves.show_status and __event_emitter__:
-                await __event_emitter__(
-                    {
-                        "type": "status",
-                        "data": {
-                            "description": "📖 Deep Reading: Analysis complete!",
-                            "done": True,
-                        },
-                    }
-                )
-                await __event_emitter__(
-                    {
-                        "type": "notification",
-                        "data": {
-                            "type": "success",
-                            "content": f"📖 Deep Reading complete, {user_name}! Deep analysis report generated.",
-                        },
-                    }
-                )
+            await self._emit_status(
+                __event_emitter__, "📖 Deep Reading: Analysis complete!", True
+            )
+            await self._emit_notification(
+                __event_emitter__,
+                f"📖 Deep Reading complete, {user_name}! Deep analysis report generated.",
+                "success",
+            )
 
         except Exception as e:
             error_message = f"Deep Reading processing failed: {str(e)}"
@@ -639,25 +623,13 @@ class Action:
                 "content"
             ] = f"{original_content}\n\n❌ **Error:** {user_facing_error}"
 
-            if __event_emitter__:
-                if self.valves.show_status:
-                    await __event_emitter__(
-                        {
-                            "type": "status",
-                            "data": {
-                                "description": "Deep Reading: Processing failed.",
-                                "done": True,
-                            },
-                        }
-                    )
-                await __event_emitter__(
-                    {
-                        "type": "notification",
-                        "data": {
-                            "type": "error",
-                            "content": f"Deep Reading processing failed, {user_name}!",
-                        },
-                    }
-                )
+            await self._emit_status(
+                __event_emitter__, "Deep Reading: Processing failed.", True
+            )
+            await self._emit_notification(
+                __event_emitter__,
+                f"Deep Reading processing failed, {user_name}!",
+                "error",
+            )
 
         return body

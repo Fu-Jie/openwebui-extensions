@@ -302,10 +302,10 @@ CONTENT_TEMPLATE_SUMMARY = """
 
 class Action:
     class Valves(BaseModel):
-        show_status: bool = Field(
+        SHOW_STATUS: bool = Field(
             default=True, description="是否在聊天界面显示操作状态更新。"
         )
-        LLM_MODEL_ID: str = Field(
+        MODEL_ID: str = Field(
             default="",
             description="用于文本分析的内置LLM模型ID。如果为空，则使用当前对话的模型。",
         )
@@ -378,6 +378,20 @@ class Action:
             "keypoints_html": keypoints_html,
             "actions_html": actions_html,
         }
+
+    async def _emit_status(self, emitter, description: str, done: bool = False):
+        """发送状态更新事件。"""
+        if self.valves.SHOW_STATUS and emitter:
+            await emitter(
+                {"type": "status", "data": {"description": description, "done": done}}
+            )
+
+    async def _emit_notification(self, emitter, content: str, ntype: str = "info"):
+        """发送通知事件 (info/success/warning/error)。"""
+        if emitter:
+            await emitter(
+                {"type": "notification", "data": {"type": ntype, "content": content}}
+            )
 
     def _remove_existing_html(self, content: str) -> str:
         """移除内容中已有的插件生成 HTML 代码块 (通过标记识别)。"""
@@ -484,13 +498,9 @@ class Action:
 
             if len(original_content) < self.valves.MIN_TEXT_LENGTH:
                 short_text_message = f"文本内容过短({len(original_content)}字符)，建议至少{self.valves.MIN_TEXT_LENGTH}字符以获得有效的深度分析。\n\n💡 提示：对于短文本，建议使用'⚡ 闪记卡'进行快速提炼。"
-                if __event_emitter__:
-                    await __event_emitter__(
-                        {
-                            "type": "notification",
-                            "data": {"type": "warning", "content": short_text_message},
-                        }
-                    )
+                await self._emit_notification(
+                    __event_emitter__, short_text_message, "warning"
+                )
                 return {
                     "messages": [
                         {"role": "assistant", "content": f"⚠️ {short_text_message}"}
@@ -499,37 +509,18 @@ class Action:
 
             # Recommend for longer texts
             if len(original_content) < self.valves.RECOMMENDED_MIN_LENGTH:
-                if __event_emitter__:
-                    await __event_emitter__(
-                        {
-                            "type": "notification",
-                            "data": {
-                                "type": "info",
-                                "content": f"文本长度为{len(original_content)}字符。建议{self.valves.RECOMMENDED_MIN_LENGTH}字符以上可获得更好的分析效果。",
-                            },
-                        }
-                    )
-
-            if __event_emitter__:
-                await __event_emitter__(
-                    {
-                        "type": "notification",
-                        "data": {
-                            "type": "info",
-                            "content": "📖 精读已启动，正在进行深度分析...",
-                        },
-                    }
+                await self._emit_notification(
+                    __event_emitter__,
+                    f"文本长度为{len(original_content)}字符。建议{self.valves.RECOMMENDED_MIN_LENGTH}字符以上可获得更好的分析效果。",
+                    "info",
                 )
-                if self.valves.show_status:
-                    await __event_emitter__(
-                        {
-                            "type": "status",
-                            "data": {
-                                "description": "📖 精读: 深入分析文本，提炼精华...",
-                                "done": False,
-                            },
-                        }
-                    )
+
+            await self._emit_notification(
+                __event_emitter__, "📖 精读已启动，正在进行深度分析...", "info"
+            )
+            await self._emit_status(
+                __event_emitter__, "📖 精读: 深入分析文本，提炼精华...", False
+            )
 
             formatted_user_prompt = USER_PROMPT_GENERATE_SUMMARY.format(
                 user_name=user_name,
@@ -541,7 +532,7 @@ class Action:
             )
 
             # 确定使用的模型
-            target_model = self.valves.LLM_MODEL_ID
+            target_model = self.valves.MODEL_ID
             if not target_model:
                 target_model = body.get("model")
 
@@ -610,22 +601,12 @@ class Action:
             html_embed_tag = f"```html\n{final_html}\n```"
             body["messages"][-1]["content"] = f"{original_content}\n\n{html_embed_tag}"
 
-            if self.valves.show_status and __event_emitter__:
-                await __event_emitter__(
-                    {
-                        "type": "status",
-                        "data": {"description": "📖 精读: 分析完成!", "done": True},
-                    }
-                )
-                await __event_emitter__(
-                    {
-                        "type": "notification",
-                        "data": {
-                            "type": "success",
-                            "content": f"📖 精读完成，{user_name}！深度分析报告已生成。",
-                        },
-                    }
-                )
+            await self._emit_status(__event_emitter__, "📖 精读: 分析完成!", True)
+            await self._emit_notification(
+                __event_emitter__,
+                f"📖 精读完成，{user_name}！深度分析报告已生成。",
+                "success",
+            )
 
         except Exception as e:
             error_message = f"精读处理失败: {str(e)}"
@@ -635,25 +616,9 @@ class Action:
                 "content"
             ] = f"{original_content}\n\n❌ **错误:** {user_facing_error}"
 
-            if __event_emitter__:
-                if self.valves.show_status:
-                    await __event_emitter__(
-                        {
-                            "type": "status",
-                            "data": {
-                                "description": "精读: 处理失败。",
-                                "done": True,
-                            },
-                        }
-                    )
-                await __event_emitter__(
-                    {
-                        "type": "notification",
-                        "data": {
-                            "type": "error",
-                            "content": f"精读处理失败, {user_name}!",
-                        },
-                    }
-                )
+            await self._emit_status(__event_emitter__, "精读: 处理失败。", True)
+            await self._emit_notification(
+                __event_emitter__, f"精读处理失败, {user_name}!", "error"
+            )
 
         return body
