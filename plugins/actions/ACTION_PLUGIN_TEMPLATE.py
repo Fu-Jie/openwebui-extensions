@@ -50,6 +50,7 @@ Content to process:
 
 # HTML Template for rendering the result in the chat
 HTML_TEMPLATE = """
+<!-- OPENWEBUI_PLUGIN_OUTPUT -->
 <!DOCTYPE html>
 <html lang="{user_language}">
 <head>
@@ -85,6 +86,10 @@ class Action:
         MIN_TEXT_LENGTH: int = Field(
             default=50,
             description="Minimum text length required for processing (characters).",
+        )
+        CLEAR_PREVIOUS_HTML: bool = Field(
+            default=False,
+            description="Whether to clear existing plugin-generated HTML content in the message before appending new results (identified by marker).",
         )
         # Add other configuration fields as needed
         # MAX_TEXT_LENGTH: int = Field(default=2000, description="...")
@@ -137,6 +142,12 @@ class Action:
         # except Exception:
         #     pass
         return llm_output.strip()
+
+    def _remove_existing_html(self, content: str) -> str:
+        """Removes existing plugin-generated HTML code blocks from the content."""
+        # Match ```html <!-- OPENWEBUI_PLUGIN_OUTPUT --> ... ``` pattern
+        pattern = r"```html\s*<!-- OPENWEBUI_PLUGIN_OUTPUT -->[\s\S]*?```"
+        return re.sub(pattern, "", content).strip()
 
     async def _emit_status(
         self,
@@ -253,6 +264,11 @@ class Action:
             )
 
             # 9. Inject Result
+            if self.valves.CLEAR_PREVIOUS_HTML:
+                body["messages"][-1]["content"] = self._remove_existing_html(
+                    body["messages"][-1]["content"]
+                )
+
             html_embed_tag = f"```html\n{final_html}\n```"
             body["messages"][-1]["content"] += f"\n\n{html_embed_tag}"
 

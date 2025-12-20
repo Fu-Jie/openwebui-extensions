@@ -62,6 +62,7 @@ Python
 """
 
 HTML_TEMPLATE_MINDMAP = """
+<!-- OPENWEBUI_PLUGIN_OUTPUT -->
 <!DOCTYPE html>
 <html lang="{user_language}">
 <head>
@@ -367,7 +368,12 @@ class Action:
             description="用于文本分析的内置LLM模型ID。如果为空，则使用当前对话的模型。",
         )
         MIN_TEXT_LENGTH: int = Field(
-            default=100, description="进行思维导图分析所需的最小文本长度(字符数)。"
+            default=100,
+            description="进行思维导图分析所需的最小文本长度(字符数)。",
+        )
+        CLEAR_PREVIOUS_HTML: bool = Field(
+            default=False,
+            description="是否在追加新结果前清除消息中已有的插件生成 HTML 内容 (通过标记识别)。",
         )
 
     def __init__(self):
@@ -392,6 +398,11 @@ class Action:
             )
             extracted_content = llm_output.strip()
         return extracted_content.replace("</script>", "<\\/script>")
+
+    def _remove_existing_html(self, content: str) -> str:
+        """移除内容中已有的插件生成 HTML 代码块 (通过标记识别)。"""
+        pattern = r"```html\s*<!-- OPENWEBUI_PLUGIN_OUTPUT -->[\s\S]*?```"
+        return re.sub(pattern, "", content).strip()
 
     async def action(
         self,
@@ -556,6 +567,9 @@ class Action:
                 .replace("{current_year}", current_year)
                 .replace("{markdown_syntax}", markdown_syntax)
             )
+
+            if self.valves.CLEAR_PREVIOUS_HTML:
+                long_text_content = self._remove_existing_html(long_text_content)
 
             html_embed_tag = f"```html\n{final_html_content}\n```"
             body["messages"][-1]["content"] = f"{long_text_content}\n\n{html_embed_tag}"

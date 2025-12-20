@@ -94,6 +94,7 @@ Please conduct a deep and comprehensive analysis, focusing on actionable advice.
 # =================================================================
 
 HTML_TEMPLATE = """
+<!-- OPENWEBUI_PLUGIN_OUTPUT -->
 <!DOCTYPE html>
 <html lang="{{ user_language }}">
 <head>
@@ -292,6 +293,10 @@ class Action:
             default=500,
             description="Recommended minimum text length for best analysis results.",
         )
+        CLEAR_PREVIOUS_HTML: bool = Field(
+            default=False,
+            description="Whether to clear existing plugin-generated HTML content in the message before appending new results (identified by marker).",
+        )
 
     def __init__(self):
         self.valves = self.Valves()
@@ -347,6 +352,11 @@ class Action:
             "keypoints_html": keypoints_html,
             "actions_html": actions_html,
         }
+
+    def _remove_existing_html(self, content: str) -> str:
+        """Removes existing plugin-generated HTML code blocks from the content."""
+        pattern = r"```html\s*<!-- OPENWEBUI_PLUGIN_OUTPUT -->[\s\S]*?```"
+        return re.sub(pattern, "", content).strip()
 
     def _build_html(self, context: dict) -> str:
         """
@@ -488,6 +498,10 @@ class Action:
             }
 
             final_html_content = self._build_html(context)
+
+            if self.valves.CLEAR_PREVIOUS_HTML:
+                original_content = self._remove_existing_html(original_content)
+
             html_embed_tag = f"```html\n{final_html_content}\n```"
             body["messages"][-1]["content"] = f"{original_content}\n\n{html_embed_tag}"
 

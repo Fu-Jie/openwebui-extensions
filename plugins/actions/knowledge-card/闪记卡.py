@@ -39,6 +39,10 @@ class Action:
         show_status: bool = Field(
             default=True, description="是否在聊天界面显示状态更新。"
         )
+        clear_previous_html: bool = Field(
+            default=False,
+            description="是否在追加新结果前清除消息中已有的插件生成 HTML 内容 (通过标记识别)。",
+        )
 
     def __init__(self):
         self.valves = self.Valves()
@@ -178,6 +182,11 @@ class Action:
             # Actions usually modify the input or trigger a side effect.
             # To show the card, we can append it to the message content.
 
+            if self.valves.clear_previous_html:
+                body["messages"][-1]["content"] = self._remove_existing_html(
+                    body["messages"][-1]["content"]
+                )
+
             html_embed_tag = f"```html\n{html_card}\n```"
             body["messages"][-1]["content"] += f"\n\n{html_embed_tag}"
 
@@ -208,9 +217,15 @@ class Action:
                 )
             return body
 
+    def _remove_existing_html(self, content: str) -> str:
+        """移除内容中已有的插件生成 HTML 代码块 (通过标记识别)。"""
+        pattern = r"```html\s*<!-- OPENWEBUI_PLUGIN_OUTPUT -->[\s\S]*?```"
+        return re.sub(pattern, "", content).strip()
+
     def generate_html_card(self, data):
         # Enhanced CSS with premium styling
         style = """
+        <!-- OPENWEBUI_PLUGIN_OUTPUT -->
         <style>
             @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
             

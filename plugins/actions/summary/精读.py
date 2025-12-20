@@ -91,6 +91,7 @@ USER_PROMPT_GENERATE_SUMMARY = """
 # =================================================================
 
 HTML_TEMPLATE = """
+<!-- OPENWEBUI_PLUGIN_OUTPUT -->
 <!DOCTYPE html>
 <html lang="{{ user_language }}">
 <head>
@@ -287,6 +288,10 @@ class Action:
         RECOMMENDED_MIN_LENGTH: int = Field(
             default=500, description="建议的最小文本长度，以获得最佳分析效果。"
         )
+        CLEAR_PREVIOUS_HTML: bool = Field(
+            default=False,
+            description="是否在追加新结果前清除消息中已有的插件生成 HTML 内容 (通过标记识别)。",
+        )
 
     def __init__(self):
         self.valves = self.Valves()
@@ -336,6 +341,11 @@ class Action:
             "keypoints_html": keypoints_html,
             "actions_html": actions_html,
         }
+
+    def _remove_existing_html(self, content: str) -> str:
+        """移除内容中已有的插件生成 HTML 代码块 (通过标记识别)。"""
+        pattern = r"```html\s*<!-- OPENWEBUI_PLUGIN_OUTPUT -->[\s\S]*?```"
+        return re.sub(pattern, "", content).strip()
 
     def _build_html(self, context: dict) -> str:
         """
@@ -477,6 +487,10 @@ class Action:
             }
 
             final_html_content = self._build_html(context)
+
+            if self.valves.CLEAR_PREVIOUS_HTML:
+                original_content = self._remove_existing_html(original_content)
+
             html_embed_tag = f"```html\n{final_html_content}\n```"
             body["messages"][-1]["content"] = f"{original_content}\n\n{html_embed_tag}"
 

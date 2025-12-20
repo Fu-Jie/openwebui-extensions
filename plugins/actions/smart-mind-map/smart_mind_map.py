@@ -60,6 +60,7 @@ User Language: {user_language}
 """
 
 HTML_TEMPLATE_MINDMAP = """
+<!-- OPENWEBUI_PLUGIN_OUTPUT -->
 <!DOCTYPE html>
 <html lang="{user_language}">
 <head>
@@ -369,6 +370,10 @@ class Action:
             default=100,
             description="Minimum text length (character count) required for mind map analysis.",
         )
+        CLEAR_PREVIOUS_HTML: bool = Field(
+            default=False,
+            description="Whether to clear existing plugin-generated HTML content in the message before appending new results (identified by marker).",
+        )
 
     def __init__(self):
         self.valves = self.Valves()
@@ -392,6 +397,11 @@ class Action:
             )
             extracted_content = llm_output.strip()
         return extracted_content.replace("</script>", "<\\/script>")
+
+    def _remove_existing_html(self, content: str) -> str:
+        """Removes existing plugin-generated HTML code blocks from the content."""
+        pattern = r"```html\s*<!-- OPENWEBUI_PLUGIN_OUTPUT -->[\s\S]*?```"
+        return re.sub(pattern, "", content).strip()
 
     async def action(
         self,
@@ -557,6 +567,9 @@ class Action:
                 .replace("{current_year}", current_year)
                 .replace("{markdown_syntax}", markdown_syntax)
             )
+
+            if self.valves.CLEAR_PREVIOUS_HTML:
+                long_text_content = self._remove_existing_html(long_text_content)
 
             html_embed_tag = f"```html\n{final_html_content}\n```"
             body["messages"][-1]["content"] = f"{long_text_content}\n\n{html_embed_tag}"

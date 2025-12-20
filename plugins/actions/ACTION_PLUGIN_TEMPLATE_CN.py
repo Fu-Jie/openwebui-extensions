@@ -50,6 +50,7 @@ USER_PROMPT_TEMPLATE = """
 
 # 用于在聊天中渲染结果的 HTML 模板
 HTML_TEMPLATE = """
+<!-- OPENWEBUI_PLUGIN_OUTPUT -->
 <!DOCTYPE html>
 <html lang="{user_language}">
 <head>
@@ -85,6 +86,10 @@ class Action:
         MIN_TEXT_LENGTH: int = Field(
             default=50,
             description="处理所需的最小文本长度（字符数）。",
+        )
+        CLEAR_PREVIOUS_HTML: bool = Field(
+            default=False,
+            description="是否在追加新结果前清除消息中已有的插件生成 HTML 内容 (通过标记识别)。",
         )
         # 根据需要添加其他配置字段
         # MAX_TEXT_LENGTH: int = Field(default=2000, description="...")
@@ -137,6 +142,13 @@ class Action:
         # except Exception:
         #     pass
         return llm_output.strip()
+
+    def _remove_existing_html(self, content: str) -> str:
+        """移除内容中已有的插件生成 HTML 代码块 (通过标记识别)。"""
+        # 匹配 ```html <!-- OPENWEBUI_PLUGIN_OUTPUT --> ... ``` 模式
+        # 使用 [\s\S]*? 非贪婪匹配任意字符
+        pattern = r"```html\s*<!-- OPENWEBUI_PLUGIN_OUTPUT -->[\s\S]*?```"
+        return re.sub(pattern, "", content).strip()
 
     async def _emit_status(
         self,
@@ -253,6 +265,11 @@ class Action:
             )
 
             # 9. 注入结果
+            if self.valves.CLEAR_PREVIOUS_HTML:
+                body["messages"][-1]["content"] = self._remove_existing_html(
+                    body["messages"][-1]["content"]
+                )
+
             html_embed_tag = f"```html\n{final_html}\n```"
             body["messages"][-1]["content"] += f"\n\n{html_embed_tag}"
 

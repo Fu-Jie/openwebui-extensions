@@ -42,6 +42,10 @@ class Action:
             default=True,
             description="Whether to show status updates in the chat interface.",
         )
+        clear_previous_html: bool = Field(
+            default=False,
+            description="Whether to clear existing plugin-generated HTML content in the message before appending new results (identified by marker).",
+        )
 
     def __init__(self):
         self.valves = self.Valves()
@@ -176,6 +180,11 @@ Important Principles:
             html_card = self.generate_html_card(card_data)
 
             # 3. Append to message
+            if self.valves.clear_previous_html:
+                body["messages"][-1]["content"] = self._remove_existing_html(
+                    body["messages"][-1]["content"]
+                )
+
             html_embed_tag = f"```html\n{html_card}\n```"
             body["messages"][-1]["content"] += f"\n\n{html_embed_tag}"
 
@@ -206,9 +215,15 @@ Important Principles:
                 )
             return body
 
+    def _remove_existing_html(self, content: str) -> str:
+        """Removes existing plugin-generated HTML code blocks from the content."""
+        pattern = r"```html\s*<!-- OPENWEBUI_PLUGIN_OUTPUT -->[\s\S]*?```"
+        return re.sub(pattern, "", content).strip()
+
     def generate_html_card(self, data):
         # Enhanced CSS with premium styling
         style = """
+        <!-- OPENWEBUI_PLUGIN_OUTPUT -->
         <style>
             @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
             
