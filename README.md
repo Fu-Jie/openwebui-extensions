@@ -4,7 +4,7 @@ English | [中文](./README_CN.md)
 
 A collection of enhancements, plugins, and prompts for [OpenWebUI](https://github.com/open-webui/open-webui), developed and curated for personal use to extend functionality and improve experience.
 
-[Contributing](./CONTRIBUTING.md) | [Changelog](./CHANGELOG.md)
+[Contributing](./CONTRIBUTING.md)
 
 ## 📦 Project Contents
 
