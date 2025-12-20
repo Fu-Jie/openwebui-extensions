@@ -48,26 +48,52 @@ Content to process:
 {content}
 """
 
-# HTML Template for rendering the result in the chat
-HTML_TEMPLATE = """
+# HTML Wrapper Template (supports multiple plugins and grid layout)
+HTML_WRAPPER_TEMPLATE = """
 <!-- OPENWEBUI_PLUGIN_OUTPUT -->
 <!DOCTYPE html>
 <html lang="{user_language}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>[Plugin Title]</title>
     <style>
-        /* Add your CSS styles here */
-        body { font-family: sans-serif; padding: 20px; }
-        .container { border: 1px solid #ccc; padding: 20px; border-radius: 8px; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+            margin: 0; 
+            padding: 10px; 
+            background-color: transparent; 
+        }
+        #main-container { 
+            display: flex; 
+            flex-wrap: wrap; 
+            gap: 20px; 
+            align-items: flex-start; 
+            width: 100%;
+        }
+        .plugin-item { 
+            flex: 1 1 400px; /* Default width, allows shrinking/growing */
+            min-width: 300px; 
+            background: white; 
+            border-radius: 12px; 
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05); 
+            overflow: hidden; 
+            border: 1px solid #e5e7eb; 
+            transition: all 0.3s ease;
+        }
+        .plugin-item:hover {
+            box-shadow: 0 10px 15px rgba(0,0,0,0.1);
+        }
+        @media (max-width: 768px) { 
+            .plugin-item { flex: 1 1 100%; } 
+        }
+        /* STYLES_INSERTION_POINT */
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>[Result Title]</h1>
-        <div id="content">{result_content}</div>
+    <div id="main-container">
+        <!-- CONTENT_INSERTION_POINT -->
     </div>
+    <!-- SCRIPTS_INSERTION_POINT -->
 </body>
 </html>
 """
@@ -89,7 +115,7 @@ class Action:
         )
         CLEAR_PREVIOUS_HTML: bool = Field(
             default=False,
-            description="Whether to clear existing plugin-generated HTML content in the message before appending new results (identified by marker).",
+            description="Whether to force clear previous plugin results (if True, overwrites instead of merging).",
         )
         # Add other configuration fields as needed
         # MAX_TEXT_LENGTH: int = Field(default=2000, description="...")
@@ -122,7 +148,7 @@ class Action:
             now = datetime.now()
 
         return {
-            "current_date_time_str": now.strftime("%Y-%m-%d %H:%M:%S"),
+            "current_date_time_str": now.strftime("%B %d, %Y %H:%M:%S"),
             "current_weekday": now.strftime("%A"),
             "current_year": now.strftime("%Y"),
             "current_timezone_str": str(now.tzinfo) if now.tzinfo else "Unknown",
@@ -148,6 +174,55 @@ class Action:
         # Match ```html <!-- OPENWEBUI_PLUGIN_OUTPUT --> ... ``` pattern
         pattern = r"```html\s*<!-- OPENWEBUI_PLUGIN_OUTPUT -->[\s\S]*?```"
         return re.sub(pattern, "", content).strip()
+
+    def _merge_html(
+        self,
+        existing_html_code: str,
+        new_content: str,
+        new_styles: str = "",
+        new_scripts: str = "",
+        user_language: str = "en-US",
+    ) -> str:
+        """
+        Merges new content into an existing HTML container, or creates a new one.
+        """
+        # Check for compatible container marker
+        if (
+            "<!-- OPENWEBUI_PLUGIN_OUTPUT -->" in existing_html_code
+            and "<!-- CONTENT_INSERTION_POINT -->" in existing_html_code
+        ):
+            base_html = existing_html_code
+            # Remove code block markers ```html ... ``` for processing
+            base_html = re.sub(r"^```html\s*", "", base_html)
+            base_html = re.sub(r"\s*```$", "", base_html)
+        else:
+            # Initialize new container
+            base_html = HTML_WRAPPER_TEMPLATE.replace("{user_language}", user_language)
+
+        # Wrap new content
+        wrapped_content = f'<div class="plugin-item">\n{new_content}\n</div>'
+
+        # Inject Styles
+        if new_styles:
+            base_html = base_html.replace(
+                "/* STYLES_INSERTION_POINT */",
+                f"{new_styles}\n/* STYLES_INSERTION_POINT */",
+            )
+
+        # Inject Content
+        base_html = base_html.replace(
+            "<!-- CONTENT_INSERTION_POINT -->",
+            f"{wrapped_content}\n<!-- CONTENT_INSERTION_POINT -->",
+        )
+
+        # Inject Scripts
+        if new_scripts:
+            base_html = base_html.replace(
+                "<!-- SCRIPTS_INSERTION_POINT -->",
+                f"{new_scripts}\n<!-- SCRIPTS_INSERTION_POINT -->",
+            )
+
+        return base_html.strip()
 
     async def _emit_status(
         self,

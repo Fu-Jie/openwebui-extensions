@@ -28,6 +28,58 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # =================================================================
+# HTML Wrapper Template (supports multiple plugins and grid layout)
+# =================================================================
+HTML_WRAPPER_TEMPLATE = """
+<!-- OPENWEBUI_PLUGIN_OUTPUT -->
+<!DOCTYPE html>
+<html lang="{user_language}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+            margin: 0; 
+            padding: 10px; 
+            background-color: transparent; 
+        }
+        #main-container { 
+            display: flex; 
+            flex-wrap: wrap; 
+            gap: 20px; 
+            align-items: flex-start; 
+            width: 100%;
+        }
+        .plugin-item { 
+            flex: 1 1 400px; /* Default width, allows shrinking/growing */
+            min-width: 300px; 
+            background: white; 
+            border-radius: 12px; 
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05); 
+            overflow: hidden; 
+            border: 1px solid #e5e7eb; 
+            transition: all 0.3s ease;
+        }
+        .plugin-item:hover {
+            box-shadow: 0 10px 15px rgba(0,0,0,0.1);
+        }
+        @media (max-width: 768px) { 
+            .plugin-item { flex: 1 1 100%; } 
+        }
+        /* STYLES_INSERTION_POINT */
+    </style>
+</head>
+<body>
+    <div id="main-container">
+        <!-- CONTENT_INSERTION_POINT -->
+    </div>
+    <!-- SCRIPTS_INSERTION_POINT -->
+</body>
+</html>
+"""
+
+# =================================================================
 # Internal LLM Prompts
 # =================================================================
 
@@ -93,15 +145,7 @@ Please conduct a deep and comprehensive analysis, focusing on actionable advice.
 # Frontend HTML Template (Jinja2 Syntax)
 # =================================================================
 
-HTML_TEMPLATE = """
-<!-- OPENWEBUI_PLUGIN_OUTPUT -->
-<!DOCTYPE html>
-<html lang="{{ user_language }}">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Deep Reading: Deep Analysis Report</title>
-    <style>
+CSS_TEMPLATE_SUMMARY = """
         :root {
             --primary-color: #4285f4;
             --secondary-color: #1e88e5;
@@ -116,163 +160,147 @@ HTML_TEMPLATE = """
             --border-radius: 8px;
             --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
         }
-        body {
+        .summary-container-wrapper {
             font-family: var(--font-family);
             line-height: 1.8;
             color: var(--text-color);
-            margin: 0;
-            padding: 24px;
-            background-color: var(--background-color);
-            -webkit-font-smoothing: antialiased;
-            -moz-osx-font-smoothing: grayscale;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
         }
-        .container {
-            max-width: 900px;
-            margin: 20px auto;
-            background: var(--card-bg-color);
-            border-radius: var(--border-radius);
-            box-shadow: var(--shadow);
-            overflow: hidden;
-            border: 1px solid var(--border-color);
-        }
-        .header {
+        .summary-container-wrapper .header {
             background: var(--header-gradient);
             color: white;
-            padding: 40px;
+            padding: 20px 24px;
             text-align: center;
         }
-        .header h1 {
+        .summary-container-wrapper .header h1 {
             margin: 0;
-            font-size: 2.2em;
+            font-size: 1.5em;
             font-weight: 500;
             letter-spacing: -0.5px;
         }
-        .user-context {
-            font-size: 0.9em;
+        .summary-container-wrapper .user-context {
+            font-size: 0.8em;
             color: var(--muted-text-color);
             background-color: #f1f3f4;
-            padding: 16px 40px;
+            padding: 8px 16px;
             display: flex;
             justify-content: space-around;
             flex-wrap: wrap;
             border-bottom: 1px solid var(--border-color);
         }
-        .user-context span { margin: 4px 12px; }
-        .content { padding: 40px; }
-        .section {
-            margin-bottom: 32px;
-            padding-bottom: 32px;
+        .summary-container-wrapper .user-context span { margin: 2px 8px; }
+        .summary-container-wrapper .content { padding: 20px; flex-grow: 1; }
+        .summary-container-wrapper .section {
+            margin-bottom: 16px;
+            padding-bottom: 16px;
             border-bottom: 1px solid #e8eaed;
         }
-        .section:last-child {
+        .summary-container-wrapper .section:last-child {
             border-bottom: none;
             margin-bottom: 0;
             padding-bottom: 0;
         }
-        .section h2 {
+        .summary-container-wrapper .section h2 {
             margin-top: 0;
-            margin-bottom: 20px;
-            font-size: 1.5em;
+            margin-bottom: 12px;
+            font-size: 1.2em;
             font-weight: 500;
             color: var(--text-color);
             display: flex;
             align-items: center;
-            padding-bottom: 12px;
+            padding-bottom: 8px;
             border-bottom: 2px solid var(--primary-color);
         }
-        .section h2 .icon {
-            margin-right: 12px;
-            font-size: 1.3em;
+        .summary-container-wrapper .section h2 .icon {
+            margin-right: 8px;
+            font-size: 1.1em;
             line-height: 1;
         }
-        .summary-section h2 { border-bottom-color: var(--primary-color); }
-        .keypoints-section h2 { border-bottom-color: var(--secondary-color); }
-        .actions-section h2 { border-bottom-color: var(--action-color); }
-
-        .html-content {
-            font-size: 1.05em;
-            line-height: 1.8;
-        }
-        .html-content p:first-child { margin-top: 0; }
-        .html-content p:last-child { margin-bottom: 0; }
-        .html-content ul {
-            list-style: none;
-            padding-left: 0;
-            margin: 16px 0;
-        }
-        .html-content li {
-            padding: 12px 0 12px 32px;
-            position: relative;
-            margin-bottom: 8px;
+        .summary-container-wrapper .summary-section h2 { border-bottom-color: var(--primary-color); }
+        .summary-container-wrapper .keypoints-section h2 { border-bottom-color: var(--secondary-color); }
+        .summary-container-wrapper .actions-section h2 { border-bottom-color: var(--action-color); }
+        .summary-container-wrapper .html-content {
+            font-size: 0.95em;
             line-height: 1.7;
         }
-        .html-content li::before {
+        .summary-container-wrapper .html-content p:first-child { margin-top: 0; }
+        .summary-container-wrapper .html-content p:last-child { margin-bottom: 0; }
+        .summary-container-wrapper .html-content ul {
+            list-style: none;
+            padding-left: 0;
+            margin: 12px 0;
+        }
+        .summary-container-wrapper .html-content li {
+            padding: 8px 0 8px 24px;
+            position: relative;
+            margin-bottom: 6px;
+            line-height: 1.6;
+        }
+        .summary-container-wrapper .html-content li::before {
             position: absolute;
             left: 0;
-            top: 12px;
+            top: 8px;
             font-family: 'Arial';
             font-weight: bold;
-            font-size: 1.1em;
+            font-size: 1em;
         }
-        .keypoints-section .html-content li::before { 
+        .summary-container-wrapper .keypoints-section .html-content li::before { 
             content: '•'; 
             color: var(--secondary-color);
-            font-size: 1.5em;
-            top: 8px;
+            font-size: 1.3em;
+            top: 5px;
         }
-        .actions-section .html-content li::before { 
+        .summary-container-wrapper .actions-section .html-content li::before { 
             content: '▸'; 
             color: var(--action-color); 
         }
-        
-        .no-content { 
+        .summary-container-wrapper .no-content { 
             color: var(--muted-text-color); 
             font-style: italic;
-            padding: 20px;
+            padding: 12px;
             background: #f8f9fa;
             border-radius: 4px;
         }
-        
-        .footer {
+        .summary-container-wrapper .footer {
             text-align: center;
-            padding: 24px;
-            font-size: 0.85em;
+            padding: 16px;
+            font-size: 0.8em;
             color: #5f6368;
             background-color: #f8f9fa;
             border-top: 1px solid var(--border-color);
         }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1>📖 Deep Reading: Deep Analysis Report</h1>
-        </div>
-        <div class="user-context">
-            <span><strong>User:</strong> {{ user_name }}</span>
-            <span><strong>Analysis Time:</strong> {{ current_date_time_str }}</span>
-            <span><strong>Weekday:</strong> {{ current_weekday }}</span>
-        </div>
-        <div class="content">
-            <div class="section summary-section">
-                <h2><span class="icon">📝</span>Detailed Summary</h2>
-                <div class="html-content">{{ summary_html | safe }}</div>
+"""
+
+CONTENT_TEMPLATE_SUMMARY = """
+        <div class="summary-container-wrapper">
+            <div class="header">
+                <h1>📖 Deep Reading: Analysis Report</h1>
             </div>
-            <div class="section keypoints-section">
-                <h2><span class="icon">💡</span>Key Information Points</h2>
-                <div class="html-content">{{ keypoints_html | safe }}</div>
+            <div class="user-context">
+                <span><strong>User:</strong> {user_name}</span>
+                <span><strong>Time:</strong> {current_date_time_str}</span>
             </div>
-            <div class="section actions-section">
-                <h2><span class="icon">🎯</span>Actionable Advice</h2>
-                <div class="html-content">{{ actions_html | safe }}</div>
+            <div class="content">
+                <div class="section summary-section">
+                    <h2><span class="icon">📝</span>Detailed Summary</h2>
+                    <div class="html-content">{summary_html}</div>
+                </div>
+                <div class="section keypoints-section">
+                    <h2><span class="icon">💡</span>Key Information Points</h2>
+                    <div class="html-content">{keypoints_html}</div>
+                </div>
+                <div class="section actions-section">
+                    <h2><span class="icon">🎯</span>Actionable Advice</h2>
+                    <div class="html-content">{actions_html}</div>
+                </div>
+            </div>
+            <div class="footer">
+                <p>&copy; {current_year} Deep Reading - Text Analysis Service</p>
             </div>
         </div>
-        <div class="footer">
-            <p>&copy; {{ current_year }} Deep Reading - Deep Text Analysis Service</p>
-        </div>
-    </div>
-</body>
-</html>"""
+"""
 
 
 class Action:
@@ -295,7 +323,7 @@ class Action:
         )
         CLEAR_PREVIOUS_HTML: bool = Field(
             default=False,
-            description="Whether to clear existing plugin-generated HTML content in the message before appending new results (identified by marker).",
+            description="Whether to force clear previous plugin results (if True, overwrites instead of merging).",
         )
 
     def __init__(self):
@@ -358,12 +386,64 @@ class Action:
         pattern = r"```html\s*<!-- OPENWEBUI_PLUGIN_OUTPUT -->[\s\S]*?```"
         return re.sub(pattern, "", content).strip()
 
-    def _build_html(self, context: dict) -> str:
+    def _merge_html(
+        self,
+        existing_html_code: str,
+        new_content: str,
+        new_styles: str = "",
+        new_scripts: str = "",
+        user_language: str = "en-US",
+    ) -> str:
         """
-        Build final HTML content using Jinja2 template and context data.
+        Merges new content into an existing HTML container, or creates a new one.
         """
-        template = Template(HTML_TEMPLATE)
-        return template.render(context)
+        if (
+            "<!-- OPENWEBUI_PLUGIN_OUTPUT -->" in existing_html_code
+            and "<!-- CONTENT_INSERTION_POINT -->" in existing_html_code
+        ):
+            base_html = existing_html_code
+            base_html = re.sub(r"^```html\s*", "", base_html)
+            base_html = re.sub(r"\s*```$", "", base_html)
+        else:
+            base_html = HTML_WRAPPER_TEMPLATE.replace("{user_language}", user_language)
+
+        wrapped_content = f'<div class="plugin-item">\n{new_content}\n</div>'
+
+        if new_styles:
+            base_html = base_html.replace(
+                "/* STYLES_INSERTION_POINT */",
+                f"{new_styles}\n/* STYLES_INSERTION_POINT */",
+            )
+
+        base_html = base_html.replace(
+            "<!-- CONTENT_INSERTION_POINT -->",
+            f"{wrapped_content}\n<!-- CONTENT_INSERTION_POINT -->",
+        )
+
+        if new_scripts:
+            base_html = base_html.replace(
+                "<!-- SCRIPTS_INSERTION_POINT -->",
+                f"{new_scripts}\n<!-- SCRIPTS_INSERTION_POINT -->",
+            )
+
+        return base_html.strip()
+
+    def _build_content_html(self, context: dict) -> str:
+        """
+        Build content HTML using context data.
+        """
+        return (
+            CONTENT_TEMPLATE_SUMMARY.replace(
+                "{user_name}", context.get("user_name", "User")
+            )
+            .replace(
+                "{current_date_time_str}", context.get("current_date_time_str", "")
+            )
+            .replace("{current_year}", context.get("current_year", ""))
+            .replace("{summary_html}", context.get("summary_html", ""))
+            .replace("{keypoints_html}", context.get("keypoints_html", ""))
+            .replace("{actions_html}", context.get("actions_html", ""))
+        )
 
     async def action(
         self,
@@ -390,7 +470,7 @@ class Action:
             user_id = __user__.get("id", "unknown_user")
 
         now = datetime.now()
-        current_date_time_str = now.strftime("%Y-%m-%d %H:%M:%S")
+        current_date_time_str = now.strftime("%B %d, %Y %H:%M:%S")
         current_weekday = now.strftime("%A")
         current_year = now.strftime("%Y")
         current_timezone_str = "Unknown Timezone"
@@ -497,12 +577,38 @@ class Action:
                 **processed_content,
             }
 
-            final_html_content = self._build_html(context)
+            content_html = self._build_content_html(context)
+
+            # Extract existing HTML if any
+            existing_html_block = ""
+            match = re.search(
+                r"```html\s*(<!-- OPENWEBUI_PLUGIN_OUTPUT -->[\s\S]*?)```",
+                original_content,
+            )
+            if match:
+                existing_html_block = match.group(1)
 
             if self.valves.CLEAR_PREVIOUS_HTML:
                 original_content = self._remove_existing_html(original_content)
+                final_html = self._merge_html(
+                    "", content_html, CSS_TEMPLATE_SUMMARY, "", user_language
+                )
+            else:
+                if existing_html_block:
+                    original_content = self._remove_existing_html(original_content)
+                    final_html = self._merge_html(
+                        existing_html_block,
+                        content_html,
+                        CSS_TEMPLATE_SUMMARY,
+                        "",
+                        user_language,
+                    )
+                else:
+                    final_html = self._merge_html(
+                        "", content_html, CSS_TEMPLATE_SUMMARY, "", user_language
+                    )
 
-            html_embed_tag = f"```html\n{final_html_content}\n```"
+            html_embed_tag = f"```html\n{final_html}\n```"
             body["messages"][-1]["content"] = f"{original_content}\n\n{html_embed_tag}"
 
             if self.valves.show_status and __event_emitter__:

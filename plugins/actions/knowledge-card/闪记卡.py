@@ -19,6 +19,55 @@ from open_webui.models.users import Users
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+HTML_WRAPPER_TEMPLATE = """
+<!-- OPENWEBUI_PLUGIN_OUTPUT -->
+<!DOCTYPE html>
+<html lang="{user_language}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+            margin: 0; 
+            padding: 10px; 
+            background-color: transparent; 
+        }
+        #main-container { 
+            display: flex; 
+            flex-wrap: wrap; 
+            gap: 20px; 
+            align-items: flex-start; 
+            width: 100%;
+        }
+        .plugin-item { 
+            flex: 1 1 400px; /* 默认宽度，允许伸缩 */
+            min-width: 300px; 
+            background: white; 
+            border-radius: 12px; 
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05); 
+            overflow: hidden; 
+            border: 1px solid #e5e7eb; 
+            transition: all 0.3s ease;
+        }
+        .plugin-item:hover {
+            box-shadow: 0 10px 15px rgba(0,0,0,0.1);
+        }
+        @media (max-width: 768px) { 
+            .plugin-item { flex: 1 1 100%; } 
+        }
+        /* STYLES_INSERTION_POINT */
+    </style>
+</head>
+<body>
+    <div id="main-container">
+        <!-- CONTENT_INSERTION_POINT -->
+    </div>
+    <!-- SCRIPTS_INSERTION_POINT -->
+</body>
+</html>
+"""
+
 
 class Action:
     class Valves(BaseModel):
@@ -41,7 +90,7 @@ class Action:
         )
         clear_previous_html: bool = Field(
             default=False,
-            description="是否在追加新结果前清除消息中已有的插件生成 HTML 内容 (通过标记识别)。",
+            description="是否强制清除旧的插件结果（如果为 True，则不合并，直接覆盖）。",
         )
 
     def __init__(self):
@@ -173,21 +222,44 @@ class Action:
                     )
                 return body
 
-            # 2. Generate HTML
-            html_card = self.generate_html_card(card_data)
+            # 2. Generate HTML components
+            card_content, card_style = self.generate_html_card_components(card_data)
 
             # 3. Append to message
-            # We append it to the user message so it shows up as part of the interaction
-            # Or we can append it to the assistant response if we were a Pipe, but this is an Action.
-            # Actions usually modify the input or trigger a side effect.
-            # To show the card, we can append it to the message content.
+            # Extract existing HTML if any
+            existing_html_block = ""
+            match = re.search(
+                r"```html\s*(<!-- OPENWEBUI_PLUGIN_OUTPUT -->[\s\S]*?)```",
+                body["messages"][-1]["content"],
+            )
+            if match:
+                existing_html_block = match.group(1)
 
             if self.valves.clear_previous_html:
                 body["messages"][-1]["content"] = self._remove_existing_html(
                     body["messages"][-1]["content"]
                 )
+                final_html = self._merge_html(
+                    "", card_content, card_style, "", self.valves.language
+                )
+            else:
+                if existing_html_block:
+                    body["messages"][-1]["content"] = self._remove_existing_html(
+                        body["messages"][-1]["content"]
+                    )
+                    final_html = self._merge_html(
+                        existing_html_block,
+                        card_content,
+                        card_style,
+                        "",
+                        self.valves.language,
+                    )
+                else:
+                    final_html = self._merge_html(
+                        "", card_content, card_style, "", self.valves.language
+                    )
 
-            html_embed_tag = f"```html\n{html_card}\n```"
+            html_embed_tag = f"```html\n{final_html}\n```"
             body["messages"][-1]["content"] += f"\n\n{html_embed_tag}"
 
             if self.valves.show_status:
@@ -222,11 +294,51 @@ class Action:
         pattern = r"```html\s*<!-- OPENWEBUI_PLUGIN_OUTPUT -->[\s\S]*?```"
         return re.sub(pattern, "", content).strip()
 
-    def generate_html_card(self, data):
+    def _merge_html(
+        self,
+        existing_html_code: str,
+        new_content: str,
+        new_styles: str = "",
+        new_scripts: str = "",
+        user_language: str = "zh-CN",
+    ) -> str:
+        """
+        将新内容合并到现有的 HTML 容器中，或者创建一个新的容器。
+        """
+        if (
+            "<!-- OPENWEBUI_PLUGIN_OUTPUT -->" in existing_html_code
+            and "<!-- CONTENT_INSERTION_POINT -->" in existing_html_code
+        ):
+            base_html = existing_html_code
+            base_html = re.sub(r"^```html\s*", "", base_html)
+            base_html = re.sub(r"\s*```$", "", base_html)
+        else:
+            base_html = HTML_WRAPPER_TEMPLATE.replace("{user_language}", user_language)
+
+        wrapped_content = f'<div class="plugin-item">\n{new_content}\n</div>'
+
+        if new_styles:
+            base_html = base_html.replace(
+                "/* STYLES_INSERTION_POINT */",
+                f"{new_styles}\n/* STYLES_INSERTION_POINT */",
+            )
+
+        base_html = base_html.replace(
+            "<!-- CONTENT_INSERTION_POINT -->",
+            f"{wrapped_content}\n<!-- CONTENT_INSERTION_POINT -->",
+        )
+
+        if new_scripts:
+            base_html = base_html.replace(
+                "<!-- SCRIPTS_INSERTION_POINT -->",
+                f"{new_scripts}\n<!-- SCRIPTS_INSERTION_POINT -->",
+            )
+
+        return base_html.strip()
+
+    def generate_html_card_components(self, data):
         # Enhanced CSS with premium styling
         style = """
-        <!-- OPENWEBUI_PLUGIN_OUTPUT -->
-        <style>
             @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
             
             .knowledge-card-container {
@@ -529,41 +641,46 @@ class Action:
                     padding: 16px 20px;
                 }
             }
-        </style>
         """
 
-        # Enhanced HTML structure
-        html = f"""<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    {style}
-</head>
-<body>
-    <div class="knowledge-card-container">
-        <div class="knowledge-card">
-            <div class="card-inner">
-                <div class="card-header">
-                    <div class="card-category">{data.get('category', '通用知识')}</div>
-                    <h2 class="card-title">{data.get('title', '知识卡片')}</h2>
-                </div>
-                <div class="card-body">
-                    <div class="card-summary">
-                        {data.get('summary', '')}
+        # Generate tags HTML
+        tags_html = ""
+        if "tags" in data and data["tags"]:
+            for tag in data["tags"]:
+                tags_html += f'<span class="card-tag">#{tag}</span>'
+
+        # Generate key points HTML
+        points_html = ""
+        if "key_points" in data and data["key_points"]:
+            for point in data["key_points"]:
+                points_html += f"<li>{point}</li>"
+
+        # Build the card HTML structure
+        content = f"""
+        <div class="knowledge-card-container">
+            <div class="knowledge-card">
+                <div class="card-inner">
+                    <div class="card-header">
+                        <div class="card-category">{data.get('category', 'Knowledge')}</div>
+                        <h2 class="card-title">{data.get('title', 'Flash Card')}</h2>
                     </div>
-                    <div class="card-section-title">核心要点</div>
-                    <ul class="card-points">
-                        {''.join([f'<li>{point}</li>' for point in data.get('key_points', [])])}
-                    </ul>
-                </div>
-                <div class="card-footer">
-                    <span class="card-tag-label">标签</span>
-                    {''.join([f'<span class="card-tag">#{tag}</span>' for tag in data.get('tags', [])])}
+                    <div class="card-body">
+                        <div class="card-summary">
+                            {data.get('summary', '')}
+                        </div>
+                        
+                        <div class="card-section-title">KEY POINTS</div>
+                        <ul class="card-points">
+                            {points_html}
+                        </ul>
+                    </div>
+                    <div class="card-footer">
+                        <span class="card-tag-label">标签</span>
+                        {tags_html}
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
-</body>
-</html>"""
-        return html
+        """
+
+        return content, style

@@ -59,18 +59,56 @@ User Language: {user_language}
 {long_text_content}
 """
 
-HTML_TEMPLATE_MINDMAP = """
+HTML_WRAPPER_TEMPLATE = """
 <!-- OPENWEBUI_PLUGIN_OUTPUT -->
 <!DOCTYPE html>
 <html lang="{user_language}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Smart Mind Map: Mind Map Visualization</title>
-    <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
-    <script src="https://cdn.jsdelivr.net/npm/markmap-lib@0.17"></script>
-    <script src="https://cdn.jsdelivr.net/npm/markmap-view@0.17"></script>
     <style>
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+            margin: 0; 
+            padding: 10px; 
+            background-color: transparent; 
+        }
+        #main-container { 
+            display: flex; 
+            flex-wrap: wrap; 
+            gap: 20px; 
+            align-items: flex-start; 
+            width: 100%;
+        }
+        .plugin-item { 
+            flex: 1 1 400px; /* Default width, allows shrinking/growing */
+            min-width: 300px; 
+            background: white; 
+            border-radius: 12px; 
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05); 
+            overflow: hidden; 
+            border: 1px solid #e5e7eb; 
+            transition: all 0.3s ease;
+        }
+        .plugin-item:hover {
+            box-shadow: 0 10px 15px rgba(0,0,0,0.1);
+        }
+        @media (max-width: 768px) { 
+            .plugin-item { flex: 1 1 100%; } 
+        }
+        /* STYLES_INSERTION_POINT */
+    </style>
+</head>
+<body>
+    <div id="main-container">
+        <!-- CONTENT_INSERTION_POINT -->
+    </div>
+    <!-- SCRIPTS_INSERTION_POINT -->
+</body>
+</html>
+"""
+
+CSS_TEMPLATE_MINDMAP = """
         :root {
             --primary-color: #1e88e5;
             --secondary-color: #43a047;
@@ -84,101 +122,98 @@ HTML_TEMPLATE_MINDMAP = """
             --border-radius: 12px;
             --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
         }
-        body {
+        .mindmap-container-wrapper {
             font-family: var(--font-family);
             line-height: 1.7;
             color: var(--text-color);
             margin: 0;
-            padding: 24px;
-            background-color: var(--background-color);
+            padding: 0;
+            background-color: var(--card-bg-color);
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
-        }
-        .container {
-            max-width: 1280px;
-            margin: 20px auto;
-            background: var(--card-bg-color);
-            border-radius: var(--border-radius);
-            box-shadow: var(--shadow);
-            overflow: hidden;
-            border: 1px solid var(--border-color);
+            height: 100%;
+            display: flex;
+            flex-direction: column;
         }
         .header {
             background: var(--header-gradient);
             color: white;
-            padding: 32px 40px;
+            padding: 20px 24px;
             text-align: center;
         }
         .header h1 {
             margin: 0;
-            font-size: 2em;
+            font-size: 1.5em;
             font-weight: 600;
             text-shadow: 0 1px 3px rgba(0,0,0,0.2);
         }
         .user-context {
-            font-size: 0.85em;
+            font-size: 0.8em;
             color: var(--muted-text-color);
             background-color: #eceff1;
-            padding: 12px 20px;
+            padding: 8px 16px;
             display: flex;
             justify-content: space-around;
             flex-wrap: wrap;
+            border-bottom: 1px solid var(--border-color);
         }
-        .user-context span { margin: 4px 10px; }
+        .user-context span { margin: 2px 8px; }
         .content-area { 
-            padding: 30px 40px;
+            padding: 20px;
+            flex-grow: 1;
         }
         .markmap-container {
             position: relative;
             background-color: #fff;
             background-image: radial-gradient(var(--border-color) 0.5px, transparent 0.5px);
             background-size: 20px 20px;
-            border-radius: var(--border-radius);
-            padding: 24px;
-            min-height: 700px;
+            border-radius: 8px;
+            padding: 16px;
+            min-height: 500px;
             display: flex;
             justify-content: center;
             align-items: center;
             border: 1px solid var(--border-color);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            box-shadow: inset 0 2px 6px rgba(0,0,0,0.03);
         }
         .download-area {
             text-align: center;
-            padding-top: 30px;
-            margin-top: 30px;
+            padding-top: 20px;
+            margin-top: 20px;
             border-top: 1px solid var(--border-color);
         }
         .download-btn {
             background-color: var(--primary-color);
             color: white;
             border: none;
-            padding: 12px 24px;
-            border-radius: 8px;
-            font-size: 1em;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 0.9em;
             font-weight: 500;
             cursor: pointer;
             transition: all 0.2s ease-in-out;
-            margin: 0 10px;
+            margin: 0 6px;
             display: inline-flex;
             align-items: center;
-            gap: 8px;
+            gap: 6px;
         }
         .download-btn.secondary {
             background-color: var(--secondary-color);
         }
         .download-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
         }
         .download-btn.copied {
-            background-color: #2e7d32; /* A darker green for success */
+            background-color: #2e7d32;
         }
         .footer {
             text-align: center;
-            padding: 24px;
-            font-size: 0.85em;
+            padding: 16px;
+            font-size: 0.8em;
             color: #90a4ae;
             background-color: #eceff1;
+            border-top: 1px solid var(--border-color);
         }
         .footer a {
             color: var(--primary-color);
@@ -192,43 +227,47 @@ HTML_TEMPLATE_MINDMAP = """
             color: #c62828;
             background-color: #ffcdd2;
             border: 1px solid #ef9a9a;
-            padding: 20px;
-            border-radius: var(--border-radius);
+            padding: 16px;
+            border-radius: 8px;
             font-weight: 500;
-            font-size: 1.1em;
+            font-size: 1em;
         }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1>🧠 Smart Mind Map</h1>
-        </div>
-        <div class="user-context">
-            <span><strong>User:</strong> {user_name}</span>
-            <span><strong>Analysis Time:</strong> {current_date_time_str}</span>
-            <span><strong>Weekday:</strong> {current_weekday_zh}</span>
-        </div>
-        <div class="content-area">
-            <div class="markmap-container" id="markmap-container-{unique_id}"></div>
-            <div class="download-area">
-                <button id="download-svg-btn-{unique_id}" class="download-btn">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                    <span class="btn-text">Copy SVG Code</span>
-                </button>
-                <button id="download-md-btn-{unique_id}" class="download-btn secondary">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-                    <span class="btn-text">Copy Markdown</span>
-                </button>
+"""
+
+CONTENT_TEMPLATE_MINDMAP = """
+        <div class="mindmap-container-wrapper">
+            <div class="header">
+                <h1>🧠 Smart Mind Map</h1>
+            </div>
+            <div class="user-context">
+                <span><strong>User:</strong> {user_name}</span>
+                <span><strong>Time:</strong> {current_date_time_str}</span>
+            </div>
+            <div class="content-area">
+                <div class="markmap-container" id="markmap-container-{unique_id}"></div>
+                <div class="download-area">
+                    <button id="download-svg-btn-{unique_id}" class="download-btn">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        <span class="btn-text">SVG</span>
+                    </button>
+                    <button id="download-md-btn-{unique_id}" class="download-btn secondary">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                        <span class="btn-text">Markdown</span>
+                    </button>
+                </div>
+            </div>
+            <div class="footer">
+                <p>© {current_year} Smart Mind Map • <a href="https://markmap.js.org/" target="_blank">Markmap</a></p>
             </div>
         </div>
-        <div class="footer">
-            <p>© {current_year} Smart Mind Map • Rendering engine powered by <a href="https://markmap.js.org/" target="_blank">Markmap</a></p>
-        </div>
-    </div>
-    
-    <script type="text/template" id="markdown-source-{unique_id}">{markdown_syntax}</script>
+        
+        <script type="text/template" id="markdown-source-{unique_id}">{markdown_syntax}</script>
+"""
 
+SCRIPT_TEMPLATE_MINDMAP = """
+    <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+    <script src="https://cdn.jsdelivr.net/npm/markmap-lib@0.17"></script>
+    <script src="https://cdn.jsdelivr.net/npm/markmap-view@0.17"></script>
     <script>
       (function() {
         const renderMindmap = () => {
@@ -248,7 +287,7 @@ HTML_TEMPLATE_MINDMAP = """
             try {
                 const svgEl = document.createElementNS("http://www.w3.org/2000/svg", "svg");
                 svgEl.style.width = '100%';
-                svgEl.style.height = '700px';
+                svgEl.style.height = '500px'; 
                 containerEl.innerHTML = ''; 
                 containerEl.appendChild(svgEl);
 
@@ -256,7 +295,7 @@ HTML_TEMPLATE_MINDMAP = """
                 const transformer = new Transformer();
                 const { root } = transformer.transform(markdownContent);
                 
-                const style = (id) => `${id} text { font-size: 16px !important; }`;
+                const style = (id) => `${id} text { font-size: 14px !important; }`;
 
                 const options = { 
                     autoFit: true,
@@ -285,10 +324,10 @@ HTML_TEMPLATE_MINDMAP = """
                 
                 button.disabled = true;
                 if (isSuccess) {
-                    buttonText.textContent = '✅ Copied!';
+                    buttonText.textContent = '✅';
                     button.classList.add('copied');
                 } else {
-                    buttonText.textContent = '❌ Copy Failed';
+                    buttonText.textContent = '❌';
                 }
 
                 setTimeout(() => {
@@ -306,7 +345,6 @@ HTML_TEMPLATE_MINDMAP = """
                         showFeedback(button, false);
                     });
                 } else {
-                    // Fallback for older/insecure contexts
                     const textArea = document.createElement('textarea');
                     textArea.value = content;
                     textArea.style.position = 'fixed';
@@ -351,8 +389,6 @@ HTML_TEMPLATE_MINDMAP = """
         }
       })();
     </script>
-</body>
-</html>
 """
 
 
@@ -372,7 +408,7 @@ class Action:
         )
         CLEAR_PREVIOUS_HTML: bool = Field(
             default=False,
-            description="Whether to clear existing plugin-generated HTML content in the message before appending new results (identified by marker).",
+            description="Whether to force clear previous plugin results (if True, overwrites instead of merging).",
         )
 
     def __init__(self):
@@ -403,6 +439,48 @@ class Action:
         pattern = r"```html\s*<!-- OPENWEBUI_PLUGIN_OUTPUT -->[\s\S]*?```"
         return re.sub(pattern, "", content).strip()
 
+    def _merge_html(
+        self,
+        existing_html_code: str,
+        new_content: str,
+        new_styles: str = "",
+        new_scripts: str = "",
+        user_language: str = "en-US",
+    ) -> str:
+        """
+        Merges new content into an existing HTML container, or creates a new one.
+        """
+        if (
+            "<!-- OPENWEBUI_PLUGIN_OUTPUT -->" in existing_html_code
+            and "<!-- CONTENT_INSERTION_POINT -->" in existing_html_code
+        ):
+            base_html = existing_html_code
+            base_html = re.sub(r"^```html\s*", "", base_html)
+            base_html = re.sub(r"\s*```$", "", base_html)
+        else:
+            base_html = HTML_WRAPPER_TEMPLATE.replace("{user_language}", user_language)
+
+        wrapped_content = f'<div class="plugin-item">\n{new_content}\n</div>'
+
+        if new_styles:
+            base_html = base_html.replace(
+                "/* STYLES_INSERTION_POINT */",
+                f"{new_styles}\n/* STYLES_INSERTION_POINT */",
+            )
+
+        base_html = base_html.replace(
+            "<!-- CONTENT_INSERTION_POINT -->",
+            f"{wrapped_content}\n<!-- CONTENT_INSERTION_POINT -->",
+        )
+
+        if new_scripts:
+            base_html = base_html.replace(
+                "<!-- SCRIPTS_INSERTION_POINT -->",
+                f"{new_scripts}\n<!-- SCRIPTS_INSERTION_POINT -->",
+            )
+
+        return base_html.strip()
+
     async def action(
         self,
         body: dict,
@@ -431,7 +509,7 @@ class Action:
             shanghai_tz = pytz.timezone("Asia/Shanghai")
             current_datetime_shanghai = datetime.now(shanghai_tz)
             current_date_time_str = current_datetime_shanghai.strftime(
-                "%Y-%m-%d %H:%M:%S"
+                "%B %d, %Y %H:%M:%S"
             )
             current_weekday_en = current_datetime_shanghai.strftime("%A")
             current_weekday_zh = self.weekday_map.get(current_weekday_en, "Unknown")
@@ -440,7 +518,7 @@ class Action:
         except Exception as e:
             logger.warning(f"Failed to get timezone info: {e}, using default values.")
             now = datetime.now()
-            current_date_time_str = now.strftime("%Y-%m-%d %H:%M:%S")
+            current_date_time_str = now.strftime("%B %d, %Y %H:%M:%S")
             current_weekday_zh = "Unknown"
             current_year = now.strftime("%Y")
             current_timezone_str = "Unknown"
@@ -558,20 +636,52 @@ class Action:
             ]
             markdown_syntax = self._extract_markdown_syntax(assistant_response_content)
 
-            final_html_content = (
-                HTML_TEMPLATE_MINDMAP.replace("{unique_id}", unique_id)
-                .replace("{user_language}", user_language)
+            # Prepare content components
+            content_html = (
+                CONTENT_TEMPLATE_MINDMAP.replace("{unique_id}", unique_id)
                 .replace("{user_name}", user_name)
                 .replace("{current_date_time_str}", current_date_time_str)
-                .replace("{current_weekday_zh}", current_weekday_zh)
                 .replace("{current_year}", current_year)
                 .replace("{markdown_syntax}", markdown_syntax)
             )
 
+            script_html = SCRIPT_TEMPLATE_MINDMAP.replace("{unique_id}", unique_id)
+
+            # Extract existing HTML if any
+            existing_html_block = ""
+            match = re.search(
+                r"```html\s*(<!-- OPENWEBUI_PLUGIN_OUTPUT -->[\s\S]*?)```",
+                long_text_content,
+            )
+            if match:
+                existing_html_block = match.group(1)
+
             if self.valves.CLEAR_PREVIOUS_HTML:
                 long_text_content = self._remove_existing_html(long_text_content)
+                final_html = self._merge_html(
+                    "", content_html, CSS_TEMPLATE_MINDMAP, script_html, user_language
+                )
+            else:
+                # If we found existing HTML, we remove the old block from text and merge into it
+                if existing_html_block:
+                    long_text_content = self._remove_existing_html(long_text_content)
+                    final_html = self._merge_html(
+                        existing_html_block,
+                        content_html,
+                        CSS_TEMPLATE_MINDMAP,
+                        script_html,
+                        user_language,
+                    )
+                else:
+                    final_html = self._merge_html(
+                        "",
+                        content_html,
+                        CSS_TEMPLATE_MINDMAP,
+                        script_html,
+                        user_language,
+                    )
 
-            html_embed_tag = f"```html\n{final_html_content}\n```"
+            html_embed_tag = f"```html\n{final_html}\n```"
             body["messages"][-1]["content"] = f"{long_text_content}\n\n{html_embed_tag}"
 
             if self.valves.show_status and __event_emitter__:
