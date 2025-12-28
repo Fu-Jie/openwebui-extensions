@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>信息图样式调试</title>
+    <script src="https://registry.npmmirror.com/@antv/infographic/0.2.1/files/dist/infographic.min.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            padding: 20px;
+            background: #f0f0f0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+
+        .debug-container {
+            display: flex;
+            gap: 20px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .controls {
+            width: 300px;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            height: fit-content;
+            position: sticky;
+            top: 20px;
+        }
+
+        .controls h2 {
+            margin-top: 0;
+            font-size: 16px;
+        }
+
+        .controls label {
+            display: block;
+            margin: 12px 0 4px;
+            font-size: 14px;
+            color: #666;
+        }
+
+        .controls input,
+        .controls select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .controls button {
+            width: 100%;
+            padding: 10px;
+            margin-top: 16px;
+            background: #6366f1;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .controls button:hover {
+            background: #4f46e5;
+        }
+
+        .preview {
+            flex: 1;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        #infographic-container {
+            min-height: 500px;
+            padding: 24px;
+        }
+
+        /* ========== 可调试的样式 ========== */
+        /* 这些样式可以直接在这里修改，刷新页面即可看到效果 */
+
+        /* 基础字体 */
+        #infographic-container svg text {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif !important;
+        }
+
+        #infographic-container svg foreignObject {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif !important;
+            line-height: 1.4 !important;
+        }
+
+        /* 标题样式 - 根据需要调整 */
+        #infographic-container svg foreignObject h1,
+        #infographic-container svg foreignObject [class*="title"] {
+            font-size: 0.8em !important;
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+        }
+
+        #infographic-container svg foreignObject h2,
+        #infographic-container svg foreignObject [class*="subtitle"] {
+            font-size: 0.85em !important;
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+        }
+
+        /* ========== 调试样式结束 ========== */
+    </style>
+</head>
+
+<body>
+    <div class="debug-container">
+        <div class="controls">
+            <h2>🔧 样式调试面板</h2>
+
+            <label>一级标题字体大小</label>
+            <input type="text" id="h1-size" value="1.2em" placeholder="例如: 1.2em, 20px">
+
+            <label>二级标题字体大小</label>
+            <input type="text" id="h2-size" value="0.6em" placeholder="例如: 0.6em, 12px">
+
+            <label>标题换行设置</label>
+            <select id="title-wrap">
+                <option value="nowrap">不换行 (nowrap)</option>
+                <option value="normal">自动换行 (normal)</option>
+            </select>
+
+            <label>行高</label>
+            <input type="text" id="line-height" value="1.4" placeholder="例如: 1.4, 1.6">
+
+            <button onclick="applyStyles()">应用样式</button>
+            <button onclick="reRender()" style="background: #10b981; margin-top: 8px;">重新渲染</button>
+
+            <hr style="margin: 20px 0; border: none; border-top: 1px solid #eee;">
+
+            <label>自定义语法内容</label>
+            <textarea id="syntax-input" rows="10" style="width: 100%; font-size: 12px; font-family: monospace;">infographic list-grid
+data
+  title 2025职业足球运动员成功要素解析
+  desc 在高度竞争的现代足球体系下，从天赋到职业的进化路径
+  items
+    - label 核心入场券：天赋与身体
+      desc 速度、爆发力及极佳的球感是底线。基本功必须化为肌肉记忆。
+      icon mdi/lightning-bolt
+    - label 决定上限：极度自律
+      desc 包含严苛的饮食、睡眠管理及强大的抗压心态。
+      icon mdi/shield-star
+    - label 现代智慧：球商 (IQ)
+      desc 复杂的战术理解力与阅读比赛能力。
+      icon mdi/brain
+    - label 隐形推手：机遇与平台
+      desc 专业的青训体系、能发掘你的伯乐。
+      icon mdi/star-shooting</textarea>
+        </div>
+
+        <div class="preview">
+            <div id="infographic-container"></div>
+        </div>
+    </div>
+
+    <script>
+        function applyStyles() {
+            console.log('[Debug] 应用样式到已渲染的元素...');
+
+            const h1Size = document.getElementById('h1-size').value;
+            const h2Size = document.getElementById('h2-size').value;
+            const titleWrap = document.getElementById('title-wrap').value;
+            const lineHeight = document.getElementById('line-height').value;
+
+            const container = document.getElementById('infographic-container');
+
+            // 直接操作 SVG 内的所有文本元素
+            const allTexts = container.querySelectorAll('svg text');
+            allTexts.forEach(text => {
+                text.style.setProperty('font-size', h1Size, 'important');
+            });
+
+            // 操作 foreignObject 内的所有元素
+            const foreignObjects = container.querySelectorAll('svg foreignObject');
+            let mainTitleCount = 0;
+            let itemLabelCount = 0;
+            let itemDescCount = 0;
+            let otherCount = 0;
+
+            foreignObjects.forEach(fo => {
+                // 检查 foreignObject 自身的 data-element-type 属性
+                const elementType = fo.getAttribute('data-element-type');
+
+                // 设置 foreignObject 本身的行高
+                fo.style.setProperty('line-height', lineHeight, 'important');
+
+                // 获取内部的第一个元素（通常是 span）
+                const firstChild = fo.querySelector(':scope > *');
+
+                if (!firstChild) return;
+
+                // 根据 foreignObject 的类型设置样式
+                if (elementType === 'title') {
+                    // 主标题
+                    mainTitleCount++;
+                    firstChild.style.setProperty('font-size', h1Size, 'important');
+                    firstChild.style.setProperty('font-weight', 'bold', 'important');
+                    firstChild.style.setProperty('line-height', lineHeight, 'important');
+                    if (titleWrap === 'nowrap') {
+                        firstChild.style.setProperty('white-space', 'nowrap', 'important');
+                        firstChild.style.setProperty('overflow', 'hidden', 'important');
+                        firstChild.style.setProperty('text-overflow', 'ellipsis', 'important');
+                    } else {
+                        firstChild.style.setProperty('white-space', 'normal', 'important');
+                        firstChild.style.setProperty('overflow', 'visible', 'important');
+                        firstChild.style.setProperty('text-overflow', 'clip', 'important');
+                    }
+                } else if (elementType === 'desc') {
+                    // 页面副标题（主标题下方的描述）
+                    itemLabelCount++; // 归入副标题计数
+                    firstChild.style.setProperty('font-size', h2Size, 'important');
+                    firstChild.style.setProperty('line-height', lineHeight, 'important');
+                    if (titleWrap === 'nowrap') {
+                        firstChild.style.setProperty('white-space', 'nowrap', 'important');
+                        firstChild.style.setProperty('overflow', 'hidden', 'important');
+                        firstChild.style.setProperty('text-overflow', 'ellipsis', 'important');
+                    } else {
+                        firstChild.style.setProperty('white-space', 'normal', 'important');
+                        firstChild.style.setProperty('overflow', 'visible', 'important');
+                        firstChild.style.setProperty('text-overflow', 'clip', 'important');
+                    }
+                } else if (elementType === 'item-label') {
+                    // 卡片标题
+                    itemLabelCount++;
+                    firstChild.style.setProperty('font-size', h2Size, 'important');
+                    firstChild.style.setProperty('line-height', lineHeight, 'important');
+                    if (titleWrap === 'nowrap') {
+                        firstChild.style.setProperty('white-space', 'nowrap', 'important');
+                        firstChild.style.setProperty('overflow', 'hidden', 'important');
+                        firstChild.style.setProperty('text-overflow', 'ellipsis', 'important');
+                    } else {
+                        firstChild.style.setProperty('white-space', 'normal', 'important');
+                        firstChild.style.setProperty('overflow', 'visible', 'important');
+                        firstChild.style.setProperty('text-overflow', 'clip', 'important');
+                    }
+                } else if (elementType === 'item-desc') {
+                    // 卡片描述
+                    itemDescCount++;
+                    firstChild.style.setProperty('line-height', lineHeight, 'important');
+                    firstChild.style.setProperty('white-space', 'normal', 'important');
+                } else {
+                    // 其他元素
+                    otherCount++;
+                    firstChild.style.setProperty('line-height', lineHeight, 'important');
+                    firstChild.style.setProperty('white-space', 'normal', 'important');
+                }
+            });
+
+            console.log('[Debug] foreignObject 处理:', '主标题:', mainTitleCount, '卡片标题:', itemLabelCount, '卡片描述:', itemDescCount, '其他:', otherCount);
+
+            console.log('[Debug] 样式已应用到', allTexts.length, '个文本元素和', foreignObjects.length, '个 foreignObject');
+        }
+
+        function reRender() {
+            const container = document.getElementById('infographic-container');
+            container.innerHTML = '';
+
+            let syntaxContent = document.getElementById('syntax-input').value.trim();
+
+            if (typeof AntVInfographic === 'undefined') {
+                container.innerHTML = '<div style="color: red; padding: 20px;">⚠️ AntV Infographic 库未加载</div>';
+                return;
+            }
+
+            // 应用模板映射（与插件保持一致）
+            const TEMPLATE_MAPPING = {
+                'list-grid': 'list-grid-compact-card',
+                'list-vertical': 'list-column-simple-vertical-arrow',
+                'tree-vertical': 'hierarchy-tree-tech-style-capsule-item',
+                'tree-horizontal': 'hierarchy-tree-lr-tech-style-capsule-item',
+                'mindmap': 'hierarchy-mindmap-branch-gradient-capsule-item',
+                'sequence-roadmap': 'sequence-roadmap-vertical-simple',
+                'sequence-zigzag': 'sequence-horizontal-zigzag-simple',
+                'sequence-horizontal': 'sequence-horizontal-zigzag-simple',
+                'relation-sankey': 'relation-sankey-simple',
+                'relation-circle': 'relation-circle-icon-badge',
+                'compare-binary': 'compare-binary-horizontal-simple-vs',
+                'compare-swot': 'compare-swot',
+                'compare-table': 'compare-table-simple',
+                'quadrant-quarter': 'quadrant-quarter-simple-card',
+                'statistic-card': 'list-grid-compact-card',
+                'chart-bar': 'chart-bar-plain-text',
+                'chart-column': 'chart-column-simple',
+                'chart-line': 'chart-line-plain-text',
+                'chart-area': 'chart-area-simple',
+                'chart-pie': 'chart-pie-plain-text',
+                'chart-doughnut': 'chart-pie-donut-plain-text'
+            };
+
+            for (const [key, value] of Object.entries(TEMPLATE_MAPPING)) {
+                const regex = new RegExp(`infographic\\s+${key}(?=\\s|$)`, 'i');
+                if (regex.test(syntaxContent)) {
+                    console.log(`[Debug] 模板映射: ${key} -> ${value}`);
+                    syntaxContent = syntaxContent.replace(regex, `infographic ${value}`);
+                    break;
+                }
+            }
+
+            try {
+                const { Infographic } = AntVInfographic;
+                const instance = new Infographic({
+                    container: '#infographic-container',
+                    padding: 24,
+                });
+                instance.render(syntaxContent);
+                console.log('[Debug] 渲染完成');
+
+                // 渲染完成后应用样式
+                setTimeout(() => {
+                    applyStyles();
+                }, 300);
+            } catch (error) {
+                container.innerHTML = '<div style="color: red; padding: 20px;">⚠️ 渲染错误: ' + error.message + '</div>';
+                console.error(error);
+            }
+        }
+
+        // 页面加载后自动渲染
+        window.onload = function () {
+            setTimeout(reRender, 500);
+        };
+    </script>
+</body>
+
+</html>

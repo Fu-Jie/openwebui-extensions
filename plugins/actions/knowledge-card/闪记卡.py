@@ -92,6 +92,10 @@ class Action:
             default=False,
             description="是否强制清除旧的插件结果（如果为 True，则不合并，直接覆盖）。",
         )
+        MESSAGE_COUNT: int = Field(
+            default=1,
+            description="用于生成的最近消息数量。设置为1仅使用最后一条消息，更大值可包含更多上下文。",
+        )
 
     def __init__(self):
         self.valves = self.Valves()
@@ -108,13 +112,32 @@ class Action:
         if not __event_emitter__:
             return body
 
-        # Get the last user message
+        # Get messages based on MESSAGE_COUNT
         messages = body.get("messages", [])
         if not messages:
             return body
 
-        # Usually the action is triggered on the last message
-        target_message = messages[-1]["content"]
+        # Get last N messages based on MESSAGE_COUNT
+        message_count = min(self.valves.MESSAGE_COUNT, len(messages))
+        recent_messages = messages[-message_count:]
+
+        # Aggregate content from selected messages with labels
+        aggregated_parts = []
+        for i, msg in enumerate(recent_messages, 1):
+            text_content = self._extract_text_content(msg.get("content"))
+            if text_content:
+                role = msg.get("role", "unknown")
+                role_label = (
+                    "用户"
+                    if role == "user"
+                    else "助手" if role == "assistant" else role
+                )
+                aggregated_parts.append(f"[{role_label} 消息 {i}]\n{text_content}")
+
+        if not aggregated_parts:
+            return body
+
+        target_message = "\n\n---\n\n".join(aggregated_parts)
 
         # Check text length
         text_length = len(target_message)
@@ -135,9 +158,14 @@ class Action:
 
         # Notify user that we are generating the card
         await self._emit_notification(__event_emitter__, "⚡ 正在生成闪记卡...", "info")
+        await self._emit_status(__event_emitter__, "⚡ 闪记卡: 开始生成...", done=False)
 
         try:
             # 1. Extract information using LLM
+            await self._emit_status(
+                __event_emitter__, "⚡ 闪记卡: 正在调用 AI 模型分析内容...", done=False
+            )
+
             user_id = __user__.get("id") if __user__ else "default"
             user_obj = Users.get_user_by_id(user_id)
 
@@ -182,6 +210,10 @@ class Action:
             response = await generate_chat_completion(__request__, payload, user_obj)
             content = response["choices"][0]["message"]["content"]
 
+            await self._emit_status(
+                __event_emitter__, "⚡ 闪记卡: AI 分析完成，正在解析数据...", done=False
+            )
+
             # Parse JSON
             try:
                 # simple cleanup in case of markdown code blocks
@@ -193,12 +225,18 @@ class Action:
                 card_data = json.loads(content)
             except Exception as e:
                 logger.error(f"Failed to parse JSON: {e}, content: {content}")
+                await self._emit_status(
+                    __event_emitter__, "❌ 闪记卡: 数据解析失败", done=True
+                )
                 await self._emit_notification(
-                    __event_emitter__, "生成卡片数据失败，请重试。", "error"
+                    __event_emitter__, "❌ 生成卡片数据失败，请重试。", "error"
                 )
                 return body
 
             # 2. Generate HTML components
+            await self._emit_status(
+                __event_emitter__, "⚡ 闪记卡: 正在渲染卡片...", done=False
+            )
             card_content, card_style = self.generate_html_card_components(card_data)
 
             # 3. Append to message
@@ -238,6 +276,9 @@ class Action:
             html_embed_tag = f"```html\n{final_html}\n```"
             body["messages"][-1]["content"] += f"\n\n{html_embed_tag}"
 
+            await self._emit_status(
+                __event_emitter__, "✅ 闪记卡: 生成完成！", done=True
+            )
             await self._emit_notification(
                 __event_emitter__, "⚡ 闪记卡生成成功！", "success"
             )
@@ -246,8 +287,9 @@ class Action:
 
         except Exception as e:
             logger.error(f"Error generating knowledge card: {e}")
+            await self._emit_status(__event_emitter__, "❌ 闪记卡: 生成失败", done=True)
             await self._emit_notification(
-                __event_emitter__, f"生成知识卡片时出错: {str(e)}", "error"
+                __event_emitter__, f"❌ 生成知识卡片时出错: {str(e)}", "error"
             )
             return body
 
@@ -269,6 +311,21 @@ class Action:
         """移除内容中已有的插件生成 HTML 代码块 (通过标记识别)。"""
         pattern = r"```html\s*<!-- OPENWEBUI_PLUGIN_OUTPUT -->[\s\S]*?```"
         return re.sub(pattern, "", content).strip()
+
+    def _extract_text_content(self, content) -> str:
+        """从消息内容中提取文本，支持多模态消息格式"""
+        if isinstance(content, str):
+            return content
+        elif isinstance(content, list):
+            # 多模态消息: [{"type": "text", "text": "..."}, {"type": "image_url", ...}]
+            text_parts = []
+            for item in content:
+                if isinstance(item, dict) and item.get("type") == "text":
+                    text_parts.append(item.get("text", ""))
+                elif isinstance(item, str):
+                    text_parts.append(item)
+            return "\n".join(text_parts)
+        return str(content) if content else ""
 
     def _merge_html(
         self,

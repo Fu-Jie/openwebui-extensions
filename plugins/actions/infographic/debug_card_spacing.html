@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>卡片间距调试工具</title>
+    <script src="https://registry.npmmirror.com/@antv/infographic/0.2.1/files/dist/infographic.min.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            padding: 20px;
+            background: #f0f0f0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+
+        .debug-container {
+            display: flex;
+            gap: 20px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .controls {
+            width: 320px;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            height: fit-content;
+            position: sticky;
+            top: 20px;
+        }
+
+        .controls h2 {
+            margin-top: 0;
+            font-size: 16px;
+            color: #333;
+        }
+
+        .controls label {
+            display: block;
+            margin: 16px 0 6px;
+            font-size: 14px;
+            color: #666;
+            font-weight: 500;
+        }
+
+        .controls input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .controls button {
+            width: 100%;
+            padding: 10px;
+            margin-top: 16px;
+            background: #6366f1;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .controls button:hover {
+            background: #4f46e5;
+        }
+
+        .controls .info {
+            margin-top: 20px;
+            padding: 12px;
+            background: #f1f5f9;
+            border-radius: 6px;
+            font-size: 13px;
+            color: #475569;
+            line-height: 1.6;
+        }
+
+        .preview {
+            flex: 1;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        #infographic-container {
+            min-height: 500px;
+            padding: 24px;
+        }
+
+        /* 基础样式 */
+        #infographic-container svg text {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif !important;
+        }
+
+        #infographic-container svg foreignObject {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif !important;
+            line-height: 1.4 !important;
+        }
+
+        /* 主标题样式 */
+        #infographic-container svg foreignObject[data-element-type="title"]>* {
+            font-size: 1.2em !important;
+            font-weight: bold !important;
+            line-height: 1.4 !important;
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+        }
+
+        /* 页面副标题样式 */
+        #infographic-container svg foreignObject[data-element-type="desc"]>* {
+            font-size: 0.6em !important;
+            line-height: 1.4 !important;
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+        }
+
+        /* 卡片标题和描述样式（这里是重点调试区域） */
+        #infographic-container svg foreignObject[data-element-type="item-label"]>* {
+            font-size: 0.6em !important;
+            line-height: 1.4 !important;
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+        }
+
+        #infographic-container svg foreignObject[data-element-type="item-desc"]>* {
+            line-height: 1.4 !important;
+            white-space: normal !important;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="debug-container">
+        <div class="controls">
+            <h2>🔧 卡片间距调试面板</h2>
+
+            <label>卡片标题与描述间距 (margin-top)</label>
+            <input type="text" id="label-desc-gap" value="8px" placeholder="例如: 8px, 12px, 1em">
+
+            <label>卡片标题字体大小</label>
+            <input type="text" id="label-size" value="0.6em" placeholder="例如: 0.6em, 12px">
+
+            <label>卡片描述字体大小</label>
+            <input type="text" id="desc-size" value="0.5em" placeholder="例如: 0.5em, 10px">
+
+            <label>卡片内边距 (padding)</label>
+            <input type="text" id="card-padding" value="8px" placeholder="例如: 8px, 12px">
+
+            <button onclick="applyStyles()">应用样式</button>
+            <button onclick="reRender()" style="background: #10b981; margin-top: 8px;">重新渲染</button>
+
+            <div class="info">
+                <strong>说明：</strong><br>
+                • 标题与描述间距：控制标题和内容之间的垂直间距<br>
+                • 字体大小：分别控制标题和描述的文字大小<br>
+                • 内边距：控制整个卡片内的留白
+            </div>
+        </div>
+
+        <div class="preview">
+            <div id="infographic-container"></div>
+        </div>
+    </div>
+
+    <script>
+        function applyStyles() {
+            console.log('[Debug] 应用卡片样式...');
+
+            const labelDescGap = document.getElementById('label-desc-gap').value;
+            const labelSize = document.getElementById('label-size').value;
+            const descSize = document.getElementById('desc-size').value;
+            const cardPadding = document.getElementById('card-padding').value;
+
+            const container = document.getElementById('infographic-container');
+
+            // 卡片标题
+            const itemLabels = container.querySelectorAll('svg foreignObject[data-element-type="item-label"]');
+            itemLabels.forEach(fo => {
+                const firstChild = fo.querySelector(':scope > *');
+                if (firstChild) {
+                    firstChild.style.setProperty('font-size', labelSize, 'important');
+                    firstChild.style.setProperty('margin-bottom', labelDescGap, 'important');
+                }
+            });
+
+            // 卡片描述
+            const itemDescs = container.querySelectorAll('svg foreignObject[data-element-type="item-desc"]');
+            itemDescs.forEach(fo => {
+                const firstChild = fo.querySelector(':scope > *');
+                if (firstChild) {
+                    firstChild.style.setProperty('font-size', descSize, 'important');
+                }
+            });
+
+            // 尝试调整卡片整体内边距（通过调整 g 元素的 padding）
+            const cardGroups = container.querySelectorAll('svg g[data-element-type="items-group"] > g');
+            cardGroups.forEach(group => {
+                // 这里可能需要通过调整内部 g 的 transform 来实现
+                // AntV 的布局比较复杂，padding 可能需要通过其他方式实现
+            });
+
+            console.log('[Debug] 卡片样式已应用:', {
+                labelDescGap,
+                labelSize,
+                descSize,
+                cardPadding
+            });
+        }
+
+        function reRender() {
+            const container = document.getElementById('infographic-container');
+            container.innerHTML = '';
+
+            const syntaxContent = `infographic list-grid-compact-card
+data
+  title 🚀 功能亮点说明
+  desc 系统核心逻辑与交互视觉特性
+  items
+    - label 核心流程演示
+      icon mdi/database-cog
+      desc 包含4个数据源、4条分流管道（运费/商品/退货）以及UNION ALL与GROUP BY聚合节点
+    - label 灵动动画效果
+      icon mdi/motion-play
+      desc 支持5个订单多色并行流转、管道霓虹闪烁光晕、节点旋转及仪表盘数值跳动反馈
+    - label 极简交互控制
+      icon mdi/cursor-default-click
+      desc 内置开始/暂停/重置逻辑，支持1x至4x倍速调整，并集成实时仪表板与日志系统
+    - label 赛博朋克风格
+      icon mdi/palette
+      desc 采用深蓝紫色调、霓虹绿文字影、网格背景以及渐变发光边框，打造极客视觉体验`;
+
+            if (typeof AntVInfographic === 'undefined') {
+                container.innerHTML = '<div style="color: red; padding: 20px;">⚠️ AntV Infographic 库未加载</div>';
+                return;
+            }
+
+            try {
+                const { Infographic } = AntVInfographic;
+                const instance = new Infographic({
+                    container: '#infographic-container',
+                    padding: 24,
+                });
+                instance.render(syntaxContent);
+                console.log('[Debug] 渲染完成');
+
+                // 渲染完成后自动应用样式
+                setTimeout(() => {
+                    applyStyles();
+                }, 300);
+            } catch (error) {
+                container.innerHTML = '<div style="color: red; padding: 20px;">⚠️ 渲染错误: ' + error.message + '</div>';
+                console.error(error);
+            }
+        }
+
+        // 页面加载后自动渲染
+        window.onload = function () {
+            setTimeout(reRender, 500);
+        };
+    </script>
+</body>
+
+</html>

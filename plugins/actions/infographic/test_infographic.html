@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AntV Infographic Debug Test</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      padding: 20px;
+      background-color: #f5f5f5;
+    }
+
+    .container {
+      max-width: 1000px;
+      margin: 0 auto;
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .infographic-render-container {
+      height: 800px;
+      border: 1px dashed #ccc;
+      border-radius: 4px;
+      margin-top: 20px;
+      overflow: auto;
+    }
+
+    h1 {
+      margin-top: 0;
+    }
+
+    .status {
+      margin-top: 10px;
+      padding: 10px;
+      background: #e0f2fe;
+      border-radius: 4px;
+      font-family: monospace;
+      white-space: pre-wrap;
+      /* 保留换行符 */
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <h1>AntV Infographic 综合测试台</h1>
+    <div class="controls">
+      <label>选择测试用例：</label>
+      <select id="case-selector">
+        <option value="case-list-basic">Case A: List Basic (Standard)</option>
+        <option value="case-tree-vertical">Case B: Tree Vertical (Hierarchy)</option>
+        <option value="case-theme-extended">Case C: Theme Extended (Bg/Text Color)</option>
+        <option value="case-tree-horizontal">Case D: Tree Horizontal</option>
+        <option value="case-list-children">Case E: List with Children</option>
+        <option value="case-tree-indented">Case F: Indented Tree</option>
+        <option value="case-mindmap">Case G: Mindmap</option>
+        <option value="case-l">Case L: List Grid (MiniMax)</option>
+        <option value="case-list-vertical">Case H: List Vertical</option>
+        <option value="case-statistic-card">Case I: Statistic Card</option>
+        <option value="case-k">Case K: 柠檬霜 Controversy (Roadmap)</option>
+        <option value="case-l">Case L: List Grid (MiniMax)</option>
+        <option value="case-llm-list-grid">LLM: List Grid (Features)</option>
+        <option value="case-llm-tree-vertical">LLM: Tree Vertical (Hierarchy)</option>
+        <option value="case-llm-statistic-card">LLM: Statistic Card (Metrics)</option>
+        <option value="case-llm-mindmap">LLM: Mindmap (Brainstorming)</option>
+        <option value="case-chart-bar">Case M: Chart Bar</option>
+        <option value="case-compare-swot">Case N: Comparison SWOT</option>
+        <option value="case-relation-sankey">Case O: Relationship Sankey</option>
+        <option value="case-quadrant-quarter">Case P: Quadrant Analysis</option>
+      </select>
+      <button onclick="runTest()">运行测试</button>
+    </div>
+
+    <div class="status" id="status-log">准备就绪...</div>
+    <div id="infographic-container-test" class="infographic-render-container"></div>
+  </div>
+
+  <!-- Case A: 基础列表 -->
+  <script type="text/template" id="case-list-basic">
+infographic list-row-simple-horizontal-arrow
+data
+  title 基础列表测试
+  items
+    - label 步骤一
+      icon ref:search:one
+    - label 步骤二
+      icon ref:search:two
+theme
+  colorPrimary #3b82f6
+  palette #3b82f6 #8b5cf6
+    </script>
+
+  <!-- Case B: 垂直树 (尝试添加 ID) -->
+  <script type="text/template" id="case-tree-vertical">
+infographic tree-vertical
+data
+  title 垂直树测试
+  items
+    - label 根节点
+      id root
+      icon ref:search:root
+      children
+        - label 子节点 A
+          id child-a
+        - label 子节点 B
+          id child-b
+theme
+  colorPrimary #10b981
+  palette #10b981 #34d399
+    </script>
+
+  <!-- Case C: 扩展主题 (测试清理逻辑) -->
+  <script type="text/template" id="case-theme-extended">
+infographic list-row-simple-horizontal-arrow
+data
+  title 扩展主题测试
+  items
+    - label 暗色模式
+      icon ref:search:moon
+theme
+  colorPrimary #6366f1
+  palette #6366f1 #8b5cf6
+  backgroundColor #1e293b
+  textColor #f8fafc
+  roughness 0.5
+    </script>
+
+  <!-- Case D: 水平树 -->
+  <script type="text/template" id="case-tree-horizontal">
+infographic tree-horizontal
+data
+  title 水平树测试
+  items
+    - label 根节点
+      id root-h
+      children
+        - label 子节点 1
+          id child-1
+        - label 子节点 2
+          id child-2
+theme
+  colorPrimary #f59e0b
+    </script>
+
+  <!-- Case E: 列表带子节点 (测试兼容性) -->
+  <script type="text/template" id="case-list-children">
+infographic list-row-simple-horizontal-arrow
+data
+  title 列表带子节点
+  items
+    - label 父项 1
+      children
+        - label 子项 1.1
+    - label 父项 2
+theme
+  colorPrimary #ec4899
+    </script>
+
+  <!-- Case F: Indented Tree (缩进树) -->
+  <script type="text/template" id="case-tree-indented">
+infographic tree-indented
+data
+  title 缩进树测试
+  items
+    - label 根节点
+      id root-i
+      children
+        - label 子节点 1
+          id child-i-1
+        - label 子节点 2
+          id child-i-2
+theme
+  colorPrimary #8b5cf6
+    </script>
+
+  <!-- Case G: Mindmap -->
+  <script type="text/template" id="case-mindmap">
+infographic mindmap
+data
+  title 脑图测试
+  items
+    - label 中心主题
+      children
+        - label 主题 A
+          children
+            - label 子主题 A1
+            - label 子主题 A2
+        - label 主题 B
+theme
+  colorPrimary #06b6d4
+    </script>
+
+  <!-- Case H: List Vertical (垂直列表) -->
+  <script type="text/template" id="case-list-vertical">
+infographic list-vertical
+data
+  title 垂直列表测试
+  items
+    - label 第一项
+      desc 描述文本 1
+      icon ref:search:one
+    - label 第二项
+      desc 描述文本 2
+      icon ref:search:two
+theme
+  colorPrimary #8b5cf6
+    </script>
+
+  <!-- Case I: Statistic Card (统计卡片) -->
+  <script type="text/template" id="case-statistic-card">
+infographic statistic-card
+data
+  title 核心指标
+  items
+    - label 总用户数
+      value 1,234
+      icon ref:search:users
+    - label 日活
+      value 89%
+      icon ref:search:activity
+theme
+  colorPrimary #10b981
+    </script>
+
+  <!-- Case J: Official Tree Example -->
+  <script type="text/template" id="case-official-tree">
+infographic hierarchy-tree-tech-style-capsule-item
+data
+  title 官方树形示例
+  items
+    - label 根节点
+      icon ref:search:root
+      children
+        - label 子节点 A
+          icon ref:search:a
+          children
+            - label 叶子 A1
+            - label 叶子 A2
+        - label 子节点 B
+          icon ref:search:b
+theme
+  colorPrimary #1677ff
+    </script>
+
+  <!-- Case K: User Fail Case (Lemon Frost) -->
+  <script type="text/template" id="case-user-fail">
+infographic list-vertical
+data
+  title 柠檬霜豹纹守宫：美丽的诅咒
+  desc 揭露极端审美背后的遗传缺陷、伦理代价与商业真相
+  items
+    - label 审美霸权与病态追求
+      desc 追求极致黄色而筛选出致癌基因，让生命背负终身癌症风险，是伦理上的霸权行为。
+      icon mdi/eye-off-outline
+    - label 致命的基因多效性
+      desc 与“谜”品系不同，柠檬霜导致的是实体肿瘤溃烂。致癌机制与颜色性状不可剥离。
+      icon mdi/dna
+    - label 商业层面的误导欺诈
+      desc 所谓“低肿瘤率”或“改良版”多为营销谎言。只要表现出性状，就注定携带致癌机制。
+      icon mdi/alert-octagon
+    - label 科学研究与宠物价值
+      desc 其价值应仅限于作为黑色素瘤的医学研究模型，而非在宠物交易市场中流通。
+      icon mdi/microscope
+    - label 行动呼吁：坚决拒绝
+      desc 拒绝购买与繁育，将柠檬霜留在教科书中作为警示，而非留在饲养箱中承受痛苦。
+      icon mdi/cancel
+theme
+  colorPrimary #FFD700
+  colorBg #1A1A1A
+  textColor #FFFFFF
+  palette #FFD700 #FF4D4F #E6E6E6
+  stylize rough
+    roughness 0.2
+    </script>
+
+  <!-- Case L: List Grid (MiniMax) -->
+  <script type="text/template" id="case-l">
+list-grid
+data
+  title MiniMax 2025 模型矩阵全解析
+  desc 以 abab 7 为核心的国产顶尖大模型
+  items
+    - label 极致 MoE 架构优化
+      desc 国内首批 MoE 路线坚定者。
+      icon mdi/cpu-64-bit
+    - label Video-01 视频生成
+      desc 杀手锏级多模态能力。
+      icon mdi/movie-filter
+    - label 情感陪伴与角色扮演
+      desc 源自星野基因。
+      icon mdi/emoticon-heart
+    - label 超长上下文与精准召回
+      desc 支持 128k+ 窗口。
+      icon mdi/database-search
+theme
+  colorPrimary #6366f1
+  colorBg #ffffff
+  textColor #1f2937
+    </script>
+
+  <!-- LLM Generated Cases for Verification -->
+  <script type="text/template" id="case-llm-list-grid">
+infographic list-grid
+data
+  title MiniMax 2025 模型矩阵全解析
+  desc 极致架构与多模态能力的全面进阶
+  items
+    - label 极致 MoE 架构优化
+      desc 国内首批 MoE 路线坚定者，兼顾模型性能与推理效率
+      icon mdi/layers-triple
+    - label Video-01 视频生成
+      desc 杀手锏级多模态能力，支持高品质视频内容创作
+      icon mdi/video-vintage
+    - label 情感陪伴与角色扮演
+      desc 源自星野基因，提供深度的情感连接与人格化交互
+      icon mdi/robot-happy
+    - label 超长上下文与精准召回
+      desc 支持 128k+ 超长窗口，实现海量信息的精准处理
+      icon mdi/file-find
+theme
+  colorPrimary #0052D9
+  colorBg #F2F3F5
+  palette #0052D9 #2BA471 #E37318 #D54941
+  stylize flat
+    </script>
+
+  <script type="text/template" id="case-llm-tree-vertical">
+infographic tree-vertical
+data
+  title 公司组织架构
+  desc 2025年度企业内部编制示意图
+  items
+    - label 研发部
+      icon mdi/xml
+      children
+        - label 后端组
+          icon mdi/server
+        - label 前端组
+          icon mdi/language-javascript
+    - label 市场部
+      icon mdi/chart-bell-curve
+      children
+        - label 销售组
+          icon mdi/account-cash
+        - label 推广组
+          icon mdi/bullhorn
+    </script>
+
+  <script type="text/template" id="case-llm-statistic-card">
+infographic statistic-card
+data
+  title 2024年Q4 核心指标
+  desc 统计日期：2024年第四季度
+  items
+    - label 总用户数
+      value 1,234,567
+      icon mdi/account-group
+    - label 日活跃用户
+      value 89%
+      icon mdi/chart-line
+    - label 营收增长
+      value +45%
+      icon mdi/trending-up
+    </script>
+
+  <script type="text/template" id="case-llm-mindmap">
+infographic mindmap
+data
+  title 人工智能应用领域
+  desc 核心应用场景分类与展示
+  items
+    - label 生成式 AI
+      icon mdi/brain
+      children
+        - label 文本生成
+          icon mdi/text-recognition
+        - label 图像生成
+          icon mdi/image-multiple
+        - label 视频生成
+          icon mdi/video-input-component
+    - label 预测性 AI
+      icon mdi/chart-line
+      children
+        - label 股市预测
+          icon mdi/finance
+        - label 天气预报
+          icon mdi/weather-partly-cloudy
+    - label 决策 AI
+      icon mdi/robot
+      children
+        - label 自动驾驶
+          icon mdi/car-autonomous
+        - label 游戏博弈
+          icon mdi/controller-classic
+theme
+  colorPrimary #2F54EB
+  colorBg #FFFFFF
+    </script>
+
+  <!-- New Styles Test Cases -->
+  <script type="text/template" id="case-chart-bar">
+infographic chart-bar
+data
+  title 2023年季度营收分析
+  desc 单位：亿元
+  items
+    - label 第一季度
+      value 12.5
+    - label 第二季度
+      value 15.8
+    - label 第三季度
+      value 14.2
+    - label 第四季度
+      value 18.9
+    </script>
+
+  <script type="text/template" id="case-relation-circle">
+infographic relation-circle
+data
+  title 生态循环
+  items
+    - label 生产者
+    - label 消费者
+    - label 分解者
+    </script>
+
+  <script type="text/template" id="case-compare-swot">
+infographic compare-swot
+data
+  title 某初创咖啡品牌 SWOT 分析
+  items
+    - label 优势
+      children
+        - label 产品口味独特
+        - label 选址精准
+    - label 劣势
+      children
+        - label 品牌知名度低
+        - label 资金压力大
+    - label 机会
+      children
+        - label 线上外卖市场增长
+        - label 年轻人对精品咖啡需求增加
+    - label 威胁
+      children
+        - label 行业巨头价格战
+        - label 原材料成本上涨
+    </script>
+
+  <script type="text/template" id="case-relation-sankey">
+infographic relation-sankey
+data
+  title 家庭月度开支流向
+  desc 2025年12月家庭总收入 10000 元分配明细
+  items
+    - label 总收入
+      value 10000
+      children
+        - label 房贷
+          value 4000
+        - label 日常消费
+          value 3000
+          children
+            - label 餐饮
+              value 2000
+            - label 交通
+              value 1000
+        - label 教育培训
+          value 2000
+        - label 存入银行
+          value 1000
+    </script>
+
+  <script type="text/template" id="case-quadrant-quarter">
+infographic quadrant-quarter
+data
+  title 个人任务象限分析
+  desc 2025年12月28日 任务优先级管理
+  items
+    - label 修复线上紧急 Bug
+      desc 紧急且重要：立即优先处理
+      illus mdi/bug
+    - label 准备下午的客户会议
+      desc 紧急且重要：核心商务产出
+      illus mdi/account-group
+    - label 制定年度学习计划
+      desc 重要不紧急：长期价值积累
+      illus mdi/calendar-check
+    - label 健身锻炼
+      desc 重要不紧急：身体健康投资
+      illus mdi/dumbbell
+    - label 回复琐碎的邮件
+      desc 紧急不重要：低价值干扰
+      illus mdi/email-outline
+    - label 接听推销电话
+      desc 紧急不重要：时间黑洞
+      illus mdi/phone-cancel
+    - label 刷社交媒体
+      desc 不紧急不重要：消遣娱乐
+      illus mdi/instagram
+    - label 看无聊的综艺
+      desc 不紧急不重要：无谓消耗
+      illus mdi/television-classic
+    </script>
+
+  <script type="text/template" id="case-compare-binary">
+infographic compare-binary
+data
+  title IDE vs Open WebUI
+  desc 核心差异对比
+  items
+    - label IDE
+      desc 代码工程中心
+      children
+        - label 深度上下文
+        - label 实时补全
+    - label Open WebUI
+      desc 对话交互中心
+      children
+        - label 模型管理
+        - label 知识库 RAG
+    </script>
+
+  <script src="https://unpkg.com/@antv/infographic@latest/dist/infographic.min.js"></script>
+  <script>
+    function log(msg) {
+      console.log(msg);
+      const el = document.getElementById('status-log');
+      el.textContent += '\n' + msg;
+    }
+
+    function logError(err) {
+      console.error('Detailed Error:', err);
+      let msg = `❌ 内部错误: ${err.message}`;
+      if (err.stack) msg += `\nStack: ${err.stack}`;
+      for (const key in err) {
+        if (key !== 'message' && key !== 'stack') {
+          msg += `\n${key}: ${JSON.stringify(err[key])}`;
+        }
+      }
+      log(msg);
+    }
+
+    function clearLog() {
+      document.getElementById('status-log').textContent = '准备就绪...';
+    }
+
+    window.listTemplates = () => {
+      clearLog();
+      log('[Explore] 正在获取模版列表...');
+      if (typeof AntVInfographic !== 'undefined') {
+        if (typeof AntVInfographic.getTemplates === 'function') {
+          const templates = AntVInfographic.getTemplates();
+          log(`[Explore] getTemplates() result (${templates.length}):\n${JSON.stringify(templates, null, 2)}`);
+          console.log(templates);
+        } else {
+          log('❌ AntVInfographic.getTemplates is not a function.');
+          log('Available keys: ' + Object.keys(AntVInfographic).join(', '));
+        }
+      } else {
+        log('❌ AntVInfographic is undefined.');
+      }
+    };
+
+    window.runTest = () => {
+      clearLog();
+      const selector = document.getElementById('case-selector');
+      const caseId = selector.value;
+      const sourceEl = document.getElementById(caseId);
+      const containerEl = document.getElementById('infographic-container-test');
+
+      if (!sourceEl) return log('❌ 未找到测试用例');
+
+      // 重置容器
+      containerEl.innerHTML = '';
+      containerEl.style = '';
+
+      let syntaxContent = sourceEl.textContent.trim();
+      log(`[Test] 运行用例: ${caseId} (${selector.options[selector.selectedIndex].text})`);
+      log(`[Step 1] 原始内容:\n${syntaxContent}`);
+
+      // --- 模拟插件的清理逻辑 ---
+      const bgMatch = syntaxContent.match(/backgroundColor\s+(#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|[a-zA-Z]+)/);
+      if (bgMatch && bgMatch[1]) {
+        containerEl.style.backgroundColor = bgMatch[1];
+      }
+      const textMatch = syntaxContent.match(/textColor\s+(#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}|[a-zA-Z]+)/);
+      if (textMatch && textMatch[1]) {
+        containerEl.style.color = textMatch[1];
+      }
+
+      // 使用更强的正则：匹配 stylize 及其后续缩进的行
+      const nl = String.fromCharCode(10);
+      const cleanRegex = new RegExp('^\\s*(roughness|stylize|backgroundColor|textColor|colorBg).*(' + nl + '\\s+.*)*', 'gm');
+      if (cleanRegex.test(syntaxContent)) {
+        log('[Fix] 移除扩展 Theme 属性...');
+        syntaxContent = syntaxContent.replace(cleanRegex, '');
+      }
+
+      // 2. 模板映射配置
+      const TEMPLATE_MAPPING = {
+        // 列表与层级
+        'list-grid': 'list-grid-compact-card',
+        'list-vertical': 'list-column-simple-vertical-arrow',
+        'tree-vertical': 'hierarchy-tree-tech-style-capsule-item',
+        'tree-horizontal': 'hierarchy-tree-lr-tech-style-capsule-item',
+        'mindmap': 'hierarchy-mindmap-branch-gradient-capsule-item',
+
+        // 顺序与关系
+        'sequence-roadmap': 'sequence-roadmap-vertical-simple',
+        'sequence-zigzag': 'sequence-horizontal-zigzag-simple',
+        'sequence-horizontal': 'sequence-horizontal-zigzag-simple',
+        'relation-sankey': 'relation-sankey-simple', // 暂无直接对应，保留原值或需移除
+        'relation-circle': 'relation-circle-icon-badge',
+
+        // 对比与分析
+        'compare-binary': 'compare-binary-horizontal-simple-vs',
+        'compare-swot': 'compare-swot',
+        'compare-table': 'compare-table-simple', // 暂无直接对应
+        'quadrant-quarter': 'quadrant-quarter-simple-card',
+
+        // 图表与数据
+        'statistic-card': 'list-grid-compact-card',
+        'chart-bar': 'chart-bar-plain-text',
+        'chart-column': 'chart-column-simple',
+        'chart-line': 'chart-line-plain-text',
+        'chart-area': 'chart-area-simple', // 暂无直接对应
+        'chart-pie': 'chart-pie-plain-text',
+        'chart-doughnut': 'chart-pie-donut-plain-text'
+      };
+
+      // 3. 应用映射策略
+      for (const [key, value] of Object.entries(TEMPLATE_MAPPING)) {
+        const regex = new RegExp(`infographic\\s+${key}(?=\\s|$)`, 'i');
+        if (regex.test(syntaxContent)) {
+          log(`[Fix] 自动映射模板: ${key} -> ${value}`);
+          syntaxContent = syntaxContent.replace(regex, `infographic ${value}`);
+          break; // 找到一个匹配后即停止
+        }
+      }
+
+      // 兜底检查：确保以 infographic 开头
+      if (!syntaxContent.trim().toLowerCase().startsWith('infographic')) {
+        const firstWord = syntaxContent.trim().split(/\s+/)[0].toLowerCase();
+        if (!['data', 'theme', 'design', 'items'].includes(firstWord)) {
+          log('[Fix] 检测到缺失 infographic 前缀，自动补全');
+          syntaxContent = 'infographic ' + syntaxContent;
+        }
+      }
+
+      syntaxContent = syntaxContent.trim();
+      log(`[Step 2] 清理后内容:\n${syntaxContent}`);
+
+      try {
+        const { Infographic } = AntVInfographic;
+        const instance = new Infographic({
+          container: '#infographic-container-test',
+          padding: 24,
+        });
+
+        instance.on('error', (err) => {
+          logError(err);
+        });
+
+        instance.render(syntaxContent);
+
+        if (instance.node) {
+          log('✅ 渲染成功 (instance.node 存在)');
+          if (!containerEl.querySelector('svg')) {
+            log('⚠️ 自动挂载失败，手动挂载...');
+            containerEl.appendChild(instance.node);
+          }
+        } else {
+          log('❌ 渲染失败 (instance.node 为空)');
+        }
+
+      } catch (e) {
+        logError(e);
+      }
+    };
+  </script>
+</body>
+
+</html>

@@ -117,6 +117,10 @@ class Action:
             default=False,
             description="是否强制清除旧的插件结果（如果为 True，则不合并，直接覆盖）。",
         )
+        MESSAGE_COUNT: int = Field(
+            default=1,
+            description="用于生成的最近消息数量。设置为1仅使用最后一条消息，更大值可包含更多上下文。",
+        )
         # 根据需要添加其他配置字段
         # MAX_TEXT_LENGTH: int = Field(default=2000, description="...")
 
@@ -185,6 +189,21 @@ class Action:
         # 使用 [\s\S]*? 非贪婪匹配任意字符
         pattern = r"```html\s*<!-- OPENWEBUI_PLUGIN_OUTPUT -->[\s\S]*?```"
         return re.sub(pattern, "", content).strip()
+
+    def _extract_text_content(self, content) -> str:
+        """从消息内容中提取文本，支持多模态消息格式。"""
+        if isinstance(content, str):
+            return content
+        elif isinstance(content, list):
+            # 多模态消息: [{"type": "text", "text": "..."}, {"type": "image_url", ...}]
+            text_parts = []
+            for item in content:
+                if isinstance(item, dict) and item.get("type") == "text":
+                    text_parts.append(item.get("text", ""))
+                elif isinstance(item, str):
+                    text_parts.append(item)
+            return "\n".join(text_parts)
+        return str(content) if content else ""
 
     def _merge_html(
         self,
@@ -289,10 +308,30 @@ class Action:
 
         # 2. 输入验证
         messages = body.get("messages", [])
-        if not messages or not messages[-1].get("content"):
+        if not messages:
             return body  # 或者处理错误
 
-        original_content = messages[-1]["content"]
+        # 根据 MESSAGE_COUNT 获取最近 N 条消息
+        message_count = min(self.valves.MESSAGE_COUNT, len(messages))
+        recent_messages = messages[-message_count:]
+
+        # 聚合选中消息的内容，带标签
+        aggregated_parts = []
+        for i, msg in enumerate(recent_messages, 1):
+            text_content = self._extract_text_content(msg.get("content"))
+            if text_content:
+                role = msg.get("role", "unknown")
+                role_label = (
+                    "用户"
+                    if role == "user"
+                    else "助手" if role == "assistant" else role
+                )
+                aggregated_parts.append(f"[{role_label} 消息 {i}]\n{text_content}")
+
+        if not aggregated_parts:
+            return body  # 或者处理错误
+
+        original_content = "\n\n---\n\n".join(aggregated_parts)
 
         if len(original_content) < self.valves.MIN_TEXT_LENGTH:
             warning_msg = f"文本过短 ({len(original_content)} 字符)。最少需要: {self.valves.MIN_TEXT_LENGTH}。"

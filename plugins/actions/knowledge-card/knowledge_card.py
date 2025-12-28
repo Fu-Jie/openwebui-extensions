@@ -95,6 +95,10 @@ class Action:
             default=False,
             description="Whether to force clear previous plugin results (if True, overwrites instead of merging).",
         )
+        MESSAGE_COUNT: int = Field(
+            default=1,
+            description="Number of recent messages to use for generation. Set to 1 for just the last message, or higher for more context.",
+        )
 
     def __init__(self):
         self.valves = self.Valves()
@@ -111,13 +115,32 @@ class Action:
         if not __event_emitter__:
             return body
 
-        # Get the last user message
+        # Get messages based on MESSAGE_COUNT
         messages = body.get("messages", [])
         if not messages:
             return body
 
-        # Usually the action is triggered on the last message
-        target_message = messages[-1]["content"]
+        # Get last N messages based on MESSAGE_COUNT
+        message_count = min(self.valves.MESSAGE_COUNT, len(messages))
+        recent_messages = messages[-message_count:]
+
+        # Aggregate content from selected messages with labels
+        aggregated_parts = []
+        for i, msg in enumerate(recent_messages, 1):
+            text_content = self._extract_text_content(msg.get("content"))
+            if text_content:
+                role = msg.get("role", "unknown")
+                role_label = (
+                    "User"
+                    if role == "user"
+                    else "Assistant" if role == "assistant" else role
+                )
+                aggregated_parts.append(f"[{role_label} Message {i}]\n{text_content}")
+
+        if not aggregated_parts:
+            return body
+
+        target_message = "\n\n---\n\n".join(aggregated_parts)
 
         # Check text length
         text_length = len(target_message)
@@ -140,9 +163,18 @@ class Action:
         await self._emit_notification(
             __event_emitter__, "⚡ Generating Flash Card...", "info"
         )
+        await self._emit_status(
+            __event_emitter__, "⚡ Flash Card: Starting generation...", done=False
+        )
 
         try:
             # 1. Extract information using LLM
+            await self._emit_status(
+                __event_emitter__,
+                "⚡ Flash Card: Calling AI model to analyze content...",
+                done=False,
+            )
+
             user_id = __user__.get("id") if __user__ else "default"
             user_obj = Users.get_user_by_id(user_id)
 
@@ -187,6 +219,12 @@ Important Principles:
             response = await generate_chat_completion(__request__, payload, user_obj)
             content = response["choices"][0]["message"]["content"]
 
+            await self._emit_status(
+                __event_emitter__,
+                "⚡ Flash Card: AI analysis complete, parsing data...",
+                done=False,
+            )
+
             # Parse JSON
             try:
                 # simple cleanup in case of markdown code blocks
@@ -198,14 +236,20 @@ Important Principles:
                 card_data = json.loads(content)
             except Exception as e:
                 logger.error(f"Failed to parse JSON: {e}, content: {content}")
+                await self._emit_status(
+                    __event_emitter__, "❌ Flash Card: Data parsing failed", done=True
+                )
                 await self._emit_notification(
                     __event_emitter__,
-                    "Failed to generate card data, please try again.",
+                    "❌ Failed to generate card data, please try again.",
                     "error",
                 )
                 return body
 
             # 2. Generate HTML components
+            await self._emit_status(
+                __event_emitter__, "⚡ Flash Card: Rendering card...", done=False
+            )
             card_content, card_style = self.generate_html_card_components(card_data)
 
             # 3. Append to message
@@ -245,6 +289,9 @@ Important Principles:
             html_embed_tag = f"```html\n{final_html}\n```"
             body["messages"][-1]["content"] += f"\n\n{html_embed_tag}"
 
+            await self._emit_status(
+                __event_emitter__, "✅ Flash Card: Generation complete!", done=True
+            )
             await self._emit_notification(
                 __event_emitter__, "⚡ Flash Card generated successfully!", "success"
             )
@@ -253,8 +300,13 @@ Important Principles:
 
         except Exception as e:
             logger.error(f"Error generating knowledge card: {e}")
+            await self._emit_status(
+                __event_emitter__, "❌ Flash Card: Generation failed", done=True
+            )
             await self._emit_notification(
-                __event_emitter__, f"Error generating knowledge card: {str(e)}", "error"
+                __event_emitter__,
+                f"❌ Error generating knowledge card: {str(e)}",
+                "error",
             )
             return body
 
@@ -276,6 +328,21 @@ Important Principles:
         """Removes existing plugin-generated HTML code blocks from the content."""
         pattern = r"```html\s*<!-- OPENWEBUI_PLUGIN_OUTPUT -->[\s\S]*?```"
         return re.sub(pattern, "", content).strip()
+
+    def _extract_text_content(self, content) -> str:
+        """Extract text from message content, supporting multimodal message formats"""
+        if isinstance(content, str):
+            return content
+        elif isinstance(content, list):
+            # Multimodal message: [{"type": "text", "text": "..."}, {"type": "image_url", ...}]
+            text_parts = []
+            for item in content:
+                if isinstance(item, dict) and item.get("type") == "text":
+                    text_parts.append(item.get("text", ""))
+                elif isinstance(item, str):
+                    text_parts.append(item)
+            return "\n".join(text_parts)
+        return str(content) if content else ""
 
     def _merge_html(
         self,

@@ -117,6 +117,10 @@ class Action:
             default=False,
             description="Whether to force clear previous plugin results (if True, overwrites instead of merging).",
         )
+        MESSAGE_COUNT: int = Field(
+            default=1,
+            description="Number of recent messages to use for generation. Set to 1 for just the last message, or higher for more context.",
+        )
         # Add other configuration fields as needed
         # MAX_TEXT_LENGTH: int = Field(default=2000, description="...")
 
@@ -174,6 +178,21 @@ class Action:
         # Match ```html <!-- OPENWEBUI_PLUGIN_OUTPUT --> ... ``` pattern
         pattern = r"```html\s*<!-- OPENWEBUI_PLUGIN_OUTPUT -->[\s\S]*?```"
         return re.sub(pattern, "", content).strip()
+
+    def _extract_text_content(self, content) -> str:
+        """Extract text from message content, supporting multimodal message formats."""
+        if isinstance(content, str):
+            return content
+        elif isinstance(content, list):
+            # Multimodal message: [{"type": "text", "text": "..."}, {"type": "image_url", ...}]
+            text_parts = []
+            for item in content:
+                if isinstance(item, dict) and item.get("type") == "text":
+                    text_parts.append(item.get("text", ""))
+                elif isinstance(item, str):
+                    text_parts.append(item)
+            return "\n".join(text_parts)
+        return str(content) if content else ""
 
     def _merge_html(
         self,
@@ -278,10 +297,30 @@ class Action:
 
         # 2. Input Validation
         messages = body.get("messages", [])
-        if not messages or not messages[-1].get("content"):
+        if not messages:
             return body  # Or handle error
 
-        original_content = messages[-1]["content"]
+        # Get last N messages based on MESSAGE_COUNT
+        message_count = min(self.valves.MESSAGE_COUNT, len(messages))
+        recent_messages = messages[-message_count:]
+
+        # Aggregate content from selected messages with labels
+        aggregated_parts = []
+        for i, msg in enumerate(recent_messages, 1):
+            text_content = self._extract_text_content(msg.get("content"))
+            if text_content:
+                role = msg.get("role", "unknown")
+                role_label = (
+                    "User"
+                    if role == "user"
+                    else "Assistant" if role == "assistant" else role
+                )
+                aggregated_parts.append(f"[{role_label} Message {i}]\n{text_content}")
+
+        if not aggregated_parts:
+            return body  # Or handle error
+
+        original_content = "\n\n---\n\n".join(aggregated_parts)
 
         if len(original_content) < self.valves.MIN_TEXT_LENGTH:
             warning_msg = f"Text too short ({len(original_content)} chars). Minimum required: {self.valves.MIN_TEXT_LENGTH}."

@@ -1,7 +1,7 @@
 """
 title: Smart Mind Map
 icon_url: data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIxLjUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+CiAgPGNpcmNsZSBjeD0iMTIiIGN5PSIxMiIgcj0iMyIgZmlsbD0iY3VycmVudENvbG9yIi8+CiAgPGxpbmUgeDE9IjEyIiB5MT0iOSIgeDI9IjEyIiB5Mj0iNCIvPgogIDxjaXJjbGUgY3g9IjEyIiBjeT0iMyIgcj0iMS41Ii8+CiAgPGxpbmUgeDE9IjEyIiB5MT0iMTUiIHgyPSIxMiIgeTI9IjIwIi8+CiAgPGNpcmNsZSBjeD0iMTIiIGN5PSIyMSIgcj0iMS41Ii8+CiAgPGxpbmUgeDE9IjkiIHkxPSIxMiIgeDI9IjQiIHkyPSIxMiIvPgogIDxjaXJjbGUgY3g9IjMiIGN5PSIxMiIgcj0iMS41Ii8+CiAgPGxpbmUgeDE9IjE1IiB5MT0iMTIiIHgyPSIyMCIgeTI9IjEyIi8+CiAgPGNpcmNsZSBjeD0iMjEiIGN5PSIxMiIgcj0iMS41Ii8+CiAgPGxpbmUgeDE9IjEwLjUiIHkxPSIxMC41IiB4Mj0iNiIgeTI9IjYiLz4KICA8Y2lyY2xlIGN4PSI1IiBjeT0iNSIgcj0iMS41Ii8+CiAgPGxpbmUgeDE9IjEzLjUiIHkxPSIxMC41IiB4Mj0iMTgiIHkyPSI2Ii8+CiAgPGNpcmNsZSBjeD0iMTkiIGN5PSI1IiByPSIxLjUiLz4KICA8bGluZSB4MT0iMTAuNSIgeTE9IjEzLjUiIHgyPSI2IiB5Mj0iMTgiLz4KICA8Y2lyY2xlIGN4PSI1IiBjeT0iMTkiIHI9IjEuNSIvPgogIDxsaW5lIHgxPSIxMy41IiB5MT0iMTMuNSIgeDI9IjE4IiB5Mj0iMTgiLz4KICA8Y2lyY2xlIGN4PSIxOSIgY3k9IjE5IiByPSIxLjUiLz4KPC9zdmc+
-version: 0.7.3
+version: 0.7.4
 description: Intelligently analyzes long texts and generates interactive mind maps, supporting SVG/Markdown export.
 """
 
@@ -81,17 +81,14 @@ HTML_WRAPPER_TEMPLATE = """
             width: 100%;
         }
         .plugin-item { 
-            flex: 1 1 400px; /* Default width, allows shrinking/growing */
+            flex: 1 1 400px; /* Default width, allows stretching */
             min-width: 300px; 
-            background: white; 
             border-radius: 12px; 
-            box-shadow: 0 4px 6px rgba(0,0,0,0.05); 
             overflow: hidden; 
-            border: 1px solid #e5e7eb; 
             transition: all 0.3s ease;
         }
         .plugin-item:hover {
-            box-shadow: 0 10px 15px rgba(0,0,0,0.1);
+            transform: translateY(-2px);
         }
         @media (max-width: 768px) { 
             .plugin-item { flex: 1 1 100%; } 
@@ -128,7 +125,6 @@ CSS_TEMPLATE_MINDMAP = """
             color: var(--text-color);
             margin: 0;
             padding: 0;
-            background-color: var(--card-bg-color);
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
             height: 100%;
@@ -169,7 +165,6 @@ CSS_TEMPLATE_MINDMAP = """
             background-size: 20px 20px;
             border-radius: 8px;
             padding: 16px;
-            min-height: 500px;
             display: flex;
             justify-content: center;
             align-items: center;
@@ -287,7 +282,8 @@ SCRIPT_TEMPLATE_MINDMAP = """
             try {
                 const svgEl = document.createElementNS("http://www.w3.org/2000/svg", "svg");
                 svgEl.style.width = '100%';
-                svgEl.style.height = '500px'; 
+                svgEl.style.height = 'auto';
+                svgEl.style.minHeight = '300px';
                 containerEl.innerHTML = ''; 
                 containerEl.appendChild(svgEl);
 
@@ -410,6 +406,10 @@ class Action:
             default=False,
             description="Whether to force clear previous plugin results (if True, overwrites instead of merging).",
         )
+        MESSAGE_COUNT: int = Field(
+            default=1,
+            description="Number of recent messages to use for generation. Set to 1 for just the last message, or higher for more context.",
+        )
 
     def __init__(self):
         self.valves = self.Valves()
@@ -452,6 +452,21 @@ class Action:
         """Removes existing plugin-generated HTML code blocks from the content."""
         pattern = r"```html\s*<!-- OPENWEBUI_PLUGIN_OUTPUT -->[\s\S]*?```"
         return re.sub(pattern, "", content).strip()
+
+    def _extract_text_content(self, content) -> str:
+        """Extract text from message content, supporting multimodal message formats"""
+        if isinstance(content, str):
+            return content
+        elif isinstance(content, list):
+            # Multimodal message: [{"type": "text", "text": "..."}, {"type": "image_url", ...}]
+            text_parts = []
+            for item in content:
+                if isinstance(item, dict) and item.get("type") == "text":
+                    text_parts.append(item.get("text", ""))
+                elif isinstance(item, str):
+                    text_parts.append(item)
+            return "\n".join(text_parts)
+        return str(content) if content else ""
 
     def _merge_html(
         self,
@@ -544,18 +559,40 @@ class Action:
         )
 
         messages = body.get("messages")
-        if (
-            not messages
-            or not isinstance(messages, list)
-            or not messages[-1].get("content")
-        ):
+        if not messages or not isinstance(messages, list):
             error_message = "Unable to retrieve valid user message content."
             await self._emit_notification(__event_emitter__, error_message, "error")
             return {
                 "messages": [{"role": "assistant", "content": f"❌ {error_message}"}]
             }
 
-        parts = re.split(r"```html.*?```", messages[-1]["content"], flags=re.DOTALL)
+        # Get last N messages based on MESSAGE_COUNT
+        message_count = min(self.valves.MESSAGE_COUNT, len(messages))
+        recent_messages = messages[-message_count:]
+
+        # Aggregate content from selected messages with labels
+        aggregated_parts = []
+        for i, msg in enumerate(recent_messages, 1):
+            text_content = self._extract_text_content(msg.get("content"))
+            if text_content:
+                role = msg.get("role", "unknown")
+                role_label = (
+                    "User"
+                    if role == "user"
+                    else "Assistant" if role == "assistant" else role
+                )
+                aggregated_parts.append(f"[{role_label} Message {i}]\n{text_content}")
+
+        if not aggregated_parts:
+            error_message = "Unable to retrieve valid user message content."
+            await self._emit_notification(__event_emitter__, error_message, "error")
+            return {
+                "messages": [{"role": "assistant", "content": f"❌ {error_message}"}]
+            }
+
+        original_content = "\n\n---\n\n".join(aggregated_parts)
+
+        parts = re.split(r"```html.*?```", original_content, flags=re.DOTALL)
         long_text_content = ""
         if parts:
             for part in reversed(parts):
@@ -564,7 +601,7 @@ class Action:
                     break
 
         if not long_text_content:
-            long_text_content = messages[-1]["content"].strip()
+            long_text_content = original_content.strip()
 
         if len(long_text_content) < self.valves.MIN_TEXT_LENGTH:
             short_text_message = f"Text content is too short ({len(long_text_content)} characters), unable to perform effective analysis. Please provide at least {self.valves.MIN_TEXT_LENGTH} characters of text."
