@@ -96,7 +96,27 @@ Infographic syntax is a Mermaid-like declarative syntax for describing infograph
 -   `colorBg`: Background color (Hex)
 -   `palette`: Color list (Space separated)
 -   `textColor`: Text color (Hex)
--   `stylize`: Style effect (e.g., `rough`, `flat`)
+-   `stylize`: Style effect configuration
+-     `type`: Style type (`rough`, `pattern`, `linear-gradient`, `radial-gradient`)
+
+#### 4. Stylize Examples
+**Rough Style (Hand-drawn):**
+```infographic
+infographic list-row-simple-horizontal-arrow
+theme
+  stylize rough
+data
+  ...
+```
+
+**Gradient Style:**
+```infographic
+infographic chart-bar
+theme
+  stylize linear-gradient
+data
+  ...
+```
 
 ### Examples
 

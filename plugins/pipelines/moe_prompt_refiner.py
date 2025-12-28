@@ -25,6 +25,25 @@ class Pipeline:
         # 数字越小，优先级越高。
         priority: int = 0
 
+        # 指定用于分析和总结的模型ID。
+        # 如果设置，MoE汇总请求将被重定向到此模型。
+        model_id: Optional[str] = None
+
+        # MoE 汇总请求的触发前缀。
+        # 用于识别是否为 MoE 汇总请求。
+        trigger_prefix: str = (
+            "You have been provided with a set of responses from various models to the latest user query"
+        )
+
+        # 解析原始查询的起始标记
+        query_start_marker: str = 'the latest user query: "'
+
+        # 解析原始查询的结束标记
+        query_end_marker: str = '"\n\nYour task is to'
+
+        # 解析模型响应的起始标记
+        response_start_marker: str = "Responses from models: "
+
     def __init__(self):
         self.type = "filter"
         self.name = "moe_prompt_refiner"
@@ -89,13 +108,18 @@ class Pipeline:
 
         # 检查是否为MoE汇总请求
         if isinstance(user_message_content, str) and user_message_content.startswith(
-            "You have been provided with a set of responses from various models to the latest user query"
+            self.valves.trigger_prefix
         ):
             print("检测到MoE汇总请求，正在更改提示词。")
 
+            # 如果配置了 model_id，则重定向请求
+            if self.valves.model_id:
+                print(f"重定向请求到模型: {self.valves.model_id}")
+                body["model"] = self.valves.model_id
+
             # 1. 提取原始查询
-            query_start_phrase = 'the latest user query: "'
-            query_end_phrase = '"\n\nYour task is to'
+            query_start_phrase = self.valves.query_start_marker
+            query_end_phrase = self.valves.query_end_marker
             start_index = user_message_content.find(query_start_phrase)
             end_index = user_message_content.find(query_end_phrase)
 
@@ -106,7 +130,7 @@ class Pipeline:
                 ]
 
             # 2. 提取各个模型的响应
-            responses_start_phrase = "Responses from models: "
+            responses_start_phrase = self.valves.response_start_marker
             responses_start_index = user_message_content.find(responses_start_phrase)
 
             responses_text = ""

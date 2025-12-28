@@ -158,7 +158,33 @@ data
           illus mdi/delete
 ```
 
-#### D. Charts (Bar/Column/Line/Pie)
+#### E. Stylize Configuration
+You can apply specific visual styles using the `theme` block.
+
+**Supported Styles (`stylize`):**
+- `rough`: Hand-drawn style
+- `pattern`: Pattern fill
+- `linear-gradient`: Linear gradient fill
+- `radial-gradient`: Radial gradient fill
+
+**Example (Rough Style):**
+```infographic
+infographic list-row-simple-horizontal-arrow
+theme
+  stylize rough
+data
+  ...
+```
+
+**Example (Gradient Style):**
+```infographic
+infographic chart-bar
+theme
+  stylize linear-gradient
+data
+  ...
+```
+#### F. Charts (Bar/Column/Line/Pie)
 Use `items` with `label` and `value`.
 
 ```infographic
