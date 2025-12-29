@@ -25,7 +25,7 @@ This is especially useful for:
 
 ## Features
 
-- :material-compress: **Smart Compression**: AI-powered context summarization
+- :material-arrow-collapse-vertical: **Smart Compression**: AI-powered context summarization
 - :material-clock-fast: **Async Processing**: Non-blocking background compression
 - :material-memory: **Context Preservation**: Keeps important information
 - :material-currency-usd-off: **Cost Reduction**: Minimize token usage

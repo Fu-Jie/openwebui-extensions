@@ -81,7 +81,7 @@ hide:
 
     [:octicons-arrow-right-24: Learn More](plugins/actions/knowledge-card.md)
 
--   :material-compress:{ .lg .middle } **Async Context Compression**
+-   :material-arrow-collapse-vertical:{ .lg .middle } **Async Context Compression**
 
     ---
 

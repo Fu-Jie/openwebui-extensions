@@ -27,6 +27,16 @@ Actions are interactive plugins that:
 
     [:octicons-arrow-right-24: Documentation](smart-mind-map.md)
 
+-   :material-chart-bar:{ .lg .middle } **Smart Infographic**
+
+    ---
+
+    Transform text into professional infographics using AntV visualization engine with various templates.
+
+    **Version:** 1.0.0
+
+    [:octicons-arrow-right-24: Documentation](smart-infographic.md)
+
 -   :material-card-text:{ .lg .middle } **Knowledge Card**
 
     ---

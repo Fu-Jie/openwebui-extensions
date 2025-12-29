@@ -69,6 +69,42 @@ theme:
 plugins:
   - search:
       separator: '[\s\-,:!=\[\]()"`/]+|\.(?!\d)|&[lg]t;|(?!\b)(?=[A-Z][a-z])'
+  - i18n:
+      docs_structure: suffix
+      fallback_to_default: true
+      reconfigure_material: true
+      reconfigure_search: true
+      languages:
+        - locale: en
+          default: true
+          name: English
+          build: true
+        - locale: zh
+          name: 简体中文
+          build: true
+          nav_translations:
+            Home: 首页
+            Plugins: 插件
+            Actions: 动作
+            Filters: 过滤器
+            Pipes: 管道
+            Pipelines: 流水线
+            Prompts: 提示词
+            Enhancements: 增强功能
+            Development: 开发指南
+            Contributing: 贡献指南
+            Plugin Development Guide: 插件开发指南
+            Documentation Guide: 文档编写指南
+            Smart Mind Map: 智能思维导图
+            Smart Infographic: 智能信息图
+            Knowledge Card: 知识卡片
+            Export to Excel: 导出到 Excel
+            Summary: 摘要
+            Async Context Compression: 异步上下文压缩
+            Context Enhancement: 上下文增强
+            Gemini Manifold Companion: Gemini Manifold 伴侣
+            Gemini Manifold: Gemini Manifold
+            MoE Prompt Refiner: MoE 提示词优化器
   - minify:
       minify_html: true
 
@@ -146,6 +182,7 @@ nav:
     - Actions:
       - plugins/actions/index.md
       - Smart Mind Map: plugins/actions/smart-mind-map.md
+      - Smart Infographic: plugins/actions/smart-infographic.md
       - Knowledge Card: plugins/actions/knowledge-card.md
       - Export to Excel: plugins/actions/export-to-excel.md
       - Summary: plugins/actions/summary.md
@@ -169,4 +206,5 @@ nav:
   - Development:
     - development/index.md
     - Plugin Development Guide: development/plugin-guide.md
+    - Documentation Guide: development/documentation-guide.md
   - Contributing: contributing.md
