@@ -1,0 +1,172 @@
+# MkDocs Configuration for OpenWebUI Extras
+# Site Information
+site_name: OpenWebUI Extras
+site_description: A collection of enhancements, plugins, and prompts for OpenWebUI
+site_author: Fu-Jie
+site_url: https://fu-jie.github.io/awesome-openwebui/
+
+# Repository
+repo_name: Fu-Jie/awesome-openwebui
+repo_url: https://github.com/Fu-Jie/awesome-openwebui
+edit_uri: edit/main/docs/
+
+# Copyright
+copyright: Copyright &copy; 2024 OpenWebUI Extras Contributors
+
+# Theme Configuration
+theme:
+  name: material
+  language: en
+  
+  # Logo and Icons
+  icon:
+    logo: material/robot-happy-outline
+    repo: fontawesome/brands/github
+  
+  # Color Palette with Light/Dark Toggle
+  palette:
+    # Light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: blue
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    
+    # Dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: blue
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  
+  # Navigation Features
+  features:
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.expand
+    - navigation.path
+    - navigation.top
+    - navigation.footer
+    - search.highlight
+    - search.suggest
+    - search.share
+    - content.code.copy
+    - content.code.annotate
+    - content.tabs.link
+    - toc.follow
+  
+  # Custom fonts
+  font:
+    text: Roboto
+    code: Roboto Mono
+
+# Plugins
+plugins:
+  - search:
+      separator: '[\s\-,:!=\[\]()"`/]+|\.(?!\d)|&[lg]t;|(?!\b)(?=[A-Z][a-z])'
+  - minify:
+      minify_html: true
+
+# Markdown Extensions
+markdown_extensions:
+  # Python Markdown
+  - abbr
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - toc:
+      permalink: true
+      toc_depth: 3
+  
+  # Python Markdown Extensions
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.betterem:
+      smart_enable: all
+  - pymdownx.caret
+  - pymdownx.details
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.keys
+  - pymdownx.magiclink:
+      normalize_issue_symbols: true
+      repo_url_shorthand: true
+      user: Fu-Jie
+      repo: awesome-openwebui
+  - pymdownx.mark
+  - pymdownx.smartsymbols
+  - pymdownx.snippets
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+      combine_header_slug: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.tilde
+
+# Extra Configuration
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/Fu-Jie/awesome-openwebui
+  
+  generator: false
+  
+  # Analytics (optional - add your tracking ID)
+  # analytics:
+  #   provider: google
+  #   property: G-XXXXXXXXXX
+
+# Extra CSS
+extra_css:
+  - stylesheets/extra.css
+
+# Navigation Structure
+nav:
+  - Home: index.md
+  - Plugins:
+    - plugins/index.md
+    - Actions:
+      - plugins/actions/index.md
+      - Smart Mind Map: plugins/actions/smart-mind-map.md
+      - Knowledge Card: plugins/actions/knowledge-card.md
+      - Export to Excel: plugins/actions/export-to-excel.md
+      - Summary: plugins/actions/summary.md
+    - Filters:
+      - plugins/filters/index.md
+      - Async Context Compression: plugins/filters/async-context-compression.md
+      - Context Enhancement: plugins/filters/context-enhancement.md
+      - Gemini Manifold Companion: plugins/filters/gemini-manifold-companion.md
+    - Pipes:
+      - plugins/pipes/index.md
+      - Gemini Manifold: plugins/pipes/gemini-manifold.md
+    - Pipelines:
+      - plugins/pipelines/index.md
+      - MoE Prompt Refiner: plugins/pipelines/moe-prompt-refiner.md
+  - Prompts:
+    - prompts/index.md
+    - prompts/library.md
+  - Enhancements:
+    - enhancements/index.md
+    - enhancements/guide.md
+  - Development:
+    - development/index.md
+    - Plugin Development Guide: development/plugin-guide.md
+  - Contributing: contributing.md

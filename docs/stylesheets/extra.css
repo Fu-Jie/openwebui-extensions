@@ -1,0 +1,195 @@
+/* Custom styles for OpenWebUI Extras Documentation */
+
+/* Hero Section */
+.hero-section {
+  text-align: center;
+  padding: 2rem 0;
+  margin-bottom: 2rem;
+}
+
+.hero-content h1 {
+  font-size: 2.5rem;
+  margin-bottom: 1rem;
+}
+
+.hero-content p {
+  font-size: 1.2rem;
+  color: var(--md-default-fg-color--light);
+  margin-bottom: 2rem;
+}
+
+/* Button styling */
+.md-button {
+  margin: 0.5rem;
+}
+
+/* Grid cards enhancement */
+.grid.cards > ul > li {
+  transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+}
+
+.grid.cards > ul > li:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+}
+
+/* Icon styling in cards */
+.grid.cards .lg {
+  font-size: 2rem;
+}
+
+.grid.cards .middle {
+  vertical-align: middle;
+}
+
+/* Heart icon color */
+.heart {
+  color: #e91e63;
+}
+
+/* Code block enhancements */
+.highlight pre {
+  border-radius: 8px;
+}
+
+/* Admonition styling */
+.admonition {
+  border-radius: 8px;
+}
+
+/* Footer stats */
+.footer-stats {
+  text-align: center;
+  padding: 2rem 0;
+  color: var(--md-default-fg-color--light);
+}
+
+/* Plugin card styling */
+.plugin-card {
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-bottom: 1rem;
+  transition: box-shadow 0.2s ease-in-out;
+}
+
+.plugin-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.plugin-card h3 {
+  margin-top: 0;
+}
+
+.plugin-meta {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-top: 0.5rem;
+}
+
+.plugin-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.875rem;
+  color: var(--md-default-fg-color--light);
+}
+
+/* Prompt card styling */
+.prompt-card {
+  background: var(--md-code-bg-color);
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.prompt-card h4 {
+  margin-top: 0;
+  color: var(--md-primary-fg-color);
+}
+
+/* Category badges */
+.category-badge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.category-badge.action {
+  background: #e3f2fd;
+  color: #1976d2;
+}
+
+.category-badge.filter {
+  background: #f3e5f5;
+  color: #7b1fa2;
+}
+
+.category-badge.pipe {
+  background: #e8f5e9;
+  color: #388e3c;
+}
+
+.category-badge.pipeline {
+  background: #fff3e0;
+  color: #f57c00;
+}
+
+/* Dark mode adjustments */
+[data-md-color-scheme="slate"] .category-badge.action {
+  background: #1565c0;
+  color: #e3f2fd;
+}
+
+[data-md-color-scheme="slate"] .category-badge.filter {
+  background: #6a1b9a;
+  color: #f3e5f5;
+}
+
+[data-md-color-scheme="slate"] .category-badge.pipe {
+  background: #2e7d32;
+  color: #e8f5e9;
+}
+
+[data-md-color-scheme="slate"] .category-badge.pipeline {
+  background: #e65100;
+  color: #fff3e0;
+}
+
+/* Version badge */
+.version-badge {
+  display: inline-block;
+  padding: 0.125rem 0.5rem;
+  background: var(--md-primary-fg-color);
+  color: white;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-family: var(--md-code-font-family);
+}
+
+/* Compatibility notice */
+.compatibility-notice {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: var(--md-code-bg-color);
+  border-radius: 4px;
+  font-size: 0.875rem;
+  margin: 1rem 0;
+}
+
+/* Table enhancements */
+.md-typeset table:not([class]) {
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+/* Navigation tabs styling */
+.md-tabs {
+  background: var(--md-primary-fg-color);
+}
