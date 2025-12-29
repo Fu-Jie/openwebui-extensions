@@ -16,6 +16,14 @@ Learn how to develop plugins and contribute to OpenWebUI Extras.
 
     [:octicons-arrow-right-24: Read the Guide](plugin-guide.md)
 
+-   :material-file-document-edit:{ .lg .middle } **Documentation Guide**
+
+    ---
+
+    Learn how to write and contribute documentation using MkDocs and Material theme.
+
+    [:octicons-arrow-right-24: Read the Guide](documentation-guide.md)
+
 -   :material-github:{ .lg .middle } **Contributing**
 
     ---

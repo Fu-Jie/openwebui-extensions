@@ -8,5 +8,5 @@ mkdocs-material>=9.5.0
 # Plugins
 mkdocs-minify-plugin>=0.7.0
 
-# Optional: Multi-language support (uncomment if needed)
-# mkdocs-static-i18n>=1.0.0
+# Multi-language support
+mkdocs-static-i18n>=1.0.0
