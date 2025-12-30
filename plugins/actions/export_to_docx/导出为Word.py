@@ -4,7 +4,7 @@ author: Fu-Jie
 author_url: https://github.com/Fu-Jie
 funding_url: https://github.com/Fu-Jie/awesome-openwebui
 version: 0.1.0
-icon_url: data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxwYXRoIGQ9Ik0xNCAySDZhMiAyIDAgMCAwLTIgMnYxNmEyIDIgMCAwIDAgMiAyaDEyYTIgMiAwIDAgMCAyLTJWOFoiLz48cGF0aCBkPSJNMTQgMnY2aDYiLz48cGF0aCBkPSJNMTYgMTNoLTIuNWEyIDIgMCAwIDAgMCA0SDEyIi8+PHBhdGggZD0iTTggMTNoMiIvPjxwYXRoIGQ9Ik04IDE3aDIiLz48L3N2Zz4=
+icon_url: data:image/svg+xml;base64,PHN2ZwogIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIKICB3aWR0aD0iMjQiCiAgaGVpZ2h0PSIyNCIKICB2aWV3Qm94PSIwIDAgMjQgMjQiCiAgZmlsbD0ibm9uZSIKICBzdHJva2U9ImN1cnJlbnRDb2xvciIKICBzdHJva2Utd2lkdGg9IjIiCiAgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIgogIHN0cm9rZS1saW5lam9pbj0icm91bmQiCj4KICA8cGF0aCBkPSJNNiAyMmEyIDIgMCAwIDEtMi0yVjRhMiAyIDAgMCAxIDItMmg4YTIuNCAyLjQgMCAwIDEgMS43MDQuNzA2bDMuNTg4IDMuNTg4QTIuNCAyLjQgMCAwIDEgMjAgOHYxMmEyIDIgMCAwIDEtMiAyeiIgLz4KICA8cGF0aCBkPSJNMTQgMnY1YTEgMSAwIDAgMCAxIDFoNSIgLz4KICA8cGF0aCBkPSJNMTAgOUg4IiAvPgogIDxwYXRoIGQ9Ik0xNiAxM0g4IiAvPgogIDxwYXRoIGQ9Ik0xNiAxN0g4IiAvPgo8L3N2Zz4K
 requirements: python-docx==1.1.2
 description: 将当前对话内容从 Markdown 转换并导出为 Word (.docx) 文件，支持中英文无乱码。
 """
@@ -14,6 +14,8 @@ import re
 import base64
 import datetime
 import io
+import asyncio
+import logging
 from typing import Optional, Callable, Awaitable, Any, List, Tuple
 from docx import Document
 from docx.shared import Pt, Inches, RGBColor, Cm
@@ -22,6 +24,14 @@ from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.enum.style import WD_STYLE_TYPE
 from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
+from open_webui.models.chats import Chats
+
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+)
+logger = logging.getLogger(__name__)
 
 
 class Action:
@@ -39,8 +49,9 @@ class Action:
         __user__=None,
         __event_emitter__=None,
         __event_call__: Optional[Callable[[Any], Awaitable[None]]] = None,
+        __metadata__: Optional[dict] = None,
     ):
-        print(f"action:{__name__}")
+        logger.info(f"action:{__name__}")
 
         # 解析用户信息
         if isinstance(__user__, (list, tuple)):
@@ -77,18 +88,27 @@ class Action:
                     )
                     return
 
-                # 生成文件名
+                # 生成文件名（优先对话标题；若缺失则通过 chat_id 查询；再到 Markdown 标题；最后用户+日期）
+                chat_id = self.extract_chat_id(body, __metadata__)
+                chat_title = self.extract_chat_title(body)
+                if not chat_title and chat_id:
+                    chat_title = await self.fetch_chat_title(chat_id, user_id)
                 title = self.extract_title(message_content)
                 current_datetime = datetime.datetime.now()
                 formatted_date = current_datetime.strftime("%Y%m%d")
 
-                if title:
+                if chat_title:
+                    filename = f"{self.clean_filename(chat_title)}.docx"
+                elif title:
                     filename = f"{self.clean_filename(title)}.docx"
                 else:
                     filename = f"{user_name}_{formatted_date}.docx"
 
-                # 创建 Word 文档
-                doc = self.markdown_to_docx(message_content)
+                # 创建 Word 文档；若正文无一级标题，使用对话标题作为一级标题
+                has_h1 = bool(re.search(r"^#\s+.+$", message_content, re.MULTILINE))
+                doc = self.markdown_to_docx(
+                    message_content, top_heading=chat_title, has_h1=has_h1
+                )
 
                 # 保存到内存
                 doc_buffer = io.BytesIO()
@@ -160,20 +180,85 @@ class Action:
                 )
 
     def extract_title(self, content: str) -> str:
-        """从 Markdown 内容中提取标题"""
+        """从 Markdown 内容提取一级/二级标题"""
         lines = content.split("\n")
         for line in lines:
-            # 匹配 h1-h3 标题
-            match = re.match(r"^#{1,3}\s+(.+)$", line.strip())
+            # 仅匹配 h1-h2 标题
+            match = re.match(r"^#{1,2}\s+(.+)$", line.strip())
             if match:
                 return match.group(1).strip()
         return ""
+
+    def extract_chat_title(self, body: dict) -> str:
+        """从请求体中提取会话标题"""
+        if not isinstance(body, dict):
+            return ""
+
+        candidates = []
+
+        for key in ("chat", "conversation"):
+            if isinstance(body.get(key), dict):
+                candidates.append(body.get(key, {}).get("title", ""))
+
+        for key in ("title", "chat_title"):
+            value = body.get(key)
+            if isinstance(value, str):
+                candidates.append(value)
+
+        for candidate in candidates:
+            if candidate and isinstance(candidate, str):
+                return candidate.strip()
+        return ""
+
+    def extract_chat_id(self, body: dict, metadata: Optional[dict]) -> str:
+        """从 body 或 metadata 中提取 chat_id"""
+        if isinstance(body, dict):
+            chat_id = body.get("chat_id") or body.get("id")
+            if isinstance(chat_id, str) and chat_id.strip():
+                return chat_id.strip()
+
+            for key in ("chat", "conversation"):
+                nested = body.get(key)
+                if isinstance(nested, dict):
+                    nested_id = nested.get("id") or nested.get("chat_id")
+                    if isinstance(nested_id, str) and nested_id.strip():
+                        return nested_id.strip()
+        if isinstance(metadata, dict):
+            chat_id = metadata.get("chat_id")
+            if isinstance(chat_id, str) and chat_id.strip():
+                return chat_id.strip()
+        return ""
+
+    async def fetch_chat_title(self, chat_id: str, user_id: str = "") -> str:
+        """根据 chat_id 从数据库获取标题"""
+        if not chat_id:
+            return ""
+
+        def _load_chat():
+            if user_id:
+                return Chats.get_chat_by_id_and_user_id(id=chat_id, user_id=user_id)
+            return Chats.get_chat_by_id(chat_id)
+
+        try:
+            chat = await asyncio.to_thread(_load_chat)
+        except Exception as exc:
+            logger.warning(f"加载聊天 {chat_id} 失败: {exc}")
+            return ""
+
+        if not chat:
+            return ""
+
+        data = getattr(chat, "chat", {}) or {}
+        title = data.get("title") or getattr(chat, "title", "")
+        return title.strip() if isinstance(title, str) else ""
 
     def clean_filename(self, name: str) -> str:
         """清理文件名中的非法字符"""
         return re.sub(r'[\\/*?:"<>|]', "", name).strip()[:50]
 
-    def markdown_to_docx(self, markdown_text: str) -> Document:
+    def markdown_to_docx(
+        self, markdown_text: str, top_heading: str = "", has_h1: bool = False
+    ) -> Document:
         """
         将 Markdown 文本转换为 Word 文档
         支持：标题、段落、粗体、斜体、代码块、列表、表格、链接
@@ -182,6 +267,10 @@ class Action:
 
         # 设置默认中文字体
         self.set_document_default_font(doc)
+
+        # 若正文无一级标题且有对话标题，则作为一级标题写入
+        if top_heading and not has_h1:
+            self.add_heading(doc, top_heading, 1)
 
         lines = markdown_text.split("\n")
         i = 0

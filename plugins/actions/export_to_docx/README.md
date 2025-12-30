@@ -1,13 +1,13 @@
 # Export to Word
 
-Export current conversation from Markdown to Word (.docx) file with proper Chinese and English encoding.
+Export current conversation from Markdown to Word (.docx) with proper Chinese and English encoding and smarter filenames.
 
 ## Features
 
 - **One-Click Export**: Adds an "Export to Word" action button to the chat.
 - **Markdown Conversion**: Converts Markdown syntax to Word formatting (headings, bold, italic, code, tables, lists).
 - **Multi-language Support**: Properly handles both Chinese and English text without garbled characters.
-- **Auto Title Extraction**: Automatically uses the first heading as the filename.
+- **Smarter Filenames**: Prefers chat title (from body or chat_id lookup) → first Markdown h1/h2 → user + date.
 
 ## Supported Markdown Syntax
 
@@ -31,6 +31,17 @@ Export current conversation from Markdown to Word (.docx) file with proper Chine
 1. Install the plugin.
 2. In any chat, click the "Export to Word" button.
 3. The .docx file will be automatically downloaded to your device.
+
+
+### Notes
+
+- Title detection only considers h1/h2 headings.
+- If the request carries `chat_id` (body or metadata), the plugin will fetch the chat title from the database when the body lacks one.
+- Default fonts: Times New Roman (en), SimSun/SimHei (zh), Consolas (code).
+
+### Requirements
+
+- python-docx==1.1.2 (already declared in the plugin docstring; ensure installed in your environment).
 
 ## Font Configuration
 
