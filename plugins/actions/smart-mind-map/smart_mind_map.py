@@ -1,18 +1,23 @@
 """
 title: Smart Mind Map
+author: Fu-Jie
+author_url: https://github.com/Fu-Jie
+funding_url: https://github.com/Fu-Jie/awesome-openwebui
+version: 0.8.0
 icon_url: data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxyZWN0IHg9IjE2IiB5PSIxNiIgd2lkdGg9IjYiIGhlaWdodD0iNiIgcng9IjEiLz48cmVjdCB4PSIyIiB5PSIxNiIgd2lkdGg9IjYiIGhlaWdodD0iNiIgcng9IjEiLz48cmVjdCB4PSI5IiB5PSIyIiB3aWR0aD0iNiIgaGVpZ2h0PSI2IiByeD0iMSIvPjxwYXRoIGQ9Ik01IDE2di0zYTEgMSAwIDAgMSAxLTFoMTJhMSAxIDAgMCAxIDEgMXYzIi8+PHBhdGggZD0iTTEyIDEyVjgiLz48L3N2Zz4=
-version: 0.7.4
-description: Intelligently analyzes long texts and generates interactive mind maps, supporting SVG/Markdown export.
+description: Intelligently analyzes text content and generates interactive mind maps to help users structure and visualize knowledge.
 """
 
-from pydantic import BaseModel, Field
-from typing import Optional, Dict, Any
 import logging
-import time
+import os
 import re
+import time
+from datetime import datetime, timezone
+from typing import Any, Dict, Optional
+from zoneinfo import ZoneInfo
+
 from fastapi import Request
-from datetime import datetime
-import pytz
+from pydantic import BaseModel, Field
 
 from open_webui.utils.chat import generate_chat_completion
 from open_webui.models.users import Users
@@ -75,23 +80,19 @@ HTML_WRAPPER_TEMPLATE = """
         }
         #main-container { 
             display: flex; 
-            flex-wrap: wrap; 
+            flex-direction: column; 
             gap: 20px; 
-            align-items: flex-start; 
+            align-items: stretch; 
             width: 100%;
         }
         .plugin-item { 
-            flex: 1 1 400px; /* Default width, allows stretching */
-            min-width: 300px; 
+            width: 100%; 
             border-radius: 12px; 
-            overflow: hidden; 
+            overflow: visible; 
             transition: all 0.3s ease;
         }
         .plugin-item:hover {
             transform: translateY(-2px);
-        }
-        @media (max-width: 768px) { 
-            .plugin-item { flex: 1 1 100%; } 
         }
         /* STYLES_INSERTION_POINT */
     </style>
@@ -111,17 +112,32 @@ CSS_TEMPLATE_MINDMAP = """
             --secondary-color: #43a047;
             --background-color: #f4f6f8;
             --card-bg-color: #ffffff;
-            --text-color: #263238;
+            --text-color: #000000;
+            --link-color: #546e7a;
+            --node-stroke-color: #90a4ae;
             --muted-text-color: #546e7a;
             --border-color: #e0e0e0;
             --header-gradient: linear-gradient(135deg, var(--secondary-color), var(--primary-color));
-            --shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
+            --shadow: 0 10px 20px rgba(0, 0, 0, 0.06);
             --border-radius: 12px;
             --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
         }
+        .theme-dark {
+            --primary-color: #64b5f6;
+            --secondary-color: #81c784;
+            --background-color: #111827;
+            --card-bg-color: #1f2937;
+            --text-color: #ffffff;
+            --link-color: #cbd5e1;
+            --node-stroke-color: #94a3b8;
+            --muted-text-color: #9ca3af;
+            --border-color: #374151;
+            --header-gradient: linear-gradient(135deg, #0ea5e9, #22c55e);
+            --shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+        }
         .mindmap-container-wrapper {
             font-family: var(--font-family);
-            line-height: 1.7;
+            line-height: 1.6;
             color: var(--text-color);
             margin: 0;
             padding: 0;
@@ -130,99 +146,142 @@ CSS_TEMPLATE_MINDMAP = """
             height: 100%;
             display: flex;
             flex-direction: column;
+            background: var(--background-color);
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
         }
         .header {
             background: var(--header-gradient);
             color: white;
-            padding: 20px 24px;
+            padding: 18px 20px;
             text-align: center;
+            border-top-left-radius: var(--border-radius);
+            border-top-right-radius: var(--border-radius);
         }
         .header h1 {
             margin: 0;
-            font-size: 1.5em;
+            font-size: 1.4em;
             font-weight: 600;
-            text-shadow: 0 1px 3px rgba(0,0,0,0.2);
+            letter-spacing: 0.3px;
         }
         .user-context {
-            font-size: 0.8em;
+            font-size: 0.85em;
             color: var(--muted-text-color);
-            background-color: #eceff1;
-            padding: 8px 16px;
+            background-color: rgba(255, 255, 255, 0.6);
+            padding: 8px 14px;
             display: flex;
-            justify-content: space-around;
+            justify-content: space-between;
             flex-wrap: wrap;
             border-bottom: 1px solid var(--border-color);
+            gap: 6px;
         }
-        .user-context span { margin: 2px 8px; }
-        .content-area { 
-            padding: 20px;
+        .theme-dark .user-context {
+            background-color: rgba(31, 41, 55, 0.7);
+        }
+        .user-context span { margin: 2px 6px; }
+        .content-area {
+            padding: 16px;
             flex-grow: 1;
+            background: var(--card-bg-color);
         }
         .markmap-container {
             position: relative;
-            background-color: #fff;
-            background-image: radial-gradient(var(--border-color) 0.5px, transparent 0.5px);
-            background-size: 20px 20px;
-            border-radius: 8px;
-            padding: 16px;
+            background-color: var(--card-bg-color);
+            border-radius: 10px;
+            padding: 12px;
             display: flex;
             justify-content: center;
             align-items: center;
             border: 1px solid var(--border-color);
-            box-shadow: inset 0 2px 6px rgba(0,0,0,0.03);
+            width: 100%;
+            min-height: 60vh;
+            overflow: visible;
         }
-        .download-area {
-            text-align: center;
-            padding-top: 20px;
-            margin-top: 20px;
-            border-top: 1px solid var(--border-color);
+        .markmap-container svg {
+            width: 100%;
+            height: 100%;
         }
-        .download-btn {
+        .markmap-container svg text {
+            fill: var(--text-color) !important;
+            font-family: var(--font-family);
+        }
+        .markmap-container svg foreignObject,
+        .markmap-container svg .markmap-foreign,
+        .markmap-container svg .markmap-foreign div {
+            color: var(--text-color) !important;
+            font-family: var(--font-family);
+        }
+        .markmap-container svg .markmap-link {
+            stroke: var(--link-color) !important;
+        }
+        .markmap-container svg .markmap-node circle,
+        .markmap-container svg .markmap-node rect {
+            stroke: var(--node-stroke-color) !important;
+        }
+        .control-rows {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 12px;
+        }
+        .btn-group {
+            display: inline-flex;
+            gap: 6px;
+            align-items: center;
+        }
+        .control-btn {
             background-color: var(--primary-color);
             color: white;
             border: none;
-            padding: 8px 16px;
-            border-radius: 6px;
+            padding: 8px 12px;
+            border-radius: 8px;
             font-size: 0.9em;
             font-weight: 500;
             cursor: pointer;
-            transition: all 0.2s ease-in-out;
-            margin: 0 6px;
+            transition: background-color 0.15s ease, transform 0.15s ease;
             display: inline-flex;
             align-items: center;
             gap: 6px;
+            height: 36px;
+            box-sizing: border-box;
         }
-        .download-btn.secondary {
-            background-color: var(--secondary-color);
+        select.control-btn {
+            appearance: none;
+            padding-right: 28px;
+            background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23FFFFFF%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E");
+            background-repeat: no-repeat;
+            background-position: right 8px center;
+            background-size: 10px;
         }
-        .download-btn:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-        }
-        .download-btn.copied {
-            background-color: #2e7d32;
-        }
+        .control-btn.secondary { background-color: var(--secondary-color); }
+        .control-btn.neutral { background-color: #64748b; }
+        .control-btn:hover { transform: translateY(-1px); }
+        .control-btn.copied { background-color: #2e7d32; }
+        .control-btn:disabled { opacity: 0.6; cursor: not-allowed; }
         .footer {
             text-align: center;
-            padding: 16px;
-            font-size: 0.8em;
-            color: #90a4ae;
-            background-color: #eceff1;
+            padding: 12px;
+            font-size: 0.85em;
+            color: var(--muted-text-color);
+            background-color: var(--card-bg-color);
             border-top: 1px solid var(--border-color);
+            border-bottom-left-radius: var(--border-radius);
+            border-bottom-right-radius: var(--border-radius);
         }
+
         .footer a {
             color: var(--primary-color);
             text-decoration: none;
             font-weight: 500;
         }
-        .footer a:hover {
-            text-decoration: underline;
-        }
+        .footer a:hover { text-decoration: underline; }
         .error-message {
             color: #c62828;
             background-color: #ffcdd2;
             border: 1px solid #ef9a9a;
-            padding: 16px;
+            padding: 14px;
             border-radius: 8px;
             font-weight: 500;
             font-size: 1em;
@@ -240,15 +299,32 @@ CONTENT_TEMPLATE_MINDMAP = """
             </div>
             <div class="content-area">
                 <div class="markmap-container" id="markmap-container-{unique_id}"></div>
-                <div class="download-area">
-                    <button id="download-svg-btn-{unique_id}" class="download-btn">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                        <span class="btn-text">SVG</span>
-                    </button>
-                    <button id="download-md-btn-{unique_id}" class="download-btn secondary">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-                        <span class="btn-text">Markdown</span>
-                    </button>
+                <div class="control-rows">
+                    <div class="btn-group">
+                        <button id="download-png-btn-{unique_id}" class="control-btn secondary">
+                            <span class="btn-text">PNG</span>
+                        </button>
+                        <button id="download-svg-btn-{unique_id}" class="control-btn">
+                            <span class="btn-text">SVG</span>
+                        </button>
+                        <button id="download-md-btn-{unique_id}" class="control-btn neutral">
+                            <span class="btn-text">Markdown</span>
+                        </button>
+                    </div>
+                    <div class="btn-group">
+                        <button id="zoom-out-btn-{unique_id}" class="control-btn neutral" title="Zoom Out">-</button>
+                        <button id="zoom-reset-btn-{unique_id}" class="control-btn neutral" title="Reset">Reset</button>
+                        <button id="zoom-in-btn-{unique_id}" class="control-btn neutral" title="Zoom In">+</button>
+                    </div>
+                    <div class="btn-group">
+                        <select id="depth-select-{unique_id}" class="control-btn secondary" title="Expand Level">
+                            <option value="0" selected>Expand All</option>
+                            <option value="2">Level 2</option>
+                            <option value="3">Level 3</option>
+                        </select>
+                        <button id="fullscreen-btn-{unique_id}" class="control-btn">Fullscreen</button>
+                        <button id="theme-toggle-btn-{unique_id}" class="control-btn neutral">Theme</button>
+                    </div>
                 </div>
             </div>
             <div class="footer">
@@ -260,13 +336,105 @@ CONTENT_TEMPLATE_MINDMAP = """
 """
 
 SCRIPT_TEMPLATE_MINDMAP = """
-    <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
-    <script src="https://cdn.jsdelivr.net/npm/markmap-lib@0.17"></script>
-    <script src="https://cdn.jsdelivr.net/npm/markmap-view@0.17"></script>
     <script>
       (function() {
+        const uniqueId = "{unique_id}";
+
+        const loadScriptOnce = (src, checkFn) => {
+            if (checkFn()) return Promise.resolve();
+            return new Promise((resolve, reject) => {
+                const existing = document.querySelector(`script[data-src="${src}"]`);
+                if (existing) {
+                    existing.addEventListener('load', () => resolve());
+                    existing.addEventListener('error', () => reject(new Error('Loading failed: ' + src)));
+                    return;
+                }
+                const script = document.createElement('script');
+                script.src = src;
+                script.async = true;
+                script.dataset.src = src;
+                script.onload = () => resolve();
+                script.onerror = () => reject(new Error('Loading failed: ' + src));
+                document.head.appendChild(script);
+            });
+        };
+
+        const ensureMarkmapReady = () =>
+            loadScriptOnce('https://cdn.jsdelivr.net/npm/d3@7', () => window.d3)
+                .then(() => loadScriptOnce('https://cdn.jsdelivr.net/npm/markmap-lib@0.17', () => window.markmap && window.markmap.Transformer))
+                .then(() => loadScriptOnce('https://cdn.jsdelivr.net/npm/markmap-view@0.17', () => window.markmap && window.markmap.Markmap));
+
+        const parseColorLuma = (colorStr) => {
+            if (!colorStr) return null;
+            // hex #rrggbb or rrggbb
+            let m = colorStr.match(/^#?([0-9a-f]{6})$/i);
+            if (m) {
+                const hex = m[1];
+                const r = parseInt(hex.slice(0, 2), 16);
+                const g = parseInt(hex.slice(2, 4), 16);
+                const b = parseInt(hex.slice(4, 6), 16);
+                return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+            }
+            // rgb(r, g, b) or rgba(r, g, b, a)
+            m = colorStr.match(/rgba?\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i);
+            if (m) {
+                const r = parseInt(m[1], 10);
+                const g = parseInt(m[2], 10);
+                const b = parseInt(m[3], 10);
+                return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+            }
+            return null;
+        };
+
+        const getThemeFromMeta = (doc, scope = 'self') => {
+            const metas = Array.from((doc || document).querySelectorAll('meta[name="theme-color"]'));
+            if (!metas.length) return null;
+            const color = metas[metas.length - 1].content.trim();
+            const luma = parseColorLuma(color);
+            if (luma === null) return null;
+            return luma < 0.5 ? 'dark' : 'light';
+        };
+
+        const getParentDocumentSafe = () => {
+            try {
+                if (!window.parent || window.parent === window) return null;
+                const pDoc = window.parent.document;
+                void pDoc.title;
+                return pDoc;
+            } catch (err) {
+                return null;
+            }
+        };
+
+        const getThemeFromParentClass = () => {
+            try {
+                if (!window.parent || window.parent === window) return null;
+                const pDoc = window.parent.document;
+                const html = pDoc.documentElement;
+                const body = pDoc.body;
+                const htmlClass = html ? html.className : '';
+                const bodyClass = body ? body.className : '';
+                const htmlDataTheme = html ? html.getAttribute('data-theme') : '';
+                if (htmlDataTheme === 'dark' || bodyClass.includes('dark') || htmlClass.includes('dark')) return 'dark';
+                if (htmlDataTheme === 'light' || bodyClass.includes('light') || htmlClass.includes('light')) return 'light';
+                return null;
+            } catch (err) {
+                return null;
+            }
+        };
+
+        const setTheme = (wrapperEl, explicitTheme) => {
+            const parentDoc = getParentDocumentSafe();
+            const metaThemeParent = parentDoc ? getThemeFromMeta(parentDoc, 'parent') : null;
+            const parentClassTheme = getThemeFromParentClass();
+            const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+            
+            const chosen = explicitTheme || metaThemeParent || parentClassTheme || (prefersDark ? 'dark' : 'light');
+            wrapperEl.classList.toggle('theme-dark', chosen === 'dark');
+            return chosen;
+        };
+
         const renderMindmap = () => {
-            const uniqueId = "{unique_id}";
             const containerEl = document.getElementById('markmap-container-' + uniqueId);
             if (!containerEl || containerEl.dataset.markmapRendered) return;
 
@@ -275,71 +443,83 @@ SCRIPT_TEMPLATE_MINDMAP = """
 
             const markdownContent = sourceEl.textContent.trim();
             if (!markdownContent) {
-                containerEl.innerHTML = '<div class="error-message">⚠️ Unable to load mind map: Missing valid content.</div>';
+                containerEl.innerHTML = '<div class=\"error-message\">⚠️ Unable to load mind map: Missing valid content.</div>';
                 return;
             }
 
-            try {
-                const svgEl = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+            ensureMarkmapReady().then(() => {
+                const svgEl = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
                 svgEl.style.width = '100%';
-                svgEl.style.height = 'auto';
-                svgEl.style.minHeight = '300px';
-                containerEl.innerHTML = ''; 
+                svgEl.style.height = '100%';
+                svgEl.style.minHeight = '60vh';
+                containerEl.innerHTML = '';
                 containerEl.appendChild(svgEl);
 
                 const { Transformer, Markmap } = window.markmap;
                 const transformer = new Transformer();
                 const { root } = transformer.transform(markdownContent);
-                
-                const style = (id) => `${id} text { font-size: 14px !important; }`;
 
-                const options = { 
+                const style = (id) => `
+                    ${id} text, ${id} foreignObject { font-size: 14px; }
+                    ${id} foreignObject h1 { font-size: 22px; font-weight: 700; margin: 0; }
+                    ${id} foreignObject h2 { font-size: 18px; font-weight: 600; margin: 0; }
+                    ${id} foreignObject strong { font-weight: 700; }
+                `;
+                const options = {
                     autoFit: true,
-                    style: style
+                    style: style,
+                    initialExpandLevel: Infinity,
+                    zoom: true,
+                    pan: true
                 };
-                Markmap.create(svgEl, options, root);
-                
-                containerEl.dataset.markmapRendered = 'true';
-                
-                attachDownloadHandlers(uniqueId);
 
-            } catch (error) {
-                console.error('Markmap rendering error:', error);
-                containerEl.innerHTML = '<div class="error-message">⚠️ Mind map rendering failed!<br>Reason: ' + error.message + '</div>';
-            }
+                const markmapInstance = Markmap.create(svgEl, options, root);
+                containerEl.dataset.markmapRendered = 'true';
+
+                setupControls({
+                    containerEl,
+                    svgEl,
+                    markmapInstance,
+                    root,
+                });
+
+            }).catch((error) => {
+                console.error('Markmap loading error:', error);
+                containerEl.innerHTML = '<div class=\"error-message\">⚠️ Resource loading failed, please try again later.</div>';
+            });
         };
 
-        const attachDownloadHandlers = (uniqueId) => {
+        const setupControls = ({ containerEl, svgEl, markmapInstance, root }) => {
             const downloadSvgBtn = document.getElementById('download-svg-btn-' + uniqueId);
+            const downloadPngBtn = document.getElementById('download-png-btn-' + uniqueId);
             const downloadMdBtn = document.getElementById('download-md-btn-' + uniqueId);
-            const containerEl = document.getElementById('markmap-container-' + uniqueId);
+            const zoomInBtn = document.getElementById('zoom-in-btn-' + uniqueId);
+            const zoomOutBtn = document.getElementById('zoom-out-btn-' + uniqueId);
+            const zoomResetBtn = document.getElementById('zoom-reset-btn-' + uniqueId);
+            const depthSelect = document.getElementById('depth-select-' + uniqueId);
+            const fullscreenBtn = document.getElementById('fullscreen-btn-' + uniqueId);
+            const themeToggleBtn = document.getElementById('theme-toggle-btn-' + uniqueId);
 
-            const showFeedback = (button, isSuccess) => {
-                const buttonText = button.querySelector('.btn-text');
+            const wrapper = containerEl.closest('.mindmap-container-wrapper');
+            let currentTheme = setTheme(wrapper);
+
+            const showFeedback = (button, textOk = 'Done', textFail = 'Failed') => {
+                if (!button) return;
+                const buttonText = button.querySelector('.btn-text') || button;
                 const originalText = buttonText.textContent;
-                
                 button.disabled = true;
-                if (isSuccess) {
-                    buttonText.textContent = '✅';
-                    button.classList.add('copied');
-                } else {
-                    buttonText.textContent = '❌';
-                }
-
+                buttonText.textContent = textOk;
+                button.classList.add('copied');
                 setTimeout(() => {
                     buttonText.textContent = originalText;
                     button.disabled = false;
                     button.classList.remove('copied');
-                }, 2500);
+                }, 1800);
             };
 
             const copyToClipboard = (content, button) => {
                 if (navigator.clipboard && window.isSecureContext) {
-                    navigator.clipboard.writeText(content).then(() => {
-                        showFeedback(button, true);
-                    }, () => {
-                        showFeedback(button, false);
-                    });
+                    navigator.clipboard.writeText(content).then(() => showFeedback(button), () => showFeedback(button, 'Failed', 'Failed'));
                 } else {
                     const textArea = document.createElement('textarea');
                     textArea.value = content;
@@ -350,32 +530,228 @@ SCRIPT_TEMPLATE_MINDMAP = """
                     textArea.select();
                     try {
                         document.execCommand('copy');
-                        showFeedback(button, true);
+                        showFeedback(button);
                     } catch (err) {
-                        showFeedback(button, false);
+                        showFeedback(button, 'Failed', 'Failed');
                     }
                     document.body.removeChild(textArea);
                 }
             };
 
-            if (downloadSvgBtn) {
-                downloadSvgBtn.addEventListener('click', (event) => {
-                    event.stopPropagation();
-                    const svgEl = containerEl.querySelector('svg');
-                    if (svgEl) {
-                        const svgData = new XMLSerializer().serializeToString(svgEl);
-                        copyToClipboard(svgData, downloadSvgBtn);
-                    }
-                });
-            }
+            const handleDownloadSVG = () => {
+                const svg = containerEl.querySelector('svg');
+                if (!svg) return;
+                // Inline styles before export
+                const clonedSvg = svg.cloneNode(true);
+                const style = document.createElement('style');
+                style.textContent = `
+                    text { font-family: sans-serif; fill: ${currentTheme === 'dark' ? '#ffffff' : '#000000'}; }
+                    foreignObject, .markmap-foreign, .markmap-foreign div { color: ${currentTheme === 'dark' ? '#ffffff' : '#000000'}; font-family: sans-serif; font-size: 14px; }
+                    h1 { font-size: 22px; font-weight: 700; margin: 0; }
+                    h2 { font-size: 18px; font-weight: 600; margin: 0; }
+                    strong { font-weight: 700; }
+                    .markmap-link { stroke: ${currentTheme === 'dark' ? '#cbd5e1' : '#546e7a'}; }
+                    .markmap-node circle, .markmap-node rect { stroke: ${currentTheme === 'dark' ? '#94a3b8' : '#94a3b8'}; }
+                `;
+                clonedSvg.prepend(style);
+                const svgData = new XMLSerializer().serializeToString(clonedSvg);
+                copyToClipboard(svgData, downloadSvgBtn);
+            };
 
-            if (downloadMdBtn) {
-                downloadMdBtn.addEventListener('click', (event) => {
-                    event.stopPropagation();
-                    const markdownContent = document.getElementById('markdown-source-' + uniqueId).textContent;
-                    copyToClipboard(markdownContent, downloadMdBtn);
-                });
-            }
+            const handleDownloadMD = () => {
+                const markdownContent = document.getElementById('markdown-source-' + uniqueId)?.textContent || '';
+                if (!markdownContent) return;
+                copyToClipboard(markdownContent, downloadMdBtn);
+            };
+
+            const handleDownloadPNG = () => {
+                const btn = downloadPngBtn;
+                const originalText = btn.querySelector('.btn-text').textContent;
+                btn.querySelector('.btn-text').textContent = 'Generating...';
+                btn.disabled = true;
+
+                const svg = containerEl.querySelector('svg');
+                if (!svg) {
+                    btn.querySelector('.btn-text').textContent = originalText;
+                    btn.disabled = false;
+                    showFeedback(btn, 'Failed', 'Failed');
+                    return;
+                }
+
+                try {
+                    // Clone SVG and inline styles
+                    const clonedSvg = svg.cloneNode(true);
+                    clonedSvg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+                    clonedSvg.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
+                    
+                    const rect = svg.getBoundingClientRect();
+                    const width = rect.width || 800;
+                    const height = rect.height || 600;
+                    clonedSvg.setAttribute('width', width);
+                    clonedSvg.setAttribute('height', height);
+
+                    // Remove foreignObject (HTML content) and replace with text
+                    const foreignObjects = clonedSvg.querySelectorAll('foreignObject');
+                    foreignObjects.forEach(fo => {
+                        const text = fo.textContent || '';
+                        const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                        const textEl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                        textEl.setAttribute('x', fo.getAttribute('x') || '0');
+                        textEl.setAttribute('y', (parseFloat(fo.getAttribute('y') || '0') + 14).toString());
+                        textEl.setAttribute('fill', currentTheme === 'dark' ? '#ffffff' : '#000000');
+                        textEl.setAttribute('font-family', 'sans-serif');
+                        textEl.setAttribute('font-size', '14');
+                        textEl.textContent = text.trim();
+                        g.appendChild(textEl);
+                        fo.parentNode.replaceChild(g, fo);
+                    });
+
+                    // Inline styles
+                    const style = document.createElementNS('http://www.w3.org/2000/svg', 'style');
+                    style.textContent = `
+                        text { font-family: sans-serif; font-size: 14px; fill: ${currentTheme === 'dark' ? '#ffffff' : '#000000'}; }
+                        .markmap-link { fill: none; stroke: ${currentTheme === 'dark' ? '#cbd5e1' : '#546e7a'}; stroke-width: 2; }
+                        .markmap-node circle { stroke: ${currentTheme === 'dark' ? '#94a3b8' : '#94a3b8'}; stroke-width: 2; }
+                    `;
+                    clonedSvg.insertBefore(style, clonedSvg.firstChild);
+
+                    // Add background rect
+                    const bgRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                    bgRect.setAttribute('width', '100%');
+                    bgRect.setAttribute('height', '100%');
+                    bgRect.setAttribute('fill', currentTheme === 'dark' ? '#1f2937' : '#ffffff');
+                    clonedSvg.insertBefore(bgRect, clonedSvg.firstChild);
+
+                    const svgData = new XMLSerializer().serializeToString(clonedSvg);
+                    const svgBase64 = btoa(unescape(encodeURIComponent(svgData)));
+                    const dataUrl = 'data:image/svg+xml;base64,' + svgBase64;
+
+                    const img = new Image();
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        const scale = 9;
+                        canvas.width = width * scale;
+                        canvas.height = height * scale;
+                        const ctx = canvas.getContext('2d');
+                        ctx.scale(scale, scale);
+                        ctx.fillStyle = currentTheme === 'dark' ? '#1f2937' : '#ffffff';
+                        ctx.fillRect(0, 0, width, height);
+                        ctx.drawImage(img, 0, 0, width, height);
+
+                        canvas.toBlob((blob) => {
+                            if (!blob) {
+                                btn.querySelector('.btn-text').textContent = originalText;
+                                btn.disabled = false;
+                                showFeedback(btn, 'Failed', 'Failed');
+                                return;
+                            }
+                            
+                            // Use non-bubbling MouseEvent to avoid router interception
+                            const a = document.createElement('a');
+                            a.download = 'mindmap.png';
+                            a.href = URL.createObjectURL(blob);
+                            a.style.display = 'none';
+                            document.body.appendChild(a);
+                            
+                            const evt = new MouseEvent('click', {
+                                view: window,
+                                bubbles: false,
+                                cancelable: false
+                            });
+                            a.dispatchEvent(evt);
+                            
+                            setTimeout(() => {
+                                document.body.removeChild(a);
+                                URL.revokeObjectURL(a.href);
+                            }, 100);
+
+                            btn.querySelector('.btn-text').textContent = originalText;
+                            btn.disabled = false;
+                            showFeedback(btn);
+                        }, 'image/png');
+                    };
+                    
+                    img.onerror = (e) => {
+                        console.error('PNG image load error:', e);
+                        btn.querySelector('.btn-text').textContent = originalText;
+                        btn.disabled = false;
+                        showFeedback(btn, 'Failed', 'Failed');
+                    };
+                    
+                    img.src = dataUrl;
+                } catch (err) {
+                    console.error('PNG export error:', err);
+                    btn.querySelector('.btn-text').textContent = originalText;
+                    btn.disabled = false;
+                    showFeedback(btn, 'Failed', 'Failed');
+                }
+            };
+
+            const handleZoom = (direction) => {
+                if (direction === 'reset') {
+                    markmapInstance.fit();
+                    return;
+                }
+                // Simple zoom simulation if d3 zoom instance is not accessible
+                // Markmap uses d3-zoom, so we can try to select the svg and transition
+                const svg = d3.select(svgEl);
+                // We can't easily access the internal zoom behavior object created by markmap
+                // So we rely on fit() for reset, and maybe just let user scroll/pinch for zoom
+                // Or we can try to rescale if supported
+                if (markmapInstance.rescale) {
+                    const scale = direction === 'in' ? 1.25 : 0.8;
+                    markmapInstance.rescale(scale);
+                } else {
+                    // Fallback: just fit, as manual transform manipulation conflicts with d3
+                    // Or we could try to find the zoom behavior attached to the node
+                    // const zoom = d3.zoomTransform(svgEl);
+                    // But we need the zoom behavior function to call scaleBy
+                }
+            };
+
+            const handleDepthChange = (e) => {
+                const level = parseInt(e.target.value, 10);
+                const expandLevel = level === 0 ? Infinity : level;
+                
+                // Deep clone root to reset internal state (payload.fold) added by markmap
+                const cleanRoot = JSON.parse(JSON.stringify(root));
+                
+                markmapInstance.setOptions({ initialExpandLevel: expandLevel });
+                markmapInstance.setData(cleanRoot);
+                markmapInstance.fit();
+            };
+
+            const handleFullscreen = () => {
+                const el = containerEl;
+                if (!document.fullscreenElement) {
+                    el.requestFullscreen().then(() => {
+                        setTimeout(() => markmapInstance.fit(), 200);
+                    });
+                } else {
+                    document.exitFullscreen();
+                }
+            };
+            
+            document.addEventListener('fullscreenchange', () => {
+                if (document.fullscreenElement === containerEl) {
+                    setTimeout(() => markmapInstance.fit(), 200);
+                }
+            });
+
+            const handleThemeToggle = () => {
+                currentTheme = currentTheme === 'dark' ? 'light' : 'dark';
+                setTheme(wrapper, currentTheme);
+            };
+
+            downloadSvgBtn?.addEventListener('click', (e) => { e.stopPropagation(); handleDownloadSVG(); });
+            downloadMdBtn?.addEventListener('click', (e) => { e.stopPropagation(); handleDownloadMD(); });
+            downloadPngBtn?.addEventListener('click', (e) => { e.stopPropagation(); handleDownloadPNG(); });
+            zoomInBtn?.addEventListener('click', (e) => { e.stopPropagation(); handleZoom('in'); });
+            zoomOutBtn?.addEventListener('click', (e) => { e.stopPropagation(); handleZoom('out'); });
+            zoomResetBtn?.addEventListener('click', (e) => { e.stopPropagation(); handleZoom('reset'); });
+            depthSelect?.addEventListener('change', (e) => { e.stopPropagation(); handleDepthChange(e); });
+            fullscreenBtn?.addEventListener('click', (e) => { e.stopPropagation(); handleFullscreen(); });
+            themeToggleBtn?.addEventListener('click', (e) => { e.stopPropagation(); handleThemeToggle(); });
         };
 
         if (document.readyState === 'loading') {
@@ -421,6 +797,21 @@ class Action:
             "Friday": "Friday",
             "Saturday": "Saturday",
             "Sunday": "Sunday",
+        }
+
+    def _get_user_context(self, __user__: Optional[Dict[str, Any]]) -> Dict[str, str]:
+        """Extract basic user context with safe fallbacks."""
+        if isinstance(__user__, (list, tuple)):
+            user_data = __user__[0] if __user__ else {}
+        elif isinstance(__user__, dict):
+            user_data = __user__
+        else:
+            user_data = {}
+
+        return {
+            "user_id": user_data.get("id", "unknown_user"),
+            "user_name": user_data.get("name", "User"),
+            "user_language": user_data.get("language", "en-US"),
         }
 
     def _extract_markdown_syntax(self, llm_output: str) -> str:
@@ -517,33 +908,21 @@ class Action:
         __event_emitter__: Optional[Any] = None,
         __request__: Optional[Request] = None,
     ) -> Optional[dict]:
-        logger.info("Action: Smart Mind Map (v0.7.2) started")
-
-        if isinstance(__user__, (list, tuple)):
-            user_language = (
-                __user__[0].get("language", "en-US") if __user__ else "en-US"
-            )
-            user_name = __user__[0].get("name", "User") if __user__[0] else "User"
-            user_id = (
-                __user__[0]["id"]
-                if __user__ and "id" in __user__[0]
-                else "unknown_user"
-            )
-        elif isinstance(__user__, dict):
-            user_language = __user__.get("language", "en-US")
-            user_name = __user__.get("name", "User")
-            user_id = __user__.get("id", "unknown_user")
+        logger.info("Action: Smart Mind Map (v0.8.0) started")
+        user_ctx = self._get_user_context(__user__)
+        user_language = user_ctx["user_language"]
+        user_name = user_ctx["user_name"]
+        user_id = user_ctx["user_id"]
 
         try:
-            shanghai_tz = pytz.timezone("Asia/Shanghai")
-            current_datetime_shanghai = datetime.now(shanghai_tz)
-            current_date_time_str = current_datetime_shanghai.strftime(
-                "%B %d, %Y %H:%M:%S"
-            )
-            current_weekday_en = current_datetime_shanghai.strftime("%A")
+            tz_env = os.environ.get("TZ")
+            tzinfo = ZoneInfo(tz_env) if tz_env else None
+            now_dt = datetime.now(tzinfo or timezone.utc)
+            current_date_time_str = now_dt.strftime("%B %d, %Y %H:%M:%S")
+            current_weekday_en = now_dt.strftime("%A")
             current_weekday_zh = self.weekday_map.get(current_weekday_en, "Unknown")
-            current_year = current_datetime_shanghai.strftime("%Y")
-            current_timezone_str = "Asia/Shanghai"
+            current_year = now_dt.strftime("%Y")
+            current_timezone_str = tz_env or "UTC"
         except Exception as e:
             logger.warning(f"Failed to get timezone info: {e}, using default values.")
             now = datetime.now()
@@ -722,7 +1101,7 @@ class Action:
                 f"Mind map has been generated, {user_name}!",
                 "success",
             )
-            logger.info("Action: Smart Mind Map (v0.7.2) completed successfully")
+            logger.info("Action: Smart Mind Map (v0.8.0) completed successfully")
 
         except Exception as e:
             error_message = f"Smart Mind Map processing failed: {str(e)}"
