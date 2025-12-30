@@ -48,7 +48,7 @@ OpenWebUI 支持四种类型的插件，每种都有不同的用途：
 
 | 插件 | 类型 | 描述 | 版本 |
 |--------|------|-------------|---------|
-| [Smart Mind Map（智能思维导图）](actions/smart-mind-map.md) | Action | 从文本生成交互式思维导图 | 0.7.2 |
+| [Smart Mind Map（智能思维导图）](actions/smart-mind-map.md) | Action | 从文本生成交互式思维导图 | 0.8.0 |
 | [Smart Infographic（智能信息图）](actions/smart-infographic.md) | Action | 将文本转成专业信息图 | 1.0.0 |
 | [Knowledge Card（知识卡片）](actions/knowledge-card.md) | Action | 生成精美学习卡片 | 0.2.0 |
 | [Export to Excel（导出到 Excel）](actions/export-to-excel.md) | Action | 导出聊天记录为 Excel | 1.0.0 |

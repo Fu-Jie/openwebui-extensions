@@ -27,7 +27,7 @@ Open WebUI 通过文件顶部的特定格式注释来识别和展示插件信息
 """
 title: 思维导图
 icon_url: data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIxLjUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+CiAgPGNpcmNsZSBjeD0iMTIiIGN5PSIxMiIgcj0iMyIgZmlsbD0iY3VycmVudENvbG9yIi8+CiAgPGxpbmUgeDE9IjEyIiB5MT0iOSIgeDI9IjEyIiB5Mj0iNCIvPgogIDxjaXJjbGUgY3g9IjEyIiBjeT0iMyIgcj0iMS41Ii8+CiAgPGxpbmUgeDE9IjEyIiB5MT0iMTUiIHgyPSIxMiIgeTI9IjIwIi8+CiAgPGNpcmNsZSBjeD0iMTIiIGN5PSIyMSIgcj0iMS41Ii8+CiAgPGxpbmUgeDE9IjkiIHkxPSIxMiIgeDI9IjQiIHkyPSIxMiIvPgogIDxjaXJjbGUgY3g9IjMiIGN5PSIxMiIgcj0iMS41Ii8+CiAgPGxpbmUgeDE9IjE1IiB5MT0iMTIiIHgyPSIyMCIgeTI9IjEyIi8+CiAgPGNpcmNsZSBjeD0iMjEiIGN5PSIxMiIgcj0iMS41Ii8+CiAgPGxpbmUgeDE9IjEwLjUiIHkxPSྡ1LjUiIHgyPSI2IiB5Mj0iNiIvPgogIDxjaXJjbGUgY3g9IjUiIGN5PSI1Iigcj0iMS41Ii8+CiAgPGxpbmUgeDE9IjEzLjUiIHkxPSྡ5LjUgeDI9IjE1IiB5Mj0iNiIvPgogIDxjaXJjbGUgY3g9IjE5IiBjeT0iNSIgcj0iMS41Ii8+CiAgPGxpbmUgeDE9ྡ1LjUgeTE9ྡ3MuNSB4Mj0iNiIgeTI9IjE4Ii8+CiAgPGNpcmNsZSBjeD0iNSIgY3k9IjE5IiByPSྡ1LjUiLz4KICA8bGluZSB4MT0ྡzIuNSB5MT0ྡzIuNSB4Mj0iNSIgeTI9IjE4Ii8+CiAgPGNpcmNsZSBjeD0ྡ5IiBjeT0ྡ5IiByPSྡ1LjUiLz4KPC9zdmc+Cg==
-version: 0.7.2
+version: 0.8.0
 description: 智能分析文本内容,生成交互式思维导图,帮助用户结构化和可视化知识。
 """
 ```
@@ -50,15 +50,21 @@ description: 智能分析文本内容,生成交互式思维导图,帮助用户�
 ```python
 class Action:
     class Valves(BaseModel):
-        show_status: bool = Field(
+        SHOW_STATUS: bool = Field(
             default=True, description="是否在聊天界面显示操作状态更新。"
         )
-        LLM_MODEL_ID: str = Field(
-            default="gemini-2.5-flash",
-            description="用于文本分析的内置LLM模型ID。",
+        MODEL_ID: str = Field(
+            default="",
+            description="用于文本分析的内置 LLM 模型 ID（留空使用当前对话模型）。",
         )
         MIN_TEXT_LENGTH: int = Field(
             default=100, description="进行思维导图分析所需的最小文本长度(字符数)。"
+        )
+        CLEAR_PREVIOUS_HTML: bool = Field(
+            default=False, description="生成新导图时是否清理之前的插件输出。"
+        )
+        MESSAGE_COUNT: int = Field(
+            default=1, description="用于生成的最近消息数量（1-5）。"
         )
 
     def __init__(self):

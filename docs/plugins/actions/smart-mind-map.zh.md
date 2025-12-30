@@ -1,7 +1,7 @@
 # Smart Mind Map（智能思维导图）
 
 <span class="category-badge action">Action</span>
-<span class="version-badge">v0.7.2</span>
+<span class="version-badge">v0.8.0</span>
 
 智能分析文本内容，生成交互式思维导图，帮助你更直观地理解信息结构。
 
@@ -13,31 +13,31 @@ Smart Mind Map 会将文本转换成漂亮的交互式思维导图。插件会�
 
 ## 功能特性
 
-- :material-brain: **AI 分析**：智能提取关键概念与关联关系
-- :material-gesture-swipe: **交互导航**：支持缩放、平移、展开/折叠
-- :material-palette: **精美样式**：现代化配色，支持自定义主题
-- :material-download: **导出**：可保存为图片或结构化数据
-- :material-translate: **多语言**：支持多语言文本分析
+- :material-brain: **LLM 分析**：可配置模型，提取核心概念与层级
+- :material-gesture-swipe: **丰富控制**：缩放/重置、展开层级（全部/2/3 级）与全屏
+- :material-palette: **主题感知**：自动检测 OpenWebUI 亮/暗色主题并支持手动切换
+- :material-download: **一键导出**：下载高分辨率 PNG、复制 SVG 或 Markdown
+- :material-translate: **多语言**：根据用户语言自动输出
 
 ---
 
 ## 安装
 
-1. 下载插件文件：[`smart_mind_map.py`](https://github.com/Fu-Jie/awesome-openwebui/tree/main/plugins/actions/smart-mind-map)
-2. 上传到 OpenWebUI：**Admin Panel** → **Settings** → **Functions**
-3. 启用插件
+1. 下载插件文件：[`思维导图.py`](https://github.com/Fu-Jie/awesome-openwebui/tree/main/plugins/actions/smart-mind-map)
+2. 上传到 OpenWebUI：**Admin Panel** → **Settings** → **Functions**（Actions）
+3. 启用插件，并可在设置中允许 iframe same-origin 以启用主题自动检测
 
 ---
 
 ## 使用方法
 
-1. 先与 AI 对话并生成回复
-2. 点击消息操作栏中的 **Mind Map** 按钮
-3. 等待思维导图生成
-4. 交互使用：
-   - **缩放**：滚轮缩放
-   - **平移**：按住拖动
-   - **展开/折叠**：点击节点显示或隐藏子节点
+1. 在聊天设置中启用 **Smart Mind Map**，提供不少于约 100 字符的文本
+2. 点击消息操作栏中的 **Mind Map** 动作按钮触发生成
+3. 交互使用：
+   - **缩放与重置**：滚轮或使用 + / - / ↻ 控制
+   - **展开层级**：切换“全部 / 2 级 / 3 级”
+   - **主题与全屏**：手动切换亮/暗色或进入全屏
+4. 一键导出：**PNG**、**复制 SVG**、**复制 Markdown**
 
 ---
 
@@ -45,9 +45,11 @@ Smart Mind Map 会将文本转换成漂亮的交互式思维导图。插件会�
 
 | 选项 | 类型 | 默认值 | 说明 |
 |--------|------|---------|-------------|
-| `show_status` | boolean | `true` | 是否显示处理状态更新 |
-| `max_depth` | integer | `5` | 思维导图的最大层级 |
-| `theme` | string | `"default"` | 可视化的主题配色 |
+| `SHOW_STATUS` | boolean | `true` | 是否在聊天中显示状态更新 |
+| `MODEL_ID` | string | `""` | 内置 LLM 模型 ID（留空使用当前聊天模型） |
+| `MIN_TEXT_LENGTH` | integer | `100` | 开始分析所需的最少字符数 |
+| `CLEAR_PREVIOUS_HTML` | boolean | `false` | 生成新导图时是否清除之前的插件 HTML |
+| `MESSAGE_COUNT` | integer | `1` | 用于生成的最近消息数量（1–5） |
 
 ---
 
@@ -73,16 +75,20 @@ Smart Mind Map 会将文本转换成漂亮的交互式思维导图。插件会�
 !!! note "前置条件"
     - OpenWebUI v0.3.0 及以上
     - 无需额外 Python 依赖
+    - 如需自动匹配主题/提高 PNG 导出准确性，请在 **User Settings → Interface → Artifacts** 中允许 iframe same-origin 访问
 
 ---
 
 ## 常见问题
 
 ??? question "思维导图不显示？"
-    请确认浏览器支持 HTML5 Canvas，并且已开启 JavaScript。
+    - 确认输入文本达到 `MIN_TEXT_LENGTH`
+    - 确保已配置可用的 `MODEL_ID`（或留空使用当前模型）
+    - 启用插件后刷新页面再试
 
-??? question "生成时间过长？"
-    对超长文本，AI 分析会更耗时。建议拆分内容后再生成。
+??? question "主题不匹配或 PNG 为空白？"
+    - 在设置中开启 iframe same-origin 以读取父页面主题
+    - 等待导图完全渲染后再导出
 
 ---
 
