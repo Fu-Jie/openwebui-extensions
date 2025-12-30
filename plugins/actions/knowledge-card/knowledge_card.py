@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any, List
 import json
 import logging
+import re
 from open_webui.utils.chat import generate_chat_completion
 from open_webui.models.users import Users
 
