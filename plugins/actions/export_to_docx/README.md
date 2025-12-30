@@ -1,30 +1,33 @@
 # Export to Word
 
-Export current conversation from Markdown to Word (.docx) with proper Chinese and English encoding and smarter filenames.
+Export current conversation from Markdown to Word (.docx) with **syntax highlighting**, **blockquote support**, and smarter filenames.
 
 ## Features
 
 - **One-Click Export**: Adds an "Export to Word" action button to the chat.
 - **Markdown Conversion**: Converts Markdown syntax to Word formatting (headings, bold, italic, code, tables, lists).
+- **Syntax Highlighting**: Code blocks are highlighted with Pygments (supports 500+ languages).
+- **Blockquote Support**: Markdown blockquotes are rendered with left border and gray styling.
 - **Multi-language Support**: Properly handles both Chinese and English text without garbled characters.
 - **Smarter Filenames**: Prefers chat title (from body or chat_id lookup) → first Markdown h1/h2 → user + date.
 
 ## Supported Markdown Syntax
 
-| Syntax                              | Word Result                    |
-| :---------------------------------- | :----------------------------- |
-| `# Heading 1` to `###### Heading 6` | Heading levels 1-6             |
-| `**bold**` or `__bold__`            | Bold text                      |
-| `*italic*` or `_italic_`            | Italic text                    |
-| `***bold italic***`                 | Bold + Italic                  |
-| `` `inline code` ``                 | Monospace with gray background |
-| ` ``` code block ``` `              | Code block with indentation    |
-| `[link](url)`                       | Blue underlined link text      |
-| `~~strikethrough~~`                 | Strikethrough text             |
-| `- item` or `* item`                | Bullet list                    |
-| `1. item`                           | Numbered list                  |
-| Markdown tables                     | Table with grid                |
-| `---` or `***`                      | Horizontal rule                |
+| Syntax                              | Word Result                       |
+| :---------------------------------- | :-------------------------------- |
+| `# Heading 1` to `###### Heading 6` | Heading levels 1-6                |
+| `**bold**` or `__bold__`            | Bold text                         |
+| `*italic*` or `_italic_`            | Italic text                       |
+| `***bold italic***`                 | Bold + Italic                     |
+| `` `inline code` ``                 | Monospace with gray background    |
+| ` ``` code block ``` `              | **Syntax highlighted** code block |
+| `> blockquote`                      | Left-bordered gray italic text    |
+| `[link](url)`                       | Blue underlined link text         |
+| `~~strikethrough~~`                 | Strikethrough text                |
+| `- item` or `* item`                | Bullet list                       |
+| `1. item`                           | Numbered list                     |
+| Markdown tables                     | Table with grid                   |
+| `---` or `***`                      | Horizontal rule                   |
 
 ## Usage
 
@@ -41,7 +44,10 @@ Export current conversation from Markdown to Word (.docx) with proper Chinese an
 
 ### Requirements
 
-- python-docx==1.1.2 (already declared in the plugin docstring; ensure installed in your environment).
+- `python-docx==1.1.2` - Word document generation
+- `Pygments>=2.15.0` - Syntax highlighting (optional but recommended)
+
+Both are declared in the plugin docstring; ensure they are installed in your environment.
 
 ## Font Configuration
 

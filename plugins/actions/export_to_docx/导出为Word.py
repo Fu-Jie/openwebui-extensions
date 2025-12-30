@@ -5,8 +5,8 @@ author_url: https://github.com/Fu-Jie
 funding_url: https://github.com/Fu-Jie/awesome-openwebui
 version: 0.1.0
 icon_url: data:image/svg+xml;base64,PHN2ZwogIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIKICB3aWR0aD0iMjQiCiAgaGVpZ2h0PSIyNCIKICB2aWV3Qm94PSIwIDAgMjQgMjQiCiAgZmlsbD0ibm9uZSIKICBzdHJva2U9ImN1cnJlbnRDb2xvciIKICBzdHJva2Utd2lkdGg9IjIiCiAgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIgogIHN0cm9rZS1saW5lam9pbj0icm91bmQiCj4KICA8cGF0aCBkPSJNNiAyMmEyIDIgMCAwIDEtMi0yVjRhMiAyIDAgMCAxIDItMmg4YTIuNCAyLjQgMCAwIDEgMS43MDQuNzA2bDMuNTg4IDMuNTg4QTIuNCAyLjQgMCAwIDEgMjAgOHYxMmEyIDIgMCAwIDEtMiAyeiIgLz4KICA8cGF0aCBkPSJNMTQgMnY1YTEgMSAwIDAgMCAxIDFoNSIgLz4KICA8cGF0aCBkPSJNMTAgOUg4IiAvPgogIDxwYXRoIGQ9Ik0xNiAxM0g4IiAvPgogIDxwYXRoIGQ9Ik0xNiAxN0g4IiAvPgo8L3N2Zz4K
-requirements: python-docx==1.1.2
-description: 将当前对话内容从 Markdown 转换并导出为 Word (.docx) 文件，支持中英文无乱码。
+requirements: python-docx==1.1.2, Pygments>=2.15.0
+description: 将当前对话内容从 Markdown 转换并导出为 Word (.docx) 文件，支持代码语法高亮和引用块。
 """
 
 import os
@@ -25,6 +25,16 @@ from docx.enum.style import WD_STYLE_TYPE
 from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
 from open_webui.models.chats import Chats
+
+# Pygments for syntax highlighting
+try:
+    from pygments import lex
+    from pygments.lexers import get_lexer_by_name, TextLexer
+    from pygments.token import Token
+
+    PYGMENTS_AVAILABLE = True
+except ImportError:
+    PYGMENTS_AVAILABLE = False
 
 
 logging.basicConfig(
@@ -370,6 +380,24 @@ class Action:
                 i += 1
                 continue
 
+            # 处理引用块
+            if line.strip().startswith(">"):
+                # 先处理之前积累的列表
+                if in_list and list_items:
+                    self.add_list_to_doc(doc, list_items, list_type)
+                    list_items = []
+                    in_list = False
+
+                # 收集连续的引用行
+                blockquote_lines = []
+                while i < len(lines) and lines[i].strip().startswith(">"):
+                    # 移除开头的 > 和可能的空格
+                    quote_line = re.sub(r"^>\s?", "", lines[i])
+                    blockquote_lines.append(quote_line)
+                    i += 1
+                self.add_blockquote(doc, "\n".join(blockquote_lines))
+                continue
+
             # 处理水平分割线
             if re.match(r"^[-*_]{3,}$", line.strip()):
                 # 先处理之前积累的列表
@@ -551,23 +579,92 @@ class Action:
             paragraph.add_run(text[pos:])
 
     def add_code_block(self, doc: Document, code: str, language: str = ""):
-        """添加代码块"""
+        """添加代码块，支持语法高亮"""
+        # 语法高亮颜色映射 (基于常见的 IDE 配色)
+        TOKEN_COLORS = {
+            Token.Keyword: RGBColor(0, 0, 255),  # 蓝色 - 关键字
+            Token.Keyword.Constant: RGBColor(0, 0, 255),
+            Token.Keyword.Declaration: RGBColor(0, 0, 255),
+            Token.Keyword.Namespace: RGBColor(0, 0, 255),
+            Token.Keyword.Type: RGBColor(0, 0, 255),
+            Token.Name.Function: RGBColor(136, 18, 128),  # 紫色 - 函数名
+            Token.Name.Class: RGBColor(38, 127, 153),  # 青色 - 类名
+            Token.Name.Decorator: RGBColor(255, 128, 0),  # 橙色 - 装饰器
+            Token.Name.Builtin: RGBColor(0, 112, 32),  # 绿色 - 内置函数
+            Token.String: RGBColor(163, 21, 21),  # 红色 - 字符串
+            Token.String.Doc: RGBColor(128, 128, 128),  # 灰色 - 文档字符串
+            Token.Comment: RGBColor(128, 128, 128),  # 灰色 - 注释
+            Token.Comment.Single: RGBColor(128, 128, 128),
+            Token.Comment.Multiline: RGBColor(128, 128, 128),
+            Token.Number: RGBColor(9, 134, 88),  # 绿色 - 数字
+            Token.Number.Integer: RGBColor(9, 134, 88),
+            Token.Number.Float: RGBColor(9, 134, 88),
+            Token.Operator: RGBColor(104, 118, 135),  # 灰蓝色 - 运算符
+            Token.Punctuation: RGBColor(64, 64, 64),  # 深灰 - 标点
+        }
+
+        def get_token_color(token_type):
+            """递归查找 token 颜色"""
+            while token_type:
+                if token_type in TOKEN_COLORS:
+                    return TOKEN_COLORS[token_type]
+                token_type = token_type.parent
+            return None
+
+        # 添加语言标签（如果有）
+        if language:
+            lang_para = doc.add_paragraph()
+            lang_para.paragraph_format.space_before = Pt(6)
+            lang_para.paragraph_format.space_after = Pt(0)
+            lang_para.paragraph_format.left_indent = Cm(0.5)
+            lang_run = lang_para.add_run(language.upper())
+            lang_run.font.name = "Consolas"
+            lang_run.font.size = Pt(8)
+            lang_run.font.color.rgb = RGBColor(100, 100, 100)
+            lang_run.font.bold = True
+
         # 添加代码块段落
         paragraph = doc.add_paragraph()
         paragraph.paragraph_format.left_indent = Cm(0.5)
-        paragraph.paragraph_format.space_before = Pt(6)
+        paragraph.paragraph_format.space_before = Pt(3) if language else Pt(6)
         paragraph.paragraph_format.space_after = Pt(6)
-
-        # 设置代码块背景
-        run = paragraph.add_run(code)
-        run.font.name = "Consolas"
-        run._element.rPr.rFonts.set(qn("w:eastAsia"), "SimHei")
-        run.font.size = Pt(10)
 
         # 添加浅灰色背景
         shading = OxmlElement("w:shd")
         shading.set(qn("w:fill"), "F5F5F5")
         paragraph._element.pPr.append(shading)
+
+        # 尝试使用 Pygments 进行语法高亮
+        if PYGMENTS_AVAILABLE and language:
+            try:
+                lexer = get_lexer_by_name(language, stripall=False)
+            except Exception:
+                lexer = TextLexer()
+
+            tokens = list(lex(code, lexer))
+
+            for token_type, token_value in tokens:
+                if not token_value:
+                    continue
+                run = paragraph.add_run(token_value)
+                run.font.name = "Consolas"
+                run._element.rPr.rFonts.set(qn("w:eastAsia"), "SimHei")
+                run.font.size = Pt(10)
+
+                # 应用颜色
+                color = get_token_color(token_type)
+                if color:
+                    run.font.color.rgb = color
+
+                # 关键字加粗
+                if token_type in Token.Keyword:
+                    run.font.bold = True
+        else:
+            # 无语法高亮，纯文本显示
+            run = paragraph.add_run(code)
+            run.font.name = "Consolas"
+            run._element.rPr.rFonts.set(qn("w:eastAsia"), "SimHei")
+            run.font.size = Pt(10)
 
     def add_table(self, doc: Document, table_lines: List[str]):
         """添加表格"""
@@ -661,3 +758,37 @@ class Action:
         bottom.set(qn("w:color"), "auto")
         pBdr.append(bottom)
         pPr.append(pBdr)
+
+    def add_blockquote(self, doc: Document, text: str):
+        """添加引用块，带有左侧边框和灰色背景"""
+        for line in text.split("\n"):
+            paragraph = doc.add_paragraph()
+            paragraph.paragraph_format.left_indent = Cm(1.0)
+            paragraph.paragraph_format.space_before = Pt(3)
+            paragraph.paragraph_format.space_after = Pt(3)
+
+            # 添加左侧边框
+            pPr = paragraph._element.get_or_add_pPr()
+            pBdr = OxmlElement("w:pBdr")
+            left = OxmlElement("w:left")
+            left.set(qn("w:val"), "single")
+            left.set(qn("w:sz"), "24")  # 边框粗细
+            left.set(qn("w:space"), "4")  # 边框与文字间距
+            left.set(qn("w:color"), "CCCCCC")  # 灰色边框
+            pBdr.append(left)
+            pPr.append(pBdr)
+
+            # 添加浅灰色背景
+            shading = OxmlElement("w:shd")
+            shading.set(qn("w:fill"), "F9F9F9")
+            pPr.append(shading)
+
+            # 添加格式化文本
+            self.add_formatted_text(paragraph, line)
+
+            # 设置字体为斜体灰色
+            for run in paragraph.runs:
+                run.font.name = "Times New Roman"
+                run._element.rPr.rFonts.set(qn("w:eastAsia"), "楷体")
+                run.font.color.rgb = RGBColor(85, 85, 85)  # 深灰色文字
+                run.italic = True

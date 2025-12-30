@@ -5,8 +5,8 @@ author_url: https://github.com/Fu-Jie
 funding_url: https://github.com/Fu-Jie/awesome-openwebui
 version: 0.1.0
 icon_url: data:image/svg+xml;base64,PHN2ZwogIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIKICB3aWR0aD0iMjQiCiAgaGVpZ2h0PSIyNCIKICB2aWV3Qm94PSIwIDAgMjQgMjQiCiAgZmlsbD0ibm9uZSIKICBzdHJva2U9ImN1cnJlbnRDb2xvciIKICBzdHJva2Utd2lkdGg9IjIiCiAgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIgogIHN0cm9rZS1saW5lam9pbj0icm91bmQiCj4KICA8cGF0aCBkPSJNNiAyMmEyIDIgMCAwIDEtMi0yVjRhMiAyIDAgMCAxIDItMmg4YTIuNCAyLjQgMCAwIDEgMS43MDQuNzA2bDMuNTg4IDMuNTg4QTIuNCAyLjQgMCAwIDEgMjAgOHYxMmEyIDIgMCAwIDEtMiAyeiIgLz4KICA8cGF0aCBkPSJNMTQgMnY1YTEgMSAwIDAgMCAxIDFoNSIgLz4KICA8cGF0aCBkPSJNMTAgOUg4IiAvPgogIDxwYXRoIGQ9Ik0xNiAxM0g4IiAvPgogIDxwYXRoIGQ9Ik0xNiAxN0g4IiAvPgo8L3N2Zz4K
-requirements: python-docx==1.1.2
-description: Export current conversation from Markdown to Word (.docx) file with proper Chinese and English encoding.
+requirements: python-docx==1.1.2, Pygments>=2.15.0
+description: Export current conversation from Markdown to Word (.docx) file with syntax highlighting and blockquote support.
 """
 
 import os
@@ -25,6 +25,16 @@ from docx.enum.style import WD_STYLE_TYPE
 from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
 from open_webui.models.chats import Chats
+
+# Pygments for syntax highlighting
+try:
+    from pygments import lex
+    from pygments.lexers import get_lexer_by_name, TextLexer
+    from pygments.token import Token
+
+    PYGMENTS_AVAILABLE = True
+except ImportError:
+    PYGMENTS_AVAILABLE = False
 
 
 logging.basicConfig(
@@ -375,6 +385,24 @@ class Action:
                 i += 1
                 continue
 
+            # Handle blockquotes
+            if line.strip().startswith(">"):
+                # Process pending list first
+                if in_list and list_items:
+                    self.add_list_to_doc(doc, list_items, list_type)
+                    list_items = []
+                    in_list = False
+
+                # Collect consecutive quote lines
+                blockquote_lines = []
+                while i < len(lines) and lines[i].strip().startswith(">"):
+                    # Remove leading > and optional space
+                    quote_line = re.sub(r"^>\s?", "", lines[i])
+                    blockquote_lines.append(quote_line)
+                    i += 1
+                self.add_blockquote(doc, "\n".join(blockquote_lines))
+                continue
+
             # Handle horizontal rules
             if re.match(r"^[-*_]{3,}$", line.strip()):
                 # Process pending list first
@@ -552,22 +580,92 @@ class Action:
             paragraph.add_run(text[pos:])
 
     def add_code_block(self, doc: Document, code: str, language: str = ""):
-        """Add code block"""
+        """Add code block with syntax highlighting"""
+        # Token color mapping (based on common IDE themes)
+        TOKEN_COLORS = {
+            Token.Keyword: RGBColor(0, 0, 255),  # Blue - keywords
+            Token.Keyword.Constant: RGBColor(0, 0, 255),
+            Token.Keyword.Declaration: RGBColor(0, 0, 255),
+            Token.Keyword.Namespace: RGBColor(0, 0, 255),
+            Token.Keyword.Type: RGBColor(0, 0, 255),
+            Token.Name.Function: RGBColor(136, 18, 128),  # Purple - function names
+            Token.Name.Class: RGBColor(38, 127, 153),  # Cyan - class names
+            Token.Name.Decorator: RGBColor(255, 128, 0),  # Orange - decorators
+            Token.Name.Builtin: RGBColor(0, 112, 32),  # Green - builtins
+            Token.String: RGBColor(163, 21, 21),  # Red - strings
+            Token.String.Doc: RGBColor(128, 128, 128),  # Gray - docstrings
+            Token.Comment: RGBColor(128, 128, 128),  # Gray - comments
+            Token.Comment.Single: RGBColor(128, 128, 128),
+            Token.Comment.Multiline: RGBColor(128, 128, 128),
+            Token.Number: RGBColor(9, 134, 88),  # Green - numbers
+            Token.Number.Integer: RGBColor(9, 134, 88),
+            Token.Number.Float: RGBColor(9, 134, 88),
+            Token.Operator: RGBColor(104, 118, 135),  # Gray-blue - operators
+            Token.Punctuation: RGBColor(64, 64, 64),  # Dark gray - punctuation
+        }
+
+        def get_token_color(token_type):
+            """Recursively find token color"""
+            while token_type:
+                if token_type in TOKEN_COLORS:
+                    return TOKEN_COLORS[token_type]
+                token_type = token_type.parent
+            return None
+
+        # Add language label if available
+        if language:
+            lang_para = doc.add_paragraph()
+            lang_para.paragraph_format.space_before = Pt(6)
+            lang_para.paragraph_format.space_after = Pt(0)
+            lang_para.paragraph_format.left_indent = Cm(0.5)
+            lang_run = lang_para.add_run(language.upper())
+            lang_run.font.name = "Consolas"
+            lang_run.font.size = Pt(8)
+            lang_run.font.color.rgb = RGBColor(100, 100, 100)
+            lang_run.font.bold = True
+
+        # Add code block paragraph
         paragraph = doc.add_paragraph()
         paragraph.paragraph_format.left_indent = Cm(0.5)
-        paragraph.paragraph_format.space_before = Pt(6)
+        paragraph.paragraph_format.space_before = Pt(3) if language else Pt(6)
         paragraph.paragraph_format.space_after = Pt(6)
-
-        # Set code block font
-        run = paragraph.add_run(code)
-        run.font.name = "Consolas"
-        run._element.rPr.rFonts.set(qn("w:eastAsia"), "SimHei")
-        run.font.size = Pt(10)
 
         # Add light gray background
         shading = OxmlElement("w:shd")
         shading.set(qn("w:fill"), "F5F5F5")
         paragraph._element.pPr.append(shading)
+
+        # Try to use Pygments for syntax highlighting
+        if PYGMENTS_AVAILABLE and language:
+            try:
+                lexer = get_lexer_by_name(language, stripall=False)
+            except Exception:
+                lexer = TextLexer()
+
+            tokens = list(lex(code, lexer))
+
+            for token_type, token_value in tokens:
+                if not token_value:
+                    continue
+                run = paragraph.add_run(token_value)
+                run.font.name = "Consolas"
+                run._element.rPr.rFonts.set(qn("w:eastAsia"), "SimHei")
+                run.font.size = Pt(10)
+
+                # Apply color
+                color = get_token_color(token_type)
+                if color:
+                    run.font.color.rgb = color
+
+                # Bold keywords
+                if token_type in Token.Keyword:
+                    run.font.bold = True
+        else:
+            # No syntax highlighting, plain text display
+            run = paragraph.add_run(code)
+            run.font.name = "Consolas"
+            run._element.rPr.rFonts.set(qn("w:eastAsia"), "SimHei")
+            run.font.size = Pt(10)
 
     def add_table(self, doc: Document, table_lines: List[str]):
         """Add table"""
@@ -661,3 +759,37 @@ class Action:
         bottom.set(qn("w:color"), "auto")
         pBdr.append(bottom)
         pPr.append(pBdr)
+
+    def add_blockquote(self, doc: Document, text: str):
+        """Add blockquote with left border and gray background"""
+        for line in text.split("\n"):
+            paragraph = doc.add_paragraph()
+            paragraph.paragraph_format.left_indent = Cm(1.0)
+            paragraph.paragraph_format.space_before = Pt(3)
+            paragraph.paragraph_format.space_after = Pt(3)
+
+            # Add left border
+            pPr = paragraph._element.get_or_add_pPr()
+            pBdr = OxmlElement("w:pBdr")
+            left = OxmlElement("w:left")
+            left.set(qn("w:val"), "single")
+            left.set(qn("w:sz"), "24")  # Border thickness
+            left.set(qn("w:space"), "4")  # Space between border and text
+            left.set(qn("w:color"), "CCCCCC")  # Gray border
+            pBdr.append(left)
+            pPr.append(pBdr)
+
+            # Add light gray background
+            shading = OxmlElement("w:shd")
+            shading.set(qn("w:fill"), "F9F9F9")
+            pPr.append(shading)
+
+            # Add formatted text
+            self.add_formatted_text(paragraph, line)
+
+            # Set font to italic gray
+            for run in paragraph.runs:
+                run.font.name = "Times New Roman"
+                run._element.rPr.rFonts.set(qn("w:eastAsia"), "KaiTi")
+                run.font.color.rgb = RGBColor(85, 85, 85)  # Dark gray text
+                run.italic = True
