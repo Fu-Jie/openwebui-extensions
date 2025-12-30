@@ -668,9 +668,18 @@ class Action:
             run.font.size = Pt(10)
 
     def add_table(self, doc: Document, table_lines: List[str]):
-        """添加表格"""
+        """添加表格，支持表头底色与隔行底色"""
         if len(table_lines) < 2:
             return
+
+        def _set_cell_shading(cell, fill: str):
+            tc_pr = cell._element.get_or_add_tcPr()
+            shd = OxmlElement("w:shd")
+            shd.set(qn("w:fill"), fill)
+            tc_pr.append(shd)
+
+        header_fill = "F2F2F2"
+        zebra_fill = "FBFBFB"
 
         # 解析表格数据
         rows = []
@@ -700,23 +709,33 @@ class Action:
                     cell = row.cells[col_idx]
                     # 清除默认段落
                     cell.paragraphs[0].clear()
-                    self.add_formatted_text(cell.paragraphs[0], cell_text)
+                    para = cell.paragraphs[0]
+                    para.paragraph_format.space_after = Pt(3)
+                    para.paragraph_format.space_before = Pt(1)
+                    para.alignment = WD_ALIGN_PARAGRAPH.LEFT
+
+                    self.add_formatted_text(para, cell_text)
 
                     # 设置单元格字体
-                    for run in cell.paragraphs[0].runs:
+                    for run in para.runs:
                         run.font.name = "Times New Roman"
                         run._element.rPr.rFonts.set(qn("w:eastAsia"), "宋体")
                         run.font.size = Pt(10)
 
-                    # 表头加粗
+                    # 表头加粗并填充底色
                     if row_idx == 0:
-                        for run in cell.paragraphs[0].runs:
+                        for run in para.runs:
                             run.bold = True
+                        _set_cell_shading(cell, header_fill)
+                    # 隔行底色
+                    elif row_idx % 2 == 1:
+                        _set_cell_shading(cell, zebra_fill)
 
-        # 设置表格列宽度自适应
+        # 统一列对齐为左对齐，避免居中导致阅读困难
         for row in table.rows:
             for cell in row.cells:
-                cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+                for para in cell.paragraphs:
+                    para.alignment = WD_ALIGN_PARAGRAPH.LEFT
 
     def add_list_to_doc(
         self, doc: Document, items: List[Tuple[int, str]], list_type: str

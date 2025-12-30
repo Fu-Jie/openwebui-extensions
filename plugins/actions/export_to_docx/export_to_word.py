@@ -669,9 +669,18 @@ class Action:
             run.font.size = Pt(10)
 
     def add_table(self, doc: Document, table_lines: List[str]):
-        """Add table"""
+        """Add table with header shading and zebra striping"""
         if len(table_lines) < 2:
             return
+
+        def _set_cell_shading(cell, fill: str):
+            tc_pr = cell._element.get_or_add_tcPr()
+            shd = OxmlElement("w:shd")
+            shd.set(qn("w:fill"), fill)
+            tc_pr.append(shd)
+
+        header_fill = "F2F2F2"
+        zebra_fill = "FBFBFB"
 
         # Parse table data
         rows = []
@@ -701,23 +710,33 @@ class Action:
                     cell = row.cells[col_idx]
                     # Clear default paragraph
                     cell.paragraphs[0].clear()
-                    self.add_formatted_text(cell.paragraphs[0], cell_text)
+                    para = cell.paragraphs[0]
+                    para.paragraph_format.space_after = Pt(3)
+                    para.paragraph_format.space_before = Pt(1)
+                    para.alignment = WD_ALIGN_PARAGRAPH.LEFT
+
+                    self.add_formatted_text(para, cell_text)
 
                     # Set cell font
-                    for run in cell.paragraphs[0].runs:
+                    for run in para.runs:
                         run.font.name = "Times New Roman"
                         run._element.rPr.rFonts.set(qn("w:eastAsia"), "SimSun")
                         run.font.size = Pt(10)
 
-                    # Bold header
+                    # Header bold + shading
                     if row_idx == 0:
-                        for run in cell.paragraphs[0].runs:
+                        for run in para.runs:
                             run.bold = True
+                        _set_cell_shading(cell, header_fill)
+                    # Zebra striping
+                    elif row_idx % 2 == 1:
+                        _set_cell_shading(cell, zebra_fill)
 
-        # Center align cells
+        # Left align all cells for readability
         for row in table.rows:
             for cell in row.cells:
-                cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+                for para in cell.paragraphs:
+                    para.alignment = WD_ALIGN_PARAGRAPH.LEFT
 
     def add_list_to_doc(
         self, doc: Document, items: List[Tuple[int, str]], list_type: str
