@@ -52,6 +52,7 @@ OpenWebUI supports four types of plugins, each serving a different purpose:
 | [Smart Infographic](actions/smart-infographic.md) | Action | Transform text into professional infographics | 1.0.0 |
 | [Knowledge Card](actions/knowledge-card.md) | Action | Create beautiful learning flashcards | 0.2.0 |
 | [Export to Excel](actions/export-to-excel.md) | Action | Export chat history to Excel files | 1.0.0 |
+| [Export to Word](actions/export-to-word.md) | Action | Export chat content to Word (.docx) with formatting | 0.1.0 |
 | [Summary](actions/summary.md) | Action | Text summarization tool | 1.0.0 |
 | [Async Context Compression](filters/async-context-compression.md) | Filter | Intelligent context compression | 1.0.0 |
 | [Context Enhancement](filters/context-enhancement.md) | Filter | Enhance chat context | 1.0.0 |

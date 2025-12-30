@@ -52,6 +52,7 @@ OpenWebUI 支持四种类型的插件，每种都有不同的用途：
 | [Smart Infographic（智能信息图）](actions/smart-infographic.md) | Action | 将文本转成专业信息图 | 1.0.0 |
 | [Knowledge Card（知识卡片）](actions/knowledge-card.md) | Action | 生成精美学习卡片 | 0.2.0 |
 | [Export to Excel（导出到 Excel）](actions/export-to-excel.md) | Action | 导出聊天记录为 Excel | 1.0.0 |
+| [Export to Word（导出为 Word）](actions/export-to-word.md) | Action | 将聊天内容导出为 Word (.docx) 并保留格式 | 0.1.0 |
 | [Summary（摘要）](actions/summary.md) | Action | 文本摘要工具 | 1.0.0 |
 | [Async Context Compression（异步上下文压缩）](filters/async-context-compression.md) | Filter | 智能上下文压缩 | 1.0.0 |
 | [Context Enhancement（上下文增强）](filters/context-enhancement.md) | Filter | 提升对话上下文 | 1.0.0 |

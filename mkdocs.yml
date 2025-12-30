@@ -99,6 +99,7 @@ plugins:
             Smart Infographic: 智能信息图
             Knowledge Card: 知识卡片
             Export to Excel: 导出到 Excel
+            Export to Word: 导出为 Word
             Summary: 摘要
             Async Context Compression: 异步上下文压缩
             Context Enhancement: 上下文增强
@@ -185,6 +186,7 @@ nav:
       - Smart Infographic: plugins/actions/smart-infographic.md
       - Knowledge Card: plugins/actions/knowledge-card.md
       - Export to Excel: plugins/actions/export-to-excel.md
+      - Export to Word: plugins/actions/export-to-word.md
       - Summary: plugins/actions/summary.md
     - Filters:
       - plugins/filters/index.md

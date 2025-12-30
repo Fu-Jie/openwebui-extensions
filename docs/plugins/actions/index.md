@@ -57,6 +57,16 @@ Actions are interactive plugins that:
 
     [:octicons-arrow-right-24: Documentation](export-to-excel.md)
 
+-   :material-file-word-box:{ .lg .middle } **Export to Word**
+
+    ---
+
+    Export chat content as Word (.docx) with Markdown formatting and syntax highlighting.
+
+    **Version:** 0.1.0
+
+    [:octicons-arrow-right-24: Documentation](export-to-word.md)
+
 -   :material-text-box-search:{ .lg .middle } **Summary**
 
     ---
