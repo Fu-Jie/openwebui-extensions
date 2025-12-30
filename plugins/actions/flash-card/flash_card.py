@@ -1,17 +1,18 @@
 """
-title: 闪记卡 (Flash Card)
+title: Flash Card
 author: Fu-Jie
 author_url: https://github.com/Fu-Jie
 funding_url: https://github.com/Fu-Jie/awesome-openwebui
 version: 0.2.1
-icon_url: data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0Ij48ZGVmcz48bGluZWFyR3JhZGllbnQgaWQ9ImciIHgxPSIwIiB5MT0iMCIgeDI9IjEiIHkyPSIxIj48c3RvcCBvZmZzZXQ9IjAlIiBzdG9wLWNvbG9yPSIjRkZENzAwIi8+PHN0b3Agb2Zmc2V0PSIxMDAlIiBzdG9wLWNvbG9yPSIjRkZBNzAwIi8+PC9saW5lYXJHcmFkaWVudD48L2RlZnM+PHBhdGggZD0iTTEzIDJMMyA3djEzbDEwIDV2LTZ6IiBmaWxsPSJ1cmwoI2cpIi8+PHBhdGggZD0iTTEzIDJ2Nmw4LTN2MTNsLTggM3YtNnoiIGZpbGw9IiM2NjdlZWEiLz48cGF0aCBkPSJNMTMgMnY2bTAgNXYxMCIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjEuNSIgc3Ryb2tlLW9wYWNpdHk9IjAuMyIvPjwvc3ZnPg==
-description: 快速将文本提炼为精美的学习记忆卡片，支持核心要点提取与分类。
+icon_url: data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxwb2x5Z29uIHBvaW50cz0iMTIgMiAyIDcgMTIgMTIgMjIgNyAxMiAyIi8+PHBvbHlsaW5lIHBvaW50cz0iMiAxNyAxMiAyMiAyMiAxNyIvPjxwb2x5bGluZSBwb2ludHM9IjIgMTIgMTIgMTcgMjIgMTIiLz48L3N2Zz4=
+description: Quickly generates beautiful flashcards from text, extracting key points and categories.
 """
 
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any, List
 import json
 import logging
+import re
 from open_webui.utils.chat import generate_chat_completion
 from open_webui.models.users import Users
 
@@ -41,7 +42,7 @@ HTML_WRAPPER_TEMPLATE = """
             width: 100%;
         }
         .plugin-item { 
-            flex: 1 1 400px; /* 默认宽度，允许伸缩 */
+            flex: 1 1 400px; /* Default width, allows shrinking/growing */
             min-width: 300px; 
             background: white; 
             border-radius: 12px; 
@@ -73,28 +74,27 @@ class Action:
     class Valves(BaseModel):
         MODEL_ID: str = Field(
             default="",
-            description="用于生成卡片内容的模型 ID。如果为空，则使用当前模型。",
+            description="Model ID used for generating card content. If empty, uses the current model.",
         )
         MIN_TEXT_LENGTH: int = Field(
-            default=50, description="生成闪记卡所需的最小文本长度（字符数）。"
-        )
-        MAX_TEXT_LENGTH: int = Field(
-            default=2000,
-            description="建议的最大文本长度。超过此长度建议使用深度分析工具。",
+            default=50,
+            description="Minimum text length required to generate a flashcard (characters).",
         )
         LANGUAGE: str = Field(
-            default="zh", description="卡片内容的目标语言 (例如 'zh', 'en')。"
+            default="en",
+            description="Target language for card content (e.g., 'en', 'zh').",
         )
         SHOW_STATUS: bool = Field(
-            default=True, description="是否在聊天界面显示状态更新。"
+            default=True,
+            description="Whether to show status updates in the chat interface.",
         )
         CLEAR_PREVIOUS_HTML: bool = Field(
             default=False,
-            description="是否强制清除旧的插件结果（如果为 True，则不合并，直接覆盖）。",
+            description="Whether to force clear previous plugin results (if True, overwrites instead of merging).",
         )
         MESSAGE_COUNT: int = Field(
             default=1,
-            description="用于生成的最近消息数量。设置为1仅使用最后一条消息，更大值可包含更多上下文。",
+            description="Number of recent messages to use for generation. Set to 1 for just the last message, or higher for more context.",
         )
 
     def __init__(self):
@@ -107,7 +107,7 @@ class Action:
         __event_emitter__: Optional[Any] = None,
         __request__: Optional[Any] = None,
     ) -> Optional[dict]:
-        logger.info(f"Action: {__name__} 触发")
+        logger.info(f"Action: {__name__} triggered")
 
         if not __event_emitter__:
             return body
@@ -128,11 +128,11 @@ class Action:
             if text_content:
                 role = msg.get("role", "unknown")
                 role_label = (
-                    "用户"
+                    "User"
                     if role == "user"
-                    else "助手" if role == "assistant" else role
+                    else "Assistant" if role == "assistant" else role
                 )
-                aggregated_parts.append(f"[{role_label} 消息 {i}]\n{text_content}")
+                aggregated_parts.append(f"[{role_label} Message {i}]\n{text_content}")
 
         if not aggregated_parts:
             return body
@@ -144,26 +144,25 @@ class Action:
         if text_length < self.valves.MIN_TEXT_LENGTH:
             await self._emit_notification(
                 __event_emitter__,
-                f"文本内容过短 ({text_length} 字符)，建议至少 {self.valves.MIN_TEXT_LENGTH} 字符。",
+                f"Text too short ({text_length} chars), recommended at least {self.valves.MIN_TEXT_LENGTH} chars.",
                 "warning",
             )
             return body
 
-        if text_length > self.valves.MAX_TEXT_LENGTH:
-            await self._emit_notification(
-                __event_emitter__,
-                f"文本较长（{text_length}字符），建议使用'墨海拾贝'进行深度分析。",
-                "info",
-            )
-
         # Notify user that we are generating the card
-        await self._emit_notification(__event_emitter__, "⚡ 正在生成闪记卡...", "info")
-        await self._emit_status(__event_emitter__, "⚡ 闪记卡: 开始生成...", done=False)
+        await self._emit_notification(
+            __event_emitter__, "⚡ Generating Flash Card...", "info"
+        )
+        await self._emit_status(
+            __event_emitter__, "⚡ Flash Card: Starting generation...", done=False
+        )
 
         try:
             # 1. Extract information using LLM
             await self._emit_status(
-                __event_emitter__, "⚡ 闪记卡: 正在调用 AI 模型分析内容...", done=False
+                __event_emitter__,
+                "⚡ Flash Card: Calling AI model to analyze content...",
+                done=False,
             )
 
             user_id = __user__.get("id") if __user__ else "default"
@@ -174,29 +173,29 @@ class Action:
             )
 
             system_prompt = f"""
-你是一个闪记卡生成专家，专注于创建适合学习和记忆的知识卡片。你的任务是将文本提炼成简洁、易记的学习卡片。
+You are a Flash Card Generation Expert, specializing in creating knowledge cards suitable for learning and memorization. Your task is to distill text into concise, easy-to-remember flashcards.
 
-请提取以下字段，并以 JSON 格式返回：
-1. "title": 创建一个简短、精准的标题（6-12 字），突出核心概念
-2. "summary": 用一句话总结核心要义（20-40 字），要通俗易懂、便于记忆
-3. "key_points": 列出 3-5 个关键记忆点（每个 10-20 字）
-   - 每个要点应该是独立的知识点
-   - 使用简洁、口语化的表达
-   - 避免冗长的句子
-4. "tags": 列出 2-4 个分类标签（每个 2-5 字）
-5. "category": 选择一个主分类（如：概念、技能、事实、方法等）
+Please extract the following fields and return them in JSON format:
+1. "title": Create a short, precise title (3-8 words), highlighting the core concept.
+2. "summary": Summarize the core essence in one sentence (10-25 words), making it easy to understand and remember.
+3. "key_points": List 3-5 key memory points (5-15 words each).
+   - Each point should be an independent knowledge unit.
+   - Use concise, conversational expression.
+   - Avoid long sentences.
+4. "tags": List 2-4 classification tags (1-3 words each).
+5. "category": Choose a main category (e.g., Concept, Skill, Fact, Method, etc.).
 
-目标语言: {self.valves.LANGUAGE}
+Target Language: {self.valves.LANGUAGE}
 
-重要原则：
-- **极简主义**: 每个要点都要精炼到极致
-- **记忆优先**: 内容要便于记忆和回忆
-- **核心聚焦**: 只提取最核心的知识点
-- **口语化**: 使用通俗易懂的语言
-- 只返回 JSON 对象，不要包含 markdown 格式
+Important Principles:
+- **Minimalism**: Refine each point to the extreme.
+- **Memory First**: Content should be easy to memorize and recall.
+- **Core Focus**: Extract only the most core knowledge points.
+- **Conversational**: Use easy-to-understand language.
+- Return ONLY the JSON object, do not include markdown formatting.
             """
 
-            prompt = f"请将以下文本提炼成一张学习记忆卡片：\n\n{target_message}"
+            prompt = f"Please refine the following text into a learning flashcard:\n\n{target_message}"
 
             payload = {
                 "model": target_model,
@@ -211,7 +210,9 @@ class Action:
             content = response["choices"][0]["message"]["content"]
 
             await self._emit_status(
-                __event_emitter__, "⚡ 闪记卡: AI 分析完成，正在解析数据...", done=False
+                __event_emitter__,
+                "⚡ Flash Card: AI analysis complete, parsing data...",
+                done=False,
             )
 
             # Parse JSON
@@ -226,16 +227,18 @@ class Action:
             except Exception as e:
                 logger.error(f"Failed to parse JSON: {e}, content: {content}")
                 await self._emit_status(
-                    __event_emitter__, "❌ 闪记卡: 数据解析失败", done=True
+                    __event_emitter__, "❌ Flash Card: Data parsing failed", done=True
                 )
                 await self._emit_notification(
-                    __event_emitter__, "❌ 生成卡片数据失败，请重试。", "error"
+                    __event_emitter__,
+                    "❌ Failed to generate card data, please try again.",
+                    "error",
                 )
                 return body
 
             # 2. Generate HTML components
             await self._emit_status(
-                __event_emitter__, "⚡ 闪记卡: 正在渲染卡片...", done=False
+                __event_emitter__, "⚡ Flash Card: Rendering card...", done=False
             )
             card_content, card_style = self.generate_html_card_components(card_data)
 
@@ -277,47 +280,51 @@ class Action:
             body["messages"][-1]["content"] += f"\n\n{html_embed_tag}"
 
             await self._emit_status(
-                __event_emitter__, "✅ 闪记卡: 生成完成！", done=True
+                __event_emitter__, "✅ Flash Card: Generation complete!", done=True
             )
             await self._emit_notification(
-                __event_emitter__, "⚡ 闪记卡生成成功！", "success"
+                __event_emitter__, "⚡ Flash Card generated successfully!", "success"
             )
 
             return body
 
         except Exception as e:
             logger.error(f"Error generating knowledge card: {e}")
-            await self._emit_status(__event_emitter__, "❌ 闪记卡: 生成失败", done=True)
+            await self._emit_status(
+                __event_emitter__, "❌ Flash Card: Generation failed", done=True
+            )
             await self._emit_notification(
-                __event_emitter__, f"❌ 生成知识卡片时出错: {str(e)}", "error"
+                __event_emitter__,
+                f"❌ Error generating knowledge card: {str(e)}",
+                "error",
             )
             return body
 
     async def _emit_status(self, emitter, description: str, done: bool = False):
-        """发送状态更新事件。"""
+        """Emits a status update event."""
         if self.valves.SHOW_STATUS and emitter:
             await emitter(
                 {"type": "status", "data": {"description": description, "done": done}}
             )
 
     async def _emit_notification(self, emitter, content: str, ntype: str = "info"):
-        """发送通知事件 (info/success/warning/error)。"""
+        """Emits a notification event (info/success/warning/error)."""
         if emitter:
             await emitter(
                 {"type": "notification", "data": {"type": ntype, "content": content}}
             )
 
     def _remove_existing_html(self, content: str) -> str:
-        """移除内容中已有的插件生成 HTML 代码块 (通过标记识别)。"""
+        """Removes existing plugin-generated HTML code blocks from the content."""
         pattern = r"```html\s*<!-- OPENWEBUI_PLUGIN_OUTPUT -->[\s\S]*?```"
         return re.sub(pattern, "", content).strip()
 
     def _extract_text_content(self, content) -> str:
-        """从消息内容中提取文本，支持多模态消息格式"""
+        """Extract text from message content, supporting multimodal message formats"""
         if isinstance(content, str):
             return content
         elif isinstance(content, list):
-            # 多模态消息: [{"type": "text", "text": "..."}, {"type": "image_url", ...}]
+            # Multimodal message: [{"type": "text", "text": "..."}, {"type": "image_url", ...}]
             text_parts = []
             for item in content:
                 if isinstance(item, dict) and item.get("type") == "text":
@@ -333,10 +340,10 @@ class Action:
         new_content: str,
         new_styles: str = "",
         new_scripts: str = "",
-        user_language: str = "zh-CN",
+        user_language: str = "en-US",
     ) -> str:
         """
-        将新内容合并到现有的 HTML 容器中，或者创建一个新的容器。
+        Merges new content into an existing HTML container, or creates a new one.
         """
         if (
             "<!-- OPENWEBUI_PLUGIN_OUTPUT -->" in existing_html_code
@@ -680,7 +687,7 @@ class Action:
         tags_html = ""
         if "tags" in data and data["tags"]:
             for tag in data["tags"]:
-                tags_html += f'<span class="card-tag">#{tag}</span>'
+                tags_html += f'<div class="card-tag"><span class="card-tag-label">#</span>{tag}</div>'
 
         # Generate key points HTML
         points_html = ""
@@ -708,7 +715,6 @@ class Action:
                         </ul>
                     </div>
                     <div class="card-footer">
-                        <span class="card-tag-label">标签</span>
                         {tags_html}
                     </div>
                 </div>
