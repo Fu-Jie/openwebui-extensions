@@ -349,6 +349,118 @@ requirements: python-docx==1.1.2, openpyxl==3.1.2
 
 ---
 
+## 🗄️ 数据库连接规范 (Database Connection)
+
+### 复用 OpenWebUI 内部连接 (Re-use OpenWebUI's Internal Connection)
+
+当插件需要持久化存储时，**必须**复用 Open WebUI 的内部数据库连接，而不是创建新的数据库引擎。这确保了：
+
+- 插件与数据库类型无关（自动支持 PostgreSQL、SQLite 等）
+- 自动继承 Open WebUI 的数据库配置
+- 避免连接池资源浪费
+- 保持与 Open WebUI 核心的兼容性
+
+When a plugin requires persistent storage, it **MUST** re-use Open WebUI's internal database connection instead of creating a new database engine. This ensures:
+
+- The plugin is database-agnostic (automatically supports PostgreSQL, SQLite, etc.)
+- Automatic inheritance of Open WebUI's database configuration
+- No wasted connection pool resources
+- Compatibility with Open WebUI's core
+
+### 实现示例 (Implementation Example)
+
+```python
+# Open WebUI internal database (re-use shared connection)
+from open_webui.internal.db import engine as owui_engine
+from open_webui.internal.db import Session as owui_Session
+from open_webui.internal.db import Base as owui_Base
+
+from sqlalchemy import Column, String, Text, DateTime, Integer, inspect
+from datetime import datetime
+
+
+class PluginTable(owui_Base):
+    """Plugin storage table - inherits from OpenWebUI's Base"""
+
+    __tablename__ = "plugin_table_name"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    unique_id = Column(String(255), unique=True, nullable=False, index=True)
+    data = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class Filter:  # or Pipe, Action, etc.
+    def __init__(self):
+        self.valves = self.Valves()
+        self._db_engine = owui_engine
+        self._SessionLocal = owui_Session
+        self._init_database()
+
+    def _init_database(self):
+        """Initialize the database table using OpenWebUI's shared connection."""
+        try:
+            inspector = inspect(self._db_engine)
+            if not inspector.has_table("plugin_table_name"):
+                PluginTable.__table__.create(bind=self._db_engine, checkfirst=True)
+                print("[Database] ✅ Created plugin table using OpenWebUI's shared connection.")
+            else:
+                print("[Database] ✅ Using OpenWebUI's shared connection. Table already exists.")
+        except Exception as e:
+            print(f"[Database] ❌ Initialization failed: {str(e)}")
+
+    def _save_data(self, unique_id: str, data: str):
+        """Save data using context manager pattern."""
+        try:
+            with self._SessionLocal() as session:
+                # Your database operations here
+                session.commit()
+        except Exception as e:
+            print(f"[Storage] ❌ Database save failed: {str(e)}")
+
+    def _load_data(self, unique_id: str):
+        """Load data using context manager pattern."""
+        try:
+            with self._SessionLocal() as session:
+                record = session.query(PluginTable).filter_by(unique_id=unique_id).first()
+                if record:
+                    session.expunge(record)  # Detach from session for use after close
+                    return record
+        except Exception as e:
+            print(f"[Load] ❌ Database read failed: {str(e)}")
+        return None
+```
+
+### 禁止的做法 (Prohibited Practices)
+
+以下做法**已被弃用**，不应在新插件中使用：
+
+The following practices are **deprecated** and should NOT be used in new plugins:
+
+```python
+# ❌ 禁止: 读取 DATABASE_URL 环境变量
+# ❌ Prohibited: Reading DATABASE_URL environment variable
+database_url = os.getenv("DATABASE_URL")
+
+# ❌ 禁止: 创建独立的数据库引擎
+# ❌ Prohibited: Creating a separate database engine
+from sqlalchemy import create_engine
+self._db_engine = create_engine(database_url, **engine_args)
+
+# ❌ 禁止: 创建独立的会话工厂
+# ❌ Prohibited: Creating a separate session factory
+from sqlalchemy.orm import sessionmaker
+self._SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=self._db_engine)
+
+# ❌ 禁止: 使用独立的 Base
+# ❌ Prohibited: Using a separate Base
+from sqlalchemy.ext.declarative import declarative_base
+Base = declarative_base()
+```
+
+---
+
 ## 🔧 代码规范 (Code Style)
 
 ### Python 规范

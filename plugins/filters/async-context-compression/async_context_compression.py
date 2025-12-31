@@ -5,7 +5,7 @@ author: Fu-Jie
 author_url: https://github.com/Fu-Jie
 funding_url: https://github.com/Fu-Jie/awesome-openwebui
 description: Reduces token consumption in long conversations while maintaining coherence through intelligent summarization and message compression.
-version: 1.0.1
+version: 1.1.0
 license: MIT
 
 ═══════════════════════════════════════════════════════════════════════════════
@@ -49,14 +49,13 @@ Phase 2: Outlet (Post-response processing)
 💾 Storage
 ═══════════════════════════════════════════════════════════════════════════════
 
-This filter uses a database for persistent storage, configured via the `DATABASE_URL` environment variable. It supports both PostgreSQL and SQLite.
+This filter uses Open WebUI's shared database connection for persistent storage.
+It automatically reuses Open WebUI's internal SQLAlchemy engine and SessionLocal,
+making the plugin database-agnostic and ensuring compatibility with any database
+backend that Open WebUI supports (PostgreSQL, SQLite, etc.).
 
-Configuration:
-  - The `DATABASE_URL` environment variable must be set.
-  - PostgreSQL Example: `postgresql://user:password@host:5432/openwebui`
-  - SQLite Example: `sqlite:///path/to/your/database.db`
-
-The filter automatically selects the appropriate database driver based on the `DATABASE_URL` prefix (`postgres` or `sqlite`).
+No additional database configuration is required - the plugin inherits
+Open WebUI's database settings automatically.
 
   Table Structure (`chat_summary`):
     - id: Primary Key (auto-increment)
@@ -142,21 +141,8 @@ debug_mode
 🔧 Deployment
 ═══════════════════════════════════════════════════════
 
-Docker Compose Example:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  services:
-    openwebui:
-      environment:
-        DATABASE_URL: postgresql://user:password@postgres:5432/openwebui
-      depends_on:
-        - postgres
-
-    postgres:
-      image: postgres:15-alpine
-      environment:
-        POSTGRES_USER: user
-        POSTGRES_PASSWORD: password
-        POSTGRES_DB: openwebui
+The plugin automatically uses Open WebUI's shared database connection.
+No additional database configuration is required.
 
 Suggested Filter Installation Order:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -201,9 +187,10 @@ Statistics:
 ⚠️ Important Notes
 ═══════════════════════════════════════════════════════════════════════════════
 
-1. Database Permissions
-   ⚠ Ensure the user specified in `DATABASE_URL` has permissions to create tables.
-   ⚠ The `chat_summary` table will be created automatically on first run.
+1. Database Connection
+   ✓ The plugin uses Open WebUI's shared database connection automatically.
+   ✓ No additional configuration is required.
+   ✓ The `chat_summary` table will be created automatically on first run.
 
 2. Retention Policy
    ⚠ The `keep_first` setting is crucial for preserving initial messages that contain system prompts. Configure it as needed.
@@ -226,13 +213,11 @@ Statistics:
 🐛 Troubleshooting
 ═══════════════════════════════════════════════════════════════════════════════
 
-Problem: Database connection failed
+Problem: Database table not created
 Solution:
-  1. Verify that the `DATABASE_URL` environment variable is set correctly.
-  2. Confirm that `DATABASE_URL` starts with either `sqlite` or `postgres`.
-  3. Ensure the database service is running and network connectivity is normal.
-  4. Validate the username, password, host, and port in the connection URL.
-  5. Check the Open WebUI container logs for detailed error messages.
+  1. Ensure Open WebUI is properly configured with a database.
+  2. Check the Open WebUI container logs for detailed error messages.
+  3. Verify that Open WebUI's database connection is working correctly.
 
 Problem: Summary not generated
 Solution:
@@ -258,7 +243,6 @@ from typing import Optional, Dict, Any, List, Union, Callable, Awaitable
 import asyncio
 import json
 import hashlib
-import os
 import time
 
 # Open WebUI built-in imports
@@ -267,6 +251,11 @@ from open_webui.models.users import Users
 from fastapi.requests import Request
 from open_webui.main import app as webui_app
 
+# Open WebUI internal database (re-use shared connection)
+from open_webui.internal.db import engine as owui_engine
+from open_webui.internal.db import Session as owui_Session
+from open_webui.internal.db import Base as owui_Base
+
 # Try to import tiktoken
 try:
     import tiktoken
@@ -274,15 +263,11 @@ except ImportError:
     tiktoken = None
 
 # Database imports
-from sqlalchemy import create_engine, Column, String, Text, DateTime, Integer
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy import Column, String, Text, DateTime, Integer, inspect
 from datetime import datetime
 
-Base = declarative_base()
 
-
-class ChatSummary(Base):
+class ChatSummary(owui_Base):
     """Chat Summary Storage Table"""
 
     __tablename__ = "chat_summary"
@@ -298,74 +283,29 @@ class ChatSummary(Base):
 class Filter:
     def __init__(self):
         self.valves = self.Valves()
-        self._db_engine = None
-        self._SessionLocal = None
+        self._db_engine = owui_engine
+        self._SessionLocal = owui_Session
         self.temp_state = {}  # Used to pass temporary data between inlet and outlet
         self._init_database()
 
     def _init_database(self):
-        """Initializes the database connection and table."""
+        """Initializes the database table using Open WebUI's shared connection."""
         try:
-            database_url = os.getenv("DATABASE_URL")
-
-            if not database_url:
+            # Check if table exists using SQLAlchemy inspect
+            inspector = inspect(self._db_engine)
+            if not inspector.has_table("chat_summary"):
+                # Create the chat_summary table if it doesn't exist
+                ChatSummary.__table__.create(bind=self._db_engine, checkfirst=True)
                 print(
-                    "[Database] ❌ Error: DATABASE_URL environment variable is not set. Please set this variable."
+                    "[Database] ✅ Successfully created chat_summary table using Open WebUI's shared database connection."
                 )
-                self._db_engine = None
-                self._SessionLocal = None
-                return
-
-            db_type = None
-            engine_args = {}
-
-            if database_url.startswith("sqlite"):
-                db_type = "SQLite"
-                engine_args = {
-                    "connect_args": {"check_same_thread": False},
-                    "echo": False,
-                }
-            elif database_url.startswith("postgres"):
-                db_type = "PostgreSQL"
-                if database_url.startswith("postgres://"):
-                    database_url = database_url.replace(
-                        "postgres://", "postgresql://", 1
-                    )
-                    print(
-                        "[Database] ℹ️ Automatically converted postgres:// to postgresql://"
-                    )
-                engine_args = {
-                    "pool_pre_ping": True,
-                    "pool_recycle": 3600,
-                    "echo": False,
-                }
             else:
                 print(
-                    f"[Database] ❌ Error: Unsupported database type. DATABASE_URL must start with 'sqlite' or 'postgres'. Current value: {database_url}"
+                    "[Database] ✅ Using Open WebUI's shared database connection. chat_summary table already exists."
                 )
-                self._db_engine = None
-                self._SessionLocal = None
-                return
-
-            # Create database engine
-            self._db_engine = create_engine(database_url, **engine_args)
-
-            # Create session factory
-            self._SessionLocal = sessionmaker(
-                autocommit=False, autoflush=False, bind=self._db_engine
-            )
-
-            # Create table if it doesn't exist
-            Base.metadata.create_all(bind=self._db_engine)
-
-            print(
-                f"[Database] ✅ Successfully connected to {db_type} and initialized the chat_summary table."
-            )
 
         except Exception as e:
             print(f"[Database] ❌ Initialization failed: {str(e)}")
-            self._db_engine = None
-            self._SessionLocal = None
 
     class Valves(BaseModel):
         priority: int = Field(
@@ -416,14 +356,8 @@ class Filter:
 
     def _save_summary(self, chat_id: str, summary: str, compressed_count: int):
         """Saves the summary to the database."""
-        if not self._SessionLocal:
-            if self.valves.debug_mode:
-                print("[Storage] Database not initialized, skipping summary save.")
-            return
-
         try:
-            session = self._SessionLocal()
-            try:
+            with self._SessionLocal() as session:
                 # Find existing record
                 existing = session.query(ChatSummary).filter_by(chat_id=chat_id).first()
 
@@ -457,27 +391,18 @@ class Filter:
                         f"[Storage] Summary has been {action.lower()} in the database (Chat ID: {chat_id})"
                     )
 
-            finally:
-                session.close()
-
         except Exception as e:
             print(f"[Storage] ❌ Database save failed: {str(e)}")
 
     def _load_summary_record(self, chat_id: str) -> Optional[ChatSummary]:
         """Loads the summary record object from the database."""
-        if not self._SessionLocal:
-            return None
-
         try:
-            session = self._SessionLocal()
-            try:
+            with self._SessionLocal() as session:
                 record = session.query(ChatSummary).filter_by(chat_id=chat_id).first()
                 if record:
                     # Detach the object from the session so it can be used after session close
                     session.expunge(record)
                     return record
-            finally:
-                session.close()
         except Exception as e:
             print(f"[Load] ❌ Database read failed: {str(e)}")
         return None

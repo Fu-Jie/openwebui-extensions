@@ -1,6 +1,6 @@
 # Async Context Compression Filter
 
-**Author:** [Fu-Jie](https://github.com/Fu-Jie) | **Version:** 1.0.0 | **License:** MIT
+**Author:** [Fu-Jie](https://github.com/Fu-Jie) | **Version:** 1.1.0 | **License:** MIT
 
 > **Important Note**: To ensure the maintainability and usability of all filters, each filter should be accompanied by clear and complete documentation to fully explain its functionality, configuration, and usage.
 
@@ -12,7 +12,7 @@ This filter significantly reduces token consumption in long conversations by usi
 
 -   ✅ **Automatic Compression**: Triggers context compression automatically based on a message count threshold.
 -   ✅ **Asynchronous Summarization**: Generates summaries in the background without blocking the current chat response.
--   ✅ **Persistent Storage**: Supports both PostgreSQL and SQLite databases to ensure summaries are not lost after a service restart.
+-   ✅ **Persistent Storage**: Uses Open WebUI's shared database connection - automatically supports any database backend (PostgreSQL, SQLite, etc.).
 -   ✅ **Flexible Retention Policy**: Freely configure the number of initial and final messages to keep, ensuring critical information and context continuity.
 -   ✅ **Smart Injection**: Intelligently injects the generated historical summary into the new context.
 
@@ -20,18 +20,11 @@ This filter significantly reduces token consumption in long conversations by usi
 
 ## Installation & Configuration
 
-### 1. Environment Variable
+### 1. Database (Automatic)
 
-This plugin requires a database connection. You **must** configure the `DATABASE_URL` in your Open WebUI environment variables.
+This plugin automatically uses Open WebUI's shared database connection. **No additional database configuration is required.**
 
--   **PostgreSQL Example**:
-    ```
-    DATABASE_URL=postgresql://user:password@host:5432/openwebui
-    ```
--   **SQLite Example**:
-    ```
-    DATABASE_URL=sqlite:///path/to/your/data/webui.db
-    ```
+The `chat_summary` table will be created automatically on first run.
 
 ### 2. Filter Order
 
@@ -64,8 +57,8 @@ You can adjust the following parameters in the filter's settings:
 
 ## Troubleshooting
 
--   **Problem: Database connection failed.**
-    -   **Solution**: Please ensure the `DATABASE_URL` environment variable is set correctly and that the database service is running.
+-   **Problem: Database table not created.**
+    -   **Solution**: Ensure Open WebUI is properly configured with a database and check Open WebUI's logs for detailed error messages.
 
 -   **Problem: Summary not generated.**
     -   **Solution**: Check if the `compression_threshold` has been met and verify that `summary_model` is configured correctly. Check the logs for detailed errors.
