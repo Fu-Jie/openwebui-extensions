@@ -798,7 +798,124 @@ For iframe plugins to access parent document theme information, users need to co
 
 ---
 
-## 📚 参考资源 (Reference Resources)
+## � 发布工作流 (Release Workflow)
+
+### 自动发布 (Automatic Release)
+
+当插件更新推送到 `main` 分支时，会**自动触发**发布流程：
+
+1. 🔍 检测版本变化（与上次 release 对比）
+2. 📝 生成发布说明（包含更新内容和提交记录）
+3. 📦 创建 GitHub Release（包含可下载的插件文件）
+4. 🏷️ 自动生成版本号（格式：`vYYYY.MM.DD-运行号`）
+
+### 发布前必须完成 (Pre-release Requirements)
+
+1. ✅ **更新版本号** - 修改插件文档字符串中的 `version` 字段
+2. ✅ **中英文版本同步** - 确保两个版本的版本号一致
+
+```python
+"""
+title: My Plugin
+version: 0.2.0  # <- 必须更新这里！
+...
+"""
+```
+
+### 版本编号规则 (Versioning)
+
+遵循[语义化版本](https://semver.org/lang/zh-CN/)：
+
+| 变更类型 | 版本变化 | 示例 |
+|---------|---------|------|
+| Bug 修复 | PATCH +1 | 0.1.0 → 0.1.1 |
+| 新功能 | MINOR +1 | 0.1.1 → 0.2.0 |
+| 不兼容变更 | MAJOR +1 | 0.2.0 → 1.0.0 |
+
+### 发布方式 (Release Methods)
+
+**方式 A：直接推送到 main（推荐）**
+
+```bash
+# 1. 暂存更改
+git add plugins/actions/my-plugin/
+
+# 2. 提交（使用规范的 commit message）
+git commit -m "feat(my-plugin): add new feature X
+
+- Add feature X for better user experience
+- Fix bug Y
+- Update version to 0.2.0"
+
+# 3. 推送到 main
+git push origin main
+
+# GitHub Actions 会自动创建 Release
+```
+
+**方式 B：创建 PR（团队协作）**
+
+```bash
+# 1. 创建功能分支
+git checkout -b feature/my-plugin-v0.2.0
+
+# 2. 提交更改
+git commit -m "feat(my-plugin): add new feature X"
+
+# 3. 推送并创建 PR
+git push origin feature/my-plugin-v0.2.0
+
+# 4. PR 合并后自动触发发布
+```
+
+**方式 C：手动触发发布**
+
+1. 前往 GitHub Actions → "Plugin Release / 插件发布"
+2. 点击 "Run workflow"
+3. 填写版本号和发布说明
+
+### Commit Message 规范 (Commit Convention)
+
+使用 [Conventional Commits](https://www.conventionalcommits.org/) 格式：
+
+```
+<type>(<scope>): <description>
+
+[optional body]
+
+[optional footer]
+```
+
+常用类型：
+- `feat`: 新功能
+- `fix`: Bug 修复
+- `docs`: 文档更新
+- `refactor`: 代码重构
+- `style`: 代码格式调整
+- `perf`: 性能优化
+
+示例：
+```
+feat(flash-card): add _get_user_context for safer user info retrieval
+
+- Add _get_user_context method to handle various __user__ types
+- Prevent AttributeError when __user__ is not a dict
+- Update version to 0.2.2 for both English and Chinese versions
+```
+
+### 发布检查清单 (Release Checklist)
+
+发布前确保完成以下检查：
+
+- [ ] 更新插件版本号（英文版 + 中文版）
+- [ ] 测试插件功能正常
+- [ ] 确保代码通过格式检查
+- [ ] 编写清晰的 commit message
+- [ ] 推送到 main 分支或合并 PR
+
+---
+
+## �📚 参考资源 (Reference Resources)
 
 - [Action 插件模板 (英文)](plugins/actions/ACTION_PLUGIN_TEMPLATE.py)
 - [Action 插件模板 (中文)](plugins/actions/ACTION_PLUGIN_TEMPLATE_CN.py)
