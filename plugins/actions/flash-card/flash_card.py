@@ -100,6 +100,21 @@ class Action:
     def __init__(self):
         self.valves = self.Valves()
 
+    def _get_user_context(self, __user__: Optional[Dict[str, Any]]) -> Dict[str, str]:
+        """Extract basic user context with safe fallbacks."""
+        if isinstance(__user__, (list, tuple)):
+            user_data = __user__[0] if __user__ else {}
+        elif isinstance(__user__, dict):
+            user_data = __user__
+        else:
+            user_data = {}
+
+        return {
+            "user_id": user_data.get("id", "unknown_user"),
+            "user_name": user_data.get("name", "User"),
+            "user_language": user_data.get("language", "en-US"),
+        }
+
     async def action(
         self,
         body: dict,
@@ -165,7 +180,8 @@ class Action:
                 done=False,
             )
 
-            user_id = __user__.get("id") if __user__ else "default"
+            user_ctx = self._get_user_context(__user__)
+            user_id = user_ctx["user_id"]
             user_obj = Users.get_user_by_id(user_id)
 
             target_model = (

@@ -11,7 +11,6 @@ OpenWebUI 增强功能集合。包含个人开发与收集的### 🧩 插件 (Pl
 - **Knowledge Card** (`knowledge-card`): 快速生成精美的学习记忆卡片。
 - **Export to Excel** (`export_to_excel`): 将对话内容导出为 Excel 文件。
 - **Summary** (`summary`): 文本摘要生成工具。
-- **AI Agent Solver** (`ai-agent-solver`): 智能代理解决器。
 
 #### Filters (消息处理)
 - **Async Context Compression** (`async-context-compression`): 异步上下文压缩，优化 Token 使用。

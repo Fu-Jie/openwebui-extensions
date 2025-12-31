@@ -17,7 +17,6 @@ Located in the `plugins/` directory, containing Python-based enhancements:
 - **Knowledge Card** (`knowledge-card`): Creates beautiful flashcards for learning.
 - **Export to Excel** (`export_to_excel`): Exports chat history to Excel files.
 - **Summary** (`summary`): Text summarization tool.
-- **AI Agent Solver** (`ai-agent-solver`): Intelligent agent solver.
 
 #### Filters
 - **Async Context Compression** (`async-context-compression`): Optimizes token usage via context compression.

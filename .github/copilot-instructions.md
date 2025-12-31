@@ -325,6 +325,49 @@ def _get_user_context(self, __user__: Optional[Dict[str, Any]]) -> Dict[str, str
 - `user_language`: `"en-US"`
 - `user_name`: `"User"`
 
+### 用户上下文获取规范 (User Context Retrieval)
+
+所有插件**必须**使用 `_get_user_context` 方法来安全获取用户信息，而不是直接访问 `__user__` 参数。这是因为 `__user__` 的类型可能是 `dict`、`list`、`tuple` 或其他类型，直接调用 `.get()` 可能导致 `AttributeError`。
+
+All plugins **MUST** use the `_get_user_context` method to safely retrieve user information instead of directly accessing the `__user__` parameter. This is because `__user__` can be of type `dict`, `list`, `tuple`, or other types, and directly calling `.get()` may cause `AttributeError`.
+
+**正确做法 (Correct):**
+
+```python
+def _get_user_context(self, __user__: Optional[Dict[str, Any]]) -> Dict[str, str]:
+    """安全提取用户上下文信息。"""
+    if isinstance(__user__, (list, tuple)):
+        user_data = __user__[0] if __user__ else {}
+    elif isinstance(__user__, dict):
+        user_data = __user__
+    else:
+        user_data = {}
+
+    return {
+        "user_id": user_data.get("id", "unknown_user"),
+        "user_name": user_data.get("name", "User"),
+        "user_language": user_data.get("language", "en-US"),
+    }
+
+async def action(self, body: dict, __user__: Optional[Dict[str, Any]] = None, ...):
+    user_ctx = self._get_user_context(__user__)
+    user_id = user_ctx["user_id"]
+    user_name = user_ctx["user_name"]
+    user_language = user_ctx["user_language"]
+```
+
+**禁止的做法 (Prohibited):**
+
+```python
+# ❌ 禁止: 直接调用 __user__.get()
+# ❌ Prohibited: Directly calling __user__.get()
+user_id = __user__.get("id") if __user__ else "default"
+
+# ❌ 禁止: 假设 __user__ 一定是 dict
+# ❌ Prohibited: Assuming __user__ is always a dict
+user_name = __user__["name"]
+```
+
 ---
 
 ## 📦 依赖管理 (Dependencies)
