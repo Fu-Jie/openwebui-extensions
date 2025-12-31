@@ -1,70 +1,65 @@
 # Async Context Compression Filter
 
-**Author:** [Fu-Jie](https://github.com/Fu-Jie) | **Version:** 1.1.0 | **License:** MIT
+**Author:** [Fu-Jie](https://github.com/Fu-Jie) | **Version:** 1.2.0 | **License:** MIT
 
-> **Important Note**: To ensure the maintainability and usability of all filters, each filter should be accompanied by clear and complete documentation to fully explain its functionality, configuration, and usage.
+This filter reduces token consumption in long conversations through intelligent summarization and message compression while keeping conversations coherent.
 
-This filter significantly reduces token consumption in long conversations by using intelligent summarization and message compression, while maintaining conversational coherence.
+## What's new in 1.1.0 
+
+- Reuses Open WebUI's shared database connection by default (no custom engine or env vars required).
+- Token-based thresholds (`compression_threshold_tokens`, `max_context_tokens`) for safer long-context handling.
+- Per-model overrides via `model_thresholds` for mixed-model workflows.
+- Documentation now mirrors the latest async workflow and retention-first injection.
 
 ---
 
 ## Core Features
 
--   ✅ **Automatic Compression**: Triggers context compression automatically based on a message count threshold.
--   ✅ **Asynchronous Summarization**: Generates summaries in the background without blocking the current chat response.
--   ✅ **Persistent Storage**: Uses Open WebUI's shared database connection - automatically supports any database backend (PostgreSQL, SQLite, etc.).
--   ✅ **Flexible Retention Policy**: Freely configure the number of initial and final messages to keep, ensuring critical information and context continuity.
--   ✅ **Smart Injection**: Intelligently injects the generated historical summary into the new context.
+- ✅ Automatic compression triggered by token thresholds.
+- ✅ Asynchronous summarization that does not block chat responses.
+- ✅ Persistent storage via Open WebUI's shared database connection (PostgreSQL, SQLite, etc.).
+- ✅ Flexible retention policy to keep the first and last N messages.
+- ✅ Smart injection of historical summaries back into the context.
 
 ---
 
 ## Installation & Configuration
 
-### 1. Database (Automatic)
+### 1) Database (automatic)
 
-This plugin automatically uses Open WebUI's shared database connection. **No additional database configuration is required.**
+- Uses Open WebUI's shared database connection; no extra configuration needed.
+- The `chat_summary` table is created on first run.
 
-The `chat_summary` table will be created automatically on first run.
+### 2) Filter order
 
-### 2. Filter Order
+It is recommended to keep this filter early in the chain so it runs before filters that mutate messages:
 
-It is recommended to set the priority of this filter relatively high (a smaller number) to ensure it runs before other filters that might modify message content. A typical order might be:
-
-1.  **Pre-Filters (priority < 10)**
-    -   e.g., A filter that injects a system-level prompt.
-2.  **This Compression Filter (priority = 10)**
-3.  **Post-Filters (priority > 10)**
-    -   e.g., A filter that formats the final output.
+1. Pre-filters (priority < 10) — e.g., system prompt injectors.
+2. This compression filter (priority = 10).
+3. Post-filters (priority > 10) — e.g., output formatting.
 
 ---
 
 ## Configuration Parameters
 
-You can adjust the following parameters in the filter's settings:
-
-| Parameter | Default | Description |
-| :--- | :--- | :--- |
-| `priority` | `10` | The execution order of the filter. Lower numbers run first. |
-| `compression_threshold` | `15` | When the total message count reaches this value, a background summary generation will be triggered. |
-| `keep_first` | `1` | Always keep the first N messages. The first message often contains important system prompts. |
-| `keep_last` | `6` | Always keep the last N messages to ensure contextual coherence. |
-| `summary_model` | `None` | The model used for generating summaries. **Strongly recommended** to set a fast, economical, and compatible model (e.g., `gemini-2.5-flash`). If left empty, it will try to use the current chat's model, which may fail if it's an incompatible model type (like a Pipe model). |
-| `max_summary_tokens` | `4000` | The maximum number of tokens allowed for the generated summary. |
-| `summary_temperature` | `0.3` | Controls the randomness of the summary. Lower values are more deterministic. |
-| `debug_mode` | `true` | Whether to print detailed debug information to the log. Recommended to set to `false` in production. |
+| Parameter                      | Default  | Description                                                                                                                                                           |
+| :----------------------------- | :------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `priority`                     | `10`     | Execution order; lower runs earlier.                                                                                                                                  |
+| `compression_threshold_tokens` | `64000`  | Trigger asynchronous summary when total tokens exceed this value. Set to 50%-70% of your model's context window.                                                      |
+| `max_context_tokens`           | `128000` | Hard cap for context; older messages (except protected ones) are dropped if exceeded.                                                                                 |
+| `keep_first`                   | `1`      | Always keep the first N messages (protects system prompts).                                                                                                           |
+| `keep_last`                    | `6`      | Always keep the last N messages to preserve recent context.                                                                                                           |
+| `summary_model`                | `None`   | Model for summaries. Strongly recommended to set a fast, economical model (e.g., `gemini-2.5-flash`, `deepseek-v3`). Falls back to the current chat model when empty. |
+| `max_summary_tokens`           | `4000`   | Maximum tokens for the generated summary.                                                                                                                             |
+| `summary_temperature`          | `0.3`    | Randomness for summary generation. Lower is more deterministic.                                                                                                       |
+| `model_thresholds`             | `{}`     | Per-model overrides for `compression_threshold_tokens` and `max_context_tokens` (useful for mixed models).                                                            |
+| `debug_mode`                   | `true`   | Log verbose debug info. Set to `false` in production.                                                                                                                 |
 
 ---
 
 ## Troubleshooting
 
--   **Problem: Database table not created.**
-    -   **Solution**: Ensure Open WebUI is properly configured with a database and check Open WebUI's logs for detailed error messages.
-
--   **Problem: Summary not generated.**
-    -   **Solution**: Check if the `compression_threshold` has been met and verify that `summary_model` is configured correctly. Check the logs for detailed errors.
-
--   **Problem: Initial system prompt is lost.**
-    -   **Solution**: Ensure `keep_first` is set to a value greater than 0 to preserve the initial messages containing important information.
-
--   **Problem: Compression effect is not significant.**
-    -   **Solution**: Try increasing the `compression_threshold` or decreasing the `keep_first` / `keep_last` values.
+- **Database table not created**: Ensure Open WebUI is configured with a database and check Open WebUI logs for errors.
+- **Summary not generated**: Confirm `compression_threshold_tokens` was hit and `summary_model` is compatible. Review logs for details.
+- **Initial system prompt is lost**: Keep `keep_first` greater than 0 to protect the initial message.
+- **Compression effect is weak**: Raise `compression_threshold_tokens` or lower `keep_first` / `keep_last` to allow more aggressive compression.

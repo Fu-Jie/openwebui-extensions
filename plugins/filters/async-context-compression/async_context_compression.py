@@ -127,7 +127,7 @@ summary_model
     - If the current conversation uses a pipeline (Pipe) model or a model that does not support standard generation APIs, leaving this field empty may cause summary generation to fail. In this case, you must specify a valid model.
 
 max_summary_tokens
-  Default: 4000
+  Default: 16384
   Description: The maximum number of tokens allowed for the generated summary.
 
 summary_temperature
