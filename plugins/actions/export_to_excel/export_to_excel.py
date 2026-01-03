@@ -760,6 +760,17 @@ class Action:
                     }
                 )
 
+                # Italic cell style (for full cell italics)
+                text_italic_format = workbook.add_format(
+                    {
+                        "border": 1,
+                        "align": "left",
+                        "valign": "vcenter",
+                        "text_wrap": True,
+                        "italic": True,
+                    }
+                )
+
                 for i, table in enumerate(tables):
                     try:
                         table_data = table["data"]
@@ -832,6 +843,7 @@ class Action:
                             date_format,
                             sequence_format,
                             text_bold_format,
+                            text_italic_format,
                         )
 
                     except Exception as e:
@@ -856,6 +868,7 @@ class Action:
         date_format,
         sequence_format,
         text_bold_format=None,
+        text_italic_format=None,
     ):
         """
         Apply enhanced formatting
@@ -864,7 +877,7 @@ class Action:
         - Text: Left aligned
         - Date: Center aligned
         - Sequence: Center aligned
-        - Supports full cell Markdown bold (**text**)
+        - Supports full cell Markdown bold (**text**) and italic (*text*)
         """
         try:
             # 1. Write headers (Center aligned)
@@ -928,12 +941,21 @@ class Action:
 
                     if content_type == "text" and isinstance(value, str):
                         # Check for full cell bold (**text**)
-                        match = re.fullmatch(r"\*\*(.+)\*\*", value.strip())
-                        if match:
+                        match_bold = re.fullmatch(r"\*\*(.+)\*\*", value.strip())
+                        # Check for full cell italic (*text*)
+                        match_italic = re.fullmatch(r"\*(.+)\*", value.strip())
+
+                        if match_bold:
                             # Extract content and apply bold format
-                            clean_value = match.group(1)
+                            clean_value = match_bold.group(1)
                             worksheet.write(
                                 row_idx + 1, col_idx, clean_value, text_bold_format
+                            )
+                        elif match_italic:
+                            # Extract content and apply italic format
+                            clean_value = match_italic.group(1)
+                            worksheet.write(
+                                row_idx + 1, col_idx, clean_value, text_italic_format
                             )
                         else:
                             worksheet.write(row_idx + 1, col_idx, value, current_format)

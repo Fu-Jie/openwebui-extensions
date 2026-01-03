@@ -765,6 +765,17 @@ class Action:
                     }
                 )
 
+                # 斜体单元格样式 (用于全单元格斜体)
+                text_italic_format = workbook.add_format(
+                    {
+                        "border": 1,
+                        "align": "left",
+                        "valign": "vcenter",
+                        "text_wrap": True,
+                        "italic": True,
+                    }
+                )
+
                 for i, table in enumerate(tables):
                     try:
                         table_data = table["data"]
@@ -837,6 +848,7 @@ class Action:
                             date_format,
                             sequence_format,
                             text_bold_format,
+                            text_italic_format,
                         )
 
                     except Exception as e:
@@ -861,6 +873,7 @@ class Action:
         date_format,
         sequence_format,
         text_bold_format=None,
+        text_italic_format=None,
     ):
         """
         应用符合中国官方表格规范的格式化
@@ -869,7 +882,7 @@ class Action:
         - 文本: 左对齐
         - 日期: 居中对齐
         - 序号: 居中对齐
-        - 支持全单元格 Markdown 粗体 (**text**)
+        - 支持全单元格 Markdown 粗体 (**text**) 和斜体 (*text*)
         """
         try:
             # 1. 写入表头（居中对齐）
@@ -933,12 +946,21 @@ class Action:
 
                     if content_type == "text" and isinstance(value, str):
                         # 检查是否全单元格加粗 (**text**)
-                        match = re.fullmatch(r"\*\*(.+)\*\*", value.strip())
-                        if match:
+                        match_bold = re.fullmatch(r"\*\*(.+)\*\*", value.strip())
+                        # 检查是否全单元格斜体 (*text*)
+                        match_italic = re.fullmatch(r"\*(.+)\*", value.strip())
+
+                        if match_bold:
                             # 提取内容并应用粗体格式
-                            clean_value = match.group(1)
+                            clean_value = match_bold.group(1)
                             worksheet.write(
                                 row_idx + 1, col_idx, clean_value, text_bold_format
+                            )
+                        elif match_italic:
+                            # 提取内容并应用斜体格式
+                            clean_value = match_italic.group(1)
+                            worksheet.write(
+                                row_idx + 1, col_idx, clean_value, text_italic_format
                             )
                         else:
                             worksheet.write(row_idx + 1, col_idx, value, current_format)
