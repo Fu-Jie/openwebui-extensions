@@ -224,6 +224,17 @@ jobs:
           echo "=== Collected Files ==="
           find release_plugins -name "*.py" -type f | head -20
 
+      - name: Debug Filenames
+        run: |
+          python3 -c "import sys; print(f'Filesystem encoding: {sys.getfilesystemencoding()}')"
+          ls -R release_plugins
+
+      - name: Upload Debug Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-plugins
+          path: release_plugins/
+
       - name: Get commit messages
         id: commits
         if: github.event_name == 'push'
