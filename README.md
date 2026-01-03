@@ -24,7 +24,7 @@ Located in the `plugins/` directory, containing Python-based enhancements:
 - **Async Context Compression** (`async-context-compression`): Optimizes token usage via context compression.
 - **Context Enhancement** (`context_enhancement_filter`): Enhances chat context.
 - **Gemini Manifold Companion** (`gemini_manifold_companion`): Companion filter for Gemini Manifold.
-- **Multi-Model Context Merger** (`multi_model_context_merger`): Merges context from multiple models.
+
 
 #### Pipes
 - **Gemini Manifold** (`gemini_mainfold`): Pipeline for Gemini model integration.
