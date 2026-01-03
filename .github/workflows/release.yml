@@ -251,7 +251,7 @@ jobs:
             echo 'commits<<EOF'
             echo "$COMMITS"
             echo 'EOF'
-          } >> $GITHUB_OUTPUT
+          } >> "$GITHUB_OUTPUT"
 
       - name: Generate release notes
         id: notes
