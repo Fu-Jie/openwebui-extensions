@@ -37,7 +37,9 @@ README 文件应包含以下内容：
 - 安装和设置说明 / Installation and setup instructions
 - 使用示例 / Usage examples
 - 故障排除指南 / Troubleshooting guide
+- 故障排除指南 / Troubleshooting guide
 - 版本和作者信息 / Version and author information
+- **新增功能 / New Features**: 如果是更新现有插件，必须明确列出并描述新增功能（发布到官方市场的重要要求）。/ If updating an existing plugin, explicitly list and describe new features (Critical for official market release).
 
 ### 官方文档 (Official Documentation)
 

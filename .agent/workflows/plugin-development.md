@@ -35,8 +35,8 @@ Every plugin **MUST** have bilingual versions for both code and documentation:
 When adding or updating a plugin, you **MUST** update the following documentation files to maintain consistency:
 
 ### Plugin Directory
-- `README.md`: Update version, description, and usage.
-- `README_CN.md`: Update version, description, and usage.
+- `README.md`: Update version, description, and usage. **Explicitly describe new features.**
+- `README_CN.md`: Update version, description, and usage. **Explicitly describe new features.**
 
 ### Global Documentation (`docs/`)
 - **Index Pages**:
