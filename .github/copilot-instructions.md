@@ -809,6 +809,8 @@ For iframe plugins to access parent document theme information, users need to co
 3. 📦 创建 GitHub Release（包含可下载的插件文件）
 4. 🏷️ 自动生成版本号（格式：`vYYYY.MM.DD-运行号`）
 
+**注意**：仅**移除插件**（删除文件）**不会触发**自动发布。只有新增或修改插件（且更新了版本号）才会触发发布。移除的插件将不会出现在发布日志中。
+
 ### 发布前必须完成 (Pre-release Requirements)
 
 1. ✅ **更新版本号** - 修改插件文档字符串中的 `version` 字段
