@@ -315,7 +315,7 @@ class Action:
                     if role == "user"
                     else "Assistant" if role == "assistant" else role
                 )
-                aggregated_parts.append(f"[{role_label} Message {i}]\n{text_content}")
+                aggregated_parts.append(f"{text_content}")
 
         if not aggregated_parts:
             return body  # Or handle error

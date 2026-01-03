@@ -75,6 +75,14 @@ All dependencies are declared in the plugin docstring.
 
 ## Changelog
 
+### v0.3.0
+
+- **Mermaid Diagrams**: Native support for rendering Mermaid diagrams as images in Word.
+- **Native Math**: Converts LaTeX equations to native Office MathML for editable equations.
+- **Citations**: Automatic bibliography generation and citation linking.
+- **Reasoning Removal**: Option to strip `<think>` blocks from the output.
+- **Table Enhancements**: Improved table formatting with smart column widths.
+
 ### v0.2.0
 - Added native math equation support (LaTeX → OMML)
 - Added Mermaid diagram rendering
