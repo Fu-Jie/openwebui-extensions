@@ -91,3 +91,12 @@ Before committing:
 - [ ] `docs/` index and detail pages are updated?
 - [ ] Root `README.md` is updated?
 - [ ] All version numbers match exactly?
+
+## 5. Git Operations (Agent Rules)
+
+**CRITICAL RULE FOR AGENTS**:
+
+- **No Auto-Push**: Agents **MUST NOT** automatically push changes to the remote `main` branch.
+- **Local Commit Only**: All changes must be committed locally.
+- **User Approval**: Pushing to remote requires explicit user action or approval.
+
