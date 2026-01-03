@@ -341,7 +341,13 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          find release_plugins -type f -name "*.py" -print0 | xargs -0 gh release upload ${{ steps.version.outputs.version }} --clobber
+          # Check if there are any .py files to upload
+          if [ -d release_plugins ] && [ -n "$(find release_plugins -type f -name '*.py' 2>/dev/null)" ]; then
+            echo "Uploading plugin files..."
+            find release_plugins -type f -name "*.py" -print0 | xargs -0 gh release upload ${{ steps.version.outputs.version }} --clobber
+          else
+            echo "No plugin files to upload. Skipping asset upload."
+          fi
 
       - name: Summary
         run: |
