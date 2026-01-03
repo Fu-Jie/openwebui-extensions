@@ -94,9 +94,6 @@ Before committing:
 
 ## 5. Git Operations (Agent Rules)
 
-**CRITICAL RULE FOR AGENTS**:
+Strictly follow the rules defined in `.github/copilot-instructions.md` → **Git Operations (Agent Rules)** section.
 
-- **No Auto-Push**: Agents **MUST NOT** automatically push changes to the remote `main` branch.
-- **Local Commit Only**: All changes must be committed locally.
-- **User Approval**: Pushing to remote requires explicit user action or approval.
 

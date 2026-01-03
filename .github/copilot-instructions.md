@@ -984,3 +984,29 @@ Follow the [Conventional Commits](https://www.conventionalcommits.org/) specific
 ❌ **Bad:**
 - `新增导出PDF插件` (Chinese is not allowed)
 - `update code` (Too vague)
+
+---
+
+## 🤖 Git Operations (Agent Rules)
+
+**重要规则 (CRITICAL RULES FOR AI AGENTS)**:
+
+AI Agent（如 Copilot、Gemini、Claude 等）在执行 Git 操作时必须遵守以下规则：
+
+| 操作 (Operation) | 允许 (Allowed) | 说明 (Description) |
+|-----------------|---------------|---------------------|
+| 创建功能分支 | ✅ 允许 | `git checkout -b feature/xxx` |
+| 推送到功能分支 | ✅ 允许 | `git push origin feature/xxx` |
+| 直接推送到 main | ❌ 禁止 | `git push origin main` 需要用户手动执行 |
+| 合并到 main | ❌ 禁止 | 任何合并操作需要用户明确批准 |
+| Rebase 到 main | ❌ 禁止 | 任何 rebase 操作需要用户明确批准 |
+
+**规则详解 (Rule Details)**:
+
+1. **Feature Branches Allowed**: Agent **可以**创建新的功能分支并推送到远程仓库
+2. **No Direct Push to Main**: Agent **禁止**直接推送任何更改到 `main` 分支
+3. **No Auto-Merge**: Agent **禁止**在未经用户明确批准的情况下合并任何分支到 `main`
+4. **User Approval Required**: 任何影响 `main` 分支的操作（push、merge、rebase）都需要用户明确批准
+
+> [!CAUTION]
+> 违反上述规则可能导致代码库不稳定或触发意外的 CI/CD 流程。Agent 应始终在功能分支上工作，并让用户决定何时合并到主分支。
