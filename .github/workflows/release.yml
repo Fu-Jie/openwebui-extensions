@@ -58,6 +58,7 @@ jobs:
       has_changes: ${{ steps.detect.outputs.has_changes }}
       changed_plugins: ${{ steps.detect.outputs.changed_plugins }}
       release_notes: ${{ steps.detect.outputs.release_notes }}
+      changed_plugins_table: ${{ steps.detect.outputs.changed_plugins_table }}
     
     steps:
       - name: Checkout repository
@@ -103,6 +104,7 @@ jobs:
           # Compare versions and generate release notes
           python scripts/extract_plugin_versions.py --compare old_versions.json --output changes.md
           python scripts/extract_plugin_versions.py --compare old_versions.json --json --output changes.json
+          python scripts/extract_plugin_versions.py --compare old_versions.json --changed-table --output changed_plugins_table.md
           
           echo "=== Version Changes ==="
           cat changes.md
@@ -138,6 +140,13 @@ jobs:
           {
             echo 'release_notes<<EOF'
             cat changes.md
+            echo 'EOF'
+          } >> $GITHUB_OUTPUT
+          
+          # Store changed plugins table
+          {
+            echo 'changed_plugins_table<<EOF'
+            cat changed_plugins_table.md
             echo 'EOF'
           } >> $GITHUB_OUTPUT
 
@@ -250,6 +259,7 @@ jobs:
           NOTES="${{ github.event.inputs.release_notes }}"
           DETECTED_CHANGES="${{ needs.check-changes.outputs.release_notes }}"
           COMMITS="${{ steps.commits.outputs.commits }}"
+          CHANGED_PLUGINS_TABLE="${{ needs.check-changes.outputs.changed_plugins_table }}"
           
           echo "# ${VERSION} Release / 发布" > release_notes.md
           echo "" >> release_notes.md
@@ -280,16 +290,19 @@ jobs:
             echo "" >> release_notes.md
           fi
           
-          echo "## All Plugin Versions / 所有插件版本" >> release_notes.md
-          echo "" >> release_notes.md
-          cat plugin_table.md >> release_notes.md
-          echo "" >> release_notes.md
+          # Only show changed plugins table if there are changes
+          if [ -n "$CHANGED_PLUGINS_TABLE" ] && ! echo "$CHANGED_PLUGINS_TABLE" | grep -q "No changes detected"; then
+            echo "## Changed Plugins / 变更插件" >> release_notes.md
+            echo "" >> release_notes.md
+            echo "$CHANGED_PLUGINS_TABLE" >> release_notes.md
+            echo "" >> release_notes.md
+          fi
           
           cat >> release_notes.md << 'EOF'
           
           ## Download / 下载
           
-          📦 **plugins_release.zip** - 包含本次更新的所有插件文件 / Contains all updated plugin files
+          📦 **plugins_release.zip** - 包含本次更新的插件文件 / Contains updated plugin files from this release
           
           ### Installation / 安装
           
@@ -333,8 +346,5 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Version:** ${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Updated Plugins" >> $GITHUB_STEP_SUMMARY
+          echo "### Changed Plugins / 变更插件" >> $GITHUB_STEP_SUMMARY
           echo "${{ needs.check-changes.outputs.release_notes }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### All Plugin Versions" >> $GITHUB_STEP_SUMMARY
-          cat plugin_table.md >> $GITHUB_STEP_SUMMARY

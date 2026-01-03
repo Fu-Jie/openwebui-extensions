@@ -95,7 +95,8 @@ def scan_plugins_directory(plugins_dir: str) -> list[dict[str, Any]]:
     # Walk through all subdirectories
     for root, _dirs, files in os.walk(plugins_path):
         for file in files:
-            if file.endswith(".py") and not file.startswith("__"):
+            # Skip template files and Python internal files
+            if file.endswith(".py") and not file.startswith("__") and "TEMPLATE" not in file.upper():
                 file_path = os.path.join(root, file)
                 metadata = extract_plugin_metadata(file_path)
                 if metadata:
@@ -181,6 +182,56 @@ def format_markdown_table(plugins: list[dict]) -> str:
     return "\n".join(lines)
 
 
+def format_changed_plugins_table(comparison: dict[str, list]) -> str:
+    """
+    Format only changed plugins (added and updated) as a Markdown table.
+    仅将变更的插件（新增和更新）格式化为 Markdown 表格。
+    """
+    if not comparison["added"] and not comparison["updated"]:
+        return ""
+    
+    lines = [
+        "| Plugin / 插件 | Version / 版本 | Type / 类型 | Description / 描述 |",
+        "|---------------|----------------|-------------|---------------------|",
+    ]
+    
+    # Collect all changed plugins
+    changed_plugins = []
+    
+    # Add new plugins
+    for plugin in comparison["added"]:
+        changed_plugins.append({
+            "title": plugin.get("title", "Unknown"),
+            "version": plugin.get("version", "Unknown") + " 🆕",
+            "type": plugin.get("type", "Unknown").capitalize(),
+            "description": plugin.get("description", "")
+        })
+    
+    # Add updated plugins
+    for update in comparison["updated"]:
+        curr = update["current"]
+        prev = update["previous"]
+        changed_plugins.append({
+            "title": curr.get("title", "Unknown"),
+            "version": f"{prev.get('version', '?')} → {curr.get('version', '?')}",
+            "type": curr.get("type", "Unknown").capitalize(),
+            "description": curr.get("description", "")
+        })
+    
+    # Sort and format
+    for plugin in sorted(changed_plugins, key=lambda x: (x["type"], x["title"])):
+        title = plugin["title"]
+        version = plugin["version"]
+        plugin_type = plugin["type"]
+        full_description = plugin["description"]
+        description = full_description[:50]
+        if len(full_description) > 50:
+            description += "..."
+        lines.append(f"| {title} | {version} | {plugin_type} | {description} |")
+    
+    return "\n".join(lines)
+
+
 def format_release_notes(comparison: dict[str, list]) -> str:
     """
     Format version comparison as release notes.
@@ -235,6 +286,11 @@ def main():
         help="Output as Markdown table",
     )
     parser.add_argument(
+        "--changed-table",
+        action="store_true",
+        help="Output changed plugins as Markdown table (use with --compare)",
+    )
+    parser.add_argument(
         "--compare",
         metavar="FILE",
         help="Compare with previous version JSON file",
@@ -256,6 +312,11 @@ def main():
         comparison = compare_versions(plugins, args.compare)
         if args.json:
             output = json.dumps(comparison, indent=2, ensure_ascii=False)
+        elif args.changed_table:
+            # Output a markdown table of only changed plugins
+            output = format_changed_plugins_table(comparison)
+            if not output.strip():
+                output = "No changes detected. / 未检测到更改。"
         else:
             output = format_release_notes(comparison)
             if not output.strip():
