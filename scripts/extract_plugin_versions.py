@@ -295,6 +295,8 @@ def main():
     if args.output:
         with open(args.output, "w", encoding="utf-8") as f:
             f.write(output)
+            if not output.endswith("\n"):
+                f.write("\n")
         print(f"Output written to {args.output}")
     else:
         print(output)
