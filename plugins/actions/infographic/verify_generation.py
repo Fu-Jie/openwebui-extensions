@@ -24,7 +24,7 @@ if not API_KEY or not BASE_URL:
     sys.exit(1)
 
 # =================================================================
-# Prompts (Extracted from 信息图.py)
+# Prompts (Extracted from infographic_cn.py)
 # =================================================================
 
 SYSTEM_PROMPT_INFOGRAPHIC_ASSISTANT = """

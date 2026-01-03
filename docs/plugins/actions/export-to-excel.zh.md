@@ -1,7 +1,7 @@
 # Export to Excel（导出到 Excel）
 
 <span class="category-badge action">Action</span>
-<span class="version-badge">v0.3.6</span>
+<span class="version-badge">v0.3.7</span>
 
 将聊天记录导出为 Excel 表格，便于分析、归档和分享。
 

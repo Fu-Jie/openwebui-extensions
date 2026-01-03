@@ -13,13 +13,13 @@ This document defines the standard conventions and best practices for OpenWebUI 
 每个插件必须提供两个版本：
 
 1. **英文版本**: `plugin_name.py` - 英文界面、提示词和注释
-2. **中文版本**: `plugin_name_cn.py` 或 `插件中文名.py` - 中文界面、提示词和注释
+2. **中文版本**: `plugin_name_cn.py` - 中文界面、提示词和注释
 
 示例：
 ```
 plugins/actions/export_to_docx/
 ├── export_to_word.py      # English version
-├── 导出为Word.py           # Chinese version
+├── export_to_word_cn.py    # Chinese version
 ├── README.md               # English documentation
 └── README_CN.md            # Chinese documentation
 ```

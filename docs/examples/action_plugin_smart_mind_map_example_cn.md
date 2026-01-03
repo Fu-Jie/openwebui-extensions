@@ -21,7 +21,7 @@
 
 Open WebUI 通过文件顶部的特定格式注释来识别和展示插件信息。
 
-**代码示例 (`思维导图.py`):**
+**代码示例 (`smart_mind_map_cn.py`):**
 
 ```python
 """
@@ -45,7 +45,7 @@ description: 智能分析文本内容,生成交互式思维导图,帮助用户�
 
 通过在 `Action` 类内部定义一个 `Valves` Pydantic 模型，可以为插件创建可在 Web UI 中配置的参数。
 
-**代码示例 (`思维导图.py`):**
+**代码示例 (`smart_mind_map_cn.py`):**
 
 ```python
 class Action:
@@ -83,7 +83,7 @@ class Action:
 
 `action` 方法是插件的执行入口，它是一个异步函数，接收 Open WebUI 传入的上下文信息。
 
-**代码示例 (`思维导图.py`):**
+**代码示例 (`smart_mind_map_cn.py`):**
 
 ```python
     async def action(

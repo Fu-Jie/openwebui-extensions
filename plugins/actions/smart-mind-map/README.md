@@ -39,7 +39,7 @@ Smart Mind Map is a powerful OpenWebUI action plugin that intelligently analyzes
 
 ### 1. Plugin Installation
 
-1. Download the `思维导图.py` file to your local computer
+1. Download the `smart_mind_map_cn.py` file to your local computer
 2. In OpenWebUI Admin Settings, find the "Plugins" section
 3. Select "Actions" type
 4. Upload the downloaded file
