@@ -57,13 +57,13 @@ Actions 是交互式插件，能够：
 
     [:octicons-arrow-right-24: 查看文档](export-to-excel.md)
 
--   :material-file-word-box:{ .lg .middle } **Export to Word**
+-   :material-file-word-box:{ .lg .middle } **Word 导出 (格式增强)**
 
     ---
 
-    将聊天内容按 Markdown 格式导出为 Word (.docx)，支持语法高亮。
+    将当前对话导出为完美格式的 Word 文档，支持代码语法高亮、AI 智能标题生成以及表格、引用等 Markdown 元素的精准渲染。
 
-    **版本：** 0.1.0
+    **版本：** 0.1.1
 
     [:octicons-arrow-right-24: 查看文档](export-to-word.md)
 
