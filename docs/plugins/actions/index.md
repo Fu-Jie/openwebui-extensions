@@ -53,7 +53,7 @@ Actions are interactive plugins that:
 
     Export chat conversations to Excel spreadsheet format for analysis and archiving.
 
-    **Version:** 0.3.3
+    **Version:** 0.3.4
 
     [:octicons-arrow-right-24: Documentation](export-to-excel.md)
 

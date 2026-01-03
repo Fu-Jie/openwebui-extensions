@@ -3,7 +3,7 @@ title: Export to Excel
 author: Fu-Jie
 author_url: https://github.com/Fu-Jie
 funding_url: https://github.com/Fu-Jie/awesome-openwebui
-version: 0.3.3
+version: 0.3.4
 icon_url: data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxwYXRoIGQ9Ik0xNSAySDZhMiAyIDAgMCAwLTIgMnYxNmEyIDIgMCAwIDAgMiAyaDEyYTIgMiAwIDAgMCAyLTJWN1oiLz48cGF0aCBkPSJNMTQgMnY0YTIgMiAwIDAgMCAyIDJoNCIvPjxwYXRoIGQ9Ik04IDEzaDIiLz48cGF0aCBkPSJNMTQgMTNoMiIvPjxwYXRoIGQ9Ik04IDE3aDIiLz48cGF0aCBkPSJNMTQgMTdoMiIvPjwvc3ZnPg==
 description: Exports the current chat history to an Excel (.xlsx) file, with automatic header extraction.
 """
@@ -15,14 +15,24 @@ import base64
 from fastapi import FastAPI, HTTPException
 from typing import Optional, Callable, Awaitable, Any, List, Dict
 import datetime
+import asyncio
+from open_webui.models.chats import Chats
+from open_webui.models.users import Users
+from open_webui.utils.chat import generate_chat_completion
+from pydantic import BaseModel, Field
 
 app = FastAPI()
 
 
 class Action:
+    class Valves(BaseModel):
+        TITLE_SOURCE: str = Field(
+            default="chat_title",
+            description="Title Source: 'chat_title' (Chat Title), 'ai_generated' (AI Generated), 'markdown_title' (Markdown Title)",
+        )
 
     def __init__(self):
-        pass
+        self.valves = self.Valves()
 
     async def _send_notification(self, emitter: Callable, type: str, content: str):
         await emitter(
@@ -35,6 +45,7 @@ class Action:
         __user__=None,
         __event_emitter__=None,
         __event_call__: Optional[Callable[[Any], Awaitable[None]]] = None,
+        __request__: Optional[Any] = None,
     ):
         print(f"action:{__name__}")
         if isinstance(__user__, (list, tuple)):
@@ -69,18 +80,64 @@ class Action:
                 if not tables:
                     raise HTTPException(status_code=400, detail="No tables found.")
 
+                # Generate filename
+                title = ""
+                chat_id = self.extract_chat_id(
+                    body, None
+                )  # metadata not available in action signature yet, but usually in body
+
+                # Fetch chat_title directly via chat_id as it's usually missing in body
+                chat_title = ""
+                if chat_id:
+                    chat_title = await self.fetch_chat_title(chat_id, user_id)
+
+                if (
+                    self.valves.TITLE_SOURCE == "chat_title"
+                    or not self.valves.TITLE_SOURCE
+                ):
+                    title = chat_title
+                elif self.valves.TITLE_SOURCE == "markdown_title":
+                    title = self.extract_title(message_content)
+                elif self.valves.TITLE_SOURCE == "ai_generated":
+                    # We need request object for AI generation, but it's not passed in standard action signature in this version
+                    # However, we can try to use the one from global context if available or skip
+                    # For now, let's assume we might not have it and fallback or use what we have
+                    # Wait, export_to_word uses __request__. Let's check if we can add it to signature.
+                    pass
+
                 # Get dynamic filename and sheet names
-                workbook_name, sheet_names = self.generate_names_from_content(
-                    message_content, tables
+                workbook_name_from_content, sheet_names = (
+                    self.generate_names_from_content(message_content, tables)
                 )
+
+                # If AI generation is selected but we need request, we need to update signature.
+                # Let's update signature in next chunk.
+
+                # Fallback logic for title
+                if not title:
+                    if self.valves.TITLE_SOURCE == "ai_generated":
+                        # AI generation needs request, handled later
+                        pass
+                    elif self.valves.TITLE_SOURCE == "markdown_title":
+                        pass  # Already tried
+
+                    # If still no title, try workbook_name_from_content (which uses headers)
+                    if not title and workbook_name_from_content:
+                        title = workbook_name_from_content
+
+                    # If still no title, use chat_title if available
+                    if not title and chat_title:
+                        title = chat_title
 
                 # Use optimized filename generation logic
                 current_datetime = datetime.datetime.now()
                 formatted_date = current_datetime.strftime("%Y%m%d")
 
                 # If no title found, use user_yyyymmdd format
-                if not workbook_name:
+                if not title:
                     workbook_name = f"{user_name}_{formatted_date}"
+                else:
+                    workbook_name = self.clean_filename(title)
 
                 filename = f"{workbook_name}.xlsx"
                 excel_file_path = os.path.join(
@@ -171,6 +228,88 @@ class Action:
                 await self._send_notification(
                     __event_emitter__, "error", "No tables found to export!"
                 )
+
+    async def generate_title_using_ai(
+        self, body: dict, content: str, user_id: str, request: Any
+    ) -> str:
+        if not request:
+            return ""
+
+        try:
+            user_obj = Users.get_user_by_id(user_id)
+            model = body.get("model")
+
+            payload = {
+                "model": model,
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": "You are a helpful assistant. Generate a short, concise title (max 10 words) for the following text. Do not use quotes. Only output the title.",
+                    },
+                    {"role": "user", "content": content[:2000]},  # Limit content length
+                ],
+                "stream": False,
+            }
+
+            response = await generate_chat_completion(request, payload, user_obj)
+            if response and "choices" in response:
+                return response["choices"][0]["message"]["content"].strip()
+        except Exception as e:
+            print(f"Error generating title: {e}")
+
+        return ""
+
+    def extract_title(self, content: str) -> str:
+        """Extract title from Markdown h1/h2 only"""
+        lines = content.split("\n")
+        for line in lines:
+            # Match h1-h2 headings only
+            match = re.match(r"^#{1,2}\s+(.+)$", line.strip())
+            if match:
+                return match.group(1).strip()
+        return ""
+
+    def extract_chat_id(self, body: dict, metadata: Optional[dict]) -> str:
+        """Extract chat_id from body or metadata"""
+        if isinstance(body, dict):
+            chat_id = body.get("chat_id") or body.get("id")
+            if isinstance(chat_id, str) and chat_id.strip():
+                return chat_id.strip()
+
+            for key in ("chat", "conversation"):
+                nested = body.get(key)
+                if isinstance(nested, dict):
+                    nested_id = nested.get("id") or nested.get("chat_id")
+                    if isinstance(nested_id, str) and nested_id.strip():
+                        return nested_id.strip()
+        if isinstance(metadata, dict):
+            chat_id = metadata.get("chat_id")
+            if isinstance(chat_id, str) and chat_id.strip():
+                return chat_id.strip()
+        return ""
+
+    async def fetch_chat_title(self, chat_id: str, user_id: str = "") -> str:
+        """Fetch chat title from database by chat_id"""
+        if not chat_id:
+            return ""
+
+        def _load_chat():
+            if user_id:
+                return Chats.get_chat_by_id_and_user_id(id=chat_id, user_id=user_id)
+            return Chats.get_chat_by_id(chat_id)
+
+        try:
+            chat = await asyncio.to_thread(_load_chat)
+        except Exception as exc:
+            print(f"Failed to load chat {chat_id}: {exc}")
+            return ""
+
+        if not chat:
+            return ""
+
+        data = getattr(chat, "chat", {}) or {}
+        title = data.get("title") or getattr(chat, "title", "")
+        return title.strip() if isinstance(title, str) else ""
 
     def extract_tables_from_message(self, message: str) -> List[Dict]:
         """

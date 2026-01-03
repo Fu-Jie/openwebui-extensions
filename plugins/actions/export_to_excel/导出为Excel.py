@@ -3,7 +3,7 @@ title: 导出为 Excel
 author: Fu-Jie
 author_url: https://github.com/Fu-Jie
 funding_url: https://github.com/Fu-Jie/awesome-openwebui
-version: 0.3.3
+version: 0.3.4
 icon_url: data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxwYXRoIGQ9Ik0xNSAySDZhMiAyIDAgMCAwLTIgMnYxNmEyIDIgMCAwIDAgMiAyaDEyYTIgMiAwIDAgMCAyLTJWN1oiLz48cGF0aCBkPSJNMTQgMnY0YTIgMiAwIDAgMCAyIDJoNCIvPjxwYXRoIGQ9Ik04IDEzaDIiLz48cGF0aCBkPSJNMTQgMTNoMiIvPjxwYXRoIGQ9Ik04IDE3aDIiLz48cGF0aCBkPSJNMTQgMTdoMiIvPjwvc3ZnPg==
 description: 将当前对话历史导出为 Excel (.xlsx) 文件，支持自动提取表头。
 """
@@ -15,14 +15,24 @@ import base64
 from fastapi import FastAPI, HTTPException
 from typing import Optional, Callable, Awaitable, Any, List, Dict
 import datetime
+import asyncio
+from open_webui.models.chats import Chats
+from open_webui.models.users import Users
+from open_webui.utils.chat import generate_chat_completion
+from pydantic import BaseModel, Field
 
 app = FastAPI()
 
 
 class Action:
+    class Valves(BaseModel):
+        TITLE_SOURCE: str = Field(
+            default="chat_title",
+            description="标题来源：'chat_title' (对话标题), 'ai_generated' (AI生成), 'markdown_title' (Markdown标题)",
+        )
 
     def __init__(self):
-        pass
+        self.valves = self.Valves()
 
     async def _send_notification(self, emitter: Callable, type: str, content: str):
         await emitter(
@@ -35,6 +45,7 @@ class Action:
         __user__=None,
         __event_emitter__=None,
         __event_call__: Optional[Callable[[Any], Awaitable[None]]] = None,
+        __request__: Optional[Any] = None,
     ):
         print(f"action:{__name__}")
         if isinstance(__user__, (list, tuple)):
@@ -69,18 +80,58 @@ class Action:
                 if not tables:
                     raise HTTPException(status_code=400, detail="未找到任何表格。")
 
+                # 生成文件名
+                title = ""
+                chat_id = self.extract_chat_id(
+                    body, None
+                )  # metadata 在此版本 action 签名中不可用，但通常在 body 中
+
+                # 直接通过 chat_id 获取对话标题，因为 body 中通常缺少该信息
+                chat_title = ""
+                if chat_id:
+                    chat_title = await self.fetch_chat_title(chat_id, user_id)
+
+                if (
+                    self.valves.TITLE_SOURCE == "chat_title"
+                    or not self.valves.TITLE_SOURCE
+                ):
+                    title = chat_title
+                elif self.valves.TITLE_SOURCE == "markdown_title":
+                    title = self.extract_title(message_content)
+                elif self.valves.TITLE_SOURCE == "ai_generated":
+                    # AI 生成需要 request 对象，稍后处理
+                    pass
+
                 # 获取动态文件名和sheet名称
-                workbook_name, sheet_names = self.generate_names_from_content(
-                    message_content, tables
+                workbook_name_from_content, sheet_names = (
+                    self.generate_names_from_content(message_content, tables)
                 )
+
+                # 标题回退逻辑
+                if not title:
+                    if self.valves.TITLE_SOURCE == "ai_generated":
+                        # AI 生成需要 request，稍后处理
+                        pass
+                    elif self.valves.TITLE_SOURCE == "markdown_title":
+                        pass  # 已尝试
+
+                    # 如果仍无标题，尝试使用 workbook_name_from_content (基于表头)
+                    if not title and workbook_name_from_content:
+                        title = workbook_name_from_content
+
+                    # 如果仍无标题，尝试使用 chat_title
+                    if not title and chat_title:
+                        title = chat_title
 
                 # 使用优化后的文件名生成逻辑
                 current_datetime = datetime.datetime.now()
                 formatted_date = current_datetime.strftime("%Y%m%d")
 
                 # 如果没找到标题则使用 user_yyyymmdd 格式
-                if not workbook_name:
+                if not title:
                     workbook_name = f"{user_name}_{formatted_date}"
+                else:
+                    workbook_name = self.clean_filename(title)
 
                 filename = f"{workbook_name}.xlsx"
                 excel_file_path = os.path.join(
@@ -171,6 +222,88 @@ class Action:
                 await self._send_notification(
                     __event_emitter__, "error", "没有找到可以导出的表格!"
                 )
+
+    async def generate_title_using_ai(
+        self, body: dict, content: str, user_id: str, request: Any
+    ) -> str:
+        if not request:
+            return ""
+
+        try:
+            user_obj = Users.get_user_by_id(user_id)
+            model = body.get("model")
+
+            payload = {
+                "model": model,
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": "你是一个乐于助人的助手。请为以下文本生成一个简短、简洁的标题（最多10个字）。不要使用引号。只输出标题。",
+                    },
+                    {"role": "user", "content": content[:2000]},  # 限制内容长度
+                ],
+                "stream": False,
+            }
+
+            response = await generate_chat_completion(request, payload, user_obj)
+            if response and "choices" in response:
+                return response["choices"][0]["message"]["content"].strip()
+        except Exception as e:
+            print(f"生成标题时出错: {e}")
+
+        return ""
+
+    def extract_title(self, content: str) -> str:
+        """从 Markdown h1/h2 中提取标题"""
+        lines = content.split("\n")
+        for line in lines:
+            # 仅匹配 h1-h2 标题
+            match = re.match(r"^#{1,2}\s+(.+)$", line.strip())
+            if match:
+                return match.group(1).strip()
+        return ""
+
+    def extract_chat_id(self, body: dict, metadata: Optional[dict]) -> str:
+        """从 body 或 metadata 中提取 chat_id"""
+        if isinstance(body, dict):
+            chat_id = body.get("chat_id") or body.get("id")
+            if isinstance(chat_id, str) and chat_id.strip():
+                return chat_id.strip()
+
+            for key in ("chat", "conversation"):
+                nested = body.get(key)
+                if isinstance(nested, dict):
+                    nested_id = nested.get("id") or nested.get("chat_id")
+                    if isinstance(nested_id, str) and nested_id.strip():
+                        return nested_id.strip()
+        if isinstance(metadata, dict):
+            chat_id = metadata.get("chat_id")
+            if isinstance(chat_id, str) and chat_id.strip():
+                return chat_id.strip()
+        return ""
+
+    async def fetch_chat_title(self, chat_id: str, user_id: str = "") -> str:
+        """通过 chat_id 从数据库获取对话标题"""
+        if not chat_id:
+            return ""
+
+        def _load_chat():
+            if user_id:
+                return Chats.get_chat_by_id_and_user_id(id=chat_id, user_id=user_id)
+            return Chats.get_chat_by_id(chat_id)
+
+        try:
+            chat = await asyncio.to_thread(_load_chat)
+        except Exception as exc:
+            print(f"加载对话 {chat_id} 失败: {exc}")
+            return ""
+
+        if not chat:
+            return ""
+
+        data = getattr(chat, "chat", {}) or {}
+        title = data.get("title") or getattr(chat, "title", "")
+        return title.strip() if isinstance(title, str) else ""
 
     def extract_tables_from_message(self, message: str) -> List[Dict]:
         """

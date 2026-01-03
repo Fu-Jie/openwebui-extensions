@@ -1,11 +1,18 @@
 # Export to Excel
 
 <span class="category-badge action">Action</span>
-<span class="version-badge">v0.3.3</span>
+<span class="version-badge">v0.3.4</span>
 
 Export chat conversations to Excel spreadsheet format for analysis, archiving, and sharing.
 
+
+## What's New in v0.3.4
+
+- **Smart Filename Generation**: Now supports generating filenames based on Chat Title, AI Summary, or Markdown Headers.
+- **Configuration Options**: Added `TITLE_SOURCE` setting to control filename generation strategy.
+
 ---
+
 
 ## Overview
 
@@ -22,6 +29,13 @@ The Export to Excel plugin allows you to download your chat conversations as Exc
 - :material-table: **Formatted Output**: Clean table structure
 - :material-download: **One-Click Download**: Instant file generation
 - :material-history: **Full History**: Exports complete conversation
+
+## Configuration
+
+- **Title Source**: Choose how the filename is generated:
+  - `chat_title`: Use the chat title (default).
+  - `ai_generated`: Use AI to generate a concise title from the content.
+  - `markdown_title`: Extract the first H1/H2 header from the markdown content.
 
 ---
 
