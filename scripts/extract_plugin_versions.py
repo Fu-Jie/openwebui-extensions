@@ -96,6 +96,10 @@ def scan_plugins_directory(plugins_dir: str) -> list[dict[str, Any]]:
     for root, _dirs, files in os.walk(plugins_path):
         for file in files:
             if file.endswith(".py") and not file.startswith("__"):
+                # Skip specific files that should not trigger release
+                if file in ["gemini_manifold.py", "gemini_manifold_companion.py"]:
+                    continue
+
                 file_path = os.path.join(root, file)
                 metadata = extract_plugin_metadata(file_path)
                 if metadata:
