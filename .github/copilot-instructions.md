@@ -803,6 +803,19 @@ For iframe plugins to access parent document theme information, users need to co
 
 ---
 
+## 🔄 一致性维护 (Consistency Maintenance)
+
+任何插件的**新增、修改或移除**，必须同时更新以下三个位置，保持完全一致：
+
+1. **插件代码 (Plugin Code)**: 更新 `version` 和功能实现。
+2. **项目文档 (Docs)**: 更新 `docs/` 下对应的文档文件（版本号、功能描述）。
+3. **自述文件 (README)**: 更新根目录下的 `README.md` 和 `README_CN.md` 中的插件列表。
+
+> [!IMPORTANT]
+> 提交 PR 前，请务必检查这三处是否同步。例如：如果删除了一个插件，必须同时从 README 列表中移除，并删除对应的 docs 文档。
+
+---
+
 ## � 发布工作流 (Release Workflow)
 
 ### 自动发布 (Automatic Release)
