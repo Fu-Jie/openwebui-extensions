@@ -96,7 +96,12 @@ def scan_plugins_directory(plugins_dir: str) -> list[dict[str, Any]]:
     for root, _dirs, files in os.walk(plugins_path):
         for file in files:
             # Skip template files and Python internal files
-            if file.endswith(".py") and not file.startswith("__") and "TEMPLATE" not in file.upper():
+            # Template files typically have "TEMPLATE" in their name (case-insensitive)
+            is_template = "TEMPLATE" in file.upper()
+            is_python = file.endswith(".py")
+            is_internal = file.startswith("__")
+            
+            if is_python and not is_internal and not is_template:
                 file_path = os.path.join(root, file)
                 metadata = extract_plugin_metadata(file_path)
                 if metadata:
@@ -188,7 +193,7 @@ def format_changed_plugins_table(comparison: dict[str, list]) -> str:
     仅将变更的插件（新增和更新）格式化为 Markdown 表格。
     """
     if not comparison["added"] and not comparison["updated"]:
-        return ""
+        return "No changes detected. / 未检测到更改。"
     
     lines = [
         "| Plugin / 插件 | Version / 版本 | Type / 类型 | Description / 描述 |",

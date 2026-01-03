@@ -291,7 +291,8 @@ jobs:
           fi
           
           # Only show changed plugins table if there are changes
-          if [ -n "$CHANGED_PLUGINS_TABLE" ] && ! echo "$CHANGED_PLUGINS_TABLE" | grep -q "No changes detected"; then
+          # Check for both English and Chinese "no changes" messages
+          if [ -n "$CHANGED_PLUGINS_TABLE" ] && ! echo "$CHANGED_PLUGINS_TABLE" | grep -qE "(No changes detected|未检测到更改)"; then
             echo "## Changed Plugins / 变更插件" >> release_notes.md
             echo "" >> release_notes.md
             echo "$CHANGED_PLUGINS_TABLE" >> release_notes.md
