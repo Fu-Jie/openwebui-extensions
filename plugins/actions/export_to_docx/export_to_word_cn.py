@@ -1019,8 +1019,22 @@ class Action:
                             attrs=code_block_attrs,
                             source=code_text,
                         )
-                        # 插入占位符
-                        self._insert_mermaid_placeholder(doc, block)
+                        # Handle Mermaid diagram
+                        if code_block_lang == "mermaid":
+                            # Optimize layout if enabled
+                            if self.valves.MERMAID_OPTIMIZE_LAYOUT:
+                                # Replace LR with TD for graph and flowchart
+                                code_text = re.sub(
+                                    r"^(graph|flowchart)\s+LR\b",
+                                    r"\1 TD",
+                                    code_text,
+                                    flags=re.MULTILINE | re.IGNORECASE,
+                                )
+
+                            self._insert_mermaid_placeholder(doc, code_text)
+                        else:
+                            # Insert Placeholder using the block object
+                            self._insert_mermaid_placeholder(doc, block)
                     else:
                         self.add_code_block(doc, code_text, code_block_lang)
 
