@@ -1,7 +1,7 @@
 """
 title: 精读 (Deep Reading)
 icon_url: data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0Ij48ZGVmcz48bGluZWFyR3JhZGllbnQgaWQ9ImciIHgxPSIwIiB5MT0iMCIgeDI9IjEiIHkyPSIxIj48c3RvcCBvZmZzZXQ9IjAlIiBzdG9wLWNvbG9yPSIjNDI4NWY0Ii8+PHN0b3Agb2Zmc2V0PSIxMDAlIiBzdG9wLWNvbG9yPSIjMWU4OGU1Ii8+PC9saW5lYXJHcmFkaWVudD48L2RlZnM+PHBhdGggZD0iTTYgMmg4bDYgNnYxMmEyIDIgMCAwIDEtMiAySDZhMiAyIDAgMCAxLTItMlY0YTIgMiAwIDAgMSAyLTJ6IiBmaWxsPSJ1cmwoI2cpIi8+PHBhdGggZD0iTTE0IDJsNiA2aC02eiIgZmlsbD0iIzFlODhlNSIgb3BhY2l0eT0iMC42Ii8+PGxpbmUgeDE9IjgiIHkxPSIxMyIgeDI9IjE2IiB5Mj0iMTMiIHN0cm9rZT0iI2ZmZiIgc3Ryb2tlLXdpZHRoPSIxLjUiLz48bGluZSB4MT0iOCIgeTE9IjE3IiB4Mj0iMTQiIHkyPSIxNyIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjEuNSIvPjxjaXJjbGUgY3g9IjE2IiBjeT0iMTgiIHI9IjMiIGZpbGw9IiNmZmQ3MDAiLz48cGF0aCBkPSJNMTYgMTZsMS41IDEuNSIgc3Ryb2tlPSIjNDI4NWY0IiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPjwvc3ZnPg==
-version: 0.1.1
+version: 0.1.2
 description: 深度分析长篇文本，提炼详细摘要、关键信息点和可执行的行动建议，适合工作和学习场景。
 requirements: jinja2, markdown
 """
@@ -528,7 +528,7 @@ class Action:
                         if role == "user"
                         else "助手" if role == "assistant" else role
                     )
-                    aggregated_parts.append(f"[{role_label} 消息 {i}]\n{text_content}")
+                    aggregated_parts.append(f"{text_content}")
 
             if not aggregated_parts:
                 raise ValueError("无法获取有效的用户消息内容。")

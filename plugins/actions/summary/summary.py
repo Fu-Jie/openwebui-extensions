@@ -3,7 +3,7 @@ title: Deep Reading & Summary
 author: Fu-Jie
 author_url: https://github.com/Fu-Jie
 funding_url: https://github.com/Fu-Jie/awesome-openwebui
-version: 0.1.1
+version: 0.1.2
 icon_url: data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxwYXRoIGQ9Ik0xNSAxMmgtNSIvPjxwYXRoIGQ9Ik0xNSA4aC01Ii8+PHBhdGggZD0iTTE5IDE3VjVhMiAyIDAgMCAwLTItMkg0Ii8+PHBhdGggZD0iTTggMjFoMTJhMiAyIDAgMCAwIDItMnYtMWExIDEgMCAwIDAtMS0xSDExYTEgMSAwIDAgMC0xIDF2MWEyIDIgMCAxIDEtNCAwVjVhMiAyIDAgMSAwLTQgMHYyYTEgMSAwIDAgMCAxIDFoMyIvPjwvc3ZnPg==
 description: Provides deep reading analysis and summarization for long texts.
 requirements: jinja2, markdown
@@ -529,9 +529,7 @@ class Action:
                         if role == "user"
                         else "Assistant" if role == "assistant" else role
                     )
-                    aggregated_parts.append(
-                        f"[{role_label} Message {i}]\n{text_content}"
-                    )
+                    aggregated_parts.append(f"{text_content}")
 
             if not aggregated_parts:
                 raise ValueError("Unable to get valid user message content.")

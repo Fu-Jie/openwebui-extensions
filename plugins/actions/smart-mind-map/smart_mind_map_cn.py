@@ -3,7 +3,7 @@ title: 思维导图
 author: Fu-Jie
 author_url: https://github.com/Fu-Jie
 funding_url: https://github.com/Fu-Jie/awesome-openwebui
-version: 0.8.1
+version: 0.8.2
 icon_url: data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxyZWN0IHg9IjE2IiB5PSIxNiIgd2lkdGg9IjYiIGhlaWdodD0iNiIgcng9IjEiLz48cmVjdCB4PSIyIiB5PSIxNiIgd2lkdGg9IjYiIGhlaWdodD0iNiIgcng9IjEiLz48cmVjdCB4PSI5IiB5PSIyIiB3aWR0aD0iNiIgaGVpZ2h0PSI2IiByeD0iMSIvPjxwYXRoIGQ9Ik01IDE2di0zYTEgMSAwIDAgMSAxLTFoMTJhMSAxIDAgMCAxIDEgMXYzIi8+PHBhdGggZD0iTTEyIDEyVjgiLz48L3N2Zz4=
 description: 智能分析文本内容,生成交互式思维导图,帮助用户结构化和可视化知识。
 """
@@ -957,7 +957,7 @@ class Action:
                     if role == "user"
                     else "助手" if role == "assistant" else role
                 )
-                aggregated_parts.append(f"[{role_label} 消息 {i}]\n{text_content}")
+                aggregated_parts.append(f"{text_content}")
 
         if not aggregated_parts:
             error_message = "无法获取有效的用户消息内容。"

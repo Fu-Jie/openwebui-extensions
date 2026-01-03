@@ -63,3 +63,9 @@ data
 ## 📄 License
 
 MIT License
+
+## Changelog
+
+### v1.3.2
+
+- Removed debug messages from output

@@ -48,3 +48,9 @@ GitHub: [Fu-Jie/awesome-openwebui](https://github.com/Fu-Jie/awesome-openwebui)
 ## License
 
 MIT License
+
+## Changelog
+
+### v0.2.4
+
+- Removed debug messages from output

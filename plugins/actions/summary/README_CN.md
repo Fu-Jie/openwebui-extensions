@@ -22,3 +22,9 @@ GitHub: [Fu-Jie/awesome-openwebui](https://github.com/Fu-Jie/awesome-openwebui)
 ## 许可证
 
 MIT License
+
+## 更新日志
+
+### v0.1.2
+
+- 移除输出中的调试信息

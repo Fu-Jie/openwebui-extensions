@@ -1,6 +1,6 @@
 # Smart Mind Map - Mind Mapping Generation Plugin
 
-**Author:** [Fu-Jie](https://github.com/Fu-Jie) | **Version:** 0.8.0 | **License:** MIT
+**Author:** [Fu-Jie](https://github.com/Fu-Jie) | **Version:** 0.8.2 | **License:** MIT
 
 > **Important**: To ensure the maintainability and usability of all plugins, each plugin should be accompanied by clear and comprehensive documentation to ensure its functionality, configuration, and usage are well explained.
 
@@ -277,7 +277,11 @@ This plugin uses only OpenWebUI's built-in dependencies. **No additional package
 
 ## Changelog
 
-### v0.8.0 (Current Version)
+### v0.8.2
+
+- Removed debug messages from output
+
+### v0.8.0 (Previous Version)
 
 **Major Features:**
 
