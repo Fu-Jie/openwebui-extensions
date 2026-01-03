@@ -3,9 +3,9 @@ title: Export to Excel
 author: Fu-Jie
 author_url: https://github.com/Fu-Jie
 funding_url: https://github.com/Fu-Jie/awesome-openwebui
-version: 0.3.5
+version: 0.3.6
 icon_url: data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxwYXRoIGQ9Ik0xNSAySDZhMiAyIDAgMCAwLTIgMnYxNmEyIDIgMCAwIDAgMiAyaDEyYTIgMiAwIDAgMCAyLTJWN1oiLz48cGF0aCBkPSJNMTQgMnY0YTIgMiAwIDAgMCAyIDJoNCIvPjxwYXRoIGQ9Ik04IDEzaDIiLz48cGF0aCBkPSJNMTQgMTNoMiIvPjxwYXRoIGQ9Ik04IDE3aDIiLz48cGF0aCBkPSJNMTQgMTdoMiIvPjwvc3ZnPg==
-description: Exports the current chat history to an Excel (.xlsx) file, with automatic header extraction.
+description: Extracts tables from chat messages and exports them to Excel (.xlsx) files with smart formatting.
 """
 
 import os
@@ -20,19 +20,24 @@ from open_webui.models.chats import Chats
 from open_webui.models.users import Users
 from open_webui.utils.chat import generate_chat_completion
 from pydantic import BaseModel, Field
+from typing import Literal
 
 app = FastAPI()
 
 
 class Action:
     class Valves(BaseModel):
-        TITLE_SOURCE: str = Field(
+        TITLE_SOURCE: Literal["chat_title", "ai_generated", "markdown_title"] = Field(
             default="chat_title",
             description="Title Source: 'chat_title' (Chat Title), 'ai_generated' (AI Generated), 'markdown_title' (Markdown Title)",
         )
-        EXPORT_SCOPE: str = Field(
+        EXPORT_SCOPE: Literal["last_message", "all_messages"] = Field(
             default="last_message",
             description="Export Scope: 'last_message' (Last Message Only), 'all_messages' (All Messages)",
+        )
+        MODEL_ID: str = Field(
+            default="",
+            description="Model ID for AI title generation. Leave empty to use the current chat model.",
         )
 
     def __init__(self):
@@ -181,6 +186,16 @@ class Action:
                     seen_names[name] = True
                     final_sheet_names.append(name)
 
+                # Notify user about the number of tables found
+                table_count = len(all_tables)
+                if self.valves.EXPORT_SCOPE == "all_messages":
+                    await self._send_notification(
+                        __event_emitter__,
+                        "info",
+                        f"Found {table_count} table(s) in all messages.",
+                    )
+                    # Wait a moment for user to see the notification before download dialog
+                    await asyncio.sleep(1.5)
                 # Generate Workbook Title (Filename)
                 # Use the title of the chat, or the first header of the first message with tables
                 title = ""
@@ -194,6 +209,24 @@ class Action:
                     or not self.valves.TITLE_SOURCE
                 ):
                     title = chat_title
+                elif self.valves.TITLE_SOURCE == "ai_generated":
+                    # Use AI to generate a title based on message content
+                    if target_messages and __request__:
+                        # Get content from the first message with tables
+                        content_for_title = ""
+                        for msg in target_messages:
+                            msg_content = msg.get("content", "")
+                            if msg_content:
+                                content_for_title = msg_content
+                                break
+                        if content_for_title:
+                            title = await self.generate_title_using_ai(
+                                body,
+                                content_for_title,
+                                user_id,
+                                __request__,
+                                __event_emitter__,
+                            )
                 elif self.valves.TITLE_SOURCE == "markdown_title":
                     # Try to find first header in the first message that has content
                     for msg in target_messages:
@@ -316,32 +349,93 @@ class Action:
                 )
 
     async def generate_title_using_ai(
-        self, body: dict, content: str, user_id: str, request: Any
+        self,
+        body: dict,
+        content: str,
+        user_id: str,
+        request: Any,
+        event_emitter: Callable = None,
     ) -> str:
         if not request:
             return ""
 
         try:
             user_obj = Users.get_user_by_id(user_id)
-            model = body.get("model")
+            # Use configured MODEL_ID or fallback to current chat model
+            model = (
+                self.valves.MODEL_ID.strip()
+                if self.valves.MODEL_ID
+                else body.get("model")
+            )
 
             payload = {
                 "model": model,
                 "messages": [
                     {
                         "role": "system",
-                        "content": "You are a helpful assistant. Generate a short, concise title (max 10 words) for the following text. Do not use quotes. Only output the title.",
+                        "content": "You are a helpful assistant. Generate a short, concise filename (max 10 words) for an Excel export based on the following content. Do not use quotes or file extensions. Avoid special characters that are invalid in filenames. Only output the filename.",
                     },
                     {"role": "user", "content": content[:2000]},  # Limit content length
                 ],
                 "stream": False,
             }
 
-            response = await generate_chat_completion(request, payload, user_obj)
-            if response and "choices" in response:
-                return response["choices"][0]["message"]["content"].strip()
+            # Define the generation task
+            async def generate_task():
+                return await generate_chat_completion(request, payload, user_obj)
+
+            # Define the notification task
+            async def notification_task():
+                # Send initial notification immediately
+                if event_emitter:
+                    await self._send_notification(
+                        event_emitter,
+                        "info",
+                        "AI is generating a filename for your Excel file...",
+                    )
+
+                # Subsequent notifications every 5 seconds
+                while True:
+                    await asyncio.sleep(5)
+                    if event_emitter:
+                        await self._send_notification(
+                            event_emitter,
+                            "info",
+                            "Still generating filename, please be patient...",
+                        )
+
+            # Run tasks concurrently
+            gen_future = asyncio.ensure_future(generate_task())
+            notify_future = asyncio.ensure_future(notification_task())
+
+            done, pending = await asyncio.wait(
+                [gen_future, notify_future], return_when=asyncio.FIRST_COMPLETED
+            )
+
+            # Cancel notification task if generation is done
+            if not notify_future.done():
+                notify_future.cancel()
+
+            # Get result
+            if gen_future in done:
+                response = gen_future.result()
+                if response and "choices" in response:
+                    return response["choices"][0]["message"]["content"].strip()
+            else:
+                # Should not happen if return_when=FIRST_COMPLETED and we cancel notify
+                await gen_future
+                response = gen_future.result()
+                if response and "choices" in response:
+                    return response["choices"][0]["message"]["content"].strip()
+
         except Exception as e:
             print(f"Error generating title: {e}")
+            if event_emitter:
+                await self._send_notification(
+                    event_emitter,
+                    "warning",
+                    f"AI title generation failed, using default title. Error: {str(e)}",
+                )
 
         return ""
 
@@ -681,24 +775,51 @@ class Action:
             with pd.ExcelWriter(file_path, engine="xlsxwriter") as writer:
                 workbook = writer.book
 
+                # OpenWebUI-style theme colors
+                HEADER_BG = "#1f2937"  # Dark gray (matches OpenWebUI sidebar)
+                HEADER_FG = "#ffffff"  # White text
+                ROW_ODD_BG = "#ffffff"  # White for odd rows
+                ROW_EVEN_BG = "#f3f4f6"  # Light gray for even rows (zebra striping)
+                BORDER_COLOR = "#e5e7eb"  # Light border
+
                 # Define header style - Center aligned
                 header_format = workbook.add_format(
                     {
                         "bold": True,
-                        "font_size": 12,
-                        "font_color": "white",
-                        "bg_color": "#00abbd",
+                        "font_size": 11,
+                        "font_name": "Arial",
+                        "font_color": HEADER_FG,
+                        "bg_color": HEADER_BG,
                         "border": 1,
+                        "border_color": BORDER_COLOR,
                         "align": "center",
                         "valign": "vcenter",
                         "text_wrap": True,
                     }
                 )
 
-                # Text cell style - Left aligned
+                # Text cell style - Left aligned (odd rows)
                 text_format = workbook.add_format(
                     {
+                        "font_name": "Arial",
+                        "font_size": 10,
                         "border": 1,
+                        "border_color": BORDER_COLOR,
+                        "bg_color": ROW_ODD_BG,
+                        "align": "left",
+                        "valign": "vcenter",
+                        "text_wrap": True,
+                    }
+                )
+
+                # Text cell style - Left aligned (even rows - zebra)
+                text_format_alt = workbook.add_format(
+                    {
+                        "font_name": "Arial",
+                        "font_size": 10,
+                        "border": 1,
+                        "border_color": BORDER_COLOR,
+                        "bg_color": ROW_EVEN_BG,
                         "align": "left",
                         "valign": "vcenter",
                         "text_wrap": True,
@@ -707,14 +828,51 @@ class Action:
 
                 # Number cell style - Right aligned
                 number_format = workbook.add_format(
-                    {"border": 1, "align": "right", "valign": "vcenter"}
+                    {
+                        "font_name": "Arial",
+                        "font_size": 10,
+                        "border": 1,
+                        "border_color": BORDER_COLOR,
+                        "bg_color": ROW_ODD_BG,
+                        "align": "right",
+                        "valign": "vcenter",
+                    }
+                )
+
+                number_format_alt = workbook.add_format(
+                    {
+                        "font_name": "Arial",
+                        "font_size": 10,
+                        "border": 1,
+                        "border_color": BORDER_COLOR,
+                        "bg_color": ROW_EVEN_BG,
+                        "align": "right",
+                        "valign": "vcenter",
+                    }
                 )
 
                 # Integer format - Right aligned
                 integer_format = workbook.add_format(
                     {
                         "num_format": "0",
+                        "font_name": "Arial",
+                        "font_size": 10,
                         "border": 1,
+                        "border_color": BORDER_COLOR,
+                        "bg_color": ROW_ODD_BG,
+                        "align": "right",
+                        "valign": "vcenter",
+                    }
+                )
+
+                integer_format_alt = workbook.add_format(
+                    {
+                        "num_format": "0",
+                        "font_name": "Arial",
+                        "font_size": 10,
+                        "border": 1,
+                        "border_color": BORDER_COLOR,
+                        "bg_color": ROW_EVEN_BG,
                         "align": "right",
                         "valign": "vcenter",
                     }
@@ -724,7 +882,24 @@ class Action:
                 decimal_format = workbook.add_format(
                     {
                         "num_format": "0.00",
+                        "font_name": "Arial",
+                        "font_size": 10,
                         "border": 1,
+                        "border_color": BORDER_COLOR,
+                        "bg_color": ROW_ODD_BG,
+                        "align": "right",
+                        "valign": "vcenter",
+                    }
+                )
+
+                decimal_format_alt = workbook.add_format(
+                    {
+                        "num_format": "0.00",
+                        "font_name": "Arial",
+                        "font_size": 10,
+                        "border": 1,
+                        "border_color": BORDER_COLOR,
+                        "bg_color": ROW_EVEN_BG,
                         "align": "right",
                         "valign": "vcenter",
                     }
@@ -733,7 +908,24 @@ class Action:
                 # Date format - Center aligned
                 date_format = workbook.add_format(
                     {
+                        "font_name": "Arial",
+                        "font_size": 10,
                         "border": 1,
+                        "border_color": BORDER_COLOR,
+                        "bg_color": ROW_ODD_BG,
+                        "align": "center",
+                        "valign": "vcenter",
+                        "text_wrap": True,
+                    }
+                )
+
+                date_format_alt = workbook.add_format(
+                    {
+                        "font_name": "Arial",
+                        "font_size": 10,
+                        "border": 1,
+                        "border_color": BORDER_COLOR,
+                        "bg_color": ROW_EVEN_BG,
                         "align": "center",
                         "valign": "vcenter",
                         "text_wrap": True,
@@ -743,7 +935,23 @@ class Action:
                 # Sequence format - Center aligned
                 sequence_format = workbook.add_format(
                     {
+                        "font_name": "Arial",
+                        "font_size": 10,
                         "border": 1,
+                        "border_color": BORDER_COLOR,
+                        "bg_color": ROW_ODD_BG,
+                        "align": "center",
+                        "valign": "vcenter",
+                    }
+                )
+
+                sequence_format_alt = workbook.add_format(
+                    {
+                        "font_name": "Arial",
+                        "font_size": 10,
+                        "border": 1,
+                        "border_color": BORDER_COLOR,
+                        "bg_color": ROW_EVEN_BG,
                         "align": "center",
                         "valign": "vcenter",
                     }
@@ -752,7 +960,25 @@ class Action:
                 # Bold cell style (for full cell bolding)
                 text_bold_format = workbook.add_format(
                     {
+                        "font_name": "Arial",
+                        "font_size": 10,
                         "border": 1,
+                        "border_color": BORDER_COLOR,
+                        "bg_color": ROW_ODD_BG,
+                        "align": "left",
+                        "valign": "vcenter",
+                        "text_wrap": True,
+                        "bold": True,
+                    }
+                )
+
+                text_bold_format_alt = workbook.add_format(
+                    {
+                        "font_name": "Arial",
+                        "font_size": 10,
+                        "border": 1,
+                        "border_color": BORDER_COLOR,
+                        "bg_color": ROW_EVEN_BG,
                         "align": "left",
                         "valign": "vcenter",
                         "text_wrap": True,
@@ -763,11 +989,57 @@ class Action:
                 # Italic cell style (for full cell italics)
                 text_italic_format = workbook.add_format(
                     {
+                        "font_name": "Arial",
+                        "font_size": 10,
                         "border": 1,
+                        "border_color": BORDER_COLOR,
+                        "bg_color": ROW_ODD_BG,
                         "align": "left",
                         "valign": "vcenter",
                         "text_wrap": True,
                         "italic": True,
+                    }
+                )
+
+                text_italic_format_alt = workbook.add_format(
+                    {
+                        "font_name": "Arial",
+                        "font_size": 10,
+                        "border": 1,
+                        "border_color": BORDER_COLOR,
+                        "bg_color": ROW_EVEN_BG,
+                        "align": "left",
+                        "valign": "vcenter",
+                        "text_wrap": True,
+                        "italic": True,
+                    }
+                )
+
+                # Code cell style (for inline code with highlight background)
+                CODE_BG = "#f0f0f0"  # Light gray background for code
+                text_code_format = workbook.add_format(
+                    {
+                        "font_name": "Consolas",
+                        "font_size": 10,
+                        "border": 1,
+                        "border_color": BORDER_COLOR,
+                        "bg_color": CODE_BG,
+                        "align": "left",
+                        "valign": "vcenter",
+                        "text_wrap": True,
+                    }
+                )
+
+                text_code_format_alt = workbook.add_format(
+                    {
+                        "font_name": "Consolas",
+                        "font_size": 10,
+                        "border": 1,
+                        "border_color": BORDER_COLOR,
+                        "bg_color": CODE_BG,
+                        "align": "left",
+                        "valign": "vcenter",
+                        "text_wrap": True,
                     }
                 )
 
@@ -812,12 +1084,18 @@ class Action:
 
                         print(f"DataFrame created with columns: {list(df.columns)}")
 
-                        # Fix pandas FutureWarning
+                        # Smart data type conversion using pandas infer_objects
                         for col in df.columns:
+                            # Try numeric conversion first
                             try:
                                 df[col] = pd.to_numeric(df[col])
                             except (ValueError, TypeError):
-                                pass
+                                # Try datetime conversion
+                                try:
+                                    df[col] = pd.to_datetime(df[col], errors="raise")
+                                except (ValueError, TypeError):
+                                    # Keep as string, use infer_objects for optimization
+                                    df[col] = df[col].infer_objects()
 
                         # Write data first (without header)
                         df.to_excel(
@@ -829,21 +1107,25 @@ class Action:
                         )
                         worksheet = writer.sheets[sheet_name]
 
-                        # Apply enhanced formatting
+                        # Apply enhanced formatting with zebra striping
+                        formats = {
+                            "header": header_format,
+                            "text": [text_format, text_format_alt],
+                            "number": [number_format, number_format_alt],
+                            "integer": [integer_format, integer_format_alt],
+                            "decimal": [decimal_format, decimal_format_alt],
+                            "date": [date_format, date_format_alt],
+                            "sequence": [sequence_format, sequence_format_alt],
+                            "bold": [text_bold_format, text_bold_format_alt],
+                            "italic": [text_italic_format, text_italic_format_alt],
+                            "code": [text_code_format, text_code_format_alt],
+                        }
                         self.apply_enhanced_formatting(
                             worksheet,
                             df,
                             headers,
                             workbook,
-                            header_format,
-                            text_format,
-                            number_format,
-                            integer_format,
-                            decimal_format,
-                            date_format,
-                            sequence_format,
-                            text_bold_format,
-                            text_italic_format,
+                            formats,
                         )
 
                     except Exception as e:
@@ -860,26 +1142,22 @@ class Action:
         df,
         headers,
         workbook,
-        header_format,
-        text_format,
-        number_format,
-        integer_format,
-        decimal_format,
-        date_format,
-        sequence_format,
-        text_bold_format=None,
-        text_italic_format=None,
+        formats,
     ):
         """
-        Apply enhanced formatting
-        - Header: Center aligned
+        Apply enhanced formatting with zebra striping
+        - Header: Center aligned (dark background)
         - Number: Right aligned
         - Text: Left aligned
         - Date: Center aligned
         - Sequence: Center aligned
+        - Zebra striping: alternating row colors
         - Supports full cell Markdown bold (**text**) and italic (*text*)
         """
         try:
+            # Extract format from formats dict
+            header_format = formats["header"]
+
             # 1. Write headers (Center aligned)
             print(f"Writing headers with enhanced alignment: {headers}")
             for col_idx, header in enumerate(headers):
@@ -903,62 +1181,97 @@ class Action:
                 else:
                     column_types[col_idx] = "text"
 
-            # 3. Write and format data
+            # 3. Write and format data with zebra striping
             for row_idx, row in df.iterrows():
+                # Determine if odd or even row (0-indexed, so row 0 is odd visually as row 1)
+                is_alt_row = (
+                    row_idx % 2 == 1
+                )  # Even index = odd visual row, use alt format
+
                 for col_idx, value in enumerate(row):
                     content_type = column_types.get(col_idx, "text")
 
-                    # Select format based on content type
+                    # Select format based on content type and zebra striping
+                    fmt_idx = 1 if is_alt_row else 0
+
                     if content_type == "number":
                         # Number - Right aligned
                         if pd.api.types.is_numeric_dtype(df.iloc[:, col_idx]):
                             if pd.api.types.is_integer_dtype(df.iloc[:, col_idx]):
-                                current_format = integer_format
+                                current_format = formats["integer"][fmt_idx]
                             else:
                                 try:
                                     numeric_value = float(value)
                                     if numeric_value.is_integer():
-                                        current_format = integer_format
+                                        current_format = formats["integer"][fmt_idx]
                                         value = int(numeric_value)
                                     else:
-                                        current_format = decimal_format
+                                        current_format = formats["decimal"][fmt_idx]
                                 except (ValueError, TypeError):
-                                    current_format = decimal_format
+                                    current_format = formats["decimal"][fmt_idx]
                         else:
-                            current_format = number_format
+                            current_format = formats["number"][fmt_idx]
 
                     elif content_type == "date":
                         # Date - Center aligned
-                        current_format = date_format
+                        current_format = formats["date"][fmt_idx]
 
                     elif content_type == "sequence":
                         # Sequence - Center aligned
-                        current_format = sequence_format
+                        current_format = formats["sequence"][fmt_idx]
 
                     else:
                         # Text - Left aligned
-                        current_format = text_format
+                        current_format = formats["text"][fmt_idx]
 
                     if content_type == "text" and isinstance(value, str):
                         # Check for full cell bold (**text**)
                         match_bold = re.fullmatch(r"\*\*(.+)\*\*", value.strip())
                         # Check for full cell italic (*text*)
                         match_italic = re.fullmatch(r"\*(.+)\*", value.strip())
+                        # Check for full cell code (`text`)
+                        match_code = re.fullmatch(r"`(.+)`", value.strip())
 
                         if match_bold:
                             # Extract content and apply bold format
                             clean_value = match_bold.group(1)
                             worksheet.write(
-                                row_idx + 1, col_idx, clean_value, text_bold_format
+                                row_idx + 1,
+                                col_idx,
+                                clean_value,
+                                formats["bold"][fmt_idx],
                             )
                         elif match_italic:
                             # Extract content and apply italic format
                             clean_value = match_italic.group(1)
                             worksheet.write(
-                                row_idx + 1, col_idx, clean_value, text_italic_format
+                                row_idx + 1,
+                                col_idx,
+                                clean_value,
+                                formats["italic"][fmt_idx],
+                            )
+                        elif match_code:
+                            # Extract content and apply code format (highlighted)
+                            clean_value = match_code.group(1)
+                            worksheet.write(
+                                row_idx + 1,
+                                col_idx,
+                                clean_value,
+                                formats["code"][fmt_idx],
                             )
                         else:
-                            worksheet.write(row_idx + 1, col_idx, value, current_format)
+                            # Remove partial markdown formatting symbols (can't render partial formatting in Excel)
+                            # Remove bold markers **text** -> text
+                            clean_value = re.sub(r"\*\*(.+?)\*\*", r"\1", value)
+                            # Remove italic markers *text* -> text (but not inside **)
+                            clean_value = re.sub(
+                                r"(?<!\*)\*([^*]+)\*(?!\*)", r"\1", clean_value
+                            )
+                            # Remove code markers `text` -> text
+                            clean_value = re.sub(r"`(.+?)`", r"\1", clean_value)
+                            worksheet.write(
+                                row_idx + 1, col_idx, clean_value, current_format
+                            )
                     else:
                         worksheet.write(row_idx + 1, col_idx, value, current_format)
 

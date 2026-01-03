@@ -1,20 +1,21 @@
 # Export to Excel
 
 <span class="category-badge action">Action</span>
-<span class="version-badge">v0.3.4</span>
+<span class="version-badge">v0.3.6</span>
 
 Export chat conversations to Excel spreadsheet format for analysis, archiving, and sharing.
 
 
-### What's New in v0.3.5
-- **Export Scope**: Added `EXPORT_SCOPE` valve to choose between exporting tables from the "Last Message" (default) or "All Messages".
-- **Smart Sheet Naming**: Automatically names sheets based on Markdown headers, AI titles (if enabled), or message index (e.g., `Msg1-Tab1`).
-- **Multiple Tables Support**: Improved handling of multiple tables within single or multiple messages.
-
-## What's New in v0.3.4
-
-- **Smart Filename Generation**: Now supports generating filenames based on Chat Title, AI Summary, or Markdown Headers.
-- **Configuration Options**: Added `TITLE_SOURCE` setting to control filename generation strategy.
+### What's New in v0.3.6
+- **OpenWebUI-Style Theme**: Modern dark header with light gray zebra striping for better readability.
+- **Zebra Striping**: Alternating row colors for improved visual scanning.
+- **Smart Data Type Conversion**: Automatically converts columns to numeric or datetime types.
+- **Full Cell Bold/Italic**: Supports Markdown bold/italic formatting in Excel.
+- **Partial Markdown Cleanup**: Removes partial Markdown symbols for cleaner output.
+- **Export Scope**: Choose between "Last Message" or "All Messages".
+- **Smart Sheet Naming**: Names sheets based on Markdown headers or message index.
+- **Smart Filename Generation**: Generates filenames based on Chat Title, AI Summary, or Markdown Headers.
+- **AI Title Generation**: Supports using a specific model (`MODEL_ID`) for title generation with progress notifications.
 
 ---
 

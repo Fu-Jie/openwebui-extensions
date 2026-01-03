@@ -55,9 +55,13 @@ When adding or updating a plugin, you **MUST** update the following documentatio
 Reference: `.github/workflows/release.yml`
 
 ### Version Bumping
-- **Rule**: Any change to plugin logic **MUST** be accompanied by a version bump in the docstring.
+- **Rule**: Version bump is required **ONLY when the user explicitly requests a release**. Regular code changes do NOT require version bumps.
 - **Format**: Semantic Versioning (e.g., `1.0.0` -> `1.0.1`).
-- **Consistency**: Update version in **ALL** locations:
+- **When to Bump**: Only update the version when:
+  - User says "发布" / "release" / "bump version"
+  - User explicitly asks to prepare for release
+- **Agent Initiative**: After completing significant changes (new features, bug fixes, or multiple code modifications), the agent **SHOULD proactively ask** the user if they want to release a new version. If confirmed, update all version-related files.
+- **Consistency**: When bumping, update version in **ALL** locations:
   1. English Code (`.py`)
   2. Chinese Code (`.py`)
   3. English README (`README.md`)

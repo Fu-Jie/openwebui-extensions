@@ -53,7 +53,7 @@ Actions 是交互式插件，能够：
 
     将聊天记录导出为 Excel 电子表格，方便分析或归档。
 
-    **版本：** 0.3.4
+    **版本：** 0.3.6
 
     [:octicons-arrow-right-24: 查看文档](export-to-excel.md)
 

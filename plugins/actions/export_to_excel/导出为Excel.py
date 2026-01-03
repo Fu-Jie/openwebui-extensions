@@ -3,9 +3,9 @@ title: 导出为 Excel
 author: Fu-Jie
 author_url: https://github.com/Fu-Jie
 funding_url: https://github.com/Fu-Jie/awesome-openwebui
-version: 0.3.5
+version: 0.3.6
 icon_url: data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxwYXRoIGQ9Ik0xNSAySDZhMiAyIDAgMCAwLTIgMnYxNmEyIDIgMCAwIDAgMiAyaDEyYTIgMiAwIDAgMCAyLTJWN1oiLz48cGF0aCBkPSJNMTQgMnY0YTIgMiAwIDAgMCAyIDJoNCIvPjxwYXRoIGQ9Ik04IDEzaDIiLz48cGF0aCBkPSJNMTQgMTNoMiIvPjxwYXRoIGQ9Ik04IDE3aDIiLz48cGF0aCBkPSJNMTQgMTdoMiIvPjwvc3ZnPg==
-description: 将当前对话历史导出为 Excel (.xlsx) 文件，支持自动提取表头。
+description: 从聊天消息中提取表格并导出为 Excel (.xlsx) 文件，支持智能格式化。
 """
 
 import os
@@ -20,19 +20,24 @@ from open_webui.models.chats import Chats
 from open_webui.models.users import Users
 from open_webui.utils.chat import generate_chat_completion
 from pydantic import BaseModel, Field
+from typing import Literal
 
 app = FastAPI()
 
 
 class Action:
     class Valves(BaseModel):
-        TITLE_SOURCE: str = Field(
+        TITLE_SOURCE: Literal["chat_title", "ai_generated", "markdown_title"] = Field(
             default="chat_title",
             description="标题来源: 'chat_title' (对话标题), 'ai_generated' (AI生成), 'markdown_title' (Markdown标题)",
         )
-        EXPORT_SCOPE: str = Field(
+        EXPORT_SCOPE: Literal["last_message", "all_messages"] = Field(
             default="last_message",
             description="导出范围: 'last_message' (仅最后一条消息), 'all_messages' (所有消息)",
+        )
+        MODEL_ID: str = Field(
+            default="",
+            description="AI 标题生成模型 ID。留空则使用当前对话模型。",
         )
 
     def __init__(self):
@@ -172,6 +177,17 @@ class Action:
                     seen_names[name] = True
                     final_sheet_names.append(name)
 
+                # 通知用户提取到的表格数量
+                table_count = len(all_tables)
+                if self.valves.EXPORT_SCOPE == "all_messages":
+                    await self._send_notification(
+                        __event_emitter__,
+                        "info",
+                        f"从所有消息中提取到 {table_count} 个表格。",
+                    )
+                    # 等待片刻让用户看到通知，再触发下载
+                    await asyncio.sleep(1.5)
+
                 # Generate Workbook Title (Filename)
                 title = ""
                 chat_id = self.extract_chat_id(body, None)
@@ -184,6 +200,24 @@ class Action:
                     or not self.valves.TITLE_SOURCE
                 ):
                     title = chat_title
+                elif self.valves.TITLE_SOURCE == "ai_generated":
+                    # 使用 AI 根据消息内容生成标题
+                    if target_messages and __request__:
+                        # 获取第一条有表格的消息内容
+                        content_for_title = ""
+                        for msg in target_messages:
+                            msg_content = msg.get("content", "")
+                            if msg_content:
+                                content_for_title = msg_content
+                                break
+                        if content_for_title:
+                            title = await self.generate_title_using_ai(
+                                body,
+                                content_for_title,
+                                user_id,
+                                __request__,
+                                __event_emitter__,
+                            )
                 elif self.valves.TITLE_SOURCE == "markdown_title":
                     for msg in target_messages:
                         extracted = self.extract_title(msg.get("content", ""))
@@ -304,32 +338,93 @@ class Action:
                 )
 
     async def generate_title_using_ai(
-        self, body: dict, content: str, user_id: str, request: Any
+        self,
+        body: dict,
+        content: str,
+        user_id: str,
+        request: Any,
+        event_emitter: Callable = None,
     ) -> str:
         if not request:
             return ""
 
         try:
             user_obj = Users.get_user_by_id(user_id)
-            model = body.get("model")
+            # 使用配置的 MODEL_ID 或回退到当前对话模型
+            model = (
+                self.valves.MODEL_ID.strip()
+                if self.valves.MODEL_ID
+                else body.get("model")
+            )
 
             payload = {
                 "model": model,
                 "messages": [
                     {
                         "role": "system",
-                        "content": "你是一个乐于助人的助手。请为以下文本生成一个简短、简洁的标题（最多10个字）。不要使用引号。只输出标题。",
+                        "content": "你是一个乐于助人的助手。请根据以下内容为 Excel 导出文件生成一个简短、简洁的文件名（最多10个字）。不要使用引号或文件扩展名。避免使用文件名中无效的特殊字符。只输出文件名。",
                     },
                     {"role": "user", "content": content[:2000]},  # 限制内容长度
                 ],
                 "stream": False,
             }
 
-            response = await generate_chat_completion(request, payload, user_obj)
-            if response and "choices" in response:
-                return response["choices"][0]["message"]["content"].strip()
+            # 定义生成任务
+            async def generate_task():
+                return await generate_chat_completion(request, payload, user_obj)
+
+            # 定义通知任务
+            async def notification_task():
+                # 立即发送首次通知
+                if event_emitter:
+                    await self._send_notification(
+                        event_emitter,
+                        "info",
+                        "AI 正在为您生成文件名，请稍候...",
+                    )
+
+                # 之后每5秒通知一次
+                while True:
+                    await asyncio.sleep(5)
+                    if event_emitter:
+                        await self._send_notification(
+                            event_emitter,
+                            "info",
+                            "文件名生成中，请耐心等待...",
+                        )
+
+            # 并发运行任务
+            gen_future = asyncio.ensure_future(generate_task())
+            notify_future = asyncio.ensure_future(notification_task())
+
+            done, pending = await asyncio.wait(
+                [gen_future, notify_future], return_when=asyncio.FIRST_COMPLETED
+            )
+
+            # 如果生成完成，取消通知任务
+            if not notify_future.done():
+                notify_future.cancel()
+
+            # 获取结果
+            if gen_future in done:
+                response = gen_future.result()
+                if response and "choices" in response:
+                    return response["choices"][0]["message"]["content"].strip()
+            else:
+                # 理论上不会发生，因为是 FIRST_COMPLETED 且我们取消了 notify
+                await gen_future
+                response = gen_future.result()
+                if response and "choices" in response:
+                    return response["choices"][0]["message"]["content"].strip()
+
         except Exception as e:
             print(f"生成标题时出错: {e}")
+            if event_emitter:
+                await self._send_notification(
+                    event_emitter,
+                    "warning",
+                    f"AI 文件名生成失败，将使用默认名称。错误: {str(e)}",
+                )
 
         return ""
 
@@ -686,25 +781,52 @@ class Action:
             with pd.ExcelWriter(file_path, engine="xlsxwriter") as writer:
                 workbook = writer.book
 
-                # 定义表头样式 - 居中对齐（符合中国规范）
+                # OpenWebUI 风格主题配色
+                HEADER_BG = "#1f2937"  # 深灰色 (匹配 OpenWebUI 侧边栏)
+                HEADER_FG = "#ffffff"  # 白色文字
+                ROW_ODD_BG = "#ffffff"  # 奇数行白色
+                ROW_EVEN_BG = "#f3f4f6"  # 偶数行浅灰 (斑马纹)
+                BORDER_COLOR = "#e5e7eb"  # 浅色边框
+
+                # 表头样式 - 居中对齐
                 header_format = workbook.add_format(
                     {
                         "bold": True,
-                        "font_size": 12,
-                        "font_color": "white",
-                        "bg_color": "#00abbd",
+                        "font_size": 11,
+                        "font_name": "Arial",
+                        "font_color": HEADER_FG,
+                        "bg_color": HEADER_BG,
                         "border": 1,
-                        "align": "center",  # 表头居中
+                        "border_color": BORDER_COLOR,
+                        "align": "center",
                         "valign": "vcenter",
                         "text_wrap": True,
                     }
                 )
 
-                # 文本单元格样式 - 左对齐
+                # 文本单元格样式 - 左对齐 (奇数行)
                 text_format = workbook.add_format(
                     {
+                        "font_name": "Arial",
+                        "font_size": 10,
                         "border": 1,
-                        "align": "left",  # 文本左对齐
+                        "border_color": BORDER_COLOR,
+                        "bg_color": ROW_ODD_BG,
+                        "align": "left",
+                        "valign": "vcenter",
+                        "text_wrap": True,
+                    }
+                )
+
+                # 文本单元格样式 - 左对齐 (偶数行 - 斑马纹)
+                text_format_alt = workbook.add_format(
+                    {
+                        "font_name": "Arial",
+                        "font_size": 10,
+                        "border": 1,
+                        "border_color": BORDER_COLOR,
+                        "bg_color": ROW_EVEN_BG,
+                        "align": "left",
                         "valign": "vcenter",
                         "text_wrap": True,
                     }
@@ -712,15 +834,52 @@ class Action:
 
                 # 数值单元格样式 - 右对齐
                 number_format = workbook.add_format(
-                    {"border": 1, "align": "right", "valign": "vcenter"}  # 数值右对齐
+                    {
+                        "font_name": "Arial",
+                        "font_size": 10,
+                        "border": 1,
+                        "border_color": BORDER_COLOR,
+                        "bg_color": ROW_ODD_BG,
+                        "align": "right",
+                        "valign": "vcenter",
+                    }
+                )
+
+                number_format_alt = workbook.add_format(
+                    {
+                        "font_name": "Arial",
+                        "font_size": 10,
+                        "border": 1,
+                        "border_color": BORDER_COLOR,
+                        "bg_color": ROW_EVEN_BG,
+                        "align": "right",
+                        "valign": "vcenter",
+                    }
                 )
 
                 # 整数格式 - 右对齐
                 integer_format = workbook.add_format(
                     {
                         "num_format": "0",
+                        "font_name": "Arial",
+                        "font_size": 10,
                         "border": 1,
-                        "align": "right",  # 整数右对齐
+                        "border_color": BORDER_COLOR,
+                        "bg_color": ROW_ODD_BG,
+                        "align": "right",
+                        "valign": "vcenter",
+                    }
+                )
+
+                integer_format_alt = workbook.add_format(
+                    {
+                        "num_format": "0",
+                        "font_name": "Arial",
+                        "font_size": 10,
+                        "border": 1,
+                        "border_color": BORDER_COLOR,
+                        "bg_color": ROW_EVEN_BG,
+                        "align": "right",
                         "valign": "vcenter",
                     }
                 )
@@ -729,8 +888,25 @@ class Action:
                 decimal_format = workbook.add_format(
                     {
                         "num_format": "0.00",
+                        "font_name": "Arial",
+                        "font_size": 10,
                         "border": 1,
-                        "align": "right",  # 小数右对齐
+                        "border_color": BORDER_COLOR,
+                        "bg_color": ROW_ODD_BG,
+                        "align": "right",
+                        "valign": "vcenter",
+                    }
+                )
+
+                decimal_format_alt = workbook.add_format(
+                    {
+                        "num_format": "0.00",
+                        "font_name": "Arial",
+                        "font_size": 10,
+                        "border": 1,
+                        "border_color": BORDER_COLOR,
+                        "bg_color": ROW_EVEN_BG,
+                        "align": "right",
                         "valign": "vcenter",
                     }
                 )
@@ -738,8 +914,25 @@ class Action:
                 # 日期格式 - 居中对齐
                 date_format = workbook.add_format(
                     {
+                        "font_name": "Arial",
+                        "font_size": 10,
                         "border": 1,
-                        "align": "center",  # 日期居中对齐
+                        "border_color": BORDER_COLOR,
+                        "bg_color": ROW_ODD_BG,
+                        "align": "center",
+                        "valign": "vcenter",
+                        "text_wrap": True,
+                    }
+                )
+
+                date_format_alt = workbook.add_format(
+                    {
+                        "font_name": "Arial",
+                        "font_size": 10,
+                        "border": 1,
+                        "border_color": BORDER_COLOR,
+                        "bg_color": ROW_EVEN_BG,
+                        "align": "center",
                         "valign": "vcenter",
                         "text_wrap": True,
                     }
@@ -748,8 +941,24 @@ class Action:
                 # 序号格式 - 居中对齐
                 sequence_format = workbook.add_format(
                     {
+                        "font_name": "Arial",
+                        "font_size": 10,
                         "border": 1,
-                        "align": "center",  # 序号居中对齐
+                        "border_color": BORDER_COLOR,
+                        "bg_color": ROW_ODD_BG,
+                        "align": "center",
+                        "valign": "vcenter",
+                    }
+                )
+
+                sequence_format_alt = workbook.add_format(
+                    {
+                        "font_name": "Arial",
+                        "font_size": 10,
+                        "border": 1,
+                        "border_color": BORDER_COLOR,
+                        "bg_color": ROW_EVEN_BG,
+                        "align": "center",
                         "valign": "vcenter",
                     }
                 )
@@ -757,7 +966,25 @@ class Action:
                 # 粗体单元格样式 (用于全单元格加粗)
                 text_bold_format = workbook.add_format(
                     {
+                        "font_name": "Arial",
+                        "font_size": 10,
                         "border": 1,
+                        "border_color": BORDER_COLOR,
+                        "bg_color": ROW_ODD_BG,
+                        "align": "left",
+                        "valign": "vcenter",
+                        "text_wrap": True,
+                        "bold": True,
+                    }
+                )
+
+                text_bold_format_alt = workbook.add_format(
+                    {
+                        "font_name": "Arial",
+                        "font_size": 10,
+                        "border": 1,
+                        "border_color": BORDER_COLOR,
+                        "bg_color": ROW_EVEN_BG,
                         "align": "left",
                         "valign": "vcenter",
                         "text_wrap": True,
@@ -768,11 +995,57 @@ class Action:
                 # 斜体单元格样式 (用于全单元格斜体)
                 text_italic_format = workbook.add_format(
                     {
+                        "font_name": "Arial",
+                        "font_size": 10,
                         "border": 1,
+                        "border_color": BORDER_COLOR,
+                        "bg_color": ROW_ODD_BG,
                         "align": "left",
                         "valign": "vcenter",
                         "text_wrap": True,
                         "italic": True,
+                    }
+                )
+
+                text_italic_format_alt = workbook.add_format(
+                    {
+                        "font_name": "Arial",
+                        "font_size": 10,
+                        "border": 1,
+                        "border_color": BORDER_COLOR,
+                        "bg_color": ROW_EVEN_BG,
+                        "align": "left",
+                        "valign": "vcenter",
+                        "text_wrap": True,
+                        "italic": True,
+                    }
+                )
+
+                # 代码单元格样式 (用于行内代码高亮显示)
+                CODE_BG = "#f0f0f0"  # 代码浅灰背景
+                text_code_format = workbook.add_format(
+                    {
+                        "font_name": "Consolas",
+                        "font_size": 10,
+                        "border": 1,
+                        "border_color": BORDER_COLOR,
+                        "bg_color": CODE_BG,
+                        "align": "left",
+                        "valign": "vcenter",
+                        "text_wrap": True,
+                    }
+                )
+
+                text_code_format_alt = workbook.add_format(
+                    {
+                        "font_name": "Consolas",
+                        "font_size": 10,
+                        "border": 1,
+                        "border_color": BORDER_COLOR,
+                        "bg_color": CODE_BG,
+                        "align": "left",
+                        "valign": "vcenter",
+                        "text_wrap": True,
                     }
                 )
 
@@ -817,12 +1090,18 @@ class Action:
 
                         print(f"DataFrame created with columns: {list(df.columns)}")
 
-                        # 修复pandas FutureWarning - 使用try-except替代errors='ignore'
+                        # 智能数据类型转换
                         for col in df.columns:
+                            # 先尝试数字转换
                             try:
                                 df[col] = pd.to_numeric(df[col])
                             except (ValueError, TypeError):
-                                pass
+                                # 尝试日期转换
+                                try:
+                                    df[col] = pd.to_datetime(df[col], errors="raise")
+                                except (ValueError, TypeError):
+                                    # 保持为字符串，使用 infer_objects 优化
+                                    df[col] = df[col].infer_objects()
 
                         # 先写入数据（不包含表头）
                         df.to_excel(
@@ -834,21 +1113,25 @@ class Action:
                         )
                         worksheet = writer.sheets[sheet_name]
 
-                        # 应用符合中国规范的格式化
+                        # 应用符合中国规范的格式化 (带斑马纹)
+                        formats = {
+                            "header": header_format,
+                            "text": [text_format, text_format_alt],
+                            "number": [number_format, number_format_alt],
+                            "integer": [integer_format, integer_format_alt],
+                            "decimal": [decimal_format, decimal_format_alt],
+                            "date": [date_format, date_format_alt],
+                            "sequence": [sequence_format, sequence_format_alt],
+                            "bold": [text_bold_format, text_bold_format_alt],
+                            "italic": [text_italic_format, text_italic_format_alt],
+                            "code": [text_code_format, text_code_format_alt],
+                        }
                         self.apply_chinese_standard_formatting(
                             worksheet,
                             df,
                             headers,
                             workbook,
-                            header_format,
-                            text_format,
-                            number_format,
-                            integer_format,
-                            decimal_format,
-                            date_format,
-                            sequence_format,
-                            text_bold_format,
-                            text_italic_format,
+                            formats,
                         )
 
                     except Exception as e:
@@ -865,26 +1148,22 @@ class Action:
         df,
         headers,
         workbook,
-        header_format,
-        text_format,
-        number_format,
-        integer_format,
-        decimal_format,
-        date_format,
-        sequence_format,
-        text_bold_format=None,
-        text_italic_format=None,
+        formats,
     ):
         """
-        应用符合中国官方表格规范的格式化
-        - 表头: 居中对齐
+        应用符合中国官方表格规范的格式化 (带斑马纹)
+        - 表头: 居中对齐 (深色背景)
         - 数值: 右对齐
         - 文本: 左对齐
         - 日期: 居中对齐
         - 序号: 居中对齐
+        - 斑马纹: 隔行变色
         - 支持全单元格 Markdown 粗体 (**text**) 和斜体 (*text*)
         """
         try:
+            # 从 formats 字典提取格式
+            header_format = formats["header"]
+
             # 1. 写入表头（居中对齐）
             print(f"Writing headers with Chinese standard alignment: {headers}")
             for col_idx, header in enumerate(headers):
@@ -908,62 +1187,95 @@ class Action:
                 else:
                     column_types[col_idx] = "text"
 
-            # 3. 写入并格式化数据（根据类型使用不同对齐方式）
+            # 3. 写入并格式化数据（带斑马纹）
             for row_idx, row in df.iterrows():
+                # 确定奇偶行 (0-indexed, 所以 row 0 视觉上是第 1 行)
+                is_alt_row = row_idx % 2 == 1  # 偶数索引 = 奇数行, 使用 alt 格式
+
                 for col_idx, value in enumerate(row):
                     content_type = column_types.get(col_idx, "text")
 
-                    # 根据内容类型选择格式
+                    # 根据内容类型和斑马纹选择格式
+                    fmt_idx = 1 if is_alt_row else 0
+
                     if content_type == "number":
                         # 数值类型 - 右对齐
                         if pd.api.types.is_numeric_dtype(df.iloc[:, col_idx]):
                             if pd.api.types.is_integer_dtype(df.iloc[:, col_idx]):
-                                current_format = integer_format
+                                current_format = formats["integer"][fmt_idx]
                             else:
                                 try:
                                     numeric_value = float(value)
                                     if numeric_value.is_integer():
-                                        current_format = integer_format
+                                        current_format = formats["integer"][fmt_idx]
                                         value = int(numeric_value)
                                     else:
-                                        current_format = decimal_format
+                                        current_format = formats["decimal"][fmt_idx]
                                 except (ValueError, TypeError):
-                                    current_format = decimal_format
+                                    current_format = formats["decimal"][fmt_idx]
                         else:
-                            current_format = number_format
+                            current_format = formats["number"][fmt_idx]
 
                     elif content_type == "date":
                         # 日期类型 - 居中对齐
-                        current_format = date_format
+                        current_format = formats["date"][fmt_idx]
 
                     elif content_type == "sequence":
                         # 序号类型 - 居中对齐
-                        current_format = sequence_format
+                        current_format = formats["sequence"][fmt_idx]
 
                     else:
                         # 文本类型 - 左对齐
-                        current_format = text_format
+                        current_format = formats["text"][fmt_idx]
 
                     if content_type == "text" and isinstance(value, str):
                         # 检查是否全单元格加粗 (**text**)
                         match_bold = re.fullmatch(r"\*\*(.+)\*\*", value.strip())
                         # 检查是否全单元格斜体 (*text*)
                         match_italic = re.fullmatch(r"\*(.+)\*", value.strip())
+                        # 检查是否全单元格代码 (`text`)
+                        match_code = re.fullmatch(r"`(.+)`", value.strip())
 
                         if match_bold:
                             # 提取内容并应用粗体格式
                             clean_value = match_bold.group(1)
                             worksheet.write(
-                                row_idx + 1, col_idx, clean_value, text_bold_format
+                                row_idx + 1,
+                                col_idx,
+                                clean_value,
+                                formats["bold"][fmt_idx],
                             )
                         elif match_italic:
                             # 提取内容并应用斜体格式
                             clean_value = match_italic.group(1)
                             worksheet.write(
-                                row_idx + 1, col_idx, clean_value, text_italic_format
+                                row_idx + 1,
+                                col_idx,
+                                clean_value,
+                                formats["italic"][fmt_idx],
+                            )
+                        elif match_code:
+                            # 提取内容并应用代码格式 (高亮显示)
+                            clean_value = match_code.group(1)
+                            worksheet.write(
+                                row_idx + 1,
+                                col_idx,
+                                clean_value,
+                                formats["code"][fmt_idx],
                             )
                         else:
-                            worksheet.write(row_idx + 1, col_idx, value, current_format)
+                            # 移除部分 Markdown 格式符号 (Excel 无法渲染部分格式)
+                            # 移除粗体标记 **text** -> text
+                            clean_value = re.sub(r"\*\*(.+?)\*\*", r"\1", value)
+                            # 移除斜体标记 *text* -> text (但不影响 ** 内部的内容)
+                            clean_value = re.sub(
+                                r"(?<!\*)\*([^*]+)\*(?!\*)", r"\1", clean_value
+                            )
+                            # 移除代码标记 `text` -> text
+                            clean_value = re.sub(r"`(.+?)`", r"\1", clean_value)
+                            worksheet.write(
+                                row_idx + 1, col_idx, clean_value, current_format
+                            )
                     else:
                         worksheet.write(row_idx + 1, col_idx, value, current_format)
 
