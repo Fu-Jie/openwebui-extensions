@@ -140,6 +140,7 @@ jobs:
             
             echo "changed_plugins<<EOF" >> $GITHUB_OUTPUT
             cat changed_files.txt >> $GITHUB_OUTPUT
+            echo "" >> $GITHUB_OUTPUT
             echo "EOF" >> $GITHUB_OUTPUT
           fi
           
@@ -147,6 +148,7 @@ jobs:
           {
             echo 'release_notes<<EOF'
             cat changes.md
+            echo ""
             echo 'EOF'
           } >> $GITHUB_OUTPUT
 
@@ -250,6 +252,7 @@ jobs:
           {
             echo 'commits<<EOF'
             echo "$COMMITS"
+            echo ""
             echo 'EOF'
           } >> "$GITHUB_OUTPUT"
 
