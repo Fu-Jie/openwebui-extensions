@@ -1,9 +1,9 @@
 # Export to Word
 
 <span class="category-badge action">Action</span>
-<span class="version-badge">v0.1.0</span>
+<span class="version-badge">v0.2.0</span>
 
-Export chat conversations to Word (.docx) with Markdown formatting, syntax highlighting, and smarter filenames.
+Export conversation to Word (.docx) with **syntax highlighting**, **native math equations**, **Mermaid diagrams**, **citations**, and **enhanced table formatting**.
 
 ---
 
@@ -13,11 +13,17 @@ The Export to Word plugin converts chat messages from Markdown to a polished Wor
 
 ## Features
 
-- :material-file-word-box: **DOCX Export**: Generate Word files with one click
-- :material-format-bold: **Rich Markdown Support**: Headings, bold/italic, lists, tables
-- :material-code-tags: **Syntax Highlighting**: Pygments-powered code blocks
-- :material-format-quote-close: **Styled Blockquotes**: Left-border gray quote styling
-- :material-file-document-outline: **Smart Filenames**: Configurable title source (Chat Title, AI Generated, or Markdown Title)
+- :material-file-word-box: **One-Click Export**: Adds an "Export to Word" action button to the chat.
+- :material-format-bold: **Markdown Conversion**: Converts Markdown syntax to Word formatting (headings, bold, italic, code, tables, lists).
+- :material-code-tags: **Syntax Highlighting**: Code blocks are highlighted with Pygments (supports 500+ languages).
+- :material-sigma: **Native Math Equations**: LaTeX math (`$$...$$`, `\[...\]`, `$...$`, `\(...\)`) converted to editable Word equations.
+- :material-graph: **Mermaid Diagrams**: Mermaid flowcharts and sequence diagrams rendered as images in the document.
+- :material-book-open-page-variant: **Citations & References**: Auto-generates a References section from OpenWebUI sources with clickable citation links.
+- :material-brain-off: **Reasoning Stripping**: Automatically removes AI thinking blocks (`<think>`, `<analysis>`) from exports.
+- :material-table: **Enhanced Tables**: Smart column widths, column alignment (`:---`, `---:`, `:---:`), header row repeat across pages.
+- :material-format-quote-close: **Blockquote Support**: Markdown blockquotes are rendered with left border and gray styling.
+- :material-translate: **Multi-language Support**: Properly handles both Chinese and English text.
+- :material-file-document-outline: **Smarter Filenames**: Configurable title source (Chat Title, AI Generated, or Markdown Title).
 
 ---
 
@@ -25,9 +31,14 @@ The Export to Word plugin converts chat messages from Markdown to a polished Wor
 
 You can configure the following settings via the **Valves** button in the plugin settings:
 
-| Valve          | Description                                                                                 | Default      |
-| :------------- | :------------------------------------------------------------------------------------------ | :----------- |
+| Valve | Description | Default |
+| :--- | :--- | :--- |
 | `TITLE_SOURCE` | Source for document title/filename. Options: `chat_title`, `ai_generated`, `markdown_title` | `chat_title` |
+| `MERMAID_JS_URL` | URL for the Mermaid.js library (for diagram rendering). | `https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js` |
+| `MERMAID_PNG_SCALE` | Scale factor for Mermaid PNG generation (Resolution). Higher = clearer but larger file size. | `3.0` |
+| `MERMAID_DISPLAY_SCALE` | Scale factor for Mermaid visual size in Word. >1.0 to enlarge, <1.0 to shrink. | `1.5` |
+| `MERMAID_OPTIMIZE_LAYOUT` | Automatically convert LR (Left-Right) flowcharts to TD (Top-Down) for better fit. | `True` |
+| `MERMAID_CAPTIONS_ENABLE` | Enable/disable figure captions for Mermaid diagrams. | `True` |
 
 ---
 
@@ -47,31 +58,37 @@ You can configure the following settings via the **Valves** button in the plugin
 
 ---
 
-## Supported Markdown
+## Supported Markdown Syntax
 
-| Syntax                              | Word Result                    |
-| :---------------------------------- | :----------------------------- |
-| `# Heading 1` to `###### Heading 6` | Heading levels 1-6             |
-| `**bold**` / `__bold__`             | Bold text                      |
-| `*italic*` / `_italic_`             | Italic text                    |
-| `***bold italic***`                 | Bold + Italic                  |
-| `` `inline code` ``                 | Monospace with gray background |
-| <code>``` code block ```</code>     | Syntax-highlighted code block  |
-| `> blockquote`                      | Left-bordered gray italic text |
-| `[link](url)`                       | Blue underlined link           |
-| `~~strikethrough~~`                 | Strikethrough                  |
-| `- item` / `* item`                 | Bullet list                    |
-| `1. item`                           | Numbered list                  |
-| Markdown tables                     | Grid table                     |
-| `---` / `***`                       | Horizontal rule                |
+| Syntax | Word Result |
+| :--- | :--- |
+| `# Heading 1` to `###### Heading 6` | Heading levels 1-6 |
+| `**bold**` or `__bold__` | Bold text |
+| `*italic*` or `_italic_` | Italic text |
+| `***bold italic***` | Bold + Italic |
+| `` `inline code` `` | Monospace with gray background |
+| ` ``` code block ``` ` | **Syntax highlighted** code block |
+| `> blockquote` | Left-bordered gray italic text |
+| `[link](url)` | Blue underlined link text |
+| `~~strikethrough~~` | Strikethrough text |
+| `- item` or `* item` | Bullet list |
+| `1. item` | Numbered list |
+| Markdown tables | **Enhanced table** with smart widths |
+| `---` or `***` | Horizontal rule |
+| `$$LaTeX$$` or `\[LaTeX\]` | **Native Word equation** (display) |
+| `$LaTeX$` or `\(LaTeX\)` | **Native Word equation** (inline) |
+| ` ```mermaid ... ``` ` | **Mermaid diagram** as image |
+| `[1]` citation markers | **Clickable links** to References |
 
 ---
 
 ## Requirements
 
 !!! note "Prerequisites"
-    - `python-docx==1.1.2` (document generation)
-    - `Pygments>=2.15.0` (syntax highlighting, optional but recommended)
+    - `python-docx==1.1.2` - Word document generation
+    - `Pygments>=2.15.0` - Syntax highlighting
+    - `latex2mathml` - LaTeX to MathML conversion
+    - `mathml2omml` - MathML to Office Math (OMML) conversion
 
 ---
 

@@ -1,9 +1,9 @@
 # Export to Word（导出为 Word）
 
 <span class="category-badge action">Action</span>
-<span class="version-badge">v0.1.0</span>
+<span class="version-badge">v0.2.0</span>
 
-将聊天记录按 Markdown 格式导出为 Word (.docx)，支持语法高亮、引用样式和更智能的文件命名。
+将当前对话导出为完美格式的 Word 文档，支持**代码语法高亮**、**原生数学公式**、**Mermaid 图表**、**引用资料**以及**增强表格**渲染。
 
 ---
 
@@ -13,11 +13,17 @@ Export to Word 插件会把聊天消息从 Markdown 转成精致的 Word 文档�
 
 ## 功能特性
 
-- :material-file-word-box: **DOCX 导出**：一键生成 Word 文件
-- :material-format-bold: **丰富 Markdown 支持**：标题、粗斜体、列表、表格
-- :material-code-tags: **语法高亮**：Pygments 驱动的代码块上色
-- :material-format-quote-close: **引用样式**：左侧边框的灰色斜体引用
-- :material-file-document-outline: **智能文件名**：可配置标题来源（对话标题、AI 生成或 Markdown 标题）
+- :material-file-word-box: **一键导出**：在聊天界面添加"导出为 Word"动作按钮。
+- :material-format-bold: **Markdown 转换**：将 Markdown 语法转换为 Word 格式（标题、粗体、斜体、代码、表格、列表）。
+- :material-code-tags: **代码语法高亮**：使用 Pygments 库为代码块添加语法高亮（支持 500+ 种语言）。
+- :material-sigma: **原生数学公式**：LaTeX 公式（`$$...$$`、`\[...\]`、`$...$`、`\(...\)`）转换为可编辑的 Word 公式。
+- :material-graph: **Mermaid 图表**：Mermaid 流程图和时序图渲染为文档中的图片。
+- :material-book-open-page-variant: **引用与参考**：自动从 OpenWebUI 来源生成参考资料章节，支持可点击的引用链接。
+- :material-brain-off: **移除思考过程**：自动移除 AI 思考块（`<think>`、`<analysis>`）。
+- :material-table: **增强表格**：智能列宽、列对齐（`:---`、`---:`、`:---:`）、表头跨页重复。
+- :material-format-quote-close: **引用块支持**：Markdown 引用块渲染为带左侧边框的灰色斜体样式。
+- :material-translate: **多语言支持**：正确处理中文和英文文本，无乱码问题。
+- :material-file-document-outline: **智能文件名**：可配置标题来源（对话标题、AI 生成或 Markdown 标题）。
 
 ---
 
@@ -25,9 +31,14 @@ Export to Word 插件会把聊天消息从 Markdown 转成精致的 Word 文档�
 
 您可以通过插件设置中的 **Valves** 按钮配置以下选项：
 
-| Valve          | 说明                                                                                                             | 默认值       |
-| :------------- | :--------------------------------------------------------------------------------------------------------------- | :----------- |
+| Valve | 说明 | 默认值 |
+| :--- | :--- | :--- |
 | `TITLE_SOURCE` | 文档标题/文件名的来源。选项：`chat_title` (对话标题), `ai_generated` (AI 生成), `markdown_title` (Markdown 标题) | `chat_title` |
+| `MERMAID_JS_URL` | Mermaid.js 库的 URL（用于图表渲染）。 | `https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js` |
+| `MERMAID_PNG_SCALE` | Mermaid PNG 生成缩放比例（分辨率）。越高越清晰但文件越大。 | `3.0` |
+| `MERMAID_DISPLAY_SCALE` | Mermaid 在 Word 中的显示比例（视觉大小）。>1.0 放大, <1.0 缩小。 | `1.5` |
+| `MERMAID_OPTIMIZE_LAYOUT` | 优化 Mermaid 布局: 自动将 LR (左右) 转换为 TD (上下) 以适应页面。 | `True` |
+| `MERMAID_CAPTIONS_ENABLE` | 启用/禁用 Mermaid 图表的图注。 | `True` |
 
 ---
 
@@ -47,23 +58,27 @@ Export to Word 插件会把聊天消息从 Markdown 转成精致的 Word 文档�
 
 ---
 
-## 支持的 Markdown
+## 支持的 Markdown 语法
 
-| 语法                        | Word 效果           |
-| :-------------------------- | :------------------ |
-| `# 标题1` 到 `###### 标题6` | 标题级别 1-6        |
-| `**粗体**` / `__粗体__`     | 粗体文本            |
-| `*斜体*` / `_斜体_`         | 斜体文本            |
-| `***粗斜体***`              | 粗体 + 斜体         |
-| `` `行内代码` ``            | 等宽字体 + 灰色背景 |
-| <code>``` 代码块 ```</code> | 语法高亮代码块      |
-| `> 引用文本`                | 左侧边框的灰色斜体  |
-| `[链接](url)`               | 蓝色下划线链接      |
-| `~~删除线~~`                | 删除线              |
-| `- 项目` / `* 项目`         | 无序列表            |
-| `1. 项目`                   | 有序列表            |
-| Markdown 表格               | 带边框表格          |
-| `---` / `***`               | 水平分割线          |
+| 语法 | Word 效果 |
+| :--- | :--- |
+| `# 标题1` 到 `###### 标题6` | 标题级别 1-6 |
+| `**粗体**` / `__粗体__` | 粗体文本 |
+| `*斜体*` / `_斜体_` | 斜体文本 |
+| `***粗斜体***` | 粗体 + 斜体 |
+| `` `行内代码` `` | 等宽字体 + 灰色背景 |
+| <code>``` 代码块 ```</code> | 语法高亮代码块 |
+| `> 引用文本` | 左侧边框的灰色斜体 |
+| `[链接](url)` | 蓝色下划线链接 |
+| `~~删除线~~` | 删除线 |
+| `- 项目` / `* 项目` | 无序列表 |
+| `1. 项目` | 有序列表 |
+| Markdown 表格 | **增强表格**（智能列宽） |
+| `---` / `***` | 水平分割线 |
+| `$$LaTeX$$` 或 `\[LaTeX\]` | **原生 Word 公式**（块级） |
+| `$LaTeX$` 或 `\(LaTeX\)` | **原生 Word 公式**（行内） |
+| ` ```mermaid ... ``` ` | **Mermaid 图表**（图片形式） |
+| `[1]` 引用标记 | **可点击链接**到参考资料 |
 
 ---
 
@@ -71,7 +86,9 @@ Export to Word 插件会把聊天消息从 Markdown 转成精致的 Word 文档�
 
 !!! note "前置条件"
     - `python-docx==1.1.2`（文档生成）
-    - `Pygments>=2.15.0`（语法高亮，建议安装）
+    - `Pygments>=2.15.0`（语法高亮）
+    - `latex2mathml`（LaTeX 转 MathML）
+    - `mathml2omml`（MathML 转 Office Math）
 
 ---
 

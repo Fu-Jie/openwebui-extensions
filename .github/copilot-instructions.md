@@ -798,6 +798,49 @@ For iframe plugins to access parent document theme information, users need to co
 - [ ] 使用 logging 而非 print
 - [ ] 测试双语界面
 - [ ] **一致性检查 (Consistency Check)**:
+
+---
+
+## 🚀 高级开发模式 (Advanced Development Patterns)
+
+### 混合服务端-客户端生成 (Hybrid Server-Client Generation)
+
+对于需要复杂前端渲染（如 Mermaid 图表、ECharts）但最终生成文件（如 DOCX、PDF）的场景，建议采用混合模式：
+
+1.  **服务端 (Python)**：
+    *   处理文本解析、Markdown 转换、文档结构构建。
+    *   为复杂组件生成**占位符**（如带有特定 ID 或元数据的图片/文本块）。
+    *   将半成品文件（如 Base64 编码的 ZIP/DOCX）发送给前端。
+
+2.  **客户端 (JavaScript)**：
+    *   在浏览器中加载半成品文件（使用 JSZip 等库）。
+    *   利用浏览器能力渲染复杂组件（如 `mermaid.render`）。
+    *   将渲染结果（SVG/PNG）回填到占位符位置。
+    *   触发最终文件的下载。
+
+**优势**：
+*   无需在服务端安装 Headless Browser（如 Puppeteer），降低部署复杂度。
+*   利用用户浏览器的计算能力。
+*   支持动态、交互式内容的静态化导出。
+
+### 原生 Word 公式支持 (Native Word Math Support)
+
+对于需要生成高质量数学公式的 Word 文档，推荐使用 `latex2mathml` + `mathml2omml` 组合：
+
+1.  **LaTeX -> MathML**: 使用 `latex2mathml` 将 LaTeX 字符串转换为标准 MathML。
+2.  **MathML -> OMML**: 使用 `mathml2omml` 将 MathML 转换为 Office Math Markup Language (OMML)。
+3.  **插入 Word**: 将 OMML XML 插入到 `python-docx` 的段落中。
+
+```python
+# 示例代码
+from latex2mathml.converter import convert as latex2mathml
+from mathml2omml import convert as mathml2omml
+
+def add_math(paragraph, latex_str):
+    mathml = latex2mathml(latex_str)
+    omml = mathml2omml(mathml)
+    # ... 插入 OMML 到 paragraph._element ...
+```
     - [ ] 更新 `README.md` 插件列表
     - [ ] 更新 `README_CN.md` 插件列表
     - [ ] 更新/创建 `docs/` 下的对应文档

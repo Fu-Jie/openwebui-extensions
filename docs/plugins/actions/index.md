@@ -61,9 +61,9 @@ Actions are interactive plugins that:
 
     ---
 
-    Export the current conversation to a formatted Word doc with syntax highlighting, AI-generated titles, and perfect Markdown rendering (tables, quotes, lists).
-
-    **Version:** 0.1.1
+    Export the current conversation to a formatted Word doc with **syntax highlighting**, **native math equations**, **Mermaid diagrams**, **citations**, and **enhanced table formatting**.
+    
+    **Version:** 0.2.0
 
     [:octicons-arrow-right-24: Documentation](export-to-word.md)
 
