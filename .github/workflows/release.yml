@@ -19,13 +19,13 @@ name: Plugin Release / 插件发布
 
 on:
   # Auto-trigger on push to main when plugins are modified
-  push:
-    branches:
-      - main
-    paths:
-      - 'plugins/**/*.py'
-    tags:
-      - 'v*'
+  # push:
+  #   branches:
+  #     - main
+  #   paths:
+  #     - 'plugins/**/*.py'
+  #   tags:
+  #     - 'v*'
 
   # Manual trigger with inputs
   workflow_dispatch:
