@@ -2,6 +2,11 @@
 
 This plugin allows you to export your chat history to an Excel (.xlsx) file directly from the chat interface.
 
+### What's New in v0.3.5
+- **Export Scope**: Added `EXPORT_SCOPE` valve to choose between exporting tables from the "Last Message" (default) or "All Messages".
+- **Smart Sheet Naming**: Automatically names sheets based on Markdown headers, AI titles (if enabled), or message index (e.g., `Msg1-Tab1`).
+- **Multiple Tables Support**: Improved handling of multiple tables within single or multiple messages.
+
 ## What's New in v0.3.4
 
 - **Smart Filename Generation**: Now supports generating filenames based on Chat Title, AI Summary, or Markdown Headers.

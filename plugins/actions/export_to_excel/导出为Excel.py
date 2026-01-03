@@ -3,7 +3,7 @@ title: 导出为 Excel
 author: Fu-Jie
 author_url: https://github.com/Fu-Jie
 funding_url: https://github.com/Fu-Jie/awesome-openwebui
-version: 0.3.4
+version: 0.3.5
 icon_url: data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxwYXRoIGQ9Ik0xNSAySDZhMiAyIDAgMCAwLTIgMnYxNmEyIDIgMCAwIDAgMiAyaDEyYTIgMiAwIDAgMCAyLTJWN1oiLz48cGF0aCBkPSJNMTQgMnY0YTIgMiAwIDAgMCAyIDJoNCIvPjxwYXRoIGQ9Ik04IDEzaDIiLz48cGF0aCBkPSJNMTQgMTNoMiIvPjxwYXRoIGQ9Ik04IDE3aDIiLz48cGF0aCBkPSJNMTQgMTdoMiIvPjwvc3ZnPg==
 description: 将当前对话历史导出为 Excel (.xlsx) 文件，支持自动提取表头。
 """
@@ -28,7 +28,11 @@ class Action:
     class Valves(BaseModel):
         TITLE_SOURCE: str = Field(
             default="chat_title",
-            description="标题来源：'chat_title' (对话标题), 'ai_generated' (AI生成), 'markdown_title' (Markdown标题)",
+            description="标题来源: 'chat_title' (对话标题), 'ai_generated' (AI生成), 'markdown_title' (Markdown标题)",
+        )
+        EXPORT_SCOPE: str = Field(
+            default="last_message",
+            description="导出范围: 'last_message' (仅最后一条消息), 'all_messages' (所有消息)",
         )
 
     def __init__(self):
@@ -50,43 +54,127 @@ class Action:
         print(f"action:{__name__}")
         if isinstance(__user__, (list, tuple)):
             user_language = (
-                __user__[0].get("language", "zh-CN") if __user__ else "zh-CN"
+                __user__[0].get("language", "en-US") if __user__ else "en-US"
             )
-            user_name = __user__[0].get("name", "用户") if __user__[0] else "用户"
+            user_name = __user__[0].get("name", "User") if __user__[0] else "User"
             user_id = (
                 __user__[0]["id"]
                 if __user__ and "id" in __user__[0]
                 else "unknown_user"
             )
         elif isinstance(__user__, dict):
-            user_language = __user__.get("language", "zh-CN")
-            user_name = __user__.get("name", "用户")
+            user_language = __user__.get("language", "en-US")
+            user_name = __user__.get("name", "User")
             user_id = __user__.get("id", "unknown_user")
 
         if __event_emitter__:
-            last_assistant_message = body["messages"][-1]
-
             await __event_emitter__(
                 {
                     "type": "status",
-                    "data": {"description": "正在保存到文件...", "done": False},
+                    "data": {"description": "正在保存文件...", "done": False},
                 }
             )
 
             try:
-                message_content = last_assistant_message["content"]
-                tables = self.extract_tables_from_message(message_content)
+                messages = body.get("messages", [])
+                if not messages:
+                    raise HTTPException(status_code=400, detail="未找到消息。")
 
-                if not tables:
-                    raise HTTPException(status_code=400, detail="未找到任何表格。")
+                # Determine messages to process based on scope
+                target_messages = []
+                if self.valves.EXPORT_SCOPE == "all_messages":
+                    target_messages = messages
+                else:
+                    target_messages = [messages[-1]]
 
-                # 生成文件名
+                all_tables = []
+                all_sheet_names = []
+
+                # Process messages
+                for msg_index, msg in enumerate(target_messages):
+                    content = msg.get("content", "")
+                    tables = self.extract_tables_from_message(content)
+
+                    if not tables:
+                        continue
+
+                    # Generate sheet names for this message's tables
+
+                    # Extract headers for this message
+                    headers = []
+                    lines = content.split("\n")
+                    for i, line in enumerate(lines):
+                        if re.match(r"^#{1,6}\s+", line):
+                            headers.append(
+                                {
+                                    "text": re.sub(r"^#{1,6}\s+", "", line).strip(),
+                                    "line_num": i,
+                                }
+                            )
+
+                    for table_index, table in enumerate(tables):
+                        sheet_name = ""
+
+                        # 1. Try Markdown Header (closest above)
+                        table_start_line = table["start_line"] - 1
+                        closest_header_text = None
+                        candidate_headers = [
+                            h for h in headers if h["line_num"] < table_start_line
+                        ]
+                        if candidate_headers:
+                            closest_header = max(
+                                candidate_headers, key=lambda x: x["line_num"]
+                            )
+                            closest_header_text = closest_header["text"]
+
+                        if closest_header_text:
+                            sheet_name = self.clean_sheet_name(closest_header_text)
+
+                        # 2. AI Generated (Only if explicitly enabled and we have a request object)
+                        if (
+                            not sheet_name
+                            and self.valves.TITLE_SOURCE == "ai_generated"
+                            and len(target_messages) == 1
+                        ):
+                            pass
+
+                        # 3. Fallback: Message Index
+                        if not sheet_name:
+                            if len(target_messages) > 1:
+                                if len(tables) > 1:
+                                    sheet_name = f"消息{msg_index+1}-表{table_index+1}"
+                                else:
+                                    sheet_name = f"消息{msg_index+1}"
+                            else:
+                                # Single message (last_message scope)
+                                if len(tables) > 1:
+                                    sheet_name = f"表{table_index+1}"
+                                else:
+                                    sheet_name = "Sheet1"
+
+                        all_tables.append(table)
+                        all_sheet_names.append(sheet_name)
+
+                if not all_tables:
+                    raise HTTPException(
+                        status_code=400, detail="在选定范围内未找到表格。"
+                    )
+
+                # Deduplicate sheet names
+                final_sheet_names = []
+                seen_names = {}
+                for name in all_sheet_names:
+                    base_name = name
+                    counter = 1
+                    while name in seen_names:
+                        name = f"{base_name} ({counter})"
+                        counter += 1
+                    seen_names[name] = True
+                    final_sheet_names.append(name)
+
+                # Generate Workbook Title (Filename)
                 title = ""
-                chat_id = self.extract_chat_id(
-                    body, None
-                )  # metadata 在此版本 action 签名中不可用，但通常在 body 中
-
-                # 直接通过 chat_id 获取对话标题，因为 body 中通常缺少该信息
+                chat_id = self.extract_chat_id(body, None)
                 chat_title = ""
                 if chat_id:
                     chat_title = await self.fetch_chat_title(chat_id, user_id)
@@ -97,37 +185,27 @@ class Action:
                 ):
                     title = chat_title
                 elif self.valves.TITLE_SOURCE == "markdown_title":
-                    title = self.extract_title(message_content)
-                elif self.valves.TITLE_SOURCE == "ai_generated":
-                    # AI 生成需要 request 对象，稍后处理
-                    pass
+                    for msg in target_messages:
+                        extracted = self.extract_title(msg.get("content", ""))
+                        if extracted:
+                            title = extracted
+                            break
 
-                # 获取动态文件名和sheet名称
-                workbook_name_from_content, sheet_names = (
-                    self.generate_names_from_content(message_content, tables)
-                )
-
-                # 标题回退逻辑
+                # Fallback for filename
                 if not title:
-                    if self.valves.TITLE_SOURCE == "ai_generated":
-                        # AI 生成需要 request，稍后处理
-                        pass
-                    elif self.valves.TITLE_SOURCE == "markdown_title":
-                        pass  # 已尝试
-
-                    # 如果仍无标题，尝试使用 workbook_name_from_content (基于表头)
-                    if not title and workbook_name_from_content:
-                        title = workbook_name_from_content
-
-                    # 如果仍无标题，尝试使用 chat_title
-                    if not title and chat_title:
+                    if chat_title:
                         title = chat_title
+                    else:
+                        if self.valves.TITLE_SOURCE != "markdown_title":
+                            for msg in target_messages:
+                                extracted = self.extract_title(msg.get("content", ""))
+                                if extracted:
+                                    title = extracted
+                                    break
 
-                # 使用优化后的文件名生成逻辑
                 current_datetime = datetime.datetime.now()
                 formatted_date = current_datetime.strftime("%Y%m%d")
 
-                # 如果没找到标题则使用 user_yyyymmdd 格式
                 if not title:
                     workbook_name = f"{user_name}_{formatted_date}"
                 else:
@@ -140,10 +218,12 @@ class Action:
 
                 os.makedirs(os.path.dirname(excel_file_path), exist_ok=True)
 
-                # 保存表格到Excel（使用符合中国规范的格式化功能）
-                self.save_tables_to_excel_enhanced(tables, excel_file_path, sheet_names)
+                # Save tables to Excel
+                self.save_tables_to_excel_enhanced(
+                    all_tables, excel_file_path, final_sheet_names
+                )
 
-                # 触发文件下载
+                # Trigger file download
                 if __event_call__:
                     with open(excel_file_path, "rb") as file:
                         file_content = file.read()
@@ -174,7 +254,7 @@ class Action:
                                     URL.revokeObjectURL(url);
                                     document.body.removeChild(a);
                                 }} catch (error) {{
-                                    console.error('触发下载时出错:', error);
+                                    console.error('Error triggering download:', error);
                                 }}
                                 """
                             },
@@ -183,15 +263,15 @@ class Action:
                 await __event_emitter__(
                     {
                         "type": "status",
-                        "data": {"description": "输出已保存", "done": True},
+                        "data": {"description": "文件已保存", "done": True},
                     }
                 )
 
-                # 清理临时文件
+                # Clean up temp file
                 if os.path.exists(excel_file_path):
                     os.remove(excel_file_path)
 
-                return {"message": "下载事件已触发"}
+                return {"message": "下载已触发"}
 
             except HTTPException as e:
                 print(f"Error processing tables: {str(e.detail)}")
@@ -199,13 +279,13 @@ class Action:
                     {
                         "type": "status",
                         "data": {
-                            "description": f"保存文件时出错: {e.detail}",
+                            "description": f"保存文件错误: {e.detail}",
                             "done": True,
                         },
                     }
                 )
                 await self._send_notification(
-                    __event_emitter__, "error", "没有找到可以导出的表格!"
+                    __event_emitter__, "error", "未找到可导出的表格！"
                 )
                 raise e
             except Exception as e:
@@ -214,13 +294,13 @@ class Action:
                     {
                         "type": "status",
                         "data": {
-                            "description": f"保存文件时出错: {str(e)}",
+                            "description": f"保存文件错误: {str(e)}",
                             "done": True,
                         },
                     }
                 )
                 await self._send_notification(
-                    __event_emitter__, "error", "没有找到可以导出的表格!"
+                    __event_emitter__, "error", "未找到可导出的表格！"
                 )
 
     async def generate_title_using_ai(

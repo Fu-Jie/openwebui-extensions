@@ -3,7 +3,7 @@ title: Export to Excel
 author: Fu-Jie
 author_url: https://github.com/Fu-Jie
 funding_url: https://github.com/Fu-Jie/awesome-openwebui
-version: 0.3.4
+version: 0.3.5
 icon_url: data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxwYXRoIGQ9Ik0xNSAySDZhMiAyIDAgMCAwLTIgMnYxNmEyIDIgMCAwIDAgMiAyaDEyYTIgMiAwIDAgMCAyLTJWN1oiLz48cGF0aCBkPSJNMTQgMnY0YTIgMiAwIDAgMCAyIDJoNCIvPjxwYXRoIGQ9Ik04IDEzaDIiLz48cGF0aCBkPSJNMTQgMTNoMiIvPjxwYXRoIGQ9Ik04IDE3aDIiLz48cGF0aCBkPSJNMTQgMTdoMiIvPjwvc3ZnPg==
 description: Exports the current chat history to an Excel (.xlsx) file, with automatic header extraction.
 """
@@ -29,6 +29,10 @@ class Action:
         TITLE_SOURCE: str = Field(
             default="chat_title",
             description="Title Source: 'chat_title' (Chat Title), 'ai_generated' (AI Generated), 'markdown_title' (Markdown Title)",
+        )
+        EXPORT_SCOPE: str = Field(
+            default="last_message",
+            description="Export Scope: 'last_message' (Last Message Only), 'all_messages' (All Messages)",
         )
 
     def __init__(self):
@@ -64,8 +68,6 @@ class Action:
             user_id = __user__.get("id", "unknown_user")
 
         if __event_emitter__:
-            last_assistant_message = body["messages"][-1]
-
             await __event_emitter__(
                 {
                     "type": "status",
@@ -74,19 +76,115 @@ class Action:
             )
 
             try:
-                message_content = last_assistant_message["content"]
-                tables = self.extract_tables_from_message(message_content)
+                messages = body.get("messages", [])
+                if not messages:
+                    raise HTTPException(status_code=400, detail="No messages found.")
 
-                if not tables:
-                    raise HTTPException(status_code=400, detail="No tables found.")
+                # Determine messages to process based on scope
+                target_messages = []
+                if self.valves.EXPORT_SCOPE == "all_messages":
+                    target_messages = messages
+                else:
+                    target_messages = [messages[-1]]
 
-                # Generate filename
+                all_tables = []
+                all_sheet_names = []
+
+                # Process messages
+                for msg_index, msg in enumerate(target_messages):
+                    content = msg.get("content", "")
+                    tables = self.extract_tables_from_message(content)
+
+                    if not tables:
+                        continue
+
+                    # Generate sheet names for this message's tables
+                    # If multiple messages, we need to ensure uniqueness across the whole workbook
+                    # We'll generate base names here and deduplicate later if needed,
+                    # or better: generate unique names on the fly.
+
+                    # Extract headers for this message
+                    headers = []
+                    lines = content.split("\n")
+                    for i, line in enumerate(lines):
+                        if re.match(r"^#{1,6}\s+", line):
+                            headers.append(
+                                {
+                                    "text": re.sub(r"^#{1,6}\s+", "", line).strip(),
+                                    "line_num": i,
+                                }
+                            )
+
+                    for table_index, table in enumerate(tables):
+                        sheet_name = ""
+
+                        # 1. Try Markdown Header (closest above)
+                        table_start_line = table["start_line"] - 1
+                        closest_header_text = None
+                        candidate_headers = [
+                            h for h in headers if h["line_num"] < table_start_line
+                        ]
+                        if candidate_headers:
+                            closest_header = max(
+                                candidate_headers, key=lambda x: x["line_num"]
+                            )
+                            closest_header_text = closest_header["text"]
+
+                        if closest_header_text:
+                            sheet_name = self.clean_sheet_name(closest_header_text)
+
+                        # 2. AI Generated (Only if explicitly enabled and we have a request object)
+                        # Note: Generating titles for EVERY table in all messages might be too slow/expensive.
+                        # We'll skip this for 'all_messages' scope to avoid timeout, unless it's just one message.
+                        if (
+                            not sheet_name
+                            and self.valves.TITLE_SOURCE == "ai_generated"
+                            and len(target_messages) == 1
+                        ):
+                            # Logic for AI generation (simplified for now, reusing existing flow if possible)
+                            pass
+
+                        # 3. Fallback: Message Index
+                        if not sheet_name:
+                            if len(target_messages) > 1:
+                                # Use global message index (from original list if possible, but here we iterate target_messages)
+                                # Let's use the loop index.
+                                # If multiple tables in one message: "Msg 1 - Table 1"
+                                if len(tables) > 1:
+                                    sheet_name = f"Msg{msg_index+1}-Tab{table_index+1}"
+                                else:
+                                    sheet_name = f"Msg{msg_index+1}"
+                            else:
+                                # Single message (last_message scope)
+                                if len(tables) > 1:
+                                    sheet_name = f"Table {table_index+1}"
+                                else:
+                                    sheet_name = "Sheet1"
+
+                        all_tables.append(table)
+                        all_sheet_names.append(sheet_name)
+
+                if not all_tables:
+                    raise HTTPException(
+                        status_code=400, detail="No tables found in the selected scope."
+                    )
+
+                # Deduplicate sheet names
+                final_sheet_names = []
+                seen_names = {}
+                for name in all_sheet_names:
+                    base_name = name
+                    counter = 1
+                    while name in seen_names:
+                        name = f"{base_name} ({counter})"
+                        counter += 1
+                    seen_names[name] = True
+                    final_sheet_names.append(name)
+
+                # Generate Workbook Title (Filename)
+                # Use the title of the chat, or the first header of the first message with tables
                 title = ""
-                chat_id = self.extract_chat_id(
-                    body, None
-                )  # metadata not available in action signature yet, but usually in body
-
-                # Fetch chat_title directly via chat_id as it's usually missing in body
+                chat_id = self.extract_chat_id(body, None)
                 chat_title = ""
                 if chat_id:
                     chat_title = await self.fetch_chat_title(chat_id, user_id)
@@ -97,43 +195,29 @@ class Action:
                 ):
                     title = chat_title
                 elif self.valves.TITLE_SOURCE == "markdown_title":
-                    title = self.extract_title(message_content)
-                elif self.valves.TITLE_SOURCE == "ai_generated":
-                    # We need request object for AI generation, but it's not passed in standard action signature in this version
-                    # However, we can try to use the one from global context if available or skip
-                    # For now, let's assume we might not have it and fallback or use what we have
-                    # Wait, export_to_word uses __request__. Let's check if we can add it to signature.
-                    pass
+                    # Try to find first header in the first message that has content
+                    for msg in target_messages:
+                        extracted = self.extract_title(msg.get("content", ""))
+                        if extracted:
+                            title = extracted
+                            break
 
-                # Get dynamic filename and sheet names
-                workbook_name_from_content, sheet_names = (
-                    self.generate_names_from_content(message_content, tables)
-                )
-
-                # If AI generation is selected but we need request, we need to update signature.
-                # Let's update signature in next chunk.
-
-                # Fallback logic for title
+                # Fallback for filename
                 if not title:
-                    if self.valves.TITLE_SOURCE == "ai_generated":
-                        # AI generation needs request, handled later
-                        pass
-                    elif self.valves.TITLE_SOURCE == "markdown_title":
-                        pass  # Already tried
-
-                    # If still no title, try workbook_name_from_content (which uses headers)
-                    if not title and workbook_name_from_content:
-                        title = workbook_name_from_content
-
-                    # If still no title, use chat_title if available
-                    if not title and chat_title:
+                    if chat_title:
                         title = chat_title
+                    else:
+                        # Try extracting from content again if not already tried
+                        if self.valves.TITLE_SOURCE != "markdown_title":
+                            for msg in target_messages:
+                                extracted = self.extract_title(msg.get("content", ""))
+                                if extracted:
+                                    title = extracted
+                                    break
 
-                # Use optimized filename generation logic
                 current_datetime = datetime.datetime.now()
                 formatted_date = current_datetime.strftime("%Y%m%d")
 
-                # If no title found, use user_yyyymmdd format
                 if not title:
                     workbook_name = f"{user_name}_{formatted_date}"
                 else:
@@ -146,8 +230,10 @@ class Action:
 
                 os.makedirs(os.path.dirname(excel_file_path), exist_ok=True)
 
-                # Save tables to Excel (using enhanced formatting)
-                self.save_tables_to_excel_enhanced(tables, excel_file_path, sheet_names)
+                # Save tables to Excel
+                self.save_tables_to_excel_enhanced(
+                    all_tables, excel_file_path, final_sheet_names
+                )
 
                 # Trigger file download
                 if __event_call__:
