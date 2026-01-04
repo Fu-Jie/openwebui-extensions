@@ -60,10 +60,16 @@ This project is a collection of resources and does not require a Python environm
 
 ### Using Plugins
 
-1. Browse the `/plugins` directory and download the plugin file (`.py`) you need.
-2. Go to OpenWebUI **Admin Panel** -> **Settings** -> **Plugins**.
-3. Click the upload button and select the `.py` file you just downloaded.
-4. Once uploaded, refresh the page to enable the plugin in your chat settings or toolbar.
+1. **Install from OpenWebUI Community (Recommended)**:
+   - Visit my profile: [Fu-Jie's Profile](https://openwebui.com/u/Fu-Jie)
+   - Browse the plugins and select the one you like.
+   - Click "Get" to import it directly into your OpenWebUI instance.
+
+2. **Manual Installation**:
+   - Browse the `/plugins` directory and download the plugin file (`.py`) you need.
+   - Go to OpenWebUI **Admin Panel** -> **Settings** -> **Plugins**.
+   - Click the upload button and select the `.py` file you just downloaded.
+   - Once uploaded, refresh the page to enable the plugin in your chat settings or toolbar.
 
 ### Contributing
 

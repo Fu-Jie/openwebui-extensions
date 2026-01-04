@@ -104,10 +104,16 @@ hide:
 
 ### Using Plugins
 
-1. Browse the [Plugin Center](plugins/index.md) and download the plugin file (`.py`)
-2. Open OpenWebUI **Admin Panel** → **Settings** → **Plugins**
-3. Click the upload button and select the `.py` file
-4. Refresh the page and enable the plugin in your chat settings
+1. **Install from OpenWebUI Community (Recommended)**:
+   - Visit my profile: [Fu-Jie's Profile](https://openwebui.com/u/Fu-Jie)
+   - Browse the plugins and select the one you like.
+   - Click "Get" to import it directly into your OpenWebUI instance.
+
+2. **Manual Installation**:
+   - Browse the [Plugin Center](plugins/index.md) and download the plugin file (`.py`)
+   - Open OpenWebUI **Admin Panel** → **Settings** → **Plugins**
+   - Click the upload button and select the `.py` file
+   - Refresh the page and enable the plugin in your chat settings
 
 ---
 
