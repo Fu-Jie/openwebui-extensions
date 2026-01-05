@@ -1,12 +1,12 @@
 # OpenWebUI 社区统计报告自动生成
-# 每天自动获取并更新社区统计数据
+# 每小时自动获取并更新社区统计数据
 
 name: Community Stats
 
 on:
-  # 每天 UTC 8:00 (北京时间 16:00) 自动运行
+  # 每小时整点运行
   schedule:
-    - cron: '0 8 * * *'
+    - cron: '0 * * * *'
   # 手动触发
   workflow_dispatch:
 
