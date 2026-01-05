@@ -24,11 +24,24 @@
     - `chat_title`：使用对话标题（默认）。
     - `ai_generated`：使用 AI 根据内容生成简短标题。
     - `markdown_title`：从 Markdown 内容中提取第一个一级或二级标题。
-- **MERMAID_JS_URL**：Mermaid.js 库的 URL（用于图表渲染）。
+- **MAX_EMBED_IMAGE_MB**：嵌入图片的最大大小 (MB)。默认：`20`。
+- **UI_LANGUAGE**：界面语言，支持 `en` (英语) 和 `zh` (中文)。默认：`zh`。
+- **FONT_LATIN**：英文字体名称。默认：`Calibri`。
+- **FONT_ASIAN**：中文字体名称。默认：`SimSun`。
+- **FONT_CODE**：代码字体名称。默认：`Consolas`。
+- **TABLE_HEADER_COLOR**：表头背景色（十六进制，不带#）。默认：`F2F2F2`。
+- **TABLE_ZEBRA_COLOR**：表格隔行背景色（十六进制，不带#）。默认：`FBFBFB`。
+- **MERMAID_JS_URL**：Mermaid.js 库的 URL。
+- **MERMAID_JSZIP_URL**：JSZip 库的 URL（用于 DOCX 操作）。
 - **MERMAID_PNG_SCALE**：Mermaid PNG 生成缩放比例（分辨率）。默认：`3.0`。
-- **MERMAID_DISPLAY_SCALE**：Mermaid 在 Word 中的显示比例（视觉大小）。默认：`1.5`。
-- **MERMAID_OPTIMIZE_LAYOUT**：自动将 LR（左右）流程图转换为 TD（上下）。默认：`True`。
-- **MERMAID_CAPTIONS_ENABLE**：启用/禁用 Mermaid 图表的图注。
+- **MERMAID_DISPLAY_SCALE**：Mermaid 在 Word 中的显示比例（视觉大小）。默认：`1.0`。
+- **MERMAID_OPTIMIZE_LAYOUT**：自动将 LR（左右）流程图转换为 TD（上下）。默认：`False`。
+- **MERMAID_BACKGROUND**：Mermaid 图表背景色（如 `white`, `transparent`）。默认：`transparent`。
+- **MERMAID_CAPTIONS_ENABLE**：启用/禁用 Mermaid 图表的图注。默认：`True`。
+- **MERMAID_CAPTION_STYLE**：Mermaid 图注的段落样式名称。默认：`Caption`。
+- **MERMAID_CAPTION_PREFIX**：图注前缀（如 '图'）。留空则根据语言自动检测。
+- **MATH_ENABLE**：启用 LaTeX 数学公式块转换（`\[...\]` 和 `$$...$$`）。默认：`True`。
+- **MATH_INLINE_DOLLAR_ENABLE**：启用行内 `$ ... $` 数学公式转换。默认：`True`。
 
 ## 支持的 Markdown 语法
 
@@ -74,6 +87,20 @@
 - **代码**：Consolas
 
 ## 更新日志
+
+### v0.4.0
+
+- **多语言支持**: 新增界面语言切换（中文/英文），提示信息更友好。
+- **字体与样式配置**: 支持自定义中英文字体、代码字体以及表格颜色。
+- **Mermaid 增强**: 
+    - 客户端混合渲染（SVG+PNG），提高清晰度与兼容性。
+    - 支持背景色配置，修复深色模式下的显示问题。
+    - 增加错误边界，渲染失败时显示提示而非中断导出。
+- **性能优化**: 导出大型文档时提供实时进度反馈。
+- **Bug 修复**: 
+    - 修复 Markdown 表格中包含代码块或链接时的解析错误。
+    - 修复下划线（`_`）、星号（`*`）、波浪号（`~`）作为长分隔符时的解析问题。
+    - 增强图片嵌入的错误处理。
 
 ### v0.3.0
 

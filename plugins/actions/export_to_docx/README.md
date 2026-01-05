@@ -24,11 +24,24 @@ You can configure the following settings via the **Valves** button in the plugin
     - `chat_title`: Use the conversation title (default).
     - `ai_generated`: Use AI to generate a short title based on the content.
     - `markdown_title`: Extract the first h1/h2 heading from the Markdown content.
-- **MERMAID_JS_URL**: URL for the Mermaid.js library (for diagram rendering).
+- **MAX_EMBED_IMAGE_MB**: Maximum image size to embed into DOCX (MB). Default: `20`.
+- **UI_LANGUAGE**: User interface language, supports `en` (English) and `zh` (Chinese). Default: `en`.
+- **FONT_LATIN**: Font name for Latin characters. Default: `Times New Roman`.
+- **FONT_ASIAN**: Font name for Asian characters. Default: `SimSun`.
+- **FONT_CODE**: Font name for code blocks. Default: `Consolas`.
+- **TABLE_HEADER_COLOR**: Table header background color (Hex without #). Default: `F2F2F2`.
+- **TABLE_ZEBRA_COLOR**: Table alternating row background color (Hex without #). Default: `FBFBFB`.
+- **MERMAID_JS_URL**: URL for the Mermaid.js library.
+- **MERMAID_JSZIP_URL**: URL for the JSZip library (required for DOCX manipulation).
 - **MERMAID_PNG_SCALE**: Scale factor for Mermaid PNG generation (Resolution). Default: `3.0`.
-- **MERMAID_DISPLAY_SCALE**: Scale factor for Mermaid visual size in Word. Default: `1.5`.
-- **MERMAID_OPTIMIZE_LAYOUT**: Automatically convert LR (Left-Right) flowcharts to TD (Top-Down). Default: `True`.
-- **MERMAID_CAPTIONS_ENABLE**: Enable/disable figure captions for Mermaid diagrams.
+- **MERMAID_DISPLAY_SCALE**: Scale factor for Mermaid visual size in Word. Default: `1.0`.
+- **MERMAID_OPTIMIZE_LAYOUT**: Automatically convert LR (Left-Right) flowcharts to TD (Top-Down). Default: `False`.
+- **MERMAID_BACKGROUND**: Background color for Mermaid diagrams (e.g., `white`, `transparent`). Default: `transparent`.
+- **MERMAID_CAPTIONS_ENABLE**: Enable/disable figure captions for Mermaid diagrams. Default: `True`.
+- **MERMAID_CAPTION_STYLE**: Paragraph style name for Mermaid captions. Default: `Caption`.
+- **MERMAID_CAPTION_PREFIX**: Caption prefix label (e.g., 'Figure'). Empty = auto-detect based on language.
+- **MATH_ENABLE**: Enable LaTeX math block conversion (`\[...\]` and `$$...$$`). Default: `True`.
+- **MATH_INLINE_DOLLAR_ENABLE**: Enable inline `$ ... $` math conversion. Default: `True`.
 
 ## Supported Markdown Syntax
 
@@ -74,6 +87,20 @@ All dependencies are declared in the plugin docstring.
 - **Code**: Consolas
 
 ## Changelog
+
+### v0.4.0
+
+- **Multi-language Support**: Added UI language switching (English/Chinese) with localized messages.
+- **Font & Style Configuration**: Customizable fonts for Latin/Asian text and code, plus table colors.
+- **Mermaid Enhancements**: 
+    - Hybrid client-side rendering (SVG+PNG) for better clarity and compatibility.
+    - Configurable background color, fixing issues in dark mode.
+    - Added error boundaries to prevent export failures on render errors.
+- **Performance**: Real-time progress updates for large document exports.
+- **Bug Fixes**: 
+    - Fixed parsing errors in Markdown tables containing code blocks or links.
+    - Fixed parsing issues with underscores (`_`), asterisks (`*`), and tildes (`~`) used as long separators.
+    - Enhanced error handling for image embedding.
 
 ### v0.3.0
 

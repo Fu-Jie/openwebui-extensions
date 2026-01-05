@@ -1,7 +1,7 @@
 # Export to Word
 
 <span class="category-badge action">Action</span>
-<span class="version-badge">v0.2.0</span>
+<span class="version-badge">v0.4.0</span>
 
 Export conversation to Word (.docx) with **syntax highlighting**, **native math equations**, **Mermaid diagrams**, **citations**, and **enhanced table formatting**.
 
@@ -34,11 +34,34 @@ You can configure the following settings via the **Valves** button in the plugin
 | Valve | Description | Default |
 | :--- | :--- | :--- |
 | `TITLE_SOURCE` | Source for document title/filename. Options: `chat_title`, `ai_generated`, `markdown_title` | `chat_title` |
-| `MERMAID_JS_URL` | URL for the Mermaid.js library (for diagram rendering). | `https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js` |
-| `MERMAID_PNG_SCALE` | Scale factor for Mermaid PNG generation (Resolution). Higher = clearer but larger file size. | `3.0` |
-| `MERMAID_DISPLAY_SCALE` | Scale factor for Mermaid visual size in Word. >1.0 to enlarge, <1.0 to shrink. | `1.5` |
-| `MERMAID_OPTIMIZE_LAYOUT` | Automatically convert LR (Left-Right) flowcharts to TD (Top-Down) for better fit. | `True` |
+| `MAX_EMBED_IMAGE_MB` | Maximum image size to embed into DOCX (MB). | `20` |
+| `UI_LANGUAGE` | User interface language. Options: `en` (English), `zh` (Chinese). | `en` |
+| `FONT_LATIN` | Font name for Latin characters. | `Times New Roman` |
+| `FONT_ASIAN` | Font name for Asian characters. | `SimSun` |
+| `FONT_CODE` | Font name for code blocks. | `Consolas` |
+| `TABLE_HEADER_COLOR` | Table header background color (Hex without #). | `F2F2F2` |
+| `TABLE_ZEBRA_COLOR` | Table alternating row background color (Hex without #). | `FBFBFB` |
+| `MERMAID_JS_URL` | URL for the Mermaid.js library. | `https://cdn.jsdelivr.net/npm/mermaid@11.12.2/dist/mermaid.min.js` |
+| `MERMAID_JSZIP_URL` | URL for the JSZip library (required for DOCX manipulation). | `https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js` |
+| `MERMAID_PNG_SCALE` | Scale factor for Mermaid PNG generation (Resolution). | `3.0` |
+| `MERMAID_DISPLAY_SCALE` | Scale factor for Mermaid visual size in Word. | `1.0` |
+| `MERMAID_OPTIMIZE_LAYOUT` | Automatically convert LR (Left-Right) flowcharts to TD (Top-Down). | `False` |
+| `MERMAID_BACKGROUND` | Background color for Mermaid diagrams (e.g., `white`, `transparent`). | `transparent` |
 | `MERMAID_CAPTIONS_ENABLE` | Enable/disable figure captions for Mermaid diagrams. | `True` |
+| `MERMAID_CAPTION_STYLE` | Paragraph style name for Mermaid captions. | `Caption` |
+| `MERMAID_CAPTION_PREFIX` | Caption prefix label (e.g., 'Figure'). Empty = auto-detect based on language. | `""` |
+| `MATH_ENABLE` | Enable LaTeX math block conversion. | `True` |
+| `MATH_INLINE_DOLLAR_ENABLE` | Enable inline `$ ... $` math conversion. | `True` |
+
+### User-Level Configuration (UserValves)
+
+Users can override the following settings in their personal settings:
+- `TITLE_SOURCE`
+- `UI_LANGUAGE`
+- `FONT_LATIN`, `FONT_ASIAN`, `FONT_CODE`
+- `TABLE_HEADER_COLOR`, `TABLE_ZEBRA_COLOR`
+- `MERMAID_...` (Selected Mermaid settings)
+- `MATH_...` (Math settings)
 
 ---
 
