@@ -77,6 +77,16 @@ Actions 是交互式插件，能够：
 
     [:octicons-arrow-right-24: 查看文档](summary.md)
 
+-   :material-image-text:{ .lg .middle } **信息图转 Markdown**
+
+    ---
+
+    AI 驱动的信息图生成器，渲染 SVG 并以 Markdown Data URL 图片嵌入。
+
+    **版本：** 1.0.0
+
+    [:octicons-arrow-right-24: 查看文档](infographic-markdown.zh.md)
+
 </div>
 
 ---

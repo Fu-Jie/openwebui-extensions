@@ -235,6 +235,125 @@ llm_response = await generate_chat_completion(
 )
 ```
 
+### 4.4 JS Render to Markdown (Data URL Embedding)
+
+For scenarios requiring complex frontend rendering (e.g., AntV charts, Mermaid diagrams) but wanting **persistent pure Markdown output**, use the Data URL embedding pattern:
+
+#### Workflow
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│  1. Python Action                                             │
+│     ├── Analyze message content                               │
+│     ├── Call LLM to generate structured data (optional)       │
+│     └── Send JS code to frontend via __event_call__           │
+├──────────────────────────────────────────────────────────────┤
+│  2. Browser JS (via __event_call__)                           │
+│     ├── Dynamically load visualization library                │
+│     ├── Render SVG/Canvas offscreen                           │
+│     ├── Export to Base64 Data URL via toDataURL()             │
+│     └── Update message content via REST API                   │
+├──────────────────────────────────────────────────────────────┤
+│  3. Markdown Rendering                                        │
+│     └── Display ![description](data:image/svg+xml;base64,...) │
+└──────────────────────────────────────────────────────────────┘
+```
+
+#### Python Side (Send JS for Execution)
+
+```python
+async def action(self, body, __event_call__, __metadata__, ...):
+    chat_id = self._extract_chat_id(body, __metadata__)
+    message_id = self._extract_message_id(body, __metadata__)
+    
+    # Generate JS code
+    js_code = self._generate_js_code(
+        chat_id=chat_id,
+        message_id=message_id,
+        data=processed_data,
+    )
+    
+    # Execute JS
+    if __event_call__:
+        await __event_call__({
+            "type": "execute",
+            "data": {"code": js_code}
+        })
+```
+
+#### JavaScript Side (Render and Write-back)
+
+```javascript
+(async function() {
+    // 1. Load visualization library
+    if (typeof VisualizationLib === 'undefined') {
+        await new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = 'https://cdn.example.com/lib.min.js';
+            script.onload = resolve;
+            script.onerror = reject;
+            document.head.appendChild(script);
+        });
+    }
+    
+    // 2. Create offscreen container
+    const container = document.createElement('div');
+    container.style.cssText = 'position:absolute;left:-9999px;';
+    document.body.appendChild(container);
+    
+    // 3. Render visualization
+    const instance = new VisualizationLib({ container });
+    instance.render(data);
+    
+    // 4. Export to Data URL
+    const dataUrl = await instance.toDataURL({ type: 'svg', embedResources: true });
+    
+    // 5. Cleanup
+    instance.destroy();
+    document.body.removeChild(container);
+    
+    // 6. Generate Markdown image
+    const markdownImage = `![Chart](${dataUrl})`;
+    
+    // 7. Update message via API
+    const token = localStorage.getItem("token");
+    await fetch(`/api/v1/chats/${chatId}/messages/${messageId}/event`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({
+            type: "chat:message",
+            data: { content: originalContent + "\n\n" + markdownImage }
+        })
+    });
+})();
+```
+
+#### Benefits
+
+- **Pure Markdown Output**: Standard Markdown image syntax, no HTML code blocks
+- **Self-Contained**: Images embedded as Base64 Data URL, no external dependencies
+- **Persistent**: Via API write-back, images remain after page reload
+- **Cross-Platform**: Works on any client supporting Markdown images
+
+#### HTML Injection vs JS Render to Markdown
+
+| Feature | HTML Injection | JS Render + Markdown |
+|---------|----------------|----------------------|
+| Output Format | HTML code block | Markdown image |
+| Interactivity | ✅ Buttons, animations | ❌ Static image |
+| External Deps | Requires JS libraries | None (self-contained) |
+| Persistence | Depends on browser | ✅ Permanent |
+| File Export | Needs special handling | ✅ Direct export |
+| Use Case | Interactive content | Infographics, chart snapshots |
+
+#### Reference Implementations
+
+- `plugins/actions/js-render-poc/infographic_markdown.py` - AntV Infographic + Data URL
+- `plugins/actions/js-render-poc/js_render_poc.py` - Basic proof of concept
+
 ---
 
 ## 5. Best Practices & Design Principles

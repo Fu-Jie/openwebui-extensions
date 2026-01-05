@@ -77,6 +77,16 @@ Actions are interactive plugins that:
 
     [:octicons-arrow-right-24: Documentation](summary.md)
 
+-   :material-image-text:{ .lg .middle } **Infographic to Markdown**
+
+    ---
+
+    AI-powered infographic generator that renders SVG and embeds it as Markdown Data URL image.
+
+    **Version:** 1.0.0
+
+    [:octicons-arrow-right-24: Documentation](infographic-markdown.md)
+
 </div>
 
 ---

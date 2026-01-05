@@ -841,10 +841,136 @@ def add_math(paragraph, latex_str):
     omml = mathml2omml(mathml)
     # ... 插入 OMML 到 paragraph._element ...
 ```
-    - [ ] 更新 `README.md` 插件列表
-    - [ ] 更新 `README_CN.md` 插件列表
-    - [ ] 更新/创建 `docs/` 下的对应文档
-    - [ ] 确保文档版本号与代码一致
+
+### JS 渲染并嵌入 Markdown (JS Render to Markdown)
+
+对于需要复杂前端渲染（如 AntV 图表、Mermaid 图表、ECharts）但希望结果**持久化为纯 Markdown 格式**的场景，推荐使用 Data URL 嵌入模式：
+
+#### 工作流程
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Plugin Workflow                          │
+├─────────────────────────────────────────────────────────────┤
+│  1. Python Action                                            │
+│     ├── 分析消息内容                                          │
+│     ├── 调用 LLM 生成结构化数据（可选）                        │
+│     └── 通过 __event_call__ 发送 JS 代码到前端                │
+├─────────────────────────────────────────────────────────────┤
+│  2. Browser JS (via __event_call__)                          │
+│     ├── 动态加载可视化库（如 AntV、Mermaid）                   │
+│     ├── 离屏渲染 SVG/Canvas                                   │
+│     ├── 使用 toDataURL() 导出 Base64 Data URL                 │
+│     └── 通过 REST API 更新消息内容                            │
+├─────────────────────────────────────────────────────────────┤
+│  3. Markdown 渲染                                            │
+│     └── 显示 ![描述](data:image/svg+xml;base64,...)          │
+└─────────────────────────────────────────────────────────────┘
+```
+
+#### 核心实现代码
+
+**Python 端（发送 JS 执行）：**
+
+```python
+async def action(self, body, __event_call__, __metadata__, ...):
+    chat_id = self._extract_chat_id(body, __metadata__)
+    message_id = self._extract_message_id(body, __metadata__)
+    
+    # 生成 JS 代码
+    js_code = self._generate_js_code(
+        chat_id=chat_id,
+        message_id=message_id,
+        data=processed_data,  # 可视化所需数据
+    )
+    
+    # 执行 JS
+    if __event_call__:
+        await __event_call__({
+            "type": "execute",
+            "data": {"code": js_code}
+        })
+```
+
+**JavaScript 端（渲染并回写）：**
+
+```javascript
+(async function() {
+    // 1. 动态加载可视化库
+    if (typeof VisualizationLib === 'undefined') {
+        await new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = 'https://cdn.example.com/lib.min.js';
+            script.onload = resolve;
+            script.onerror = reject;
+            document.head.appendChild(script);
+        });
+    }
+    
+    // 2. 创建离屏容器
+    const container = document.createElement('div');
+    container.style.cssText = 'position:absolute;left:-9999px;';
+    document.body.appendChild(container);
+    
+    // 3. 渲染可视化
+    const instance = new VisualizationLib({ container, ... });
+    instance.render(data);
+    
+    // 4. 导出为 Data URL
+    const dataUrl = await instance.toDataURL({ type: 'svg', embedResources: true });
+    // 或手动转换 SVG:
+    // const svgData = new XMLSerializer().serializeToString(svgElement);
+    // const base64 = btoa(unescape(encodeURIComponent(svgData)));
+    // const dataUrl = "data:image/svg+xml;base64," + base64;
+    
+    // 5. 清理
+    instance.destroy();
+    document.body.removeChild(container);
+    
+    // 6. 生成 Markdown 图片
+    const markdownImage = `![描述](${dataUrl})`;
+    
+    // 7. 通过 API 更新消息
+    const token = localStorage.getItem("token");
+    await fetch(`/api/v1/chats/${chatId}/messages/${messageId}/event`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({
+            type: "chat:message",
+            data: { content: originalContent + "\n\n" + markdownImage }
+        })
+    });
+})();
+```
+
+#### 优势
+
+- **纯 Markdown 输出**：结果是标准的 Markdown 图片语法，无需 HTML 代码块
+- **自包含**：图片以 Base64 Data URL 嵌入，无外部依赖
+- **持久化**：通过 API 回写，消息重新加载后图片仍然存在
+- **跨平台**：任何支持 Markdown 图片的客户端都能显示
+- **无服务端渲染依赖**：利用用户浏览器的渲染能力
+
+#### 与 HTML 注入模式对比
+
+| 特性 | HTML 注入 (`\`\`\`html`) | JS 渲染 + Markdown 图片 |
+|------|-------------------------|------------------------|
+| 输出格式 | HTML 代码块 | Markdown 图片 |
+| 交互性 | ✅ 支持按钮、动画 | ❌ 静态图片 |
+| 外部依赖 | 需要加载 JS 库 | 无（图片自包含） |
+| 持久化 | 依赖浏览器渲染 | ✅ 永久可见 |
+| 文件导出 | 需特殊处理 | ✅ 直接导出 |
+| 适用场景 | 交互式内容 | 信息图、图表快照 |
+
+#### 参考实现
+
+- `plugins/actions/js-render-poc/infographic_markdown.py` - AntV Infographic 生成并嵌入
+- `plugins/actions/js-render-poc/js_render_poc.py` - 基础概念验证
+
+
 
 ---
 
