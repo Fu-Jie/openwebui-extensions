@@ -158,7 +158,7 @@ if (response.ok) {
 
 ## 完整示例
 
-参考 [js_render_poc.py](../plugins/actions/js-render-poc/js_render_poc.py) 获取完整的 PoC 实现。
+参考 [js_render_poc.py](https://github.com/Fu-Jie/awesome-openwebui/blob/main/plugins/actions/js-render-poc/js_render_poc.py) 获取完整的 PoC 实现。
 
 ## 事件类型
 
