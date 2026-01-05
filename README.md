@@ -9,9 +9,13 @@ A collection of enhancements, plugins, and prompts for [OpenWebUI](https://githu
 
 > 🕐 Auto-updated on 2026-01-06
 
+| 👤 Author | 👥 Followers | ⭐ Points | 🏆 Contributions |
+|:---:|:---:|:---:|:---:|
+| [Fu-Jie](https://openwebui.com/u/Fu-Jie) | **32** | **63** | **17** |
+
 | 📝 Posts | ⬇️ Downloads | 👁️ Views | 👍 Upvotes | 💾 Saves |
 |:---:|:---:|:---:|:---:|:---:|
-| **11** | **731** | **7648** | **54** | **43** |
+| **11** | **731** | **7652** | **54** | **43** |
 
 ### 🔥 Top 5 Popular Plugins
 

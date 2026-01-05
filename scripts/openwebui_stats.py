@@ -119,7 +119,24 @@ class OpenWebUIStats:
             "total_comments": 0,
             "by_type": {},
             "posts": [],
+            "user": {},  # 用户信息
         }
+
+        # 从第一个帖子中提取用户信息
+        if posts and "user" in posts[0]:
+            user = posts[0]["user"]
+            stats["user"] = {
+                "username": user.get("username", ""),
+                "name": user.get("name", ""),
+                "profile_url": f"https://openwebui.com/u/{user.get('username', '')}",
+                "profile_image": user.get("profileImageUrl", ""),
+                "followers": user.get("followerCount", 0),
+                "following": user.get("followingCount", 0),
+                "total_points": user.get("totalPoints", 0),
+                "post_points": user.get("postPoints", 0),
+                "comment_points": user.get("commentPoints", 0),
+                "contributions": user.get("totalContributions", 0),
+            }
 
         for post in posts:
             # 累计统计
@@ -276,6 +293,7 @@ class OpenWebUIStats:
             "zh": {
                 "title": "## 📊 社区统计",
                 "updated": f"> 🕐 自动更新于 {datetime.now().strftime('%Y-%m-%d')}",
+                "author_header": "| 👤 作者 | 👥 粉丝 | ⭐ 积分 | 🏆 贡献 |",
                 "header": "| 📝 发布 | ⬇️ 下载 | 👁️ 浏览 | 👍 点赞 | 💾 收藏 |",
                 "top5_title": "### 🔥 热门插件 Top 5",
                 "top5_header": "| 排名 | 插件 | 下载 | 浏览 |",
@@ -284,6 +302,7 @@ class OpenWebUIStats:
             "en": {
                 "title": "## 📊 Community Stats",
                 "updated": f"> 🕐 Auto-updated on {datetime.now().strftime('%Y-%m-%d')}",
+                "author_header": "| 👤 Author | 👥 Followers | ⭐ Points | 🏆 Contributions |",
                 "header": "| 📝 Posts | ⬇️ Downloads | 👁️ Views | 👍 Upvotes | 💾 Saves |",
                 "top5_title": "### 🔥 Top 5 Popular Plugins",
                 "top5_header": "| Rank | Plugin | Downloads | Views |",
@@ -292,6 +311,7 @@ class OpenWebUIStats:
         }
 
         t = texts.get(lang, texts["en"])
+        user = stats.get("user", {})
 
         lines = []
         lines.append("<!-- STATS_START -->")
@@ -299,6 +319,18 @@ class OpenWebUIStats:
         lines.append("")
         lines.append(t["updated"])
         lines.append("")
+
+        # 作者信息表格
+        if user:
+            username = user.get("username", "")
+            profile_url = user.get("profile_url", "")
+            lines.append(t["author_header"])
+            lines.append("|:---:|:---:|:---:|:---:|")
+            lines.append(
+                f"| [{username}]({profile_url}) | **{user.get('followers', 0)}** | "
+                f"**{user.get('total_points', 0)}** | **{user.get('contributions', 0)}** |"
+            )
+            lines.append("")
 
         # 统计徽章表格
         lines.append(t["header"])

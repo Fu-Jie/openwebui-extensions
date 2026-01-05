@@ -1,7 +1,7 @@
 {
   "total_posts": 11,
   "total_downloads": 731,
-  "total_views": 7648,
+  "total_views": 7652,
   "total_upvotes": 54,
   "total_downvotes": 0,
   "total_saves": 43,
@@ -114,7 +114,7 @@
       "type": "unknown",
       "version": "",
       "downloads": 13,
-      "views": 514,
+      "views": 518,
       "upvotes": 7,
       "saves": 1,
       "comments": 1,
@@ -164,5 +164,17 @@
       "updated_at": "2025-12-31",
       "url": "https://openwebui.com/posts/异步上下文压缩_5c0617cb"
     }
-  ]
+  ],
+  "user": {
+    "username": "Fu-Jie",
+    "name": "Fu-Jie",
+    "profile_url": "https://openwebui.com/u/Fu-Jie",
+    "profile_image": "https://community.s3.openwebui.com/uploads/users/b15d1348-4347-42b4-b815-e053342d6cb0/profile_d9510745-4bd4-4f8f-a997-4a21847d9300.webp",
+    "followers": 32,
+    "following": 2,
+    "total_points": 63,
+    "post_points": 54,
+    "comment_points": 9,
+    "contributions": 17
+  }
 }
