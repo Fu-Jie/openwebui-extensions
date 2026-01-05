@@ -1,33 +1,30 @@
 # OpenWebUI Extras
 
-
-<!-- STATS_START -->
-## 📊 社区统计
-
-> 🕐 自动更新于 2026-01-06
-
-| 📝 发布 | ⬇️ 下载 | 👁️ 浏览 | 👍 点赞 | 💾 收藏 |
-|:---:|:---:|:---:|:---:|:---:|
-| **11** | **729** | **7627** | **54** | **43** |
-
-### 🔥 热门插件 Top 5
-
-| 排名 | 插件 | 下载 | 浏览 |
-|:---:|------|:---:|:---:|
-| 🥇 | [Turn Any Text into Beautiful Mind Maps](https://openwebui.com/f/turn_any_text_into_beautiful_mind_maps_3094c59a) | 212 | 1892 |
-| 🥈 | [Export to Excel](https://openwebui.com/f/export_mulit_table_to_excel_244b8f9d) | 167 | 433 |
-| 🥉 | [Async Context Compression](https://openwebui.com/f/async_context_compression_b1655bc8) | 110 | 1185 |
-| 4️⃣ | [Flash Card ](https://openwebui.com/f/flash_card_65a2ea8f) | 70 | 1332 |
-| 5️⃣ | [Smart Infographic](https://openwebui.com/f/smart_infographic_ad6f0c7f) | 62 | 850 |
-
-*完整统计请查看 [社区统计报告](./docs/community-stats.md)*
-<!-- STATS_END -->
-
 English | [中文](./README_CN.md)
 
 A collection of enhancements, plugins, and prompts for [OpenWebUI](https://github.com/open-webui/open-webui), developed and curated for personal use to extend functionality and improve experience.
 
-[Contributing](./CONTRIBUTING.md)
+<!-- STATS_START -->
+## 📊 Community Stats
+
+> 🕐 Auto-updated on 2026-01-06
+
+| 📝 Posts | ⬇️ Downloads | 👁️ Views | 👍 Upvotes | 💾 Saves |
+|:---:|:---:|:---:|:---:|:---:|
+| **11** | **731** | **7648** | **54** | **43** |
+
+### 🔥 Top 5 Popular Plugins
+
+| Rank | Plugin | Downloads | Views |
+|:---:|------|:---:|:---:|
+| 🥇 | [Turn Any Text into Beautiful Mind Maps](https://openwebui.com/posts/turn_any_text_into_beautiful_mind_maps_3094c59a) | 213 | 1896 |
+| 🥈 | [Export to Excel](https://openwebui.com/posts/export_mulit_table_to_excel_244b8f9d) | 167 | 433 |
+| 🥉 | [Async Context Compression](https://openwebui.com/posts/async_context_compression_b1655bc8) | 110 | 1185 |
+| 4️⃣ | [Flash Card ](https://openwebui.com/posts/flash_card_65a2ea8f) | 70 | 1334 |
+| 5️⃣ | [Smart Infographic](https://openwebui.com/posts/smart_infographic_ad6f0c7f) | 62 | 850 |
+
+*See full stats in [Community Stats Report](./docs/community-stats.md)*
+<!-- STATS_END -->
 
 ## 📦 Project Contents
 
@@ -100,3 +97,5 @@ If you have great prompts or plugins to share:
 1. Fork this repository.
 2. Add your files to the appropriate `prompts/` or `plugins/` directory.
 3. Submit a Pull Request.
+
+[Contributing](./CONTRIBUTING.md)

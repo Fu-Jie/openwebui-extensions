@@ -154,7 +154,7 @@ class OpenWebUIStats:
                     "comments": post.get("commentCount", 0),
                     "created_at": created_at.strftime("%Y-%m-%d"),
                     "updated_at": updated_at.strftime("%Y-%m-%d"),
-                    "url": f"https://openwebui.com/f/{post.get('slug', '')}",
+                    "url": f"https://openwebui.com/posts/{post.get('slug', '')}",
                 }
             )
 
@@ -260,20 +260,48 @@ class OpenWebUIStats:
             json.dump(stats, f, ensure_ascii=False, indent=2)
         print(f"✅ JSON 数据已保存到: {filepath}")
 
-    def generate_readme_stats(self, stats: dict) -> str:
-        """生成 README 统计徽章区域"""
+    def generate_readme_stats(self, stats: dict, lang: str = "zh") -> str:
+        """
+        生成 README 统计徽章区域
+
+        Args:
+            stats: 统计数据
+            lang: 语言 ("zh" 中文, "en" 英文)
+        """
         # 获取 Top 5 插件
         top_plugins = stats["posts"][:5]
 
+        # 中英文文本
+        texts = {
+            "zh": {
+                "title": "## 📊 社区统计",
+                "updated": f"> 🕐 自动更新于 {datetime.now().strftime('%Y-%m-%d')}",
+                "header": "| 📝 发布 | ⬇️ 下载 | 👁️ 浏览 | 👍 点赞 | 💾 收藏 |",
+                "top5_title": "### 🔥 热门插件 Top 5",
+                "top5_header": "| 排名 | 插件 | 下载 | 浏览 |",
+                "full_stats": "*完整统计请查看 [社区统计报告](./docs/community-stats.md)*",
+            },
+            "en": {
+                "title": "## 📊 Community Stats",
+                "updated": f"> 🕐 Auto-updated on {datetime.now().strftime('%Y-%m-%d')}",
+                "header": "| 📝 Posts | ⬇️ Downloads | 👁️ Views | 👍 Upvotes | 💾 Saves |",
+                "top5_title": "### 🔥 Top 5 Popular Plugins",
+                "top5_header": "| Rank | Plugin | Downloads | Views |",
+                "full_stats": "*See full stats in [Community Stats Report](./docs/community-stats.md)*",
+            },
+        }
+
+        t = texts.get(lang, texts["en"])
+
         lines = []
         lines.append("<!-- STATS_START -->")
-        lines.append("## 📊 社区统计")
+        lines.append(t["title"])
         lines.append("")
-        lines.append(f"> 🕐 自动更新于 {datetime.now().strftime('%Y-%m-%d')}")
+        lines.append(t["updated"])
         lines.append("")
 
-        # 统计徽章 - 使用 shields.io 风格的表格
-        lines.append("| 📝 发布 | ⬇️ 下载 | 👁️ 浏览 | 👍 点赞 | 💾 收藏 |")
+        # 统计徽章表格
+        lines.append(t["header"])
         lines.append("|:---:|:---:|:---:|:---:|:---:|")
         lines.append(
             f"| **{stats['total_posts']}** | **{stats['total_downloads']}** | "
@@ -282,9 +310,9 @@ class OpenWebUIStats:
         lines.append("")
 
         # Top 5 热门插件
-        lines.append("### 🔥 热门插件 Top 5")
+        lines.append(t["top5_title"])
         lines.append("")
-        lines.append("| 排名 | 插件 | 下载 | 浏览 |")
+        lines.append(t["top5_header"])
         lines.append("|:---:|------|:---:|:---:|")
 
         medals = ["🥇", "🥈", "🥉", "4️⃣", "5️⃣"]
@@ -295,13 +323,20 @@ class OpenWebUIStats:
             )
 
         lines.append("")
-        lines.append("*完整统计请查看 [社区统计报告](./docs/community-stats.md)*")
+        lines.append(t["full_stats"])
         lines.append("<!-- STATS_END -->")
 
         return "\n".join(lines)
 
-    def update_readme(self, stats: dict, readme_path: str):
-        """更新 README 文件中的统计区域"""
+    def update_readme(self, stats: dict, readme_path: str, lang: str = "zh"):
+        """
+        更新 README 文件中的统计区域
+
+        Args:
+            stats: 统计数据
+            readme_path: README 文件路径
+            lang: 语言 ("zh" 中文, "en" 英文)
+        """
         import re
 
         # 读取现有内容
@@ -309,7 +344,7 @@ class OpenWebUIStats:
             content = f.read()
 
         # 生成新的统计区域
-        new_stats = self.generate_readme_stats(stats)
+        new_stats = self.generate_readme_stats(stats, lang)
 
         # 检查是否已有统计区域
         pattern = r"<!-- STATS_START -->.*?<!-- STATS_END -->"
@@ -317,19 +352,35 @@ class OpenWebUIStats:
             # 替换现有区域
             new_content = re.sub(pattern, new_stats, content, flags=re.DOTALL)
         else:
-            # 在文件开头（标题之后）插入统计区域
-            # 找到第一个 ## 标题或在第一个空行后插入
+            # 在简介段落之后插入统计区域
+            # 查找模式：标题 -> 语言切换行 -> 简介段落 -> 插入位置
             lines = content.split("\n")
             insert_pos = 0
+            found_intro = False
 
             for i, line in enumerate(lines):
+                # 跳过标题
                 if line.startswith("# "):
-                    # 找到主标题后继续
                     continue
-                if line.startswith("[") or line.strip() == "":
-                    insert_pos = i + 1
-                    if line.strip() == "":
-                        break
+                # 跳过空行
+                if line.strip() == "":
+                    continue
+                # 跳过语言切换行 (如 "English | [中文]" 或 "[English] | 中文")
+                if ("English" in line or "中文" in line) and "|" in line:
+                    continue
+                # 找到第一个非空、非标题、非语言切换的段落（简介）
+                if not found_intro:
+                    found_intro = True
+                    # 继续到这个段落结束
+                    continue
+                # 简介段落后的空行或下一个标题就是插入位置
+                if line.strip() == "" or line.startswith("#"):
+                    insert_pos = i
+                    break
+
+            # 如果没找到合适位置，就放在第3行（标题和语言切换后）
+            if insert_pos == 0:
+                insert_pos = 3
 
             # 在适当位置插入
             lines.insert(insert_pos, "")
@@ -394,8 +445,8 @@ def main():
     # 更新 README 文件
     readme_path = script_dir / "README.md"
     readme_cn_path = script_dir / "README_CN.md"
-    stats_client.update_readme(stats, str(readme_path))
-    stats_client.update_readme(stats, str(readme_cn_path))
+    stats_client.update_readme(stats, str(readme_path), lang="en")
+    stats_client.update_readme(stats, str(readme_cn_path), lang="zh")
 
     return 0
 

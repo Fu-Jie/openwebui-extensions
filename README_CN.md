@@ -1,5 +1,8 @@
 # OpenWebUI Extras
 
+[English](./README.md) | 中文
+
+OpenWebUI 增强功能集合。包含个人开发与收集的插件、提示词等资源。
 
 <!-- STATS_START -->
 ## 📊 社区统计
@@ -8,24 +11,24 @@
 
 | 📝 发布 | ⬇️ 下载 | 👁️ 浏览 | 👍 点赞 | 💾 收藏 |
 |:---:|:---:|:---:|:---:|:---:|
-| **11** | **729** | **7627** | **54** | **43** |
+| **11** | **731** | **7648** | **54** | **43** |
 
 ### 🔥 热门插件 Top 5
 
 | 排名 | 插件 | 下载 | 浏览 |
 |:---:|------|:---:|:---:|
-| 🥇 | [Turn Any Text into Beautiful Mind Maps](https://openwebui.com/f/turn_any_text_into_beautiful_mind_maps_3094c59a) | 212 | 1892 |
-| 🥈 | [Export to Excel](https://openwebui.com/f/export_mulit_table_to_excel_244b8f9d) | 167 | 433 |
-| 🥉 | [Async Context Compression](https://openwebui.com/f/async_context_compression_b1655bc8) | 110 | 1185 |
-| 4️⃣ | [Flash Card ](https://openwebui.com/f/flash_card_65a2ea8f) | 70 | 1332 |
-| 5️⃣ | [Smart Infographic](https://openwebui.com/f/smart_infographic_ad6f0c7f) | 62 | 850 |
+| 🥇 | [Turn Any Text into Beautiful Mind Maps](https://openwebui.com/posts/turn_any_text_into_beautiful_mind_maps_3094c59a) | 213 | 1896 |
+| 🥈 | [Export to Excel](https://openwebui.com/posts/export_mulit_table_to_excel_244b8f9d) | 167 | 433 |
+| 🥉 | [Async Context Compression](https://openwebui.com/posts/async_context_compression_b1655bc8) | 110 | 1185 |
+| 4️⃣ | [Flash Card ](https://openwebui.com/posts/flash_card_65a2ea8f) | 70 | 1334 |
+| 5️⃣ | [Smart Infographic](https://openwebui.com/posts/smart_infographic_ad6f0c7f) | 62 | 850 |
 
 *完整统计请查看 [社区统计报告](./docs/community-stats.md)*
 <!-- STATS_END -->
 
-[English](./README.md) | 中文
+## 📦 项目内容
 
-OpenWebUI 增强功能集合。包含个人开发与收集的### 🧩 插件 (Plugins)
+### 🧩 插件 (Plugins)
 
 位于 `plugins/` 目录，包含各类 Python 编写的功能增强插件：
 
@@ -42,7 +45,6 @@ OpenWebUI 增强功能集合。包含个人开发与收集的### 🧩 插件 (Pl
 - **Context Enhancement** (`context_enhancement_filter`): 上下文增强过滤器。
 - **Gemini Manifold Companion** (`gemini_manifold_companion`): Gemini Manifold 配套增强。
 
-
 #### Pipes (模型管道)
 - **Gemini Manifold** (`gemini_mainfold`): 集成 Gemini 模型的管道。
 
@@ -54,39 +56,9 @@ OpenWebUI 增强功能集合。包含个人开发与收集的### 🧩 插件 (Pl
 位于 `prompts/` 目录，包含精心调优的 System Prompts：
 
 - **Coding**: 编程辅助类提示词。
-- **Marketing**: 营销文案类提示词。(`/prompts/marketing`): 内容创作、品牌策划、市场分析相关的提示词
+- **Marketing**: 营销文案类提示词。
 
 每个提示词都独立保存为 Markdown 文件，可直接在 OpenWebUI 中使用。
-
-### 🔧 插件 (Plugins)
-
-{{ ... }}
-
-[贡献指南](./CONTRIBUTING.md) | [更新日志](./CHANGELOG.md)
-
-## 📦 项目内容
-
-### 🎯 提示词 (Prompts)
-
-位于 `/prompts` 目录，包含针对不同领域的优质提示词模板：
-
-- **编程类** (`/prompts/coding`): 代码生成、调试、优化相关的提示词
-- **营销类** (`/prompts/marketing`): 内容创作、品牌策划、市场分析相关的提示词
-
-每个提示词都独立保存为 Markdown 文件，可直接在 OpenWebUI 中使用。
-
-### 🔧 插件 (Plugins)
-
-位于 `/plugins` 目录，提供三种类型的插件扩展：
-
-- **过滤器 (Filters)** - 在用户输入发送给 LLM 前进行处理和优化
-  - 异步上下文压缩：智能压缩长上下文，优化 token 使用效率
-
-- **动作 (Actions)** - 自定义功能，从聊天中触发
-  - 思维导图生成：快速生成和导出思维导图
-
-- **管道 (Pipes)** - 对 LLM 响应进行处理和增强
-  - 各类响应处理和格式化插件
 
 ## 📖 开发文档
 
@@ -96,7 +68,7 @@ OpenWebUI 增强功能集合。包含个人开发与收集的### 🧩 插件 (Pl
 - **[从问一个AI到运营一支AI团队](./docs/zh/从问一个AI到运营一支AI团队.md)** - 深度运营经验分享。
 
 更多示例请查看 `docs/examples/` 目录。
- 
+
 ## 🚀 快速开始
 
 本项目是一个资源集合，无需安装 Python 环境。你只需要下载对应的文件并导入到你的 OpenWebUI 实例中即可。
@@ -127,3 +99,5 @@ OpenWebUI 增强功能集合。包含个人开发与收集的### 🧩 插件 (Pl
 1. Fork 本仓库。
 2. 将你的文件添加到对应的 `prompts/` 或 `plugins/` 目录。
 3. 提交 Pull Request。
+
+[贡献指南](./CONTRIBUTING.md) | [更新日志](./CHANGELOG.md)
