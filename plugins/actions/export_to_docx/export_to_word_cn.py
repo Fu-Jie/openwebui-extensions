@@ -3,7 +3,7 @@ title: 导出为 Word (增强版)
 author: Fu-Jie
 author_url: https://github.com/Fu-Jie
 funding_url: https://github.com/Fu-Jie/awesome-openwebui
-version: 0.4.0
+version: 0.4.1
 icon_url: data:image/svg+xml;base64,PHN2ZwogIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIKICB3aWR0aD0iMjQiCiAgaGVpZ2h0PSIyNCIKICB2aWV3Qm94PSIwIDAgMjQgMjQiCiAgZmlsbD0ibm9uZSIKICBzdHJva2U9ImN1cnJlbnRDb2xvciIKICBzdHJva2Utd2lkdGg9IjIiCiAgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIgogIHN0cm9rZS1saW5lam9pbj0icm91bmQiCj4KICA8cGF0aCBkPSJNNiAyMmEyIDIgMCAwIDEtMi0yVjRhMiAyIDAgMCAxIDItMmg4YTIuNCAyLjQgMCAwIDEgMS43MDQuNzA2bDMuNTg4IDMuNTg4QTIuNCAyLjQgMCAwIDEgMjAgOHYxMmEyIDIgMCAwIDEtMiAyeiIgLz4KICA8cGF0aCBkPSJNMTQgMnY1YTEgMSAwIDAgMCAxIDFoNSIgLz4KICA8cGF0aCBkPSJNMTAgOUg4IiAvPgogIDxwYXRoIGQ9Ik0xNiAxM0g4IiAvPgogIDxwYXRoIGQ9Ik0xNiAxN0g4IiAvPgo8L3N2Zz4K
 requirements: python-docx, Pygments, latex2mathml, mathml2omml
 description: 将对话导出为 Word (.docx)，支持 Mermaid 图表 (客户端渲染 SVG+PNG)、LaTeX 数学公式、真实超链接、增强表格格式、代码高亮和引用块。
@@ -135,147 +135,147 @@ class Action:
     }
 
     class Valves(BaseModel):
-        TITLE_SOURCE: str = Field(
+        文档标题来源: str = Field(
             default="chat_title",
             description="Title Source: 'chat_title' (Chat Title), 'ai_generated' (AI Generated), 'markdown_title' (Markdown Title)",
         )
 
-        MAX_EMBED_IMAGE_MB: int = Field(
+        最大嵌入图片大小MB: int = Field(
             default=20,
             description="Maximum image size to embed into DOCX (MB). Applies to data URLs and /api/v1/files/<id>/content images.",
         )
 
         # Font configuration
-        FONT_LATIN: str = Field(
+        英文字体: str = Field(
             default="Calibri",
             description="Font for Latin characters (e.g., 'Times New Roman', '', 'Arial')",
         )
-        FONT_ASIAN: str = Field(
+        中文字体: str = Field(
             default="SimSun",
             description="Font for Asian characters (e.g., 'SimSun', 'Microsoft YaHei', 'PingFang SC')",
         )
-        FONT_CODE: str = Field(
+        代码字体: str = Field(
             default="Consolas",
             description="Font for code blocks and inline code (e.g., 'Consolas', 'Courier New', 'Monaco')",
         )
 
         # Table styling
-        TABLE_HEADER_COLOR: str = Field(
+        表头背景色: str = Field(
             default="F2F2F2",
             description="Table header background color (hex, without #)",
         )
-        TABLE_ZEBRA_COLOR: str = Field(
+        表格隔行背景色: str = Field(
             default="FBFBFB",
             description="Table zebra stripe background color for alternate rows (hex, without #)",
         )
 
-        MERMAID_JS_URL: str = Field(
+        Mermaid_JS地址: str = Field(
             default="https://cdn.jsdelivr.net/npm/mermaid@11.12.2/dist/mermaid.min.js",
             description="Mermaid JS CDN URL",
         )
-        MERMAID_JSZIP_URL: str = Field(
+        JSZip库地址: str = Field(
             default="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js",
             description="JSZip CDN URL (DOCX manipulation)",
         )
-        MERMAID_PNG_SCALE: float = Field(
+        Mermaid_PNG缩放比例: float = Field(
             default=3.0,
             description="PNG render resolution multiplier (higher = clearer, larger file)",
         )
-        MERMAID_DISPLAY_SCALE: float = Field(
+        Mermaid显示比例: float = Field(
             default=1.0,
             description="Diagram width relative to available page width (<=1 recommended)",
         )
-        MERMAID_OPTIMIZE_LAYOUT: bool = Field(
+        Mermaid布局优化: bool = Field(
             default=False,
             description="Optimize Mermaid layout: convert LR to TD for graph/flowchart",
         )
-        MERMAID_BACKGROUND: str = Field(
+        Mermaid背景色: str = Field(
             default="",
             description="Mermaid background color. Empty = transparent (recommended for Word dark mode). Used only for optional PNG fill.",
         )
 
-        MERMAID_CAPTIONS_ENABLE: bool = Field(
+        启用Mermaid图注: bool = Field(
             default=True,
             description="Add figure captions under Mermaid images/charts",
         )
-        MERMAID_CAPTION_STYLE: str = Field(
+        Mermaid图注样式: str = Field(
             default="Caption",
             description="Paragraph style name for Mermaid captions (uses 'Caption' if available, otherwise creates a safe custom style)",
         )
-        MERMAID_CAPTION_PREFIX: str = Field(
+        Mermaid图注前缀: str = Field(
             default="",
             description="Caption prefix label (e.g., 'Figure' or '图'). Empty = auto-detect based on user language.",
         )
 
-        MATH_ENABLE: bool = Field(
+        启用数学公式: bool = Field(
             default=True,
             description="Enable LaTeX math block conversion (\\[...\\] and $$...$$) into Word equations",
         )
-        MATH_INLINE_DOLLAR_ENABLE: bool = Field(
+        启用行内公式: bool = Field(
             default=True,
             description="Enable inline $...$ math conversion into Word equations (conservative parsing to reduce false positives)",
         )
 
         # Language configuration
-        UI_LANGUAGE: str = Field(
+        界面语言: str = Field(
             default="zh",
             description="UI language for export messages. Options: 'en' (English), 'zh' (Chinese)",
         )
 
     class UserValves(BaseModel):
-        TITLE_SOURCE: str = Field(
+        文档标题来源: str = Field(
             default="chat_title",
             description="Title Source: 'chat_title' (Chat Title), 'ai_generated' (AI Generated), 'markdown_title' (Markdown Title)",
         )
-        UI_LANGUAGE: str = Field(
+        界面语言: str = Field(
             default="zh",
             description="UI language for export messages. Options: 'en' (English), 'zh' (Chinese)",
         )
-        FONT_LATIN: str = Field(
+        英文字体: str = Field(
             default="Calibri",
             description="Font for Latin characters (e.g., 'Times New Roman', '', 'Arial')",
         )
-        FONT_ASIAN: str = Field(
+        中文字体: str = Field(
             default="SimSun",
             description="Font for Asian characters (e.g., 'SimSun', 'Microsoft YaHei', 'PingFang SC')",
         )
-        FONT_CODE: str = Field(
+        代码字体: str = Field(
             default="Consolas",
             description="Font for code blocks and inline code (e.g., 'Consolas', 'Courier New', 'Monaco')",
         )
-        TABLE_HEADER_COLOR: str = Field(
+        表头背景色: str = Field(
             default="F2F2F2",
             description="Table header background color (hex, without #)",
         )
-        TABLE_ZEBRA_COLOR: str = Field(
+        表格隔行背景色: str = Field(
             default="FBFBFB",
             description="Table zebra stripe background color for alternate rows (hex, without #)",
         )
-        MERMAID_PNG_SCALE: float = Field(
+        Mermaid_PNG缩放比例: float = Field(
             default=3.0,
             description="PNG render resolution multiplier (higher = clearer, larger file)",
         )
-        MERMAID_DISPLAY_SCALE: float = Field(
+        Mermaid显示比例: float = Field(
             default=1.0,
             description="Diagram width relative to available page width (<=1 recommended)",
         )
-        MERMAID_OPTIMIZE_LAYOUT: bool = Field(
+        Mermaid布局优化: bool = Field(
             default=False,
             description="Optimize Mermaid layout: convert LR to TD for graph/flowchart",
         )
-        MERMAID_BACKGROUND: str = Field(
+        Mermaid背景色: str = Field(
             default="",
             description="Mermaid background color. Empty = transparent (recommended for Word dark mode). Used only for optional PNG fill.",
         )
-        MERMAID_CAPTIONS_ENABLE: bool = Field(
+        启用Mermaid图注: bool = Field(
             default=True,
             description="Add figure captions under Mermaid images/charts",
         )
-        MATH_ENABLE: bool = Field(
+        启用数学公式: bool = Field(
             default=True,
             description="Enable LaTeX math block conversion (\\\\[...\\\\] and $$...$$) into Word equations",
         )
-        MATH_INLINE_DOLLAR_ENABLE: bool = Field(
+        启用行内公式: bool = Field(
             default=True,
             description="Enable inline $...$ math conversion into Word equations (conservative parsing to reduce false positives)",
         )
@@ -345,7 +345,7 @@ class Action:
                     setattr(self.valves, key, value)
 
         # Get user language from Valves configuration
-        self._user_lang = self._get_lang_key(self.valves.UI_LANGUAGE)
+        self._user_lang = self._get_lang_key(self.valves.界面语言)
 
         if __event_emitter__:
             last_assistant_message = body["messages"][-1]
@@ -381,22 +381,22 @@ class Action:
                     chat_title = await self.fetch_chat_title(chat_id, user_id)
 
                 if (
-                    self.valves.TITLE_SOURCE.strip() == "chat_title"
-                    or not self.valves.TITLE_SOURCE.strip()
+                    self.valves.文档标题来源.strip() == "chat_title"
+                    or not self.valves.文档标题来源.strip()
                 ):
                     title = chat_title
-                elif self.valves.TITLE_SOURCE.strip() == "markdown_title":
+                elif self.valves.文档标题来源.strip() == "markdown_title":
                     title = self.extract_title(message_content)
-                elif self.valves.TITLE_SOURCE.strip() == "ai_generated":
+                elif self.valves.文档标题来源.strip() == "ai_generated":
                     title = await self.generate_title_using_ai(
                         body, message_content, user_id, __request__
                     )
 
                 # Fallback logic
                 if not title:
-                    if self.valves.TITLE_SOURCE.strip() != "chat_title" and chat_title:
+                    if self.valves.文档标题来源.strip() != "chat_title" and chat_title:
                         title = chat_title
-                    elif self.valves.TITLE_SOURCE.strip() != "markdown_title":
+                    elif self.valves.文档标题来源.strip() != "markdown_title":
                         extracted = self.extract_title(message_content)
                         if extracted:
                             title = extracted
@@ -450,11 +450,11 @@ class Action:
                                 (async function() {{
                                     const base64Data = "{base64_blob}";
                                     const filename = "{js_filename}";
-	                                    const mermaidUrl = "{self.valves.MERMAID_JS_URL}";
-	                                    const jszipUrl = "{self.valves.MERMAID_JSZIP_URL}";
-	                                    const pngScale = {float(self.valves.MERMAID_PNG_SCALE)};
-	                                    const displayScale = {float(self.valves.MERMAID_DISPLAY_SCALE)};
-	                                    const bgRaw = "{(self.valves.MERMAID_BACKGROUND or '').strip()}";
+	                                    const mermaidUrl = "{self.valves.Mermaid_JS地址}";
+	                                    const jszipUrl = "{self.valves.JSZip库地址}";
+	                                    const pngScale = {float(self.valves.Mermaid_PNG缩放比例)};
+	                                    const displayScale = {float(self.valves.Mermaid显示比例)};
+	                                    const bgRaw = "{(self.valves.Mermaid背景色 or '').strip()}";
 	                                    const bg = (bgRaw || "").trim();
 	                                    const bgFill = (bg && bg.toLowerCase() !== "transparent") ? bg : "";
 	                                    const themeBackground = bgFill || "transparent";
@@ -1006,7 +1006,7 @@ class Action:
         return cleaned[:50].strip()
 
     def _max_embed_image_bytes(self) -> int:
-        mb = getattr(self.valves, "MAX_EMBED_IMAGE_MB", 20)
+        mb = getattr(self.valves, "最大嵌入图片大小MB", 20)
         try:
             mb_i = int(mb)
         except Exception:
@@ -1149,7 +1149,7 @@ class Action:
                 self._add_image_placeholder(
                     paragraph,
                     alt,
-                    f"invalid data URL or exceeds {self.valves.MAX_EMBED_IMAGE_MB}MB",
+                    f"invalid data URL or exceeds {self.valves.最大嵌入图片大小MB}MB",
                 )
                 return
         else:
@@ -1239,7 +1239,7 @@ class Action:
                 line = lines[i]
 
                 # Handle display math blocks (\[...\] or $$...$$)
-                if not in_code_block and self.valves.MATH_ENABLE:
+                if not in_code_block and self.valves.启用数学公式:
                     single_line = self._extract_single_line_math(line)
                     if single_line is not None:
                         if in_list and list_items:
@@ -1689,12 +1689,12 @@ class Action:
     def _insert_mermaid_placeholder(self, doc: Document, mermaid_source: str):
         caption_title: Optional[str] = (
             self._extract_mermaid_title(mermaid_source)
-            if self.valves.MERMAID_CAPTIONS_ENABLE
+            if self.valves.启用Mermaid图注
             else None
         )
 
         source_for_render = mermaid_source
-        if self.valves.MERMAID_OPTIMIZE_LAYOUT:
+        if self.valves.Mermaid布局优化:
             source_for_render = re.sub(
                 r"^(graph|flowchart)\s+LR\b",
                 r"\1 TD",
@@ -1833,7 +1833,7 @@ class Action:
         if self._caption_style_name is not None:
             return self._caption_style_name
 
-        style_name = (self.valves.MERMAID_CAPTION_STYLE or "").strip()
+        style_name = (self.valves.Mermaid图注样式 or "").strip()
         if style_name == "":
             # Empty means: do not apply a caption style.
             self._caption_style_name = ""
@@ -1872,11 +1872,11 @@ class Action:
             return "Normal"
 
     def _add_mermaid_caption(self, doc: Document, title: Optional[str]):
-        if not self.valves.MERMAID_CAPTIONS_ENABLE:
+        if not self.valves.启用Mermaid图注:
             return
 
         # Use configured prefix, or auto-detect from user language
-        prefix = (self.valves.MERMAID_CAPTION_PREFIX or "").strip()
+        prefix = (self.valves.Mermaid图注前缀 or "").strip()
         if prefix == "":
             prefix = self._get_msg("figure_prefix")
 
@@ -1944,10 +1944,10 @@ class Action:
         """Set document default font using configured fonts."""
         style = doc.styles["Normal"]
         font = style.font
-        font.name = self.valves.FONT_LATIN
+        font.name = self.valves.英文字体
         font.size = Pt(11)
         # Set Asian font
-        style._element.rPr.rFonts.set(qn("w:eastAsia"), self.valves.FONT_ASIAN)
+        style._element.rPr.rFonts.set(qn("w:eastAsia"), self.valves.中文字体)
 
         # Set paragraph format
         paragraph_format = style.paragraph_format
@@ -1972,7 +1972,7 @@ class Action:
         """
         Parse Markdown inline formatting and add to paragraph.
         Supports: bold, italic, inline code, links, strikethrough, auto-link URLs,
-        and inline LaTeX math \\(...\\) when MATH_ENABLE is on.
+        and inline LaTeX math \\(...\\) when 启用数学公式 is on.
         """
         self._add_inline_segments(
             paragraph, text or "", bold=False, italic=False, strike=False
@@ -1997,8 +1997,8 @@ class Action:
             if not chunk:
                 return
             run = paragraph.add_run(chunk)
-            run.font.name = self.valves.FONT_CODE
-            run._element.rPr.rFonts.set(qn("w:eastAsia"), self.valves.FONT_CODE)
+            run.font.name = self.valves.代码字体
+            run._element.rPr.rFonts.set(qn("w:eastAsia"), self.valves.代码字体)
             run.font.size = Pt(10)
             shading = OxmlElement("w:shd")
             shading.set(qn("w:fill"), "E8E8E8")
@@ -2052,9 +2052,9 @@ class Action:
         rPr = OxmlElement("w:rPr")
 
         rFonts = OxmlElement("w:rFonts")
-        rFonts.set(qn("w:ascii"), self.valves.FONT_CODE)
-        rFonts.set(qn("w:hAnsi"), self.valves.FONT_CODE)
-        rFonts.set(qn("w:eastAsia"), self.valves.FONT_CODE)
+        rFonts.set(qn("w:ascii"), self.valves.代码字体)
+        rFonts.set(qn("w:hAnsi"), self.valves.代码字体)
+        rFonts.set(qn("w:eastAsia"), self.valves.代码字体)
         rPr.append(rFonts)
 
         sz = OxmlElement("w:sz")
@@ -2190,11 +2190,7 @@ class Action:
                     continue
 
             # Inline $...$ math (conservative parsing)
-            if (
-                text[i] == "$"
-                and self.valves.MATH_ENABLE
-                and self.valves.MATH_INLINE_DOLLAR_ENABLE
-            ):
+            if text[i] == "$" and self.valves.启用数学公式 and self.valves.启用行内公式:
                 # Avoid treating $$ as inline math here (block math uses $$ on its own line).
                 if text.startswith("$$", i):
                     self._add_text_run(paragraph, "$", bold, italic, strike)
@@ -2439,7 +2435,7 @@ class Action:
         if not latex:
             return
 
-        if not self.valves.MATH_ENABLE or not LATEX_MATH_AVAILABLE:
+        if not self.valves.启用数学公式 or not LATEX_MATH_AVAILABLE:
             self._add_text_run(
                 paragraph, f"\\({latex}\\)", bold=bold, italic=italic, strike=strike
             )
@@ -2511,7 +2507,7 @@ class Action:
             lang_para.paragraph_format.space_after = Pt(0)
             lang_para.paragraph_format.left_indent = Cm(0.5)
             lang_run = lang_para.add_run(language.upper())
-            lang_run.font.name = self.valves.FONT_CODE
+            lang_run.font.name = self.valves.代码字体
             lang_run.font.size = Pt(8)
             lang_run.font.color.rgb = RGBColor(100, 100, 100)
             lang_run.font.bold = True
@@ -2540,8 +2536,8 @@ class Action:
                 if not token_value:
                     continue
                 run = paragraph.add_run(token_value)
-                run.font.name = self.valves.FONT_CODE
-                run._element.rPr.rFonts.set(qn("w:eastAsia"), self.valves.FONT_CODE)
+                run.font.name = self.valves.代码字体
+                run._element.rPr.rFonts.set(qn("w:eastAsia"), self.valves.代码字体)
                 run.font.size = Pt(10)
 
                 # Apply color
@@ -2555,8 +2551,8 @@ class Action:
         else:
             # No syntax highlighting, plain text display
             run = paragraph.add_run(code)
-            run.font.name = self.valves.FONT_CODE
-            run._element.rPr.rFonts.set(qn("w:eastAsia"), self.valves.FONT_CODE)
+            run.font.name = self.valves.代码字体
+            run._element.rPr.rFonts.set(qn("w:eastAsia"), self.valves.代码字体)
             run.font.size = Pt(10)
 
     def add_table(self, doc: Document, table_lines: List[str]):
@@ -2570,8 +2566,8 @@ class Action:
                 return c
             return default
 
-        header_fill = _validate_hex(self.valves.TABLE_HEADER_COLOR, "F2F2F2")
-        zebra_fill = _validate_hex(self.valves.TABLE_ZEBRA_COLOR, "FBFBFB")
+        header_fill = _validate_hex(self.valves.表头背景色, "F2F2F2")
+        zebra_fill = _validate_hex(self.valves.表格隔行背景色, "FBFBFB")
 
         def _split_row(line: str) -> List[str]:
             # Keep empty cells, trim surrounding pipes.

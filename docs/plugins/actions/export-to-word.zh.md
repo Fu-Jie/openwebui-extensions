@@ -1,7 +1,7 @@
 # Export to Word（导出为 Word）
 
 <span class="category-badge action">Action</span>
-<span class="version-badge">v0.4.0</span>
+<span class="version-badge">v0.4.1</span>
 
 将当前对话导出为完美格式的 Word 文档，支持**代码语法高亮**、**原生数学公式**、**Mermaid 图表**、**引用资料**以及**增强表格**渲染。
 
@@ -33,35 +33,35 @@ Export to Word 插件会把聊天消息从 Markdown 转成精致的 Word 文档�
 
 | Valve | 说明 | 默认值 |
 | :--- | :--- | :--- |
-| `TITLE_SOURCE` | 文档标题/文件名的来源。选项：`chat_title` (对话标题), `ai_generated` (AI 生成), `markdown_title` (Markdown 标题) | `chat_title` |
-| `MAX_EMBED_IMAGE_MB` | 嵌入图片的最大大小 (MB)。 | `20` |
-| `UI_LANGUAGE` | 界面语言。选项：`en` (英语), `zh` (中文)。 | `zh` |
-| `FONT_LATIN` | 英文字体名称。 | `Calibri` |
-| `FONT_ASIAN` | 中文字体名称。 | `SimSun` |
-| `FONT_CODE` | 代码字体名称。 | `Consolas` |
-| `TABLE_HEADER_COLOR` | 表头背景色（十六进制，不带#）。 | `F2F2F2` |
-| `TABLE_ZEBRA_COLOR` | 表格隔行背景色（十六进制，不带#）。 | `FBFBFB` |
-| `MERMAID_JS_URL` | Mermaid.js 库的 URL。 | `https://cdn.jsdelivr.net/npm/mermaid@11.12.2/dist/mermaid.min.js` |
-| `MERMAID_JSZIP_URL` | JSZip 库的 URL（用于 DOCX 操作）。 | `https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js` |
-| `MERMAID_PNG_SCALE` | Mermaid PNG 生成缩放比例（分辨率）。 | `3.0` |
-| `MERMAID_DISPLAY_SCALE` | Mermaid 在 Word 中的显示比例（视觉大小）。 | `1.0` |
-| `MERMAID_OPTIMIZE_LAYOUT` | 优化 Mermaid 布局: 自动将 LR (左右) 转换为 TD (上下)。 | `False` |
-| `MERMAID_BACKGROUND` | Mermaid 图表背景色（如 `white`, `transparent`）。 | `transparent` |
-| `MERMAID_CAPTIONS_ENABLE` | 启用/禁用 Mermaid 图表的图注。 | `True` |
-| `MERMAID_CAPTION_STYLE` | Mermaid 图注的段落样式名称。 | `Caption` |
-| `MERMAID_CAPTION_PREFIX` | 图注前缀（如 '图'）。留空则根据语言自动检测。 | `""` |
-| `MATH_ENABLE` | 启用 LaTeX 数学公式块转换。 | `True` |
-| `MATH_INLINE_DOLLAR_ENABLE` | 启用行内 `$ ... $` 数学公式转换。 | `True` |
+| `文档标题来源` | 文档标题/文件名的来源。选项：`chat_title` (对话标题), `ai_generated` (AI 生成), `markdown_title` (Markdown 标题) | `chat_title` |
+| `最大嵌入图片大小MB` | 嵌入图片的最大大小 (MB)。 | `20` |
+| `界面语言` | 界面语言。选项：`en` (英语), `zh` (中文)。 | `zh` |
+| `英文字体` | 英文字体名称。 | `Calibri` |
+| `中文字体` | 中文字体名称。 | `SimSun` |
+| `代码字体` | 代码字体名称。 | `Consolas` |
+| `表头背景色` | 表头背景色（十六进制，不带#）。 | `F2F2F2` |
+| `表格隔行背景色` | 表格隔行背景色（十六进制，不带#）。 | `FBFBFB` |
+| `Mermaid_JS地址` | Mermaid.js 库的 URL。 | `https://cdn.jsdelivr.net/npm/mermaid@11.12.2/dist/mermaid.min.js` |
+| `JSZip库地址` | JSZip 库的 URL（用于 DOCX 操作）。 | `https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js` |
+| `Mermaid_PNG缩放比例` | Mermaid PNG 生成缩放比例（分辨率）。 | `3.0` |
+| `Mermaid显示比例` | Mermaid 在 Word 中的显示比例（视觉大小）。 | `1.0` |
+| `Mermaid布局优化` | 优化 Mermaid 布局: 自动将 LR (左右) 转换为 TD (上下)。 | `False` |
+| `Mermaid背景色` | Mermaid 图表背景色（如 `white`, `transparent`）。 | `transparent` |
+| `启用Mermaid图注` | 启用/禁用 Mermaid 图表的图注。 | `True` |
+| `Mermaid图注样式` | Mermaid 图注的段落样式名称。 | `Caption` |
+| `Mermaid图注前缀` | 图注前缀（如 '图'）。留空则根据语言自动检测。 | `""` |
+| `启用数学公式` | 启用 LaTeX 数学公式块转换。 | `True` |
+| `启用行内公式` | 启用行内 `$ ... $` 数学公式转换。 | `True` |
 
 ### 用户级配置 (UserValves)
 
 用户可以在个人设置中覆盖以下配置：
-- `TITLE_SOURCE`
-- `UI_LANGUAGE`
-- `FONT_LATIN`, `FONT_ASIAN`, `FONT_CODE`
-- `TABLE_HEADER_COLOR`, `TABLE_ZEBRA_COLOR`
-- `MERMAID_...` (部分 Mermaid 设置)
-- `MATH_...` (数学公式设置)
+- `文档标题来源`
+- `界面语言`
+- `英文字体`, `中文字体`, `代码字体`
+- `表头背景色`, `表格隔行背景色`
+- `Mermaid_...` (部分 Mermaid 设置)
+- `启用数学公式`, `启用行内公式`
 
 ---
 

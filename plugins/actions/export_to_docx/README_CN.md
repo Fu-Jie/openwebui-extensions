@@ -20,28 +20,28 @@
 
 您可以通过插件设置中的 **Valves** 按钮配置以下选项：
 
-- **TITLE_SOURCE**：选择文档标题/文件名的生成方式。
+- **文档标题来源**：选择文档标题/文件名的生成方式。
     - `chat_title`：使用对话标题（默认）。
     - `ai_generated`：使用 AI 根据内容生成简短标题。
     - `markdown_title`：从 Markdown 内容中提取第一个一级或二级标题。
-- **MAX_EMBED_IMAGE_MB**：嵌入图片的最大大小 (MB)。默认：`20`。
-- **UI_LANGUAGE**：界面语言，支持 `en` (英语) 和 `zh` (中文)。默认：`zh`。
-- **FONT_LATIN**：英文字体名称。默认：`Calibri`。
-- **FONT_ASIAN**：中文字体名称。默认：`SimSun`。
-- **FONT_CODE**：代码字体名称。默认：`Consolas`。
-- **TABLE_HEADER_COLOR**：表头背景色（十六进制，不带#）。默认：`F2F2F2`。
-- **TABLE_ZEBRA_COLOR**：表格隔行背景色（十六进制，不带#）。默认：`FBFBFB`。
-- **MERMAID_JS_URL**：Mermaid.js 库的 URL。
-- **MERMAID_JSZIP_URL**：JSZip 库的 URL（用于 DOCX 操作）。
-- **MERMAID_PNG_SCALE**：Mermaid PNG 生成缩放比例（分辨率）。默认：`3.0`。
-- **MERMAID_DISPLAY_SCALE**：Mermaid 在 Word 中的显示比例（视觉大小）。默认：`1.0`。
-- **MERMAID_OPTIMIZE_LAYOUT**：自动将 LR（左右）流程图转换为 TD（上下）。默认：`False`。
-- **MERMAID_BACKGROUND**：Mermaid 图表背景色（如 `white`, `transparent`）。默认：`transparent`。
-- **MERMAID_CAPTIONS_ENABLE**：启用/禁用 Mermaid 图表的图注。默认：`True`。
-- **MERMAID_CAPTION_STYLE**：Mermaid 图注的段落样式名称。默认：`Caption`。
-- **MERMAID_CAPTION_PREFIX**：图注前缀（如 '图'）。留空则根据语言自动检测。
-- **MATH_ENABLE**：启用 LaTeX 数学公式块转换（`\[...\]` 和 `$$...$$`）。默认：`True`。
-- **MATH_INLINE_DOLLAR_ENABLE**：启用行内 `$ ... $` 数学公式转换。默认：`True`。
+- **最大嵌入图片大小MB**：嵌入图片的最大大小 (MB)。默认：`20`。
+- **界面语言**：界面语言，支持 `en` (英语) 和 `zh` (中文)。默认：`zh`。
+- **英文字体**：英文字体名称。默认：`Calibri`。
+- **中文字体**：中文字体名称。默认：`SimSun`。
+- **代码字体**：代码字体名称。默认：`Consolas`。
+- **表头背景色**：表头背景色（十六进制，不带#）。默认：`F2F2F2`。
+- **表格隔行背景色**：表格隔行背景色（十六进制，不带#）。默认：`FBFBFB`。
+- **Mermaid_JS地址**：Mermaid.js 库的 URL。
+- **JSZip库地址**：JSZip 库的 URL（用于 DOCX 操作）。
+- **Mermaid_PNG缩放比例**：Mermaid PNG 生成缩放比例（分辨率）。默认：`3.0`。
+- **Mermaid显示比例**：Mermaid 在 Word 中的显示比例（视觉大小）。默认：`1.0`。
+- **Mermaid布局优化**：自动将 LR（左右）流程图转换为 TD（上下）。默认：`False`。
+- **Mermaid背景色**：Mermaid 图表背景色（如 `white`, `transparent`）。默认：`transparent`。
+- **启用Mermaid图注**：启用/禁用 Mermaid 图表的图注。默认：`True`。
+- **Mermaid图注样式**：Mermaid 图注的段落样式名称。默认：`Caption`。
+- **Mermaid图注前缀**：图注前缀（如 '图'）。留空则根据语言自动检测。
+- **启用数学公式**：启用 LaTeX 数学公式块转换（`\[...\]` 和 `$$...$$`）。默认：`True`。
+- **启用行内公式**：启用行内 `$ ... $` 数学公式转换。默认：`True`。
 
 ## 支持的 Markdown 语法
 
@@ -87,6 +87,10 @@
 - **代码**：Consolas
 
 ## 更新日志
+
+### v0.4.1
+
+- **中文参数名**: 将插件配置项名称和描述全部汉化，提升中文用户体验。
 
 ### v0.4.0
 
