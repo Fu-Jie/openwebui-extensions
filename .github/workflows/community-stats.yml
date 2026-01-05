@@ -1,0 +1,54 @@
+# OpenWebUI 社区统计报告自动生成
+# 每天自动获取并更新社区统计数据
+
+name: Community Stats
+
+on:
+  # 每天 UTC 8:00 (北京时间 16:00) 自动运行
+  schedule:
+    - cron: '0 8 * * *'
+  # 手动触发
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-stats:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          pip install requests python-dotenv
+      
+      - name: Generate stats report
+        env:
+          OPENWEBUI_API_KEY: ${{ secrets.OPENWEBUI_API_KEY }}
+          OPENWEBUI_USER_ID: ${{ secrets.OPENWEBUI_USER_ID }}
+        run: |
+          python scripts/openwebui_stats.py
+      
+      - name: Check for changes
+        id: check_changes
+        run: |
+          git diff --quiet docs/community-stats.md README.md README_CN.md || echo "changed=true" >> $GITHUB_OUTPUT
+      
+      - name: Commit and push changes
+        if: steps.check_changes.outputs.changed == 'true'
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add docs/community-stats.md docs/community-stats.json README.md README_CN.md
+          git commit -m "📊 更新社区统计数据 $(date +'%Y-%m-%d')"
+          git push
