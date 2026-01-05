@@ -15,7 +15,7 @@ OpenWebUI 增强功能集合。包含个人开发与收集的插件、提示词�
 
 | 📝 发布 | ⬇️ 下载 | 👁️ 浏览 | 👍 点赞 | 💾 收藏 |
 |:---:|:---:|:---:|:---:|:---:|
-| **11** | **731** | **7652** | **54** | **43** |
+| **11** | **731** | **7658** | **54** | **43** |
 
 ### 🔥 热门插件 Top 5
 
@@ -24,7 +24,7 @@ OpenWebUI 增强功能集合。包含个人开发与收集的插件、提示词�
 | 🥇 | [Turn Any Text into Beautiful Mind Maps](https://openwebui.com/posts/turn_any_text_into_beautiful_mind_maps_3094c59a) | 213 | 1896 |
 | 🥈 | [Export to Excel](https://openwebui.com/posts/export_mulit_table_to_excel_244b8f9d) | 167 | 433 |
 | 🥉 | [Async Context Compression](https://openwebui.com/posts/async_context_compression_b1655bc8) | 110 | 1185 |
-| 4️⃣ | [Flash Card ](https://openwebui.com/posts/flash_card_65a2ea8f) | 70 | 1334 |
+| 4️⃣ | [Flash Card ](https://openwebui.com/posts/flash_card_65a2ea8f) | 70 | 1335 |
 | 5️⃣ | [Smart Infographic](https://openwebui.com/posts/smart_infographic_ad6f0c7f) | 62 | 850 |
 
 *完整统计请查看 [社区统计报告](./docs/community-stats.md)*

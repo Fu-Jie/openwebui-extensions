@@ -147,14 +147,17 @@ class OpenWebUIStats:
             stats["total_saves"] += post.get("saveCount", 0)
             stats["total_comments"] += post.get("commentCount", 0)
 
-            # 按类型分类
-            post_type = post.get("data", {}).get("meta", {}).get("type", "unknown")
+            # 解析 data 字段 - 正确路径: data.function.meta
+            function_data = post.get("data", {}).get("function", {})
+            meta = function_data.get("meta", {})
+            manifest = meta.get("manifest", {})
+            post_type = meta.get("type", function_data.get("type", "unknown"))
+
             if post_type not in stats["by_type"]:
                 stats["by_type"][post_type] = 0
             stats["by_type"][post_type] += 1
 
             # 单个帖子信息
-            manifest = post.get("data", {}).get("meta", {}).get("manifest", {})
             created_at = datetime.fromtimestamp(post.get("createdAt", 0))
             updated_at = datetime.fromtimestamp(post.get("updatedAt", 0))
 
@@ -164,6 +167,8 @@ class OpenWebUIStats:
                     "slug": post.get("slug", ""),
                     "type": post_type,
                     "version": manifest.get("version", ""),
+                    "author": manifest.get("author", ""),
+                    "description": meta.get("description", ""),
                     "downloads": post.get("downloads", 0),
                     "views": post.get("views", 0),
                     "upvotes": post.get("upvotes", 0),
@@ -224,40 +229,80 @@ class OpenWebUIStats:
 
         print("=" * 60)
 
-    def generate_markdown(self, stats: dict) -> str:
-        """生成 Markdown 格式报告"""
+    def generate_markdown(self, stats: dict, lang: str = "zh") -> str:
+        """
+        生成 Markdown 格式报告
+
+        Args:
+            stats: 统计数据
+            lang: 语言 ("zh" 中文, "en" 英文)
+        """
+        # 中英文文本
+        texts = {
+            "zh": {
+                "title": "# 📊 OpenWebUI 社区统计报告",
+                "updated": f"> 📅 更新时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+                "overview_title": "## 📈 总览",
+                "overview_header": "| 指标 | 数值 |",
+                "posts": "📝 发布数量",
+                "downloads": "⬇️ 总下载量",
+                "views": "👁️ 总浏览量",
+                "upvotes": "👍 总点赞数",
+                "saves": "💾 总收藏数",
+                "comments": "💬 总评论数",
+                "type_title": "## 📂 按类型分类",
+                "list_title": "## 📋 发布列表",
+                "list_header": "| 排名 | 标题 | 类型 | 版本 | 下载 | 浏览 | 点赞 | 收藏 | 更新日期 |",
+            },
+            "en": {
+                "title": "# 📊 OpenWebUI Community Stats Report",
+                "updated": f"> 📅 Updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+                "overview_title": "## 📈 Overview",
+                "overview_header": "| Metric | Value |",
+                "posts": "📝 Total Posts",
+                "downloads": "⬇️ Total Downloads",
+                "views": "👁️ Total Views",
+                "upvotes": "👍 Total Upvotes",
+                "saves": "💾 Total Saves",
+                "comments": "💬 Total Comments",
+                "type_title": "## 📂 By Type",
+                "list_title": "## 📋 Posts List",
+                "list_header": "| Rank | Title | Type | Version | Downloads | Views | Upvotes | Saves | Updated |",
+            },
+        }
+
+        t = texts.get(lang, texts["en"])
+
         md = []
-        md.append("# 📊 OpenWebUI 社区统计报告")
+        md.append(t["title"])
         md.append("")
-        md.append(f"> 📅 更新时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        md.append(t["updated"])
         md.append("")
 
         # 总览
-        md.append("## 📈 总览")
+        md.append(t["overview_title"])
         md.append("")
-        md.append("| 指标 | 数值 |")
+        md.append(t["overview_header"])
         md.append("|------|------|")
-        md.append(f"| 📝 发布数量 | {stats['total_posts']} |")
-        md.append(f"| ⬇️ 总下载量 | {stats['total_downloads']} |")
-        md.append(f"| 👁️ 总浏览量 | {stats['total_views']} |")
-        md.append(f"| 👍 总点赞数 | {stats['total_upvotes']} |")
-        md.append(f"| 💾 总收藏数 | {stats['total_saves']} |")
-        md.append(f"| 💬 总评论数 | {stats['total_comments']} |")
+        md.append(f"| {t['posts']} | {stats['total_posts']} |")
+        md.append(f"| {t['downloads']} | {stats['total_downloads']} |")
+        md.append(f"| {t['views']} | {stats['total_views']} |")
+        md.append(f"| {t['upvotes']} | {stats['total_upvotes']} |")
+        md.append(f"| {t['saves']} | {stats['total_saves']} |")
+        md.append(f"| {t['comments']} | {stats['total_comments']} |")
         md.append("")
 
         # 按类型分类
-        md.append("## 📂 按类型分类")
+        md.append(t["type_title"])
         md.append("")
         for post_type, count in stats["by_type"].items():
             md.append(f"- **{post_type}**: {count}")
         md.append("")
 
         # 详细列表
-        md.append("## 📋 发布列表")
+        md.append(t["list_title"])
         md.append("")
-        md.append(
-            "| 排名 | 标题 | 类型 | 版本 | 下载 | 浏览 | 点赞 | 收藏 | 更新日期 |"
-        )
+        md.append(t["list_header"])
         md.append("|:---:|------|:---:|:---:|:---:|:---:|:---:|:---:|:---:|")
 
         for i, post in enumerate(stats["posts"], 1):
@@ -462,13 +507,22 @@ def main():
     # 打印到终端
     stats_client.print_stats(stats)
 
-    # 保存 Markdown 报告
+    # 保存 Markdown 报告 (中英文双版本)
     script_dir = Path(__file__).parent.parent
-    md_path = script_dir / "docs" / "community-stats.md"
-    md_content = stats_client.generate_markdown(stats)
-    with open(md_path, "w", encoding="utf-8") as f:
-        f.write(md_content)
-    print(f"\n✅ Markdown 报告已保存到: {md_path}")
+
+    # 中文报告
+    md_zh_path = script_dir / "docs" / "community-stats.md"
+    md_zh_content = stats_client.generate_markdown(stats, lang="zh")
+    with open(md_zh_path, "w", encoding="utf-8") as f:
+        f.write(md_zh_content)
+    print(f"\n✅ 中文报告已保存到: {md_zh_path}")
+
+    # 英文报告
+    md_en_path = script_dir / "docs" / "community-stats.en.md"
+    md_en_content = stats_client.generate_markdown(stats, lang="en")
+    with open(md_en_path, "w", encoding="utf-8") as f:
+        f.write(md_en_content)
+    print(f"✅ 英文报告已保存到: {md_en_path}")
 
     # 保存 JSON 数据
     json_path = script_dir / "docs" / "community-stats.json"

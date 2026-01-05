@@ -1,26 +1,26 @@
-# 📊 OpenWebUI 社区统计报告
+# 📊 OpenWebUI Community Stats Report
 
-> 📅 更新时间: 2026-01-06 02:01:58
+> 📅 Updated: 2026-01-06 02:01:58
 
-## 📈 总览
+## 📈 Overview
 
-| 指标 | 数值 |
+| Metric | Value |
 |------|------|
-| 📝 发布数量 | 11 |
-| ⬇️ 总下载量 | 731 |
-| 👁️ 总浏览量 | 7658 |
-| 👍 总点赞数 | 54 |
-| 💾 总收藏数 | 43 |
-| 💬 总评论数 | 13 |
+| 📝 Total Posts | 11 |
+| ⬇️ Total Downloads | 731 |
+| 👁️ Total Views | 7658 |
+| 👍 Total Upvotes | 54 |
+| 💾 Total Saves | 43 |
+| 💬 Total Comments | 13 |
 
-## 📂 按类型分类
+## 📂 By Type
 
 - **action**: 9
 - **filter**: 2
 
-## 📋 发布列表
+## 📋 Posts List
 
-| 排名 | 标题 | 类型 | 版本 | 下载 | 浏览 | 点赞 | 收藏 | 更新日期 |
+| Rank | Title | Type | Version | Downloads | Views | Upvotes | Saves | Updated |
 |:---:|------|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
 | 1 | [Turn Any Text into Beautiful Mind Maps](https://openwebui.com/posts/turn_any_text_into_beautiful_mind_maps_3094c59a) | action | 0.8.2 | 213 | 1896 | 10 | 15 | 2026-01-04 |
 | 2 | [Export to Excel](https://openwebui.com/posts/export_mulit_table_to_excel_244b8f9d) | action | 0.3.6 | 167 | 433 | 3 | 2 | 2026-01-03 |
