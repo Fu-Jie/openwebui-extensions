@@ -822,8 +822,8 @@ class Action:
             description="Number of recent messages to use for generation. Set to 1 for just the last message, or higher for more context.",
         )
         OUTPUT_MODE: str = Field(
-            default="html",
-            description="Output mode: 'html' for interactive HTML (default), or 'image' to embed as Markdown image.",
+            default="image",
+            description="Output mode: 'html' for interactive HTML, or 'image' to embed as Markdown image (default).",
         )
 
     def __init__(self):

@@ -62,7 +62,7 @@ Smart Infographic 使用 AI 分析文本，并基于 AntV 可视化引擎生成�
 | `MIN_TEXT_LENGTH` | integer | `100` | 触发分析的最小字符数 |
 | `CLEAR_PREVIOUS_HTML` | boolean | `false` | 是否清空之前生成的图表 |
 | `MESSAGE_COUNT` | integer | `1` | 参与分析的最近消息条数 |
-| `OUTPUT_MODE` | string | `html` | `html` 为交互式图表（默认），`image` 为静态图片嵌入 |
+| `OUTPUT_MODE` | string | `image` | `image` 为静态图片嵌入（默认），`html` 为交互式图表 |
 
 ---
 

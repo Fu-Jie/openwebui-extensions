@@ -850,8 +850,8 @@ class Action:
             description="用于生成的最近消息数量。设置为1仅使用最后一条消息，更大值可包含更多上下文。",
         )
         OUTPUT_MODE: str = Field(
-            default="html",
-            description="输出模式：'html' 为交互式HTML（默认），'image' 将嵌入为Markdown图片。",
+            default="image",
+            description="输出模式：'html' 为交互式HTML，'image' 将嵌入为Markdown图片（默认）。",
         )
 
     def __init__(self):

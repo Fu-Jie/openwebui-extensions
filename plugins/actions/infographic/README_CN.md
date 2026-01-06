@@ -1,6 +1,15 @@
 # 📊 智能信息图 (AntV Infographic)
 
+**作者:** [jeff](https://github.com/Fu-Jie) | **版本:** 1.4.0 | **项目:** [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui)
+
 基于 AntV Infographic 引擎的 Open WebUI 插件，能够将长文本内容一键转换为专业、美观的信息图表。
+
+## 🔥 v1.4.0 更新日志
+
+- ✨ **默认模式变更**：默认输出模式调整为 `image`（静态图片），以获得更好的兼容性和更简洁的聊天记录。
+- ✨ **新增图片输出模式**：支持将信息图作为静态图片 (SVG) 嵌入。
+- 📱 **响应式尺寸**：图片模式下自动适应聊天容器宽度。
+- 🔧 **新增配置项**：`OUTPUT_MODE` 用于控制输出格式。
 
 ## ✨ 核心特性
 
@@ -10,15 +19,6 @@
 - 📥 **多格式导出**：支持一键下载为 **SVG**、**PNG** 或 **独立 HTML** 文件。
 - 🌈 **高度自定义**：支持深色/浅色模式，自动适配主题颜色，主标题加粗突出，卡片布局精美。
 - 📱 **响应式设计**：生成的图表在桌面端和移动端均有良好的展示效果。
-
-## 🛠️ 支持的模板类型
-
-| 分类 | 模板名称 | 适用场景 |
-| :--- | :--- | :--- |
-| **列表与层级** | `list-grid`, `tree-vertical`, `mindmap` | 功能亮点、组织架构、思维导图 |
-| **顺序与关系** | `sequence-roadmap`, `relation-circle` | 发展历程、循环关系、步骤说明 |
-| **对比与分析** | `compare-binary`, `compare-swot`, `quadrant-quarter` | 优劣势对比、SWOT 分析、象限图 |
-| **图表与数据** | `chart-bar`, `chart-line`, `chart-pie` | 数据趋势、比例分布、数值对比 |
 
 ## 🚀 使用方法
 
@@ -38,7 +38,16 @@
 | **最小文本长度 (MIN_TEXT_LENGTH)** | `100` | 触发分析所需的最小字符数，防止对过短的对话误操作。 |
 | **清除旧结果 (CLEAR_PREVIOUS_HTML)** | `False` | 每次生成是否清除之前的图表。若为 `False`，新图表将追加在下方。 |
 | **上下文消息数 (MESSAGE_COUNT)** | `1` | 用于分析的最近消息条数。增加此值可让 AI 参考更多对话背景。 |
-| **输出模式 (OUTPUT_MODE)** | `html` | `html` 为交互式图表（默认），`image` 为静态图片嵌入（适合移动端或不支持 HTML 的客户端）。 |
+| **输出模式 (OUTPUT_MODE)** | `image` | `image` 为静态图片嵌入（默认，兼容性好），`html` 为交互式图表。 |
+
+## 🛠️ 支持的模板类型
+
+| 分类 | 模板名称 | 适用场景 |
+| :--- | :--- | :--- |
+| **列表与层级** | `list-grid`, `tree-vertical`, `mindmap` | 功能亮点、组织架构、思维导图 |
+| **顺序与关系** | `sequence-roadmap`, `relation-circle` | 发展历程、循环关系、步骤说明 |
+| **对比与分析** | `compare-binary`, `compare-swot`, `quadrant-quarter` | 优劣势对比、SWOT 分析、象限图 |
+| **图表与数据** | `chart-bar`, `chart-line`, `chart-pie` | 数据趋势、比例分布、数值对比 |
 
 ## 📝 语法示例 (高级用户)
 
@@ -55,24 +64,3 @@ data
     - label 视觉精美
       desc 采用 AntV 专业设计规范
 ```
-
-## 👨‍💻 作者
-
-**jeff**
-- GitHub: [Fu-Jie/awesome-openwebui](https://github.com/Fu-Jie/awesome-openwebui)
-
-## 📄 许可证
-
-MIT License
-
-## 更新日志
-
-### v1.4.0
-
-- ✨ 新增 **图片输出模式**：支持将信息图作为静态图片 (SVG) 嵌入，兼容性更好。
-- 📱 新增 **响应式尺寸**：图片模式下自动适应聊天容器宽度。
-- 🔧 新增 `OUTPUT_MODE` 配置项。
-
-### v1.3.2
-
-- 移除输出中的调试信息

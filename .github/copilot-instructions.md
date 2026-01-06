@@ -31,15 +31,42 @@ plugins/actions/export_to_docx/
 - `README.md` - English documentation
 - `README_CN.md` - 中文文档
 
-README 文件应包含以下内容：
-- 功能描述 / Feature description
-- 配置参数及默认值 / Configuration parameters with defaults
-- 安装和设置说明 / Installation and setup instructions
-- 使用示例 / Usage examples
-- 故障排除指南 / Troubleshooting guide
-- 故障排除指南 / Troubleshooting guide
-- 版本和作者信息 / Version and author information
-- **新增功能 / New Features**: 如果是更新现有插件，必须明确列出并描述新增功能（发布到官方市场的重要要求）。/ If updating an existing plugin, explicitly list and describe new features (Critical for official market release).
+### README 结构规范 (README Structure Standard)
+
+所有插件 README 必须遵循以下统一结构顺序：
+
+1.  **标题 (Title)**: 插件名称
+2.  **元数据 (Metadata)**: 作者、版本、许可证、项目链接 (一行显示)
+    - 格式: `**Author:** [Name](Link) | **Version:** x.x.x | **Project:** [Link](Link)`
+3.  **描述 (Description)**: 简短的功能介绍
+4.  **最新更新 (What's New)**: **必须**放在描述之后，显著展示最新版本的变更点
+5.  **核心特性 (Key Features)**
+6.  **使用方法 (Usage)**
+7.  **配置参数 (Configuration/Valves)**
+8.  **其他 (Others)**: 故障排除、示例等
+
+示例 (Example):
+
+```markdown
+# 📊 Smart Plugin
+
+**Author:** [Fu-Jie](https://github.com/Fu-Jie) | **Version:** 1.0.0 | **Project:** [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui)
+
+A powerful plugin for OpenWebUI.
+
+## 🔥 What's New in v1.0.0
+
+- Feature A
+- Feature B
+
+## ✨ Features
+...
+```
+
+### 文档内容要求 (Content Requirements)
+
+- **新增功能**: 必须在 "What's New" 章节中明确列出。
+- **双语**: 必须提供 `README.md` (英文) 和 `README_CN.md` (中文)。
 
 ### 官方文档 (Official Documentation)
 
@@ -93,33 +120,7 @@ icon_url: data:image/svg+xml;base64,PHN2ZyB4bWxucz0i...（完整的 Base64 编�
 
 ---
 
-## 👤 作者和许可证信息 (Author and License)
-
-所有 README 文件和主要文档必须包含以下统一信息：
-
-```markdown
-## Author
-
-Fu-Jie  
-GitHub: [Fu-Jie/awesome-openwebui](https://github.com/Fu-Jie/awesome-openwebui)
-
-## License
-
-MIT License
-```
-
-中文版本：
-
-```markdown
-## 作者
-
-Fu-Jie  
-GitHub: [Fu-Jie/awesome-openwebui](https://github.com/Fu-Jie/awesome-openwebui)
-
-## 许可证
-
-MIT License
-```
+(Author info is now part of the top metadata section, see "README Structure Standard" above)
 
 ---
 

@@ -62,7 +62,7 @@ The Smart Infographic plugin uses AI to analyze text content and generate profes
 | `MIN_TEXT_LENGTH` | integer | `100` | Minimum characters required to trigger analysis |
 | `CLEAR_PREVIOUS_HTML` | boolean | `false` | Whether to clear previous charts |
 | `MESSAGE_COUNT` | integer | `1` | Number of recent messages to use for analysis |
-| `OUTPUT_MODE` | string | `html` | `html` for interactive chart (default), `image` for static image embedding |
+| `OUTPUT_MODE` | string | `image` | `image` for static image embedding (default), `html` for interactive chart |
 
 ---
 
