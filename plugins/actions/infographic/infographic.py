@@ -981,20 +981,10 @@ class Action:
     const defaultWidth = 1100;
     const defaultHeight = 500;
     
-    // Auto-detect chat container width for responsive sizing
-    let svgWidth = defaultWidth;
-    let svgHeight = defaultHeight;
-    const chatContainer = document.getElementById('chat-container');
-    if (chatContainer) {{
-        const containerWidth = chatContainer.clientWidth;
-        if (containerWidth > 100) {{
-            // Use container width with padding (80% of container, leaving more space on the right)
-            svgWidth = Math.floor(containerWidth * 0.8);
-            // Maintain aspect ratio based on default dimensions
-            svgHeight = Math.floor(svgWidth * (defaultHeight / defaultWidth));
-            console.log("[Infographic Image] Auto-detected container width:", containerWidth, "-> SVG:", svgWidth, "x", svgHeight);
-        }}
-    }}
+    // Use fixed dimensions for consistent rendering (avoid title wrapping issues)
+    const svgWidth = defaultWidth;
+    const svgHeight = defaultHeight;
+    console.log("[Infographic Image] Using fixed dimensions:", svgWidth, "x", svgHeight);
     
     console.log("[Infographic Image] Starting render...");
     console.log("[Infographic Image] chatId:", chatId, "messageId:", messageId);
