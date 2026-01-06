@@ -18,6 +18,13 @@ Smart Mind Map is a powerful OpenWebUI action plugin that intelligently analyzes
 - **Efficient Storage**: Image mode uploads SVG to `/api/v1/files`, avoiding huge base64 strings in chat history.
 - **Smart Features**: Auto-responsive width and automatic theme detection (light/dark) for generated images.
 
+| Feature | HTML Mode (Default) | Image Mode |
+| :--- | :--- | :--- |
+| **Output Format** | Interactive HTML Block | Static Markdown Image |
+| **Interactivity** | Zoom, Pan, Expand/Collapse | None (Static Image) |
+| **Chat History** | Contains HTML Code | Clean (Image URL only) |
+| **Storage** | Browser Rendering | `/api/v1/files` Upload |
+
 ---
 
 ## Core Features
