@@ -180,14 +180,23 @@ jobs:
 
       - name: Determine version
         id: version
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ github.event.inputs.version }}" ]; then
             VERSION="${{ github.event.inputs.version }}"
           elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
             VERSION="${GITHUB_REF#refs/tags/}"
           else
-            # Auto-generate version based on date and run number
-            VERSION="v$(date +'%Y.%m.%d')-${{ github.run_number }}"
+            # Auto-generate version based on date and daily release count
+            TODAY=$(date +'%Y.%m.%d')
+            TODAY_PREFIX="v${TODAY}-"
+            
+            # Count existing releases with today's date prefix
+            EXISTING_COUNT=$(gh release list --limit 100 | grep -c "^${TODAY_PREFIX}" || echo "0")
+            NEXT_NUM=$((EXISTING_COUNT + 1))
+            
+            VERSION="${TODAY_PREFIX}${NEXT_NUM}"
           fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Release version: $VERSION"
