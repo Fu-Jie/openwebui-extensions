@@ -1042,10 +1042,20 @@ class Action:
     const defaultWidth = 1100;
     const defaultHeight = 500;
     
-    // 使用固定尺寸以确保一致的渲染效果（避免标题换行问题）
-    const svgWidth = defaultWidth;
-    const svgHeight = defaultHeight;
-    console.log("[Infographic Image] 使用固定尺寸:", svgWidth, "x", svgHeight);
+    // 自动检测聊天容器宽度以实现响应式尺寸
+    let svgWidth = defaultWidth;
+    let svgHeight = defaultHeight;
+    const chatContainer = document.getElementById('chat-container');
+    if (chatContainer) {{
+        const containerWidth = chatContainer.clientWidth;
+        if (containerWidth > 100) {{
+            // 使用容器宽度的 80%（右边留更多空间）
+            svgWidth = Math.floor(containerWidth * 0.8);
+            // 根据默认尺寸保持宽高比
+            svgHeight = Math.floor(svgWidth * (defaultHeight / defaultWidth));
+            console.log("[Infographic Image] 自动检测容器宽度:", containerWidth, "-> SVG:", svgWidth, "x", svgHeight);
+        }}
+    }}
     
     console.log("[Infographic Image] 开始渲染...");
     console.log("[Infographic Image] chatId:", chatId, "messageId:", messageId);
