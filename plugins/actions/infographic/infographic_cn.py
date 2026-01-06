@@ -1149,7 +1149,7 @@ class Action:
             container: '#' + container.id,
             width: svgWidth,
             height: svgHeight,
-            padding: 24,
+            padding: 12,
         }});
         
         console.log("[Infographic Image] 渲染信息图...");
