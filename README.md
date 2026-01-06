@@ -7,25 +7,25 @@ A collection of enhancements, plugins, and prompts for [OpenWebUI](https://githu
 <!-- STATS_START -->
 ## 📊 Community Stats
 
-> 🕐 Auto-updated: 2026-01-06 19:26 
+> 🕐 Auto-updated: 2026-01-06 20:14
 
 | 👤 Author | 👥 Followers | ⭐ Points | 🏆 Contributions |
 |:---:|:---:|:---:|:---:|
-| [Fu-Jie](https://openwebui.com/u/Fu-Jie) | **41** | **63** | **17** |
+| [Fu-Jie](https://openwebui.com/u/Fu-Jie) | **43** | **63** | **17** |
 
 | 📝 Posts | ⬇️ Downloads | 👁️ Views | 👍 Upvotes | 💾 Saves |
 |:---:|:---:|:---:|:---:|:---:|
-| **11** | **785** | **8411** | **54** | **47** |
+| **11** | **791** | **8446** | **54** | **48** |
 
 ### 🔥 Top 5 Popular Plugins
 
 | Rank | Plugin | Downloads | Views |
 |:---:|------|:---:|:---:|
-| 🥇 | [Turn Any Text into Beautiful Mind Maps](https://openwebui.com/posts/turn_any_text_into_beautiful_mind_maps_3094c59a) | 235 | 2103 |
+| 🥇 | [Turn Any Text into Beautiful Mind Maps](https://openwebui.com/posts/turn_any_text_into_beautiful_mind_maps_3094c59a) | 239 | 2119 |
 | 🥈 | [Export to Excel](https://openwebui.com/posts/export_mulit_table_to_excel_244b8f9d) | 170 | 456 |
 | 🥉 | [Async Context Compression](https://openwebui.com/posts/async_context_compression_b1655bc8) | 112 | 1235 |
-| 4️⃣ | [Flash Card ](https://openwebui.com/posts/flash_card_65a2ea8f) | 75 | 1414 |
-| 5️⃣ | [Smart Infographic](https://openwebui.com/posts/smart_infographic_ad6f0c7f) | 65 | 904 |
+| 4️⃣ | [Flash Card ](https://openwebui.com/posts/flash_card_65a2ea8f) | 75 | 1415 |
+| 5️⃣ | [Smart Infographic](https://openwebui.com/posts/smart_infographic_ad6f0c7f) | 65 | 906 |
 
 *See full stats in [Community Stats Report](./docs/community-stats.md)*
 <!-- STATS_END -->
