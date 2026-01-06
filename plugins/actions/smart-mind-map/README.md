@@ -8,6 +8,18 @@ Smart Mind Map is a powerful OpenWebUI action plugin that intelligently analyzes
 
 ---
 
+## 🔥 What's New in v0.9.1
+
+**New Feature: Image Output Mode**
+
+- **Static Image Support**: Added `OUTPUT_MODE` configuration parameter.
+  - `html` (default): Interactive HTML mind map.
+  - `image`: Static SVG image embedded directly in Markdown.
+- **Efficient Storage**: Image mode uploads SVG to `/api/v1/files`, avoiding huge base64 strings in chat history.
+- **Smart Features**: Auto-responsive width and automatic theme detection (light/dark) for generated images.
+
+---
+
 ## Core Features
 
 - ✅ **Intelligent Text Analysis**: Automatically identifies core themes, key concepts, and hierarchical structures
