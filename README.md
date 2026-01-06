@@ -15,18 +15,12 @@ A collection of enhancements, plugins, and prompts for [OpenWebUI](https://githu
 
 | 📝 Posts | ⬇️ Downloads | 👁️ Views | 👍 Upvotes | 💾 Saves |
 |:---:|:---:|:---:|:---:|:---:|
-| **11** | **785** | **8394** | **54** | **46** |
 | **11** | **785** | **8411** | **54** | **47** |
 
 ### 🔥 Top 5 Popular Plugins
 
 | Rank | Plugin | Downloads | Views |
 |:---:|------|:---:|:---:|
-| 🥇 | [Turn Any Text into Beautiful Mind Maps](https://openwebui.com/posts/turn_any_text_into_beautiful_mind_maps_3094c59a) | 235 | 2095 |
-| 🥈 | [Export to Excel](https://openwebui.com/posts/export_mulit_table_to_excel_244b8f9d) | 170 | 455 |
-| 🥉 | [Async Context Compression](https://openwebui.com/posts/async_context_compression_b1655bc8) | 112 | 1234 |
-| 4️⃣ | [Flash Card ](https://openwebui.com/posts/flash_card_65a2ea8f) | 75 | 1413 |
-| 5️⃣ | [Smart Infographic](https://openwebui.com/posts/smart_infographic_ad6f0c7f) | 65 | 900 |
 | 🥇 | [Turn Any Text into Beautiful Mind Maps](https://openwebui.com/posts/turn_any_text_into_beautiful_mind_maps_3094c59a) | 235 | 2103 |
 | 🥈 | [Export to Excel](https://openwebui.com/posts/export_mulit_table_to_excel_244b8f9d) | 170 | 456 |
 | 🥉 | [Async Context Compression](https://openwebui.com/posts/async_context_compression_b1655bc8) | 112 | 1235 |
