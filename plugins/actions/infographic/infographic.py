@@ -3,12 +3,12 @@ title: 📊 Smart Infographic (AntV)
 author: jeff
 author_url: https://github.com/Fu-Jie/awesome-openwebui
 icon_url: data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPgogIDxsaW5lIHgxPSIxMiIgeTE9IjIwIiB4Mj0iMTIiIHkyPSIxMCIgLz4KICA8bGluZSB4MT0iMTgiIHkxPSIyMCIgeDI9IjE4IiB5Mj0iNCIgLz4KICA8bGluZSB4MT0iNiIgeTE9IjIwIiB4Mj0iNiIgeTI9IjE2IiAvPgo8L3N2Zz4=
-version: 1.3.2
+version: 1.4.0
 description: AI-powered infographic generator based on AntV Infographic. Supports professional templates, auto-icon matching, and SVG/PNG downloads.
 """
 
 from pydantic import BaseModel, Field
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Callable, Awaitable
 import logging
 import time
 import re
@@ -821,9 +821,53 @@ class Action:
             default=1,
             description="Number of recent messages to use for generation. Set to 1 for just the last message, or higher for more context.",
         )
+        OUTPUT_MODE: str = Field(
+            default="html",
+            description="Output mode: 'html' for interactive HTML (default), or 'image' to embed as Markdown image.",
+        )
 
     def __init__(self):
         self.valves = self.Valves()
+
+    def _extract_chat_id(self, body: dict, metadata: Optional[dict]) -> str:
+        """Extract chat_id from body or metadata"""
+        if isinstance(body, dict):
+            chat_id = body.get("chat_id")
+            if isinstance(chat_id, str) and chat_id.strip():
+                return chat_id.strip()
+
+            body_metadata = body.get("metadata", {})
+            if isinstance(body_metadata, dict):
+                chat_id = body_metadata.get("chat_id")
+                if isinstance(chat_id, str) and chat_id.strip():
+                    return chat_id.strip()
+
+        if isinstance(metadata, dict):
+            chat_id = metadata.get("chat_id")
+            if isinstance(chat_id, str) and chat_id.strip():
+                return chat_id.strip()
+
+        return ""
+
+    def _extract_message_id(self, body: dict, metadata: Optional[dict]) -> str:
+        """Extract message_id from body or metadata"""
+        if isinstance(body, dict):
+            message_id = body.get("id")
+            if isinstance(message_id, str) and message_id.strip():
+                return message_id.strip()
+
+            body_metadata = body.get("metadata", {})
+            if isinstance(body_metadata, dict):
+                message_id = body_metadata.get("message_id")
+                if isinstance(message_id, str) and message_id.strip():
+                    return message_id.strip()
+
+        if isinstance(metadata, dict):
+            message_id = metadata.get("message_id")
+            if isinstance(message_id, str) and message_id.strip():
+                return message_id.strip()
+
+        return ""
 
     def _extract_infographic_syntax(self, llm_output: str) -> str:
         """Extract infographic syntax from LLM output"""
@@ -912,14 +956,332 @@ class Action:
 
         return base_html.strip()
 
+    def _generate_image_js_code(
+        self,
+        unique_id: str,
+        chat_id: str,
+        message_id: str,
+        infographic_syntax: str,
+    ) -> str:
+        """Generate JavaScript code for frontend SVG rendering and image embedding"""
+
+        # Escape the syntax for JS embedding
+        syntax_escaped = (
+            infographic_syntax.replace("\\", "\\\\")
+            .replace("`", "\\`")
+            .replace("${", "\\${")
+            .replace("</script>", "<\\/script>")
+        )
+
+        return f"""
+(async function() {{
+    const uniqueId = "{unique_id}";
+    const chatId = "{chat_id}";
+    const messageId = "{message_id}";
+    const defaultWidth = 1200;
+    const defaultHeight = 800;
+    
+    // Auto-detect chat container width for responsive sizing
+    let svgWidth = defaultWidth;
+    let svgHeight = defaultHeight;
+    const chatContainer = document.getElementById('chat-container');
+    if (chatContainer) {{
+        const containerWidth = chatContainer.clientWidth;
+        if (containerWidth > 100) {{
+            // Use container width with some padding (90% of container)
+            svgWidth = Math.floor(containerWidth * 0.9);
+            // Maintain aspect ratio based on default dimensions
+            svgHeight = Math.floor(svgWidth * (defaultHeight / defaultWidth));
+            console.log("[Infographic Image] Auto-detected container width:", containerWidth, "-> SVG:", svgWidth, "x", svgHeight);
+        }}
+    }}
+    
+    console.log("[Infographic Image] Starting render...");
+    console.log("[Infographic Image] chatId:", chatId, "messageId:", messageId);
+    
+    try {{
+        // Load AntV Infographic if not loaded
+        if (typeof AntVInfographic === 'undefined') {{
+            console.log("[Infographic Image] Loading AntV Infographic...");
+            await new Promise((resolve, reject) => {{
+                const script = document.createElement('script');
+                script.src = 'https://unpkg.com/@antv/infographic@latest/dist/infographic.min.js';
+                script.onload = resolve;
+                script.onerror = reject;
+                document.head.appendChild(script);
+            }});
+        }}
+        
+        const {{ Infographic }} = AntVInfographic;
+        
+        // Get syntax content
+        let syntaxContent = `{syntax_escaped}`;
+        console.log("[Infographic Image] Syntax length:", syntaxContent.length);
+        
+        // Clean up syntax: remove code block markers
+        const backtick = String.fromCharCode(96);
+        const prefix = backtick + backtick + backtick + 'infographic';
+        const simplePrefix = backtick + backtick + backtick;
+        
+        if (syntaxContent.toLowerCase().startsWith(prefix)) {{
+            syntaxContent = syntaxContent.substring(prefix.length).trim();
+        }} else if (syntaxContent.startsWith(simplePrefix)) {{
+            syntaxContent = syntaxContent.substring(simplePrefix.length).trim();
+        }}
+        
+        if (syntaxContent.endsWith(simplePrefix)) {{
+            syntaxContent = syntaxContent.substring(0, syntaxContent.length - simplePrefix.length).trim();
+        }}
+        
+        // Fix syntax: remove colons after keywords
+        syntaxContent = syntaxContent.replace(/^(data|items|children|theme|config):/gm, '$1');
+        syntaxContent = syntaxContent.replace(/(\\s)(children|items):/g, '$1$2');
+        
+        // Ensure infographic prefix
+        if (!syntaxContent.trim().toLowerCase().startsWith('infographic')) {{
+            const firstWord = syntaxContent.trim().split(/\\s+/)[0].toLowerCase();
+            if (!['data', 'theme', 'design', 'items'].includes(firstWord)) {{
+                syntaxContent = 'infographic ' + syntaxContent;
+            }}
+        }}
+        
+        // Template mapping
+        const TEMPLATE_MAPPING = {{
+            'list-grid': 'list-grid-compact-card',
+            'list-vertical': 'list-column-simple-vertical-arrow',
+            'tree-vertical': 'hierarchy-tree-tech-style-capsule-item',
+            'tree-horizontal': 'hierarchy-tree-lr-tech-style-capsule-item',
+            'mindmap': 'hierarchy-mindmap-branch-gradient-capsule-item',
+            'sequence-roadmap': 'sequence-roadmap-vertical-simple',
+            'sequence-zigzag': 'sequence-horizontal-zigzag-simple',
+            'sequence-horizontal': 'sequence-horizontal-zigzag-simple',
+            'relation-sankey': 'relation-sankey-simple',
+            'relation-circle': 'relation-circle-icon-badge',
+            'compare-binary': 'compare-binary-horizontal-simple-vs',
+            'compare-swot': 'compare-swot',
+            'quadrant-quarter': 'quadrant-quarter-simple-card',
+            'statistic-card': 'list-grid-compact-card',
+            'chart-bar': 'chart-bar-plain-text',
+            'chart-column': 'chart-column-simple',
+            'chart-line': 'chart-line-plain-text',
+            'chart-area': 'chart-area-simple',
+            'chart-pie': 'chart-pie-plain-text',
+            'chart-doughnut': 'chart-pie-donut-plain-text'
+        }};
+        
+        for (const [key, value] of Object.entries(TEMPLATE_MAPPING)) {{
+            const regex = new RegExp(`infographic\\\\s+${{key}}(?=\\\\s|$)`, 'i');
+            if (regex.test(syntaxContent)) {{
+                syntaxContent = syntaxContent.replace(regex, `infographic ${{value}}`);
+                break;
+            }}
+        }}
+        
+        // Create offscreen container
+        const container = document.createElement('div');
+        container.id = 'infographic-offscreen-' + uniqueId;
+        container.style.cssText = 'position:absolute;left:-9999px;top:-9999px;width:' + svgWidth + 'px;height:' + svgHeight + 'px;background:#ffffff;';
+        document.body.appendChild(container);
+        
+        // Create infographic instance
+        const instance = new Infographic({{
+            container: '#' + container.id,
+            width: svgWidth,
+            height: svgHeight,
+            padding: 24,
+        }});
+        
+        console.log("[Infographic Image] Rendering infographic...");
+        instance.render(syntaxContent);
+        
+        // Wait for render to complete
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        // Get SVG element
+        const svgEl = container.querySelector('svg');
+        if (!svgEl) {{
+            throw new Error('SVG element not found after rendering');
+        }}
+        
+        // Get actual dimensions
+        const bbox = svgEl.getBoundingClientRect();
+        const width = bbox.width || svgWidth;
+        const height = bbox.height || svgHeight;
+        
+        // Clone and prepare SVG for export
+        const clonedSvg = svgEl.cloneNode(true);
+        clonedSvg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+        clonedSvg.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
+        clonedSvg.setAttribute('width', width);
+        clonedSvg.setAttribute('height', height);
+        
+        // Add background rect
+        const bgRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        bgRect.setAttribute('width', '100%');
+        bgRect.setAttribute('height', '100%');
+        bgRect.setAttribute('fill', '#ffffff');
+        clonedSvg.insertBefore(bgRect, clonedSvg.firstChild);
+        
+        // Serialize SVG to string
+        const svgData = new XMLSerializer().serializeToString(clonedSvg);
+        
+        // Cleanup container
+        document.body.removeChild(container);
+        
+        // Convert SVG string to Blob
+        const blob = new Blob([svgData], {{ type: 'image/svg+xml' }});
+        const file = new File([blob], `infographic-${{uniqueId}}.svg`, {{ type: 'image/svg+xml' }});
+        
+        // Upload file to OpenWebUI API
+        console.log("[Infographic Image] Uploading SVG file...");
+        const token = localStorage.getItem("token");
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        const uploadResponse = await fetch('/api/v1/files/', {{
+            method: 'POST',
+            headers: {{
+                'Authorization': `Bearer ${{token}}`
+            }},
+            body: formData
+        }});
+        
+        if (!uploadResponse.ok) {{
+            throw new Error(`Upload failed: ${{uploadResponse.statusText}}`);
+        }}
+        
+        const fileData = await uploadResponse.json();
+        const fileId = fileData.id;
+        const imageUrl = `/api/v1/files/${{fileId}}/content`;
+        
+        console.log("[Infographic Image] File uploaded, ID:", fileId);
+        
+        // Generate markdown image with file URL
+        const markdownImage = `![📊 Infographic](${{imageUrl}})`;
+        
+        // Update message via API
+        if (chatId && messageId) {{
+            
+            // Helper function with retry logic
+            const fetchWithRetry = async (url, options, retries = 3) => {{
+                for (let i = 0; i < retries; i++) {{
+                    try {{
+                        const response = await fetch(url, options);
+                        if (response.ok) return response;
+                        if (i < retries - 1) {{
+                            console.log(`[Infographic Image] Retry ${{i + 1}}/${{retries}} for ${{url}}`);
+                            await new Promise(r => setTimeout(r, 1000 * (i + 1)));
+                        }}
+                    }} catch (e) {{
+                        if (i === retries - 1) throw e;
+                        await new Promise(r => setTimeout(r, 1000 * (i + 1)));
+                    }}
+                }}
+                return null;
+            }};
+            
+            // Get current chat data
+            const getResponse = await fetch(`/api/v1/chats/${{chatId}}`, {{
+                method: "GET",
+                headers: {{ "Authorization": `Bearer ${{token}}` }}
+            }});
+            
+            if (!getResponse.ok) {{
+                throw new Error("Failed to get chat data: " + getResponse.status);
+            }}
+            
+            const chatData = await getResponse.json();
+            let updatedMessages = [];
+            let newContent = "";
+            
+            if (chatData.chat && chatData.chat.messages) {{
+                updatedMessages = chatData.chat.messages.map(m => {{
+                    if (m.id === messageId) {{
+                        const originalContent = m.content || "";
+                        // Remove existing infographic images
+                        const infographicPattern = /\\n*!\\[📊[^\\]]*\\]\\((?:data:image\\/[^)]+|(?:\\/api\\/v1\\/files\\/[^)]+))\\)/g;
+                        let cleanedContent = originalContent.replace(infographicPattern, "");
+                        cleanedContent = cleanedContent.replace(/\\n{{3,}}/g, "\\n\\n").trim();
+                        // Append new image
+                        newContent = cleanedContent + "\\n\\n" + markdownImage;
+                        
+                        // Update history object as well
+                        if (chatData.chat.history && chatData.chat.history.messages) {{
+                            if (chatData.chat.history.messages[messageId]) {{
+                                chatData.chat.history.messages[messageId].content = newContent;
+                            }}
+                        }}
+                        
+                        return {{ ...m, content: newContent }};
+                    }}
+                    return m;
+                }});
+            }}
+            
+            if (!newContent) {{
+                console.warn("[Infographic Image] Could not find message to update");
+                return;
+            }}
+            
+            // Try to update frontend display via event API
+            try {{
+                await fetch(`/api/v1/chats/${{chatId}}/messages/${{messageId}}/event`, {{
+                    method: "POST",
+                    headers: {{
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${{token}}`
+                    }},
+                    body: JSON.stringify({{
+                        type: "chat:message",
+                        data: {{ content: newContent }}
+                    }})
+                }});
+            }} catch (eventErr) {{
+                console.log("[Infographic Image] Event API not available, continuing...");
+            }}
+            
+            // Persist to database
+            const updatePayload = {{
+                chat: {{
+                    ...chatData.chat,
+                    messages: updatedMessages
+                }}
+            }};
+            
+            const persistResponse = await fetchWithRetry(`/api/v1/chats/${{chatId}}`, {{
+                method: "POST",
+                headers: {{
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${{token}}`
+                }},
+                body: JSON.stringify(updatePayload)
+            }});
+            
+            if (persistResponse && persistResponse.ok) {{
+                console.log("[Infographic Image] ✅ Message persisted successfully!");
+            }} else {{
+                console.error("[Infographic Image] ❌ Failed to persist message after retries");
+            }}
+        }} else {{
+            console.warn("[Infographic Image] ⚠️ Missing chatId or messageId, cannot persist");
+        }}
+        
+    }} catch (error) {{
+        console.error("[Infographic Image] Error:", error);
+    }}
+}})();
+"""
+
     async def action(
         self,
         body: dict,
         __user__: Optional[Dict[str, Any]] = None,
         __event_emitter__: Optional[Any] = None,
+        __event_call__: Optional[Callable[[Any], Awaitable[None]]] = None,
+        __metadata__: Optional[dict] = None,
         __request__: Optional[Request] = None,
     ) -> Optional[dict]:
-        logger.info("Action: Infographic started (v1.0.0)")
+        logger.info("Action: Infographic started (v1.4.0)")
 
         # Get user information
         if isinstance(__user__, (list, tuple)):
@@ -1114,6 +1476,45 @@ class Action:
                         user_language,
                     )
 
+            # Check output mode
+            if self.valves.OUTPUT_MODE == "image":
+                # Image mode: use JavaScript to render and embed as Markdown image
+                chat_id = self._extract_chat_id(body, body.get("metadata"))
+                message_id = self._extract_message_id(body, body.get("metadata"))
+
+                await self._emit_status(
+                    __event_emitter__,
+                    "📊 Infographic: Rendering image...",
+                    False,
+                )
+
+                if __event_call__:
+                    js_code = self._generate_image_js_code(
+                        unique_id=unique_id,
+                        chat_id=chat_id,
+                        message_id=message_id,
+                        infographic_syntax=infographic_syntax,
+                    )
+
+                    await __event_call__(
+                        {
+                            "type": "execute",
+                            "data": {"code": js_code},
+                        }
+                    )
+
+                await self._emit_status(
+                    __event_emitter__, "✅ Infographic: Image generated!", True
+                )
+                await self._emit_notification(
+                    __event_emitter__,
+                    f"📊 Infographic image generated, {user_name}!",
+                    "success",
+                )
+                logger.info("Infographic generation completed in image mode")
+                return body
+
+            # HTML mode (default): embed as HTML block
             html_embed_tag = f"```html\n{final_html}\n```"
             body["messages"][-1]["content"] = f"{original_content}\n\n{html_embed_tag}"
 

@@ -38,6 +38,7 @@ You can adjust the following parameters in the plugin settings to optimize the g
 | **Min Text Length (MIN_TEXT_LENGTH)** | `100` | Minimum characters required to trigger analysis, preventing accidental triggers on short text. |
 | **Clear Previous (CLEAR_PREVIOUS_HTML)** | `False` | Whether to clear previous charts. If `False`, new charts will be appended below. |
 | **Message Count (MESSAGE_COUNT)** | `1` | Number of recent messages to use for analysis. Increase this for more context. |
+| **Output Mode (OUTPUT_MODE)** | `html` | `html` for interactive chart (default), `image` for static image embedding (useful for mobile/non-html clients). |
 
 ## 📝 Syntax Example (For Advanced Users)
 
@@ -65,6 +66,12 @@ data
 MIT License
 
 ## Changelog
+
+### v1.4.0
+
+- ✨ Added **Image Output Mode**: Support embedding infographics as static images (SVG) for better compatibility.
+- 📱 Added **Responsive Sizing**: Images now auto-adapt to the chat container width.
+- 🔧 Added `OUTPUT_MODE` valve configuration.
 
 ### v1.3.2
 

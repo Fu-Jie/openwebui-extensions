@@ -1,7 +1,7 @@
 # Smart Infographic（智能信息图）
 
 <span class="category-badge action">Action</span>
-<span class="version-badge">v1.0.0</span>
+<span class="version-badge">v1.4.0</span>
 
 基于 AntV 信息图引擎，将长文本一键转成专业、美观的信息图。
 
@@ -19,6 +19,8 @@ Smart Infographic 使用 AI 分析文本，并基于 AntV 可视化引擎生成�
 - :material-download: **多格式导出**：支持下载 **SVG**、**PNG**、**独立 HTML**
 - :material-theme-light-dark: **主题支持**：适配深色/浅色模式
 - :material-cellphone-link: **响应式**：桌面与移动端都能良好展示
+- :material-image: **图片嵌入**：支持将图表作为静态图片嵌入，兼容性更好
+- :material-monitor-screenshot: **自适应尺寸**：图片模式下自动适应聊天容器宽度
 
 ---
 
@@ -60,6 +62,7 @@ Smart Infographic 使用 AI 分析文本，并基于 AntV 可视化引擎生成�
 | `MIN_TEXT_LENGTH` | integer | `100` | 触发分析的最小字符数 |
 | `CLEAR_PREVIOUS_HTML` | boolean | `false` | 是否清空之前生成的图表 |
 | `MESSAGE_COUNT` | integer | `1` | 参与分析的最近消息条数 |
+| `OUTPUT_MODE` | string | `html` | `html` 为交互式图表（默认），`image` 为静态图片嵌入 |
 
 ---
 

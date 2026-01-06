@@ -3,12 +3,12 @@ title: 📊 智能信息图 (AntV Infographic)
 author: jeff
 author_url: https://github.com/Fu-Jie/awesome-openwebui
 icon_url: data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPgogIDxsaW5lIHgxPSIxMiIgeTE9IjIwIiB4Mj0iMTIiIHkyPSIxMCIgLz4KICA8bGluZSB4MT0iMTgiIHkxPSIyMCIgeDI9IjE4IiB5Mj0iNCIgLz4KICA8bGluZSB4MT0iNiIgeTE9IjIwIiB4Mj0iNiIgeTI9IjE2IiAvPgo8L3N2Zz4=
-version: 1.3.2
+version: 1.4.0
 description: 基于 AntV Infographic 的智能信息图生成插件。支持多种专业模板，自动图标匹配，并提供 SVG/PNG 下载功能。
 """
 
 from pydantic import BaseModel, Field
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Callable, Awaitable
 import logging
 import time
 import re
@@ -849,6 +849,10 @@ class Action:
             default=1,
             description="用于生成的最近消息数量。设置为1仅使用最后一条消息，更大值可包含更多上下文。",
         )
+        OUTPUT_MODE: str = Field(
+            default="html",
+            description="输出模式：'html' 为交互式HTML（默认），'image' 将嵌入为Markdown图片。",
+        )
 
     def __init__(self):
         self.valves = self.Valves()
@@ -861,6 +865,46 @@ class Action:
             "Saturday": "星期六",
             "Sunday": "星期日",
         }
+
+    def _extract_chat_id(self, body: dict, metadata: Optional[dict]) -> str:
+        """从 body 或 metadata 中提取 chat_id"""
+        if isinstance(body, dict):
+            chat_id = body.get("chat_id")
+            if isinstance(chat_id, str) and chat_id.strip():
+                return chat_id.strip()
+
+            body_metadata = body.get("metadata", {})
+            if isinstance(body_metadata, dict):
+                chat_id = body_metadata.get("chat_id")
+                if isinstance(chat_id, str) and chat_id.strip():
+                    return chat_id.strip()
+
+        if isinstance(metadata, dict):
+            chat_id = metadata.get("chat_id")
+            if isinstance(chat_id, str) and chat_id.strip():
+                return chat_id.strip()
+
+        return ""
+
+    def _extract_message_id(self, body: dict, metadata: Optional[dict]) -> str:
+        """从 body 或 metadata 中提取 message_id"""
+        if isinstance(body, dict):
+            message_id = body.get("id")
+            if isinstance(message_id, str) and message_id.strip():
+                return message_id.strip()
+
+            body_metadata = body.get("metadata", {})
+            if isinstance(body_metadata, dict):
+                message_id = body_metadata.get("message_id")
+                if isinstance(message_id, str) and message_id.strip():
+                    return message_id.strip()
+
+        if isinstance(metadata, dict):
+            message_id = metadata.get("message_id")
+            if isinstance(message_id, str) and message_id.strip():
+                return message_id.strip()
+
+        return ""
 
     def _extract_infographic_syntax(self, llm_output: str) -> str:
         """提取LLM输出中的infographic语法"""
@@ -973,14 +1017,332 @@ class Action:
 
         return base_html.strip()
 
+    def _generate_image_js_code(
+        self,
+        unique_id: str,
+        chat_id: str,
+        message_id: str,
+        infographic_syntax: str,
+    ) -> str:
+        """生成前端 SVG 渲染和图片嵌入的 JavaScript 代码"""
+
+        # 转义语法以便在 JS 中嵌入
+        syntax_escaped = (
+            infographic_syntax.replace("\\", "\\\\")
+            .replace("`", "\\`")
+            .replace("${", "\\${")
+            .replace("</script>", "<\\/script>")
+        )
+
+        return f"""
+(async function() {{
+    const uniqueId = "{unique_id}";
+    const chatId = "{chat_id}";
+    const messageId = "{message_id}";
+    const defaultWidth = 1200;
+    const defaultHeight = 800;
+    
+    // 自动检测聊天容器宽度以实现响应式尺寸
+    let svgWidth = defaultWidth;
+    let svgHeight = defaultHeight;
+    const chatContainer = document.getElementById('chat-container');
+    if (chatContainer) {{
+        const containerWidth = chatContainer.clientWidth;
+        if (containerWidth > 100) {{
+            // 使用容器宽度的 90%
+            svgWidth = Math.floor(containerWidth * 0.9);
+            // 根据默认尺寸保持宽高比
+            svgHeight = Math.floor(svgWidth * (defaultHeight / defaultWidth));
+            console.log("[Infographic Image] 自动检测容器宽度:", containerWidth, "-> SVG:", svgWidth, "x", svgHeight);
+        }}
+    }}
+    
+    console.log("[Infographic Image] 开始渲染...");
+    console.log("[Infographic Image] chatId:", chatId, "messageId:", messageId);
+    
+    try {{
+        // 加载 AntV Infographic（如果未加载）
+        if (typeof AntVInfographic === 'undefined') {{
+            console.log("[Infographic Image] 加载 AntV Infographic...");
+            await new Promise((resolve, reject) => {{
+                const script = document.createElement('script');
+                script.src = 'https://registry.npmmirror.com/@antv/infographic/0.2.1/files/dist/infographic.min.js';
+                script.onload = resolve;
+                script.onerror = reject;
+                document.head.appendChild(script);
+            }});
+        }}
+        
+        const {{ Infographic }} = AntVInfographic;
+        
+        // 获取语法内容
+        let syntaxContent = `{syntax_escaped}`;
+        console.log("[Infographic Image] 语法长度:", syntaxContent.length);
+        
+        // 清理语法：移除代码块标记
+        const backtick = String.fromCharCode(96);
+        const prefix = backtick + backtick + backtick + 'infographic';
+        const simplePrefix = backtick + backtick + backtick;
+        
+        if (syntaxContent.toLowerCase().startsWith(prefix)) {{
+            syntaxContent = syntaxContent.substring(prefix.length).trim();
+        }} else if (syntaxContent.startsWith(simplePrefix)) {{
+            syntaxContent = syntaxContent.substring(simplePrefix.length).trim();
+        }}
+        
+        if (syntaxContent.endsWith(simplePrefix)) {{
+            syntaxContent = syntaxContent.substring(0, syntaxContent.length - simplePrefix.length).trim();
+        }}
+        
+        // 修复语法：移除关键字后的冒号
+        syntaxContent = syntaxContent.replace(/^(data|items|children|theme|config):/gm, '$1');
+        syntaxContent = syntaxContent.replace(/(\\s)(children|items):/g, '$1$2');
+        
+        // 确保 infographic 前缀
+        if (!syntaxContent.trim().toLowerCase().startsWith('infographic')) {{
+            const firstWord = syntaxContent.trim().split(/\\s+/)[0].toLowerCase();
+            if (!['data', 'theme', 'design', 'items'].includes(firstWord)) {{
+                syntaxContent = 'infographic ' + syntaxContent;
+            }}
+        }}
+        
+        // 模板映射
+        const TEMPLATE_MAPPING = {{
+            'list-grid': 'list-grid-compact-card',
+            'list-vertical': 'list-column-simple-vertical-arrow',
+            'tree-vertical': 'hierarchy-tree-tech-style-capsule-item',
+            'tree-horizontal': 'hierarchy-tree-lr-tech-style-capsule-item',
+            'mindmap': 'hierarchy-mindmap-branch-gradient-capsule-item',
+            'sequence-roadmap': 'sequence-roadmap-vertical-simple',
+            'sequence-zigzag': 'sequence-horizontal-zigzag-simple',
+            'sequence-horizontal': 'sequence-horizontal-zigzag-simple',
+            'relation-sankey': 'relation-sankey-simple',
+            'relation-circle': 'relation-circle-icon-badge',
+            'compare-binary': 'compare-binary-horizontal-simple-vs',
+            'compare-swot': 'compare-swot',
+            'quadrant-quarter': 'quadrant-quarter-simple-card',
+            'statistic-card': 'list-grid-compact-card',
+            'chart-bar': 'chart-bar-plain-text',
+            'chart-column': 'chart-column-simple',
+            'chart-line': 'chart-line-plain-text',
+            'chart-area': 'chart-area-simple',
+            'chart-pie': 'chart-pie-plain-text',
+            'chart-doughnut': 'chart-pie-donut-plain-text'
+        }};
+        
+        for (const [key, value] of Object.entries(TEMPLATE_MAPPING)) {{
+            const regex = new RegExp(`infographic\\\\s+${{key}}(?=\\\\s|$)`, 'i');
+            if (regex.test(syntaxContent)) {{
+                syntaxContent = syntaxContent.replace(regex, `infographic ${{value}}`);
+                break;
+            }}
+        }}
+        
+        // 创建离屏容器
+        const container = document.createElement('div');
+        container.id = 'infographic-offscreen-' + uniqueId;
+        container.style.cssText = 'position:absolute;left:-9999px;top:-9999px;width:' + svgWidth + 'px;height:' + svgHeight + 'px;background:#ffffff;';
+        document.body.appendChild(container);
+        
+        // 创建信息图实例
+        const instance = new Infographic({{
+            container: '#' + container.id,
+            width: svgWidth,
+            height: svgHeight,
+            padding: 24,
+        }});
+        
+        console.log("[Infographic Image] 渲染信息图...");
+        instance.render(syntaxContent);
+        
+        // 等待渲染完成
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        // 获取 SVG 元素
+        const svgEl = container.querySelector('svg');
+        if (!svgEl) {{
+            throw new Error('渲染后未找到 SVG 元素');
+        }}
+        
+        // 获取实际尺寸
+        const bbox = svgEl.getBoundingClientRect();
+        const width = bbox.width || svgWidth;
+        const height = bbox.height || svgHeight;
+        
+        // 克隆并准备导出的 SVG
+        const clonedSvg = svgEl.cloneNode(true);
+        clonedSvg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+        clonedSvg.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
+        clonedSvg.setAttribute('width', width);
+        clonedSvg.setAttribute('height', height);
+        
+        // 添加背景矩形
+        const bgRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        bgRect.setAttribute('width', '100%');
+        bgRect.setAttribute('height', '100%');
+        bgRect.setAttribute('fill', '#ffffff');
+        clonedSvg.insertBefore(bgRect, clonedSvg.firstChild);
+        
+        // 序列化 SVG 为字符串
+        const svgData = new XMLSerializer().serializeToString(clonedSvg);
+        
+        // 清理容器
+        document.body.removeChild(container);
+        
+        // 将 SVG 字符串转换为 Blob
+        const blob = new Blob([svgData], {{ type: 'image/svg+xml' }});
+        const file = new File([blob], `infographic-${{uniqueId}}.svg`, {{ type: 'image/svg+xml' }});
+        
+        // 上传文件到 OpenWebUI API
+        console.log("[Infographic Image] 上传 SVG 文件...");
+        const token = localStorage.getItem("token");
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        const uploadResponse = await fetch('/api/v1/files/', {{
+            method: 'POST',
+            headers: {{
+                'Authorization': `Bearer ${{token}}`
+            }},
+            body: formData
+        }});
+        
+        if (!uploadResponse.ok) {{
+            throw new Error(`上传失败: ${{uploadResponse.statusText}}`);
+        }}
+        
+        const fileData = await uploadResponse.json();
+        const fileId = fileData.id;
+        const imageUrl = `/api/v1/files/${{fileId}}/content`;
+        
+        console.log("[Infographic Image] 文件已上传, ID:", fileId);
+        
+        // 生成带文件 URL 的 markdown 图片
+        const markdownImage = `![📊 信息图](${{imageUrl}})`;
+        
+        // 通过 API 更新消息
+        if (chatId && messageId) {{
+            
+            // 带重试逻辑的辅助函数
+            const fetchWithRetry = async (url, options, retries = 3) => {{
+                for (let i = 0; i < retries; i++) {{
+                    try {{
+                        const response = await fetch(url, options);
+                        if (response.ok) return response;
+                        if (i < retries - 1) {{
+                            console.log(`[Infographic Image] 重试 ${{i + 1}}/${{retries}} for ${{url}}`);
+                            await new Promise(r => setTimeout(r, 1000 * (i + 1)));
+                        }}
+                    }} catch (e) {{
+                        if (i === retries - 1) throw e;
+                        await new Promise(r => setTimeout(r, 1000 * (i + 1)));
+                    }}
+                }}
+                return null;
+            }};
+            
+            // 获取当前聊天数据
+            const getResponse = await fetch(`/api/v1/chats/${{chatId}}`, {{
+                method: "GET",
+                headers: {{ "Authorization": `Bearer ${{token}}` }}
+            }});
+            
+            if (!getResponse.ok) {{
+                throw new Error("获取聊天数据失败: " + getResponse.status);
+            }}
+            
+            const chatData = await getResponse.json();
+            let updatedMessages = [];
+            let newContent = "";
+            
+            if (chatData.chat && chatData.chat.messages) {{
+                updatedMessages = chatData.chat.messages.map(m => {{
+                    if (m.id === messageId) {{
+                        const originalContent = m.content || "";
+                        // 移除已有的信息图图片
+                        const infographicPattern = /\\n*!\\[📊[^\\]]*\\]\\((?:data:image\\/[^)]+|(?:\\/api\\/v1\\/files\\/[^)]+))\\)/g;
+                        let cleanedContent = originalContent.replace(infographicPattern, "");
+                        cleanedContent = cleanedContent.replace(/\\n{{3,}}/g, "\\n\\n").trim();
+                        // 追加新图片
+                        newContent = cleanedContent + "\\n\\n" + markdownImage;
+                        
+                        // 同时更新 history 对象
+                        if (chatData.chat.history && chatData.chat.history.messages) {{
+                            if (chatData.chat.history.messages[messageId]) {{
+                                chatData.chat.history.messages[messageId].content = newContent;
+                            }}
+                        }}
+                        
+                        return {{ ...m, content: newContent }};
+                    }}
+                    return m;
+                }});
+            }}
+            
+            if (!newContent) {{
+                console.warn("[Infographic Image] 找不到要更新的消息");
+                return;
+            }}
+            
+            // 尝试通过事件 API 更新前端显示
+            try {{
+                await fetch(`/api/v1/chats/${{chatId}}/messages/${{messageId}}/event`, {{
+                    method: "POST",
+                    headers: {{
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${{token}}`
+                    }},
+                    body: JSON.stringify({{
+                        type: "chat:message",
+                        data: {{ content: newContent }}
+                    }})
+                }});
+            }} catch (eventErr) {{
+                console.log("[Infographic Image] 事件 API 不可用，继续...");
+            }}
+            
+            // 持久化到数据库
+            const updatePayload = {{
+                chat: {{
+                    ...chatData.chat,
+                    messages: updatedMessages
+                }}
+            }};
+            
+            const persistResponse = await fetchWithRetry(`/api/v1/chats/${{chatId}}`, {{
+                method: "POST",
+                headers: {{
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${{token}}`
+                }},
+                body: JSON.stringify(updatePayload)
+            }});
+            
+            if (persistResponse && persistResponse.ok) {{
+                console.log("[Infographic Image] ✅ 消息持久化成功!");
+            }} else {{
+                console.error("[Infographic Image] ❌ 重试后消息持久化失败");
+            }}
+        }} else {{
+            console.warn("[Infographic Image] ⚠️ 缺少 chatId 或 messageId，无法持久化");
+        }}
+        
+    }} catch (error) {{
+        console.error("[Infographic Image] 错误:", error);
+    }}
+}})();
+"""
+
     async def action(
         self,
         body: dict,
         __user__: Optional[Dict[str, Any]] = None,
         __event_emitter__: Optional[Any] = None,
+        __event_call__: Optional[Callable[[Any], Awaitable[None]]] = None,
+        __metadata__: Optional[dict] = None,
         __request__: Optional[Request] = None,
     ) -> Optional[dict]:
-        logger.info("Action: 信息图启动 (v1.0.0)")
+        logger.info("Action: 信息图启动 (v1.4.0)")
 
         # 获取用户信息
         if isinstance(__user__, (list, tuple)):
@@ -1169,6 +1531,45 @@ class Action:
                         user_language,
                     )
 
+            # 检查输出模式
+            if self.valves.OUTPUT_MODE == "image":
+                # 图片模式：使用 JavaScript 渲染并嵌入为 Markdown 图片
+                chat_id = self._extract_chat_id(body, body.get("metadata"))
+                message_id = self._extract_message_id(body, body.get("metadata"))
+
+                await self._emit_status(
+                    __event_emitter__,
+                    "📊 信息图: 正在渲染图片...",
+                    False,
+                )
+
+                if __event_call__:
+                    js_code = self._generate_image_js_code(
+                        unique_id=unique_id,
+                        chat_id=chat_id,
+                        message_id=message_id,
+                        infographic_syntax=infographic_syntax,
+                    )
+
+                    await __event_call__(
+                        {
+                            "type": "execute",
+                            "data": {"code": js_code},
+                        }
+                    )
+
+                await self._emit_status(
+                    __event_emitter__, "✅ 信息图: 图片生成完成!", True
+                )
+                await self._emit_notification(
+                    __event_emitter__,
+                    f"📊 信息图图片已生成，{user_name}！",
+                    "success",
+                )
+                logger.info("信息图生成完成（图片模式）")
+                return body
+
+            # HTML 模式（默认）：嵌入为 HTML 块
             html_embed_tag = f"```html\n{final_html}\n```"
             body["messages"][-1]["content"] = f"{original_content}\n\n{html_embed_tag}"
 
