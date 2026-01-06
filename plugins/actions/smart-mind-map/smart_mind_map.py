@@ -3,7 +3,7 @@ title: Smart Mind Map
 author: Fu-Jie
 author_url: https://github.com/Fu-Jie
 funding_url: https://github.com/Fu-Jie/awesome-openwebui
-version: 0.8.2
+version: 0.9.0
 icon_url: data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxyZWN0IHg9IjE2IiB5PSIxNiIgd2lkdGg9IjYiIGhlaWdodD0iNiIgcng9IjEiLz48cmVjdCB4PSIyIiB5PSIxNiIgd2lkdGg9IjYiIGhlaWdodD0iNiIgcng9IjEiLz48cmVjdCB4PSI5IiB5PSIyIiB3aWR0aD0iNiIgaGVpZ2h0PSI2IiByeD0iMSIvPjxwYXRoIGQ9Ik01IDE2di0zYTEgMSAwIDAgMSAxLTFoMTJhMSAxIDAgMCAxIDEgMXYzIi8+PHBhdGggZD0iTTEyIDEyVjgiLz48L3N2Zz4=
 description: Intelligently analyzes text content and generates interactive mind maps to help users structure and visualize knowledge.
 """
@@ -13,7 +13,7 @@ import os
 import re
 import time
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any, Callable, Awaitable, Dict, Optional
 from zoneinfo import ZoneInfo
 
 from fastapi import Request
@@ -786,6 +786,18 @@ class Action:
             default=1,
             description="Number of recent messages to use for generation. Set to 1 for just the last message, or higher for more context.",
         )
+        OUTPUT_MODE: str = Field(
+            default="html",
+            description="Output mode: 'html' for interactive HTML (default), or 'image' to embed as Markdown image.",
+        )
+        SVG_WIDTH: int = Field(
+            default=1200,
+            description="Width of the SVG canvas in pixels (for image mode).",
+        )
+        SVG_HEIGHT: int = Field(
+            default=800,
+            description="Height of the SVG canvas in pixels (for image mode).",
+        )
 
     def __init__(self):
         self.valves = self.Valves()
@@ -813,6 +825,46 @@ class Action:
             "user_name": user_data.get("name", "User"),
             "user_language": user_data.get("language", "en-US"),
         }
+
+    def _extract_chat_id(self, body: dict, metadata: Optional[dict]) -> str:
+        """Extract chat_id from body or metadata"""
+        if isinstance(body, dict):
+            chat_id = body.get("chat_id")
+            if isinstance(chat_id, str) and chat_id.strip():
+                return chat_id.strip()
+
+            body_metadata = body.get("metadata", {})
+            if isinstance(body_metadata, dict):
+                chat_id = body_metadata.get("chat_id")
+                if isinstance(chat_id, str) and chat_id.strip():
+                    return chat_id.strip()
+
+        if isinstance(metadata, dict):
+            chat_id = metadata.get("chat_id")
+            if isinstance(chat_id, str) and chat_id.strip():
+                return chat_id.strip()
+
+        return ""
+
+    def _extract_message_id(self, body: dict, metadata: Optional[dict]) -> str:
+        """Extract message_id from body or metadata"""
+        if isinstance(body, dict):
+            message_id = body.get("id")
+            if isinstance(message_id, str) and message_id.strip():
+                return message_id.strip()
+
+            body_metadata = body.get("metadata", {})
+            if isinstance(body_metadata, dict):
+                message_id = body_metadata.get("message_id")
+                if isinstance(message_id, str) and message_id.strip():
+                    return message_id.strip()
+
+        if isinstance(metadata, dict):
+            message_id = metadata.get("message_id")
+            if isinstance(message_id, str) and message_id.strip():
+                return message_id.strip()
+
+        return ""
 
     def _extract_markdown_syntax(self, llm_output: str) -> str:
         match = re.search(r"```markdown\s*(.*?)\s*```", llm_output, re.DOTALL)
@@ -901,11 +953,286 @@ class Action:
 
         return base_html.strip()
 
+    def _generate_image_js_code(
+        self,
+        unique_id: str,
+        chat_id: str,
+        message_id: str,
+        markdown_syntax: str,
+        svg_width: int,
+        svg_height: int,
+    ) -> str:
+        """Generate JavaScript code for frontend SVG rendering and image embedding"""
+        
+        # Escape the syntax for JS embedding
+        syntax_escaped = (
+            markdown_syntax
+            .replace("\\", "\\\\")
+            .replace("`", "\\`")
+            .replace("${", "\\${")
+            .replace("</script>", "<\\/script>")
+        )
+        
+        return f"""
+(async function() {{
+    const uniqueId = "{unique_id}";
+    const chatId = "{chat_id}";
+    const messageId = "{message_id}";
+    const defaultWidth = {svg_width};
+    const defaultHeight = {svg_height};
+    
+    // Auto-detect chat container width for responsive sizing
+    let svgWidth = defaultWidth;
+    let svgHeight = defaultHeight;
+    const chatContainer = document.getElementById('chat-container');
+    if (chatContainer) {{
+        const containerWidth = chatContainer.clientWidth;
+        if (containerWidth > 100) {{
+            // Use container width with some padding (90% of container)
+            svgWidth = Math.floor(containerWidth * 0.9);
+            // Maintain aspect ratio based on default dimensions
+            svgHeight = Math.floor(svgWidth * (defaultHeight / defaultWidth));
+            console.log("[MindMap Image] Auto-detected container width:", containerWidth, "-> SVG:", svgWidth, "x", svgHeight);
+        }}
+    }}
+    
+    console.log("[MindMap Image] Starting render...");
+    console.log("[MindMap Image] chatId:", chatId, "messageId:", messageId);
+    
+    try {{
+        // Load D3 if not loaded
+        if (typeof d3 === 'undefined') {{
+            console.log("[MindMap Image] Loading D3...");
+            await new Promise((resolve, reject) => {{
+                const script = document.createElement('script');
+                script.src = 'https://cdn.jsdelivr.net/npm/d3@7';
+                script.onload = resolve;
+                script.onerror = reject;
+                document.head.appendChild(script);
+            }});
+        }}
+        
+        // Load markmap-lib if not loaded
+        if (!window.markmap || !window.markmap.Transformer) {{
+            console.log("[MindMap Image] Loading markmap-lib...");
+            await new Promise((resolve, reject) => {{
+                const script = document.createElement('script');
+                script.src = 'https://cdn.jsdelivr.net/npm/markmap-lib@0.17';
+                script.onload = resolve;
+                script.onerror = reject;
+                document.head.appendChild(script);
+            }});
+        }}
+        
+        // Load markmap-view if not loaded
+        if (!window.markmap || !window.markmap.Markmap) {{
+            console.log("[MindMap Image] Loading markmap-view...");
+            await new Promise((resolve, reject) => {{
+                const script = document.createElement('script');
+                script.src = 'https://cdn.jsdelivr.net/npm/markmap-view@0.17';
+                script.onload = resolve;
+                script.onerror = reject;
+                document.head.appendChild(script);
+            }});
+        }}
+        
+        const {{ Transformer, Markmap }} = window.markmap;
+        
+        // Get markdown syntax
+        let syntaxContent = `{syntax_escaped}`;
+        console.log("[MindMap Image] Syntax length:", syntaxContent.length);
+        
+        // Create offscreen container
+        const container = document.createElement('div');
+        container.id = 'mindmap-offscreen-' + uniqueId;
+        container.style.cssText = 'position:absolute;left:-9999px;top:-9999px;width:' + svgWidth + 'px;height:' + svgHeight + 'px;';
+        document.body.appendChild(container);
+        
+        // Create SVG element
+        const svgEl = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svgEl.setAttribute('width', svgWidth);
+        svgEl.setAttribute('height', svgHeight);
+        svgEl.style.width = svgWidth + 'px';
+        svgEl.style.height = svgHeight + 'px';
+        svgEl.style.backgroundColor = '#ffffff';
+        container.appendChild(svgEl);
+        
+        // Transform markdown to tree
+        const transformer = new Transformer();
+        const {{ root }} = transformer.transform(syntaxContent);
+        
+        // Create markmap instance
+        const options = {{
+            autoFit: true,
+            initialExpandLevel: Infinity,
+            zoom: false,
+            pan: false
+        }};
+        
+        console.log("[MindMap Image] Rendering markmap...");
+        const markmapInstance = Markmap.create(svgEl, options, root);
+        
+        // Wait for render to complete
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        markmapInstance.fit();
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Clone and prepare SVG for export
+        const clonedSvg = svgEl.cloneNode(true);
+        clonedSvg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+        clonedSvg.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
+        
+        // Add background rect
+        const bgRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        bgRect.setAttribute('width', '100%');
+        bgRect.setAttribute('height', '100%');
+        bgRect.setAttribute('fill', '#ffffff');
+        clonedSvg.insertBefore(bgRect, clonedSvg.firstChild);
+        
+        // Add inline styles
+        const style = document.createElementNS('http://www.w3.org/2000/svg', 'style');
+        style.textContent = `
+            text {{ font-family: sans-serif; font-size: 14px; fill: #000000; }}
+            foreignObject, .markmap-foreign, .markmap-foreign div {{ color: #000000; font-family: sans-serif; font-size: 14px; }}
+            h1 {{ font-size: 22px; font-weight: 700; margin: 0; }}
+            h2 {{ font-size: 18px; font-weight: 600; margin: 0; }}
+            strong {{ font-weight: 700; }}
+            .markmap-link {{ stroke: #546e7a; fill: none; }}
+            .markmap-node circle, .markmap-node rect {{ stroke: #94a3b8; }}
+        `;
+        clonedSvg.insertBefore(style, bgRect.nextSibling);
+        
+        // Convert foreignObject to text for better compatibility
+        const foreignObjects = clonedSvg.querySelectorAll('foreignObject');
+        foreignObjects.forEach(fo => {{
+            const text = fo.textContent || '';
+            const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+            const textEl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            textEl.setAttribute('x', fo.getAttribute('x') || '0');
+            textEl.setAttribute('y', (parseFloat(fo.getAttribute('y') || '0') + 14).toString());
+            textEl.setAttribute('fill', '#000000');
+            textEl.setAttribute('font-family', 'sans-serif');
+            textEl.setAttribute('font-size', '14');
+            textEl.textContent = text.trim();
+            g.appendChild(textEl);
+            fo.parentNode.replaceChild(g, fo);
+        }});
+        
+        // Serialize SVG to string
+        const svgData = new XMLSerializer().serializeToString(clonedSvg);
+        const svgBase64 = btoa(unescape(encodeURIComponent(svgData)));
+        const dataUrl = 'data:image/svg+xml;base64,' + svgBase64;
+        
+        console.log("[MindMap Image] Data URL generated, length:", dataUrl.length);
+        
+        // Cleanup
+        document.body.removeChild(container);
+        
+        // Generate markdown image
+        const markdownImage = `![🧠 Mind Map](${{dataUrl}})`;
+        
+        // Update message via API
+        if (chatId && messageId) {{
+            const token = localStorage.getItem("token");
+            
+            // Get current chat data
+            const getResponse = await fetch(`/api/v1/chats/${{chatId}}`, {{
+                method: "GET",
+                headers: {{ "Authorization": `Bearer ${{token}}` }}
+            }});
+            
+            if (!getResponse.ok) {{
+                throw new Error("Failed to get chat data: " + getResponse.status);
+            }}
+            
+            const chatData = await getResponse.json();
+            let originalContent = "";
+            let updatedMessages = [];
+            
+            if (chatData.chat && chatData.chat.messages) {{
+                updatedMessages = chatData.chat.messages.map(m => {{
+                    if (m.id === messageId) {{
+                        originalContent = m.content || "";
+                        // Remove existing mindmap images
+                        const mindmapPattern = /\\n*!\\[🧠[^\\]]*\\]\\(data:image\\/[^)]+\\)/g;
+                        let cleanedContent = originalContent.replace(mindmapPattern, "");
+                        cleanedContent = cleanedContent.replace(/\\n{{3,}}/g, "\\n\\n").trim();
+                        // Append new image
+                        const newContent = cleanedContent + "\\n\\n" + markdownImage;
+                        
+                        // Critical: Update content in both messages array AND history object
+                        // The history object is often the source of truth for the database
+                        if (chatData.chat.history && chatData.chat.history.messages && chatData.chat.history.messages[messageId]) {{
+                            chatData.chat.history.messages[messageId].content = newContent;
+                        }}
+                        
+                        return {{ ...m, content: newContent }};
+                    }}
+                    return m;
+                }});
+            }}
+            
+            // First: Update frontend display via event API (for immediate visual feedback)
+            await fetch(`/api/v1/chats/${{chatId}}/messages/${{messageId}}/event`, {{
+                method: "POST",
+                headers: {{
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${{token}}`
+                }},
+                body: JSON.stringify({{
+                    type: "chat:message",
+                    data: {{ content: updatedMessages.find(m => m.id === messageId)?.content || "" }}
+                }})
+            }});
+            
+            // Second: Persist to database by updating the entire chat
+            const updatePayload = {{
+                chat: {{
+                    ...chatData.chat,
+                    messages: updatedMessages
+                }}
+            }};
+            
+            const persistResponse = await fetch(`/api/v1/chats/${{chatId}}`, {{
+                method: "POST",
+                headers: {{
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${{token}}`
+                }},
+                body: JSON.stringify(updatePayload)
+            }});
+            
+            if (persistResponse.ok) {{
+                console.log("[MindMap Image] ✅ Message persisted successfully!");
+            }} else {{
+                console.error("[MindMap Image] Persist API error:", persistResponse.status);
+                // Try alternative update method
+                const altResponse = await fetch(`/api/v1/chats/${{chatId}}/share`, {{
+                    method: "POST",
+                    headers: {{
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${{token}}`
+                    }}
+                }});
+                console.log("[MindMap Image] Alt persist attempted:", altResponse.status);
+            }}
+        }} else {{
+            console.warn("[MindMap Image] ⚠️ Missing chatId or messageId");
+        }}
+        
+    }} catch (error) {{
+        console.error("[MindMap Image] Error:", error);
+    }}
+}})();
+"""
+
     async def action(
         self,
         body: dict,
         __user__: Optional[Dict[str, Any]] = None,
         __event_emitter__: Optional[Any] = None,
+        __event_call__: Optional[Callable[[Any], Awaitable[None]]] = None,
+        __metadata__: Optional[dict] = None,
         __request__: Optional[Request] = None,
     ) -> Optional[dict]:
         logger.info("Action: Smart Mind Map (v0.8.0) started")
@@ -1090,6 +1417,47 @@ class Action:
                         user_language,
                     )
 
+            # Check output mode
+            if self.valves.OUTPUT_MODE == "image":
+                # Image mode: use JavaScript to render and embed as Markdown image
+                chat_id = self._extract_chat_id(body, __metadata__)
+                message_id = self._extract_message_id(body, __metadata__)
+                
+                await self._emit_status(
+                    __event_emitter__,
+                    "Smart Mind Map: Rendering image...",
+                    False,
+                )
+                
+                if __event_call__:
+                    js_code = self._generate_image_js_code(
+                        unique_id=unique_id,
+                        chat_id=chat_id,
+                        message_id=message_id,
+                        markdown_syntax=markdown_syntax,
+                        svg_width=self.valves.SVG_WIDTH,
+                        svg_height=self.valves.SVG_HEIGHT,
+                    )
+                    
+                    await __event_call__(
+                        {
+                            "type": "execute",
+                            "data": {"code": js_code},
+                        }
+                    )
+                
+                await self._emit_status(
+                    __event_emitter__, "Smart Mind Map: Image generated!", True
+                )
+                await self._emit_notification(
+                    __event_emitter__,
+                    f"Mind map image has been generated, {user_name}!",
+                    "success",
+                )
+                logger.info("Action: Smart Mind Map (v0.9.0) completed in image mode")
+                return body
+            
+            # HTML mode (default): embed as HTML block
             html_embed_tag = f"```html\n{final_html}\n```"
             body["messages"][-1]["content"] = f"{long_text_content}\n\n{html_embed_tag}"
 
@@ -1101,7 +1469,7 @@ class Action:
                 f"Mind map has been generated, {user_name}!",
                 "success",
             )
-            logger.info("Action: Smart Mind Map (v0.8.0) completed successfully")
+            logger.info("Action: Smart Mind Map (v0.9.0) completed in HTML mode")
 
         except Exception as e:
             error_message = f"Smart Mind Map processing failed: {str(e)}"

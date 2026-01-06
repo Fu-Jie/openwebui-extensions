@@ -3,7 +3,7 @@ title: 思维导图
 author: Fu-Jie
 author_url: https://github.com/Fu-Jie
 funding_url: https://github.com/Fu-Jie/awesome-openwebui
-version: 0.8.2
+version: 0.9.0
 icon_url: data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxyZWN0IHg9IjE2IiB5PSIxNiIgd2lkdGg9IjYiIGhlaWdodD0iNiIgcng9IjEiLz48cmVjdCB4PSIyIiB5PSIxNiIgd2lkdGg9IjYiIGhlaWdodD0iNiIgcng9IjEiLz48cmVjdCB4PSI5IiB5PSIyIiB3aWR0aD0iNiIgaGVpZ2h0PSI2IiByeD0iMSIvPjxwYXRoIGQ9Ik01IDE2di0zYTEgMSAwIDAgMSAxLTFoMTJhMSAxIDAgMCAxIDEgMXYzIi8+PHBhdGggZD0iTTEyIDEyVjgiLz48L3N2Zz4=
 description: 智能分析文本内容,生成交互式思维导图,帮助用户结构化和可视化知识。
 """
@@ -13,7 +13,7 @@ import os
 import re
 import time
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any, Callable, Awaitable, Dict, Optional
 from zoneinfo import ZoneInfo
 
 from fastapi import Request
@@ -443,7 +443,7 @@ SCRIPT_TEMPLATE_MINDMAP = """
 
             const markdownContent = sourceEl.textContent.trim();
             if (!markdownContent) {
-                containerEl.innerHTML = '<div class="error-message">⚠️ 无法加载思维导图：缺少有效内容。</div>';
+                containerEl.innerHTML = '<div class="error-message">⚠️ 无法加载思维导图:缺少有效内容。</div>';
                 return;
             }
 
@@ -485,7 +485,7 @@ SCRIPT_TEMPLATE_MINDMAP = """
 
             }).catch((error) => {
                 console.error('Markmap loading error:', error);
-                containerEl.innerHTML = '<div class="error-message">⚠️ 资源加载失败，请稍后重试。</div>';
+                containerEl.innerHTML = '<div class="error-message">⚠️ 资源加载失败,请稍后重试。</div>';
             });
         };
 
@@ -771,19 +771,31 @@ class Action:
         )
         MODEL_ID: str = Field(
             default="",
-            description="用于文本分析的内置LLM模型ID。如果为空，则使用当前对话的模型。",
+            description="用于文本分析的内置LLM模型ID。如果为空,则使用当前对话的模型。",
         )
         MIN_TEXT_LENGTH: int = Field(
             default=100,
-            description="进行思维导图分析所需的最小文本长度（字符数）。",
+            description="进行思维导图分析所需的最小文本长度(字符数)。",
         )
         CLEAR_PREVIOUS_HTML: bool = Field(
             default=False,
-            description="是否强制清除旧的插件结果（如果为 True，则不合并，直接覆盖）。",
+            description="是否强制清除旧的插件结果(如果为 True,则不合并,直接覆盖)。",
         )
         MESSAGE_COUNT: int = Field(
             default=1,
-            description="用于生成的最近消息数量。设置为1仅使用最后一条消息，更大值可包含更多上下文。",
+            description="用于生成的最近消息数量。设置为1仅使用最后一条消息,更大值可包含更多上下文。",
+        )
+        OUTPUT_MODE: str = Field(
+            default="html",
+            description="输出模式: 'html' 为交互式HTML(默认),'image' 为嵌入Markdown图片。",
+        )
+        SVG_WIDTH: int = Field(
+            default=1200,
+            description="SVG画布宽度(像素,用于图片模式)。",
+        )
+        SVG_HEIGHT: int = Field(
+            default=800,
+            description="SVG画布高度(像素,用于图片模式)。",
         )
 
     def __init__(self):
@@ -813,13 +825,53 @@ class Action:
             "user_language": user_data.get("language", "zh-CN"),
         }
 
+    def _extract_chat_id(self, body: dict, metadata: Optional[dict]) -> str:
+        """从 body 或 metadata 中提取 chat_id"""
+        if isinstance(body, dict):
+            chat_id = body.get("chat_id")
+            if isinstance(chat_id, str) and chat_id.strip():
+                return chat_id.strip()
+
+            body_metadata = body.get("metadata", {})
+            if isinstance(body_metadata, dict):
+                chat_id = body_metadata.get("chat_id")
+                if isinstance(chat_id, str) and chat_id.strip():
+                    return chat_id.strip()
+
+        if isinstance(metadata, dict):
+            chat_id = metadata.get("chat_id")
+            if isinstance(chat_id, str) and chat_id.strip():
+                return chat_id.strip()
+
+        return ""
+
+    def _extract_message_id(self, body: dict, metadata: Optional[dict]) -> str:
+        """从 body 或 metadata 中提取 message_id"""
+        if isinstance(body, dict):
+            message_id = body.get("id")
+            if isinstance(message_id, str) and message_id.strip():
+                return message_id.strip()
+
+            body_metadata = body.get("metadata", {})
+            if isinstance(body_metadata, dict):
+                message_id = body_metadata.get("message_id")
+                if isinstance(message_id, str) and message_id.strip():
+                    return message_id.strip()
+
+        if isinstance(metadata, dict):
+            message_id = metadata.get("message_id")
+            if isinstance(message_id, str) and message_id.strip():
+                return message_id.strip()
+
+        return ""
+
     def _extract_markdown_syntax(self, llm_output: str) -> str:
         match = re.search(r"```markdown\s*(.*?)\s*```", llm_output, re.DOTALL)
         if match:
             extracted_content = match.group(1).strip()
         else:
             logger.warning(
-                "LLM输出未严格遵循预期Markdown格式，将整个输出作为摘要处理。"
+                "LLM输出未严格遵循预期Markdown格式,将整个输出作为摘要处理。"
             )
             extracted_content = llm_output.strip()
         return extracted_content.replace("</script>", "<\\/script>")
@@ -844,7 +896,7 @@ class Action:
         return re.sub(pattern, "", content).strip()
 
     def _extract_text_content(self, content) -> str:
-        """从消息内容中提取文本，支持多模态消息格式"""
+        """从消息内容中提取文本,支持多模态消息格式"""
         if isinstance(content, str):
             return content
         elif isinstance(content, list):
@@ -867,7 +919,7 @@ class Action:
         user_language: str = "zh-CN",
     ) -> str:
         """
-        将新内容合并到现有的 HTML 容器中，或者创建一个新的容器。
+        将新内容合并到现有的 HTML 容器中,或者创建一个新的容器。
         """
         if (
             "<!-- OPENWEBUI_PLUGIN_OUTPUT -->" in existing_html_code
@@ -900,11 +952,286 @@ class Action:
 
         return base_html.strip()
 
+    def _generate_image_js_code(
+        self,
+        unique_id: str,
+        chat_id: str,
+        message_id: str,
+        markdown_syntax: str,
+        svg_width: int,
+        svg_height: int,
+    ) -> str:
+        """生成用于前端 SVG 渲染和图片嵌入的 JavaScript 代码"""
+        
+        # 转义语法以便嵌入 JS
+        syntax_escaped = (
+            markdown_syntax
+            .replace("\\", "\\\\")
+            .replace("`", "\\`")
+            .replace("${", "\\${")
+            .replace("</script>", "<\\/script>")
+        )
+        
+        return f"""
+(async function() {{
+    const uniqueId = "{unique_id}";
+    const chatId = "{chat_id}";
+    const messageId = "{message_id}";
+    const defaultWidth = {svg_width};
+    const defaultHeight = {svg_height};
+    
+    // 自动检测聊天容器宽度以实现自适应
+    let svgWidth = defaultWidth;
+    let svgHeight = defaultHeight;
+    const chatContainer = document.getElementById('chat-container');
+    if (chatContainer) {{
+        const containerWidth = chatContainer.clientWidth;
+        if (containerWidth > 100) {{
+            // 使用容器宽度的90%(留出边距)
+            svgWidth = Math.floor(containerWidth * 0.9);
+            // 根据默认尺寸保持宽高比
+            svgHeight = Math.floor(svgWidth * (defaultHeight / defaultWidth));
+            console.log("[思维导图图片] 自动检测容器宽度:", containerWidth, "-> SVG:", svgWidth, "x", svgHeight);
+        }}
+    }}
+    
+    console.log("[思维导图图片] 开始渲染...");
+    console.log("[思维导图图片] chatId:", chatId, "messageId:", messageId);
+    
+    try {{
+        // 加载 D3
+        if (typeof d3 === 'undefined') {{
+            console.log("[思维导图图片] 正在加载 D3...");
+            await new Promise((resolve, reject) => {{
+                const script = document.createElement('script');
+                script.src = 'https://cdn.jsdelivr.net/npm/d3@7';
+                script.onload = resolve;
+                script.onerror = reject;
+                document.head.appendChild(script);
+            }});
+        }}
+        
+        // 加载 markmap-lib
+        if (!window.markmap || !window.markmap.Transformer) {{
+            console.log("[思维导图图片] 正在加载 markmap-lib...");
+            await new Promise((resolve, reject) => {{
+                const script = document.createElement('script');
+                script.src = 'https://cdn.jsdelivr.net/npm/markmap-lib@0.17';
+                script.onload = resolve;
+                script.onerror = reject;
+                document.head.appendChild(script);
+            }});
+        }}
+        
+        // 加载 markmap-view
+        if (!window.markmap || !window.markmap.Markmap) {{
+            console.log("[思维导图图片] 正在加载 markmap-view...");
+            await new Promise((resolve, reject) => {{
+                const script = document.createElement('script');
+                script.src = 'https://cdn.jsdelivr.net/npm/markmap-view@0.17';
+                script.onload = resolve;
+                script.onerror = reject;
+                document.head.appendChild(script);
+            }});
+        }}
+        
+        const {{ Transformer, Markmap }} = window.markmap;
+        
+        // 获取 markdown 语法
+        let syntaxContent = `{syntax_escaped}`;
+        console.log("[思维导图图片] 语法长度:", syntaxContent.length);
+        
+        // 创建离屏容器
+        const container = document.createElement('div');
+        container.id = 'mindmap-offscreen-' + uniqueId;
+        container.style.cssText = 'position:absolute;left:-9999px;top:-9999px;width:' + svgWidth + 'px;height:' + svgHeight + 'px;';
+        document.body.appendChild(container);
+        
+        // 创建 SVG 元素
+        const svgEl = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svgEl.setAttribute('width', svgWidth);
+        svgEl.setAttribute('height', svgHeight);
+        svgEl.style.width = svgWidth + 'px';
+        svgEl.style.height = svgHeight + 'px';
+        svgEl.style.backgroundColor = '#ffffff';
+        container.appendChild(svgEl);
+        
+        // 将 markdown 转换为树结构
+        const transformer = new Transformer();
+        const {{ root }} = transformer.transform(syntaxContent);
+        
+        // 创建 markmap 实例
+        const options = {{
+            autoFit: true,
+            initialExpandLevel: Infinity,
+            zoom: false,
+            pan: false
+        }};
+        
+        console.log("[思维导图图片] 正在渲染 markmap...");
+        const markmapInstance = Markmap.create(svgEl, options, root);
+        
+        // 等待渲染完成
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        markmapInstance.fit();
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // 克隆并准备 SVG 导出
+        const clonedSvg = svgEl.cloneNode(true);
+        clonedSvg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+        clonedSvg.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
+        
+        // 添加背景矩形
+        const bgRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        bgRect.setAttribute('width', '100%');
+        bgRect.setAttribute('height', '100%');
+        bgRect.setAttribute('fill', '#ffffff');
+        clonedSvg.insertBefore(bgRect, clonedSvg.firstChild);
+        
+        // 添加内联样式
+        const style = document.createElementNS('http://www.w3.org/2000/svg', 'style');
+        style.textContent = `
+            text {{ font-family: sans-serif; font-size: 14px; fill: #000000; }}
+            foreignObject, .markmap-foreign, .markmap-foreign div {{ color: #000000; font-family: sans-serif; font-size: 14px; }}
+            h1 {{ font-size: 22px; font-weight: 700; margin: 0; }}
+            h2 {{ font-size: 18px; font-weight: 600; margin: 0; }}
+            strong {{ font-weight: 700; }}
+            .markmap-link {{ stroke: #546e7a; fill: none; }}
+            .markmap-node circle, .markmap-node rect {{ stroke: #94a3b8; }}
+        `;
+        clonedSvg.insertBefore(style, bgRect.nextSibling);
+        
+        // 将 foreignObject 转换为 text 以提高兼容性
+        const foreignObjects = clonedSvg.querySelectorAll('foreignObject');
+        foreignObjects.forEach(fo => {{
+            const text = fo.textContent || '';
+            const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+            const textEl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            textEl.setAttribute('x', fo.getAttribute('x') || '0');
+            textEl.setAttribute('y', (parseFloat(fo.getAttribute('y') || '0') + 14).toString());
+            textEl.setAttribute('fill', '#000000');
+            textEl.setAttribute('font-family', 'sans-serif');
+            textEl.setAttribute('font-size', '14');
+            textEl.textContent = text.trim();
+            g.appendChild(textEl);
+            fo.parentNode.replaceChild(g, fo);
+        }});
+        
+        // 序列化 SVG 为字符串
+        const svgData = new XMLSerializer().serializeToString(clonedSvg);
+        const svgBase64 = btoa(unescape(encodeURIComponent(svgData)));
+        const dataUrl = 'data:image/svg+xml;base64,' + svgBase64;
+        
+        console.log("[思维导图图片] Data URL 已生成,长度:", dataUrl.length);
+        
+        // 清理
+        document.body.removeChild(container);
+        
+        // 生成 markdown 图片
+        const markdownImage = `![🧠 思维导图](${{dataUrl}})`;
+        
+        // 通过 API 更新消息
+        if (chatId && messageId) {{
+            const token = localStorage.getItem("token");
+            
+            // 获取当前聊天数据
+            const getResponse = await fetch(`/api/v1/chats/${{chatId}}`, {{
+                method: "GET",
+                headers: {{ "Authorization": `Bearer ${{token}}` }}
+            }});
+            
+            if (!getResponse.ok) {{
+                throw new Error("获取聊天数据失败: " + getResponse.status);
+            }}
+            
+            const chatData = await getResponse.json();
+            let originalContent = "";
+            let updatedMessages = [];
+            
+            if (chatData.chat && chatData.chat.messages) {{
+                updatedMessages = chatData.chat.messages.map(m => {{
+                    if (m.id === messageId) {{
+                        originalContent = m.content || "";
+                        // 移除已有的思维导图图片
+                        const mindmapPattern = /\\n*!\\[🧠[^\\]]*\\]\\(data:image\\/[^)]+\\)/g;
+                        let cleanedContent = originalContent.replace(mindmapPattern, "");
+                        cleanedContent = cleanedContent.replace(/\\n{{3,}}/g, "\\n\\n").trim();
+                        // 追加新图片
+                        const newContent = cleanedContent + "\\n\\n" + markdownImage;
+                        
+                        // 关键: 同时更新 messages 数组和 history 对象中的内容
+                        // history 对象通常是数据库的单一真值来源
+                        if (chatData.chat.history && chatData.chat.history.messages && chatData.chat.history.messages[messageId]) {{
+                            chatData.chat.history.messages[messageId].content = newContent;
+                        }}
+                        
+                        return {{ ...m, content: newContent }};
+                    }}
+                    return m;
+                }});
+            }}
+            
+            // 第一步: 通过事件 API 更新前端显示(立即视觉反馈)
+            await fetch(`/api/v1/chats/${{chatId}}/messages/${{messageId}}/event`, {{
+                method: "POST",
+                headers: {{
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${{token}}`
+                }},
+                body: JSON.stringify({{
+                    type: "chat:message",
+                    data: {{ content: updatedMessages.find(m => m.id === messageId)?.content || "" }}
+                }})
+            }});
+            
+            // 第二步: 通过更新整个聊天来持久化到数据库
+            const updatePayload = {{
+                chat: {{
+                    ...chatData.chat,
+                    messages: updatedMessages
+                }}
+            }};
+            
+            const persistResponse = await fetch(`/api/v1/chats/${{chatId}}`, {{
+                method: "POST",
+                headers: {{
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${{token}}`
+                }},
+                body: JSON.stringify(updatePayload)
+            }});
+            
+            if (persistResponse.ok) {{
+                console.log("[思维导图图片] ✅ 消息已持久化保存!");
+            }} else {{
+                console.error("[思维导图图片] 持久化 API 错误:", persistResponse.status);
+                // 尝试备用更新方法
+                const altResponse = await fetch(`/api/v1/chats/${{chatId}}/share`, {{
+                    method: "POST",
+                    headers: {{
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${{token}}`
+                    }}
+                }});
+                console.log("[思维导图图片] 备用持久化尝试:", altResponse.status);
+            }}
+        }} else {{
+            console.warn("[思维导图图片] ⚠️ 缺少 chatId 或 messageId");
+        }}
+        
+    }} catch (error) {{
+        console.error("[思维导图图片] 错误:", error);
+    }}
+}})();
+"""
+
     async def action(
         self,
         body: dict,
         __user__: Optional[Dict[str, Any]] = None,
         __event_emitter__: Optional[Any] = None,
+        __event_call__: Optional[Callable[[Any], Awaitable[None]]] = None,
+        __metadata__: Optional[dict] = None,
         __request__: Optional[Request] = None,
     ) -> Optional[dict]:
         logger.info("Action: 思维导图 (v12 - Final Feedback Fix) started")
@@ -923,7 +1250,7 @@ class Action:
             current_year = now_dt.strftime("%Y")
             current_timezone_str = tz_env or "UTC"
         except Exception as e:
-            logger.warning(f"获取时区信息失败: {e}，使用默认值。")
+            logger.warning(f"获取时区信息失败: {e},使用默认值。")
             now = datetime.now()
             current_date_time_str = now.strftime("%Y年%m月%d日 %H:%M:%S")
             current_weekday_zh = "未知星期"
@@ -931,7 +1258,7 @@ class Action:
             current_timezone_str = "未知时区"
 
         await self._emit_notification(
-            __event_emitter__, "思维导图已启动，正在为您生成思维导图...", "info"
+            __event_emitter__, "思维导图已启动,正在为您生成思维导图...", "info"
         )
 
         messages = body.get("messages")
@@ -980,7 +1307,7 @@ class Action:
             long_text_content = original_content.strip()
 
         if len(long_text_content) < self.valves.MIN_TEXT_LENGTH:
-            short_text_message = f"文本内容过短({len(long_text_content)}字符)，无法进行有效分析。请提供至少{self.valves.MIN_TEXT_LENGTH}字符的文本。"
+            short_text_message = f"文本内容过短({len(long_text_content)}字符),无法进行有效分析。请提供至少{self.valves.MIN_TEXT_LENGTH}字符的文本。"
             await self._emit_notification(
                 __event_emitter__, short_text_message, "warning"
             )
@@ -1021,7 +1348,7 @@ class Action:
             }
             user_obj = Users.get_user_by_id(user_id)
             if not user_obj:
-                raise ValueError(f"无法获取用户对象，用户ID: {user_id}")
+                raise ValueError(f"无法获取用户对象,用户ID: {user_id}")
 
             llm_response = await generate_chat_completion(
                 __request__, llm_payload, user_obj
@@ -1084,26 +1411,67 @@ class Action:
                         user_language,
                     )
 
+            # 检查输出模式
+            if self.valves.OUTPUT_MODE == "image":
+                # 图片模式: 使用 JavaScript 渲染并嵌入为 Markdown 图片
+                chat_id = self._extract_chat_id(body, __metadata__)
+                message_id = self._extract_message_id(body, __metadata__)
+                
+                await self._emit_status(
+                    __event_emitter__,
+                    "思维导图: 正在渲染图片...",
+                    False,
+                )
+                
+                if __event_call__:
+                    js_code = self._generate_image_js_code(
+                        unique_id=unique_id,
+                        chat_id=chat_id,
+                        message_id=message_id,
+                        markdown_syntax=markdown_syntax,
+                        svg_width=self.valves.SVG_WIDTH,
+                        svg_height=self.valves.SVG_HEIGHT,
+                    )
+                    
+                    await __event_call__(
+                        {
+                            "type": "execute",
+                            "data": {"code": js_code},
+                        }
+                    )
+                
+                await self._emit_status(
+                    __event_emitter__, "思维导图: 图片已生成!", True
+                )
+                await self._emit_notification(
+                    __event_emitter__,
+                    f"思维导图图片已生成,{user_name}!",
+                    "success",
+                )
+                logger.info("Action: 思维导图 (v0.9.0) 图片模式完成")
+                return body
+            
+            # HTML 模式(默认): 嵌入为 HTML 块
             html_embed_tag = f"```html\n{final_html}\n```"
             body["messages"][-1]["content"] = f"{long_text_content}\n\n{html_embed_tag}"
 
-            await self._emit_status(__event_emitter__, "思维导图: 绘制完成！", True)
+            await self._emit_status(__event_emitter__, "思维导图: 绘制完成!", True)
             await self._emit_notification(
-                __event_emitter__, f"思维导图已生成，{user_name}！", "success"
+                __event_emitter__, f"思维导图已生成,{user_name}!", "success"
             )
-            logger.info("Action: 思维导图 (v12) completed successfully")
+            logger.info("Action: 思维导图 (v0.9.0) HTML 模式完成")
 
         except Exception as e:
             error_message = f"思维导图处理失败: {str(e)}"
             logger.error(f"思维导图错误: {error_message}", exc_info=True)
-            user_facing_error = f"抱歉，思维导图在处理时遇到错误: {str(e)}。\n请检查Open WebUI后端日志获取更多详情。"
+            user_facing_error = f"抱歉,思维导图在处理时遇到错误: {str(e)}。\n请检查Open WebUI后端日志获取更多详情。"
             body["messages"][-1][
                 "content"
             ] = f"{long_text_content}\n\n❌ **错误:** {user_facing_error}"
 
             await self._emit_status(__event_emitter__, "思维导图: 处理失败。", True)
             await self._emit_notification(
-                __event_emitter__, f"思维导图生成失败, {user_name}！", "error"
+                __event_emitter__, f"思维导图生成失败, {user_name}!", "error"
             )
 
         return body
