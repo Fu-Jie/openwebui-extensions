@@ -250,7 +250,7 @@ class OpenWebUIStats:
         texts = {
             "zh": {
                 "title": "# 📊 OpenWebUI 社区统计报告",
-                "updated": f"> 📅 更新时间 (北京): {get_beijing_time().strftime('%Y-%m-%d %H:%M')}",
+                "updated": f"> 📅 更新时间: {get_beijing_time().strftime('%Y-%m-%d %H:%M')}",
                 "overview_title": "## 📈 总览",
                 "overview_header": "| 指标 | 数值 |",
                 "posts": "📝 发布数量",
@@ -265,7 +265,7 @@ class OpenWebUIStats:
             },
             "en": {
                 "title": "# 📊 OpenWebUI Community Stats Report",
-                "updated": f"> 📅 Updated (Beijing Time): {get_beijing_time().strftime('%Y-%m-%d %H:%M')}",
+                "updated": f"> 📅 Updated: {get_beijing_time().strftime('%Y-%m-%d %H:%M')}",
                 "overview_title": "## 📈 Overview",
                 "overview_header": "| Metric | Value |",
                 "posts": "📝 Total Posts",
@@ -346,7 +346,7 @@ class OpenWebUIStats:
         texts = {
             "zh": {
                 "title": "## 📊 社区统计",
-                "updated": f"> 🕐 自动更新于 {get_beijing_time().strftime('%Y-%m-%d %H:%M')} (北京时间)",
+                "updated": f"> 🕐 自动更新于 {get_beijing_time().strftime('%Y-%m-%d %H:%M')}",
                 "author_header": "| 👤 作者 | 👥 粉丝 | ⭐ 积分 | 🏆 贡献 |",
                 "header": "| 📝 发布 | ⬇️ 下载 | 👁️ 浏览 | 👍 点赞 | 💾 收藏 |",
                 "top5_title": "### 🔥 热门插件 Top 5",
@@ -355,7 +355,7 @@ class OpenWebUIStats:
             },
             "en": {
                 "title": "## 📊 Community Stats",
-                "updated": f"> 🕐 Auto-updated: {get_beijing_time().strftime('%Y-%m-%d %H:%M')} (Beijing Time)",
+                "updated": f"> 🕐 Auto-updated: {get_beijing_time().strftime('%Y-%m-%d %H:%M')}",
                 "author_header": "| 👤 Author | 👥 Followers | ⭐ Points | 🏆 Contributions |",
                 "header": "| 📝 Posts | ⬇️ Downloads | 👁️ Views | 👍 Upvotes | 💾 Saves |",
                 "top5_title": "### 🔥 Top 5 Popular Plugins",
