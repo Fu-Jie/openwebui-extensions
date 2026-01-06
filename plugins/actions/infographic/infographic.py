@@ -978,8 +978,8 @@ class Action:
     const uniqueId = "{unique_id}";
     const chatId = "{chat_id}";
     const messageId = "{message_id}";
-    const defaultWidth = 1200;
-    const defaultHeight = 800;
+    const defaultWidth = 900;
+    const defaultHeight = 500;
     
     // Auto-detect chat container width for responsive sizing
     let svgWidth = defaultWidth;
@@ -988,8 +988,8 @@ class Action:
     if (chatContainer) {{
         const containerWidth = chatContainer.clientWidth;
         if (containerWidth > 100) {{
-            // Use container width with some padding (90% of container)
-            svgWidth = Math.floor(containerWidth * 0.9);
+            // Use container width with padding (80% of container, leaving more space on the right)
+            svgWidth = Math.floor(containerWidth * 0.8);
             // Maintain aspect ratio based on default dimensions
             svgHeight = Math.floor(svgWidth * (defaultHeight / defaultWidth));
             console.log("[Infographic Image] Auto-detected container width:", containerWidth, "-> SVG:", svgWidth, "x", svgHeight);

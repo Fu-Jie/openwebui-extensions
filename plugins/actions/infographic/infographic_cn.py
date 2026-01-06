@@ -1039,8 +1039,8 @@ class Action:
     const uniqueId = "{unique_id}";
     const chatId = "{chat_id}";
     const messageId = "{message_id}";
-    const defaultWidth = 1200;
-    const defaultHeight = 800;
+    const defaultWidth = 900;
+    const defaultHeight = 500;
     
     // 自动检测聊天容器宽度以实现响应式尺寸
     let svgWidth = defaultWidth;
@@ -1049,8 +1049,8 @@ class Action:
     if (chatContainer) {{
         const containerWidth = chatContainer.clientWidth;
         if (containerWidth > 100) {{
-            // 使用容器宽度的 90%
-            svgWidth = Math.floor(containerWidth * 0.9);
+            // 使用容器宽度的 80%（右边留更多空间）
+            svgWidth = Math.floor(containerWidth * 0.8);
             // 根据默认尺寸保持宽高比
             svgHeight = Math.floor(svgWidth * (defaultHeight / defaultWidth));
             console.log("[Infographic Image] 自动检测容器宽度:", containerWidth, "-> SVG:", svgWidth, "x", svgHeight);
