@@ -1039,7 +1039,7 @@ class Action:
     const uniqueId = "{unique_id}";
     const chatId = "{chat_id}";
     const messageId = "{message_id}";
-    const defaultWidth = 900;
+    const defaultWidth = 1100;
     const defaultHeight = 500;
     
     // 自动检测聊天容器宽度以实现响应式尺寸

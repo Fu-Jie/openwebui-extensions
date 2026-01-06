@@ -978,7 +978,7 @@ class Action:
     const uniqueId = "{unique_id}";
     const chatId = "{chat_id}";
     const messageId = "{message_id}";
-    const defaultWidth = 900;
+    const defaultWidth = 1100;
     const defaultHeight = 500;
     
     // Auto-detect chat container width for responsive sizing
