@@ -949,7 +949,7 @@ async def action(self, body, __event_call__, __metadata__, ...):
 #### 优势
 
 - **纯 Markdown 输出**：结果是标准的 Markdown 图片语法，无需 HTML 代码块
-- **自包含**：图片以 Base64 Data URL 嵌入，无外部依赖
+- **高效存储**：图片上传至 `/api/v1/files`，避免 Base64 字符串膨胀聊天记录
 - **持久化**：通过 API 回写，消息重新加载后图片仍然存在
 - **跨平台**：任何支持 Markdown 图片的客户端都能显示
 - **无服务端渲染依赖**：利用用户浏览器的渲染能力
@@ -960,7 +960,7 @@ async def action(self, body, __event_call__, __metadata__, ...):
 |------|-------------------------|------------------------|
 | 输出格式 | HTML 代码块 | Markdown 图片 |
 | 交互性 | ✅ 支持按钮、动画 | ❌ 静态图片 |
-| 外部依赖 | 需要加载 JS 库 | 无（图片自包含） |
+| 外部依赖 | 需要加载 JS 库 | 依赖 `/api/v1/files` 存储 |
 | 持久化 | 依赖浏览器渲染 | ✅ 永久可见 |
 | 文件导出 | 需特殊处理 | ✅ 直接导出 |
 | 适用场景 | 交互式内容 | 信息图、图表快照 |
@@ -970,7 +970,199 @@ async def action(self, body, __event_call__, __metadata__, ...):
 - `plugins/actions/js-render-poc/infographic_markdown.py` - AntV Infographic 生成并嵌入
 - `plugins/actions/js-render-poc/js_render_poc.py` - 基础概念验证
 
+### OpenWebUI Chat API 更新规范 (Chat API Update Specification)
 
+当插件需要修改消息内容并持久化到数据库时，必须遵循 OpenWebUI 的 Backend-Controlled API 流程。
+
+When a plugin needs to modify message content and persist it to the database, follow OpenWebUI's Backend-Controlled API flow.
+
+#### 核心概念 (Core Concepts)
+
+1. **Event API** (`/api/v1/chats/{chatId}/messages/{messageId}/event`)
+   - 用于**即时更新前端显示**，用户无需刷新页面
+   - 是可选的，部分版本可能不支持
+   - 仅影响当前会话的 UI，不持久化
+
+2. **Chat Persistence API** (`/api/v1/chats/{chatId}`)
+   - 用于**持久化到数据库**，确保刷新页面后数据仍存在
+   - 必须同时更新 `messages[]` 数组和 `history.messages` 对象
+   - 是消息持久化的唯一可靠方式
+
+#### 数据结构 (Data Structure)
+
+OpenWebUI 的 Chat 对象包含两个关键位置存储消息内容：
+
+```javascript
+{
+  "chat": {
+    "id": "chat-uuid",
+    "title": "Chat Title",
+    "messages": [                              // 1️⃣ 消息数组
+      { "id": "msg-1", "role": "user", "content": "..." },
+      { "id": "msg-2", "role": "assistant", "content": "..." }
+    ],
+    "history": {
+      "current_id": "msg-2",
+      "messages": {                            // 2️⃣ 消息索引对象
+        "msg-1": { "id": "msg-1", "role": "user", "content": "..." },
+        "msg-2": { "id": "msg-2", "role": "assistant", "content": "..." }
+      }
+    }
+  }
+}
+```
+
+> **重要**：修改消息时，**必须同时更新两个位置**，否则可能导致数据不一致。
+
+#### 标准实现流程 (Standard Implementation)
+
+```javascript
+(async function() {
+    const chatId = "{chat_id}";
+    const messageId = "{message_id}";
+    const token = localStorage.getItem("token");
+    
+    // 1️⃣ 获取当前 Chat 数据
+    const getResponse = await fetch(`/api/v1/chats/${chatId}`, {
+        method: "GET",
+        headers: { "Authorization": `Bearer ${token}` }
+    });
+    const chatData = await getResponse.json();
+    
+    // 2️⃣ 使用 map 遍历 messages，只修改目标消息
+    let newContent = "";
+    const updatedMessages = chatData.chat.messages.map(m => {
+        if (m.id === messageId) {
+            const originalContent = m.content || "";
+            newContent = originalContent + "\n\n" + newMarkdown;
+            
+            // 3️⃣ 同时更新 history.messages 中对应的消息
+            if (chatData.chat.history && chatData.chat.history.messages) {
+                if (chatData.chat.history.messages[messageId]) {
+                    chatData.chat.history.messages[messageId].content = newContent;
+                }
+            }
+            
+            // 4️⃣ 保留消息的其他属性，只修改 content
+            return { ...m, content: newContent };
+        }
+        return m;  // 其他消息原样返回
+    });
+    
+    // 5️⃣ 通过 Event API 即时更新前端（可选）
+    try {
+        await fetch(`/api/v1/chats/${chatId}/messages/${messageId}/event`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                type: "chat:message",
+                data: { content: newContent }
+            })
+        });
+    } catch (e) {
+        // Event API 是可选的，继续执行持久化
+        console.log("Event API not available, continuing...");
+    }
+    
+    // 6️⃣ 持久化到数据库（必须）
+    const updatePayload = {
+        chat: {
+            ...chatData.chat,      // 保留所有原有属性
+            messages: updatedMessages
+            // history 已在上面原地修改
+        }
+    };
+    
+    await fetch(`/api/v1/chats/${chatId}`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify(updatePayload)
+    });
+})();
+```
+
+#### 最佳实践 (Best Practices)
+
+1. **保留原有结构**：使用展开运算符 `...chatData.chat` 和 `...m` 确保不丢失任何原有属性
+2. **双位置更新**：必须同时更新 `messages[]` 和 `history.messages[id]`
+3. **错误处理**：Event API 调用应包裹在 try-catch 中，失败时继续持久化
+4. **重试机制**：对持久化 API 实现重试逻辑，提高可靠性
+
+```javascript
+// 带重试的请求函数
+const fetchWithRetry = async (url, options, retries = 3) => {
+    for (let i = 0; i < retries; i++) {
+        try {
+            const response = await fetch(url, options);
+            if (response.ok) return response;
+            if (i < retries - 1) {
+                await new Promise(r => setTimeout(r, 1000 * (i + 1)));  // 指数退避
+            }
+        } catch (e) {
+            if (i === retries - 1) throw e;
+            await new Promise(r => setTimeout(r, 1000 * (i + 1)));
+        }
+    }
+    return null;
+};
+```
+
+5. **禁止使用的 API**：不要使用 `/api/v1/chats/{chatId}/share` 作为持久化备用方案，该 API 用于分享功能，不是更新功能
+
+#### 提取 Chat ID 和 Message ID (Extracting IDs)
+
+```python
+def _extract_chat_id(self, body: dict, metadata: Optional[dict]) -> str:
+    """从 body 或 metadata 中提取 chat_id"""
+    if isinstance(body, dict):
+        chat_id = body.get("chat_id")
+        if isinstance(chat_id, str) and chat_id.strip():
+            return chat_id.strip()
+        
+        body_metadata = body.get("metadata", {})
+        if isinstance(body_metadata, dict):
+            chat_id = body_metadata.get("chat_id")
+            if isinstance(chat_id, str) and chat_id.strip():
+                return chat_id.strip()
+    
+    if isinstance(metadata, dict):
+        chat_id = metadata.get("chat_id")
+        if isinstance(chat_id, str) and chat_id.strip():
+            return chat_id.strip()
+    
+    return ""
+
+def _extract_message_id(self, body: dict, metadata: Optional[dict]) -> str:
+    """从 body 或 metadata 中提取 message_id"""
+    if isinstance(body, dict):
+        message_id = body.get("id")
+        if isinstance(message_id, str) and message_id.strip():
+            return message_id.strip()
+        
+        body_metadata = body.get("metadata", {})
+        if isinstance(body_metadata, dict):
+            message_id = body_metadata.get("message_id")
+            if isinstance(message_id, str) and message_id.strip():
+                return message_id.strip()
+    
+    if isinstance(metadata, dict):
+        message_id = metadata.get("message_id")
+        if isinstance(message_id, str) and message_id.strip():
+            return message_id.strip()
+    
+    return ""
+```
+
+#### 参考实现
+
+- `plugins/actions/smart-mind-map/smart_mind_map.py` - 思维导图图片模式实现
+- 官方文档: [Backend-Controlled, UI-Compatible API Flow](https://docs.openwebui.com/tutorials/tips/backend-controlled-ui-compatible-api-flow)
 
 ---
 

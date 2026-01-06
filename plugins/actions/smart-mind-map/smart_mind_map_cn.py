@@ -3,7 +3,7 @@ title: 思维导图
 author: Fu-Jie
 author_url: https://github.com/Fu-Jie
 funding_url: https://github.com/Fu-Jie/awesome-openwebui
-version: 0.9.0
+version: 0.9.1
 icon_url: data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxyZWN0IHg9IjE2IiB5PSIxNiIgd2lkdGg9IjYiIGhlaWdodD0iNiIgcng9IjEiLz48cmVjdCB4PSIyIiB5PSIxNiIgd2lkdGg9IjYiIGhlaWdodD0iNiIgcng9IjEiLz48cmVjdCB4PSI5IiB5PSIyIiB3aWR0aD0iNiIgaGVpZ2h0PSI2IiByeD0iMSIvPjxwYXRoIGQ9Ik01IDE2di0zYTEgMSAwIDAgMSAxLTFoMTJhMSAxIDAgMCAxIDEgMXYzIi8+PHBhdGggZD0iTTEyIDEyVjgiLz48L3N2Zz4=
 description: 智能分析文本内容,生成交互式思维导图,帮助用户结构化和可视化知识。
 """
@@ -789,14 +789,6 @@ class Action:
             default="html",
             description="输出模式: 'html' 为交互式HTML(默认),'image' 为嵌入Markdown图片。",
         )
-        SVG_WIDTH: int = Field(
-            default=1200,
-            description="SVG画布宽度(像素,用于图片模式)。",
-        )
-        SVG_HEIGHT: int = Field(
-            default=800,
-            description="SVG画布高度(像素,用于图片模式)。",
-        )
 
     def __init__(self):
         self.valves = self.Valves()
@@ -870,9 +862,7 @@ class Action:
         if match:
             extracted_content = match.group(1).strip()
         else:
-            logger.warning(
-                "LLM输出未严格遵循预期Markdown格式,将整个输出作为摘要处理。"
-            )
+            logger.warning("LLM输出未严格遵循预期Markdown格式,将整个输出作为摘要处理。")
             extracted_content = llm_output.strip()
         return extracted_content.replace("</script>", "<\\/script>")
 
@@ -958,27 +948,83 @@ class Action:
         chat_id: str,
         message_id: str,
         markdown_syntax: str,
-        svg_width: int,
-        svg_height: int,
     ) -> str:
         """生成用于前端 SVG 渲染和图片嵌入的 JavaScript 代码"""
-        
+
         # 转义语法以便嵌入 JS
         syntax_escaped = (
-            markdown_syntax
-            .replace("\\", "\\\\")
+            markdown_syntax.replace("\\", "\\\\")
             .replace("`", "\\`")
             .replace("${", "\\${")
             .replace("</script>", "<\\/script>")
         )
-        
+
         return f"""
 (async function() {{
     const uniqueId = "{unique_id}";
     const chatId = "{chat_id}";
     const messageId = "{message_id}";
-    const defaultWidth = {svg_width};
-    const defaultHeight = {svg_height};
+    const defaultWidth = 1200;
+    const defaultHeight = 800;
+    
+    // 主题检测 - 检查 OpenWebUI 当前主题
+    const detectTheme = () => {{
+        try {{
+            // 1. 检查 html/body 的 class 或 data-theme 属性
+            const html = document.documentElement;
+            const body = document.body;
+            const htmlClass = html ? html.className : '';
+            const bodyClass = body ? body.className : '';
+            const htmlDataTheme = html ? html.getAttribute('data-theme') : '';
+            
+            if (htmlDataTheme === 'dark' || bodyClass.includes('dark') || htmlClass.includes('dark')) {{
+                return 'dark';
+            }}
+            if (htmlDataTheme === 'light' || bodyClass.includes('light') || htmlClass.includes('light')) {{
+                return 'light';
+            }}
+            
+            // 2. 检查 meta theme-color
+            const metas = document.querySelectorAll('meta[name="theme-color"]');
+            if (metas.length > 0) {{
+                const color = metas[metas.length - 1].content.trim();
+                const m = color.match(/^#?([0-9a-f]{{6}})$/i);
+                if (m) {{
+                    const hex = m[1];
+                    const r = parseInt(hex.slice(0, 2), 16);
+                    const g = parseInt(hex.slice(2, 4), 16);
+                    const b = parseInt(hex.slice(4, 6), 16);
+                    const luma = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+                    return luma < 0.5 ? 'dark' : 'light';
+                }}
+            }}
+            
+            // 3. 检查系统偏好
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {{
+                return 'dark';
+            }}
+            
+            return 'light';
+        }} catch (e) {{
+            return 'light';
+        }}
+    }};
+    
+    const currentTheme = detectTheme();
+    console.log("[思维导图图片] 检测到主题:", currentTheme);
+    
+    // 基于主题的颜色配置
+    const colors = currentTheme === 'dark' ? {{
+        background: '#1f2937',
+        text: '#e5e7eb',
+        link: '#94a3b8',
+        nodeStroke: '#64748b'
+    }} : {{
+        background: '#ffffff',
+        text: '#1f2937',
+        link: '#546e7a',
+        nodeStroke: '#94a3b8'
+    }};
     
     // 自动检测聊天容器宽度以实现自适应
     let svgWidth = defaultWidth;
@@ -1053,7 +1099,7 @@ class Action:
         svgEl.setAttribute('height', svgHeight);
         svgEl.style.width = svgWidth + 'px';
         svgEl.style.height = svgHeight + 'px';
-        svgEl.style.backgroundColor = '#ffffff';
+        svgEl.style.backgroundColor = colors.background;
         container.appendChild(svgEl);
         
         // 将 markdown 转换为树结构
@@ -1081,23 +1127,23 @@ class Action:
         clonedSvg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
         clonedSvg.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
         
-        // 添加背景矩形
+        // 添加背景矩形(使用主题颜色)
         const bgRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
         bgRect.setAttribute('width', '100%');
         bgRect.setAttribute('height', '100%');
-        bgRect.setAttribute('fill', '#ffffff');
+        bgRect.setAttribute('fill', colors.background);
         clonedSvg.insertBefore(bgRect, clonedSvg.firstChild);
         
-        // 添加内联样式
+        // 添加内联样式(使用主题颜色)
         const style = document.createElementNS('http://www.w3.org/2000/svg', 'style');
         style.textContent = `
-            text {{ font-family: sans-serif; font-size: 14px; fill: #000000; }}
-            foreignObject, .markmap-foreign, .markmap-foreign div {{ color: #000000; font-family: sans-serif; font-size: 14px; }}
+            text {{ font-family: sans-serif; font-size: 14px; fill: ${{colors.text}}; }}
+            foreignObject, .markmap-foreign, .markmap-foreign div {{ color: ${{colors.text}}; font-family: sans-serif; font-size: 14px; }}
             h1 {{ font-size: 22px; font-weight: 700; margin: 0; }}
             h2 {{ font-size: 18px; font-weight: 600; margin: 0; }}
             strong {{ font-weight: 700; }}
-            .markmap-link {{ stroke: #546e7a; fill: none; }}
-            .markmap-node circle, .markmap-node rect {{ stroke: #94a3b8; }}
+            .markmap-link {{ stroke: ${{colors.link}}; fill: none; }}
+            .markmap-node circle, .markmap-node rect {{ stroke: ${{colors.nodeStroke}}; }}
         `;
         clonedSvg.insertBefore(style, bgRect.nextSibling);
         
@@ -1109,7 +1155,7 @@ class Action:
             const textEl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
             textEl.setAttribute('x', fo.getAttribute('x') || '0');
             textEl.setAttribute('y', (parseFloat(fo.getAttribute('y') || '0') + 14).toString());
-            textEl.setAttribute('fill', '#000000');
+            textEl.setAttribute('fill', colors.text);
             textEl.setAttribute('font-family', 'sans-serif');
             textEl.setAttribute('font-size', '14');
             textEl.textContent = text.trim();
@@ -1119,20 +1165,62 @@ class Action:
         
         // 序列化 SVG 为字符串
         const svgData = new XMLSerializer().serializeToString(clonedSvg);
-        const svgBase64 = btoa(unescape(encodeURIComponent(svgData)));
-        const dataUrl = 'data:image/svg+xml;base64,' + svgBase64;
         
-        console.log("[思维导图图片] Data URL 已生成,长度:", dataUrl.length);
-        
-        // 清理
+        // 清理容器
         document.body.removeChild(container);
         
-        // 生成 markdown 图片
-        const markdownImage = `![🧠 思维导图](${{dataUrl}})`;
+        // 将 SVG 字符串转换为 Blob
+        const blob = new Blob([svgData], {{ type: 'image/svg+xml' }});
+        const file = new File([blob], `mindmap-${{uniqueId}}.svg`, {{ type: 'image/svg+xml' }});
+        
+        // 上传文件到 OpenWebUI API
+        console.log("[思维导图图片] 正在上传 SVG 文件...");
+        const token = localStorage.getItem("token");
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        const uploadResponse = await fetch('/api/v1/files/', {{
+            method: 'POST',
+            headers: {{
+                'Authorization': `Bearer ${{token}}`
+            }},
+            body: formData
+        }});
+        
+        if (!uploadResponse.ok) {{
+            throw new Error(`上传失败: ${{uploadResponse.statusText}}`);
+        }}
+        
+        const fileData = await uploadResponse.json();
+        const fileId = fileData.id;
+        const imageUrl = `/api/v1/files/${{fileId}}/content`;
+        
+        console.log("[思维导图图片] 文件已上传, ID:", fileId);
+        
+        // 生成包含文件 URL 的 markdown 图片
+        const markdownImage = `![🧠 思维导图](${{imageUrl}})`;
         
         // 通过 API 更新消息
         if (chatId && messageId) {{
             const token = localStorage.getItem("token");
+            
+            // 带重试逻辑的请求函数
+            const fetchWithRetry = async (url, options, retries = 3) => {{
+                for (let i = 0; i < retries; i++) {{
+                    try {{
+                        const response = await fetch(url, options);
+                        if (response.ok) return response;
+                        if (i < retries - 1) {{
+                            console.log(`[思维导图图片] 重试 ${{i + 1}}/${{retries}}: ${{url}}`);
+                            await new Promise(r => setTimeout(r, 1000 * (i + 1)));
+                        }}
+                    }} catch (e) {{
+                        if (i === retries - 1) throw e;
+                        await new Promise(r => setTimeout(r, 1000 * (i + 1)));
+                    }}
+                }}
+                return null;
+            }};
             
             // 获取当前聊天数据
             const getResponse = await fetch(`/api/v1/chats/${{chatId}}`, {{
@@ -1145,24 +1233,26 @@ class Action:
             }}
             
             const chatData = await getResponse.json();
-            let originalContent = "";
             let updatedMessages = [];
+            let newContent = "";
             
             if (chatData.chat && chatData.chat.messages) {{
                 updatedMessages = chatData.chat.messages.map(m => {{
                     if (m.id === messageId) {{
-                        originalContent = m.content || "";
-                        // 移除已有的思维导图图片
-                        const mindmapPattern = /\\n*!\\[🧠[^\\]]*\\]\\(data:image\\/[^)]+\\)/g;
+                        const originalContent = m.content || "";
+                        // 移除已有的思维导图图片 (包括 base64 和文件 URL 格式)
+                        const mindmapPattern = /\\n*!\\[🧠[^\\]]*\\]\\((?:data:image\\/[^)]+|(?:\\/api\\/v1\\/files\\/[^)]+))\\)/g;
                         let cleanedContent = originalContent.replace(mindmapPattern, "");
                         cleanedContent = cleanedContent.replace(/\\n{{3,}}/g, "\\n\\n").trim();
                         // 追加新图片
-                        const newContent = cleanedContent + "\\n\\n" + markdownImage;
+                        newContent = cleanedContent + "\\n\\n" + markdownImage;
                         
                         // 关键: 同时更新 messages 数组和 history 对象中的内容
-                        // history 对象通常是数据库的单一真值来源
-                        if (chatData.chat.history && chatData.chat.history.messages && chatData.chat.history.messages[messageId]) {{
-                            chatData.chat.history.messages[messageId].content = newContent;
+                        // history 对象是数据库的单一真值来源
+                        if (chatData.chat.history && chatData.chat.history.messages) {{
+                            if (chatData.chat.history.messages[messageId]) {{
+                                chatData.chat.history.messages[messageId].content = newContent;
+                            }}
                         }}
                         
                         return {{ ...m, content: newContent }};
@@ -1171,28 +1261,40 @@ class Action:
                 }});
             }}
             
-            // 第一步: 通过事件 API 更新前端显示(立即视觉反馈)
-            await fetch(`/api/v1/chats/${{chatId}}/messages/${{messageId}}/event`, {{
-                method: "POST",
-                headers: {{
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${{token}}`
-                }},
-                body: JSON.stringify({{
-                    type: "chat:message",
-                    data: {{ content: updatedMessages.find(m => m.id === messageId)?.content || "" }}
-                }})
-            }});
+            if (!newContent) {{
+                console.warn("[思维导图图片] 找不到要更新的消息");
+                return;
+            }}
             
-            // 第二步: 通过更新整个聊天来持久化到数据库
+            // 尝试通过事件 API 更新前端显示(可选,部分版本可能不支持)
+            try {{
+                await fetch(`/api/v1/chats/${{chatId}}/messages/${{messageId}}/event`, {{
+                    method: "POST",
+                    headers: {{
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${{token}}`
+                    }},
+                    body: JSON.stringify({{
+                        type: "chat:message",
+                        data: {{ content: newContent }}
+                    }})
+                }});
+            }} catch (eventErr) {{
+                // 事件 API 是可选的,继续执行持久化
+                console.log("[思维导图图片] 事件 API 不可用,继续执行...");
+            }}
+            
+            // 通过更新整个聊天对象来持久化到数据库
+            // 遵循 OpenWebUI 后端控制的 API 流程
             const updatePayload = {{
                 chat: {{
                     ...chatData.chat,
                     messages: updatedMessages
+                    // history 已在上面原地更新
                 }}
             }};
             
-            const persistResponse = await fetch(`/api/v1/chats/${{chatId}}`, {{
+            const persistResponse = await fetchWithRetry(`/api/v1/chats/${{chatId}}`, {{
                 method: "POST",
                 headers: {{
                     "Content-Type": "application/json",
@@ -1201,22 +1303,13 @@ class Action:
                 body: JSON.stringify(updatePayload)
             }});
             
-            if (persistResponse.ok) {{
+            if (persistResponse && persistResponse.ok) {{
                 console.log("[思维导图图片] ✅ 消息已持久化保存!");
             }} else {{
-                console.error("[思维导图图片] 持久化 API 错误:", persistResponse.status);
-                // 尝试备用更新方法
-                const altResponse = await fetch(`/api/v1/chats/${{chatId}}/share`, {{
-                    method: "POST",
-                    headers: {{
-                        "Content-Type": "application/json",
-                        "Authorization": `Bearer ${{token}}`
-                    }}
-                }});
-                console.log("[思维导图图片] 备用持久化尝试:", altResponse.status);
+                console.error("[思维导图图片] ❌ 重试后仍然无法持久化消息");
             }}
         }} else {{
-            console.warn("[思维导图图片] ⚠️ 缺少 chatId 或 messageId");
+            console.warn("[思维导图图片] ⚠️ 缺少 chatId 或 messageId,无法持久化");
         }}
         
     }} catch (error) {{
@@ -1234,7 +1327,7 @@ class Action:
         __metadata__: Optional[dict] = None,
         __request__: Optional[Request] = None,
     ) -> Optional[dict]:
-        logger.info("Action: 思维导图 (v12 - Final Feedback Fix) started")
+        logger.info("Action: 思维导图 (v0.9.1) started")
         user_ctx = self._get_user_context(__user__)
         user_language = user_ctx["user_language"]
         user_name = user_ctx["user_name"]
@@ -1416,30 +1509,28 @@ class Action:
                 # 图片模式: 使用 JavaScript 渲染并嵌入为 Markdown 图片
                 chat_id = self._extract_chat_id(body, __metadata__)
                 message_id = self._extract_message_id(body, __metadata__)
-                
+
                 await self._emit_status(
                     __event_emitter__,
                     "思维导图: 正在渲染图片...",
                     False,
                 )
-                
+
                 if __event_call__:
                     js_code = self._generate_image_js_code(
                         unique_id=unique_id,
                         chat_id=chat_id,
                         message_id=message_id,
                         markdown_syntax=markdown_syntax,
-                        svg_width=self.valves.SVG_WIDTH,
-                        svg_height=self.valves.SVG_HEIGHT,
                     )
-                    
+
                     await __event_call__(
                         {
                             "type": "execute",
                             "data": {"code": js_code},
                         }
                     )
-                
+
                 await self._emit_status(
                     __event_emitter__, "思维导图: 图片已生成!", True
                 )
@@ -1448,9 +1539,9 @@ class Action:
                     f"思维导图图片已生成,{user_name}!",
                     "success",
                 )
-                logger.info("Action: 思维导图 (v0.9.0) 图片模式完成")
+                logger.info("Action: 思维导图 (v0.9.1) 图片模式完成")
                 return body
-            
+
             # HTML 模式(默认): 嵌入为 HTML 块
             html_embed_tag = f"```html\n{final_html}\n```"
             body["messages"][-1]["content"] = f"{long_text_content}\n\n{html_embed_tag}"
@@ -1459,7 +1550,7 @@ class Action:
             await self._emit_notification(
                 __event_emitter__, f"思维导图已生成,{user_name}!", "success"
             )
-            logger.info("Action: 思维导图 (v0.9.0) HTML 模式完成")
+            logger.info("Action: 思维导图 (v0.9.1) HTML 模式完成")
 
         except Exception as e:
             error_message = f"思维导图处理失败: {str(e)}"

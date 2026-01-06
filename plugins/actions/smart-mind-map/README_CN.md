@@ -1,6 +1,6 @@
 # 思维导图 - 思维导图生成插件
 
-**作者:** [Fu-Jie](https://github.com/Fu-Jie) | **版本:** 0.8.2 | **许可证:** MIT
+**作者:** [Fu-Jie](https://github.com/Fu-Jie) | **版本:** 0.9.1 | **许可证:** MIT
 
 > **重要提示**：为了确保所有插件的可维护性和易用性，每个插件都应附带清晰、完整的文档，以确保其功能、配置和使用方法得到充分说明。
 
@@ -20,6 +20,7 @@
 - ✅ **实时渲染**：在聊天界面中直接渲染思维导图，无需跳转
 - ✅ **导出功能**：支持 PNG、SVG 代码和 Markdown 源码导出
 - ✅ **自定义配置**：可配置 LLM 模型、最小文本长度等参数
+- ✅ **图片输出模式**：生成静态 SVG 图片直接嵌入 Markdown（无交互式 HTML）
 
 ---
 
@@ -80,6 +81,7 @@
 | `MIN_TEXT_LENGTH` | `100` | 进行思维导图分析所需的最小文本长度（字符数）。文本过短将无法生成有效的导图。 |
 | `CLEAR_PREVIOUS_HTML` | `false` | 在生成新的思维导图时，是否清除之前由插件生成的 HTML 内容。 |
 | `MESSAGE_COUNT` | `1` | 用于生成思维导图的最近消息数量（1-5）。 |
+| `OUTPUT_MODE` | `html` | 输出模式：`html` 为交互式 HTML（默认），`image` 为嵌入静态 Markdown 图片。 |
 
 ---
 
@@ -276,6 +278,32 @@
 ---
 
 ## 更新日志
+
+### v0.9.1
+
+**新功能：图片输出模式**
+
+- 新增 `OUTPUT_MODE` 配置参数，支持两种模式：
+  - `html`（默认）：交互式 HTML 思维导图，带完整控制面板
+  - `image`：静态 SVG 图片直接嵌入 Markdown（上传至 `/api/v1/files`）
+- 图片模式特性：
+  - 自动响应式宽度（适应聊天容器）
+  - 自动主题检测（亮色/暗色）
+  - 通过 Chat API 持久化存储（刷新页面后保留）
+  - 高效文件存储（聊天记录中无超长 Base64 字符串）
+
+**改进项：**
+
+- 实现健壮的 Chat API 更新机制，带重试逻辑
+- 修复消息持久化，同时更新 `messages[]` 和 `history.messages`
+- 添加 Event API 实现即时前端更新
+- 移除不必要的 `SVG_WIDTH` 和 `SVG_HEIGHT` 参数（现已自动计算）
+
+**技术细节：**
+
+- 图片模式使用 `__event_call__` 在浏览器中执行 JavaScript
+- SVG 离屏渲染，转换为 Blob，并上传至 OpenWebUI Files API
+- 通过 OpenWebUI Backend-Controlled API 流程更新聊天消息为 `/api/v1/files/{id}/content` URL
 
 ### v0.8.2
 

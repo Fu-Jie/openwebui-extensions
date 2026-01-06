@@ -3,7 +3,7 @@ title: Smart Mind Map
 author: Fu-Jie
 author_url: https://github.com/Fu-Jie
 funding_url: https://github.com/Fu-Jie/awesome-openwebui
-version: 0.9.0
+version: 0.9.1
 icon_url: data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxyZWN0IHg9IjE2IiB5PSIxNiIgd2lkdGg9IjYiIGhlaWdodD0iNiIgcng9IjEiLz48cmVjdCB4PSIyIiB5PSIxNiIgd2lkdGg9IjYiIGhlaWdodD0iNiIgcng9IjEiLz48cmVjdCB4PSI5IiB5PSIyIiB3aWR0aD0iNiIgaGVpZ2h0PSI2IiByeD0iMSIvPjxwYXRoIGQ9Ik01IDE2di0zYTEgMSAwIDAgMSAxLTFoMTJhMSAxIDAgMCAxIDEgMXYzIi8+PHBhdGggZD0iTTEyIDEyVjgiLz48L3N2Zz4=
 description: Intelligently analyzes text content and generates interactive mind maps to help users structure and visualize knowledge.
 """
@@ -790,14 +790,6 @@ class Action:
             default="html",
             description="Output mode: 'html' for interactive HTML (default), or 'image' to embed as Markdown image.",
         )
-        SVG_WIDTH: int = Field(
-            default=1200,
-            description="Width of the SVG canvas in pixels (for image mode).",
-        )
-        SVG_HEIGHT: int = Field(
-            default=800,
-            description="Height of the SVG canvas in pixels (for image mode).",
-        )
 
     def __init__(self):
         self.valves = self.Valves()
@@ -959,27 +951,83 @@ class Action:
         chat_id: str,
         message_id: str,
         markdown_syntax: str,
-        svg_width: int,
-        svg_height: int,
     ) -> str:
         """Generate JavaScript code for frontend SVG rendering and image embedding"""
-        
+
         # Escape the syntax for JS embedding
         syntax_escaped = (
-            markdown_syntax
-            .replace("\\", "\\\\")
+            markdown_syntax.replace("\\", "\\\\")
             .replace("`", "\\`")
             .replace("${", "\\${")
             .replace("</script>", "<\\/script>")
         )
-        
+
         return f"""
 (async function() {{
     const uniqueId = "{unique_id}";
     const chatId = "{chat_id}";
     const messageId = "{message_id}";
-    const defaultWidth = {svg_width};
-    const defaultHeight = {svg_height};
+    const defaultWidth = 1200;
+    const defaultHeight = 800;
+    
+    // Theme detection - check parent document for OpenWebUI theme
+    const detectTheme = () => {{
+        try {{
+            // 1. Check parent document's html/body class or data-theme
+            const html = document.documentElement;
+            const body = document.body;
+            const htmlClass = html ? html.className : '';
+            const bodyClass = body ? body.className : '';
+            const htmlDataTheme = html ? html.getAttribute('data-theme') : '';
+            
+            if (htmlDataTheme === 'dark' || bodyClass.includes('dark') || htmlClass.includes('dark')) {{
+                return 'dark';
+            }}
+            if (htmlDataTheme === 'light' || bodyClass.includes('light') || htmlClass.includes('light')) {{
+                return 'light';
+            }}
+            
+            // 2. Check meta theme-color
+            const metas = document.querySelectorAll('meta[name="theme-color"]');
+            if (metas.length > 0) {{
+                const color = metas[metas.length - 1].content.trim();
+                const m = color.match(/^#?([0-9a-f]{{6}})$/i);
+                if (m) {{
+                    const hex = m[1];
+                    const r = parseInt(hex.slice(0, 2), 16);
+                    const g = parseInt(hex.slice(2, 4), 16);
+                    const b = parseInt(hex.slice(4, 6), 16);
+                    const luma = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+                    return luma < 0.5 ? 'dark' : 'light';
+                }}
+            }}
+            
+            // 3. Check system preference
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {{
+                return 'dark';
+            }}
+            
+            return 'light';
+        }} catch (e) {{
+            return 'light';
+        }}
+    }};
+    
+    const currentTheme = detectTheme();
+    console.log("[MindMap Image] Detected theme:", currentTheme);
+    
+    // Theme-based colors
+    const colors = currentTheme === 'dark' ? {{
+        background: '#1f2937',
+        text: '#e5e7eb',
+        link: '#94a3b8',
+        nodeStroke: '#64748b'
+    }} : {{
+        background: '#ffffff',
+        text: '#1f2937',
+        link: '#546e7a',
+        nodeStroke: '#94a3b8'
+    }};
     
     // Auto-detect chat container width for responsive sizing
     let svgWidth = defaultWidth;
@@ -1054,7 +1102,7 @@ class Action:
         svgEl.setAttribute('height', svgHeight);
         svgEl.style.width = svgWidth + 'px';
         svgEl.style.height = svgHeight + 'px';
-        svgEl.style.backgroundColor = '#ffffff';
+        svgEl.style.backgroundColor = colors.background;
         container.appendChild(svgEl);
         
         // Transform markdown to tree
@@ -1082,23 +1130,23 @@ class Action:
         clonedSvg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
         clonedSvg.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
         
-        // Add background rect
+        // Add background rect with theme color
         const bgRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
         bgRect.setAttribute('width', '100%');
         bgRect.setAttribute('height', '100%');
-        bgRect.setAttribute('fill', '#ffffff');
+        bgRect.setAttribute('fill', colors.background);
         clonedSvg.insertBefore(bgRect, clonedSvg.firstChild);
         
-        // Add inline styles
+        // Add inline styles with theme colors
         const style = document.createElementNS('http://www.w3.org/2000/svg', 'style');
         style.textContent = `
-            text {{ font-family: sans-serif; font-size: 14px; fill: #000000; }}
-            foreignObject, .markmap-foreign, .markmap-foreign div {{ color: #000000; font-family: sans-serif; font-size: 14px; }}
+            text {{ font-family: sans-serif; font-size: 14px; fill: ${{colors.text}}; }}
+            foreignObject, .markmap-foreign, .markmap-foreign div {{ color: ${{colors.text}}; font-family: sans-serif; font-size: 14px; }}
             h1 {{ font-size: 22px; font-weight: 700; margin: 0; }}
             h2 {{ font-size: 18px; font-weight: 600; margin: 0; }}
             strong {{ font-weight: 700; }}
-            .markmap-link {{ stroke: #546e7a; fill: none; }}
-            .markmap-node circle, .markmap-node rect {{ stroke: #94a3b8; }}
+            .markmap-link {{ stroke: ${{colors.link}}; fill: none; }}
+            .markmap-node circle, .markmap-node rect {{ stroke: ${{colors.nodeStroke}}; }}
         `;
         clonedSvg.insertBefore(style, bgRect.nextSibling);
         
@@ -1110,7 +1158,7 @@ class Action:
             const textEl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
             textEl.setAttribute('x', fo.getAttribute('x') || '0');
             textEl.setAttribute('y', (parseFloat(fo.getAttribute('y') || '0') + 14).toString());
-            textEl.setAttribute('fill', '#000000');
+            textEl.setAttribute('fill', colors.text);
             textEl.setAttribute('font-family', 'sans-serif');
             textEl.setAttribute('font-size', '14');
             textEl.textContent = text.trim();
@@ -1120,20 +1168,61 @@ class Action:
         
         // Serialize SVG to string
         const svgData = new XMLSerializer().serializeToString(clonedSvg);
-        const svgBase64 = btoa(unescape(encodeURIComponent(svgData)));
-        const dataUrl = 'data:image/svg+xml;base64,' + svgBase64;
         
-        console.log("[MindMap Image] Data URL generated, length:", dataUrl.length);
-        
-        // Cleanup
+        // Cleanup container
         document.body.removeChild(container);
         
-        // Generate markdown image
-        const markdownImage = `![🧠 Mind Map](${{dataUrl}})`;
+        // Convert SVG string to Blob
+        const blob = new Blob([svgData], {{ type: 'image/svg+xml' }});
+        const file = new File([blob], `mindmap-${{uniqueId}}.svg`, {{ type: 'image/svg+xml' }});
+        
+        // Upload file to OpenWebUI API
+        console.log("[MindMap Image] Uploading SVG file...");
+        const token = localStorage.getItem("token");
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        const uploadResponse = await fetch('/api/v1/files/', {{
+            method: 'POST',
+            headers: {{
+                'Authorization': `Bearer ${{token}}`
+            }},
+            body: formData
+        }});
+        
+        if (!uploadResponse.ok) {{
+            throw new Error(`Upload failed: ${{uploadResponse.statusText}}`);
+        }}
+        
+        const fileData = await uploadResponse.json();
+        const fileId = fileData.id;
+        const imageUrl = `/api/v1/files/${{fileId}}/content`;
+        
+        console.log("[MindMap Image] File uploaded, ID:", fileId);
+        
+        // Generate markdown image with file URL
+        const markdownImage = `![🧠 Mind Map](${{imageUrl}})`;
         
         // Update message via API
         if (chatId && messageId) {{
-            const token = localStorage.getItem("token");
+            
+            // Helper function with retry logic
+            const fetchWithRetry = async (url, options, retries = 3) => {{
+                for (let i = 0; i < retries; i++) {{
+                    try {{
+                        const response = await fetch(url, options);
+                        if (response.ok) return response;
+                        if (i < retries - 1) {{
+                            console.log(`[MindMap Image] Retry ${{i + 1}}/${{retries}} for ${{url}}`);
+                            await new Promise(r => setTimeout(r, 1000 * (i + 1)));
+                        }}
+                    }} catch (e) {{
+                        if (i === retries - 1) throw e;
+                        await new Promise(r => setTimeout(r, 1000 * (i + 1)));
+                    }}
+                }}
+                return null;
+            }};
             
             // Get current chat data
             const getResponse = await fetch(`/api/v1/chats/${{chatId}}`, {{
@@ -1146,24 +1235,26 @@ class Action:
             }}
             
             const chatData = await getResponse.json();
-            let originalContent = "";
             let updatedMessages = [];
+            let newContent = "";
             
             if (chatData.chat && chatData.chat.messages) {{
                 updatedMessages = chatData.chat.messages.map(m => {{
                     if (m.id === messageId) {{
-                        originalContent = m.content || "";
-                        // Remove existing mindmap images
-                        const mindmapPattern = /\\n*!\\[🧠[^\\]]*\\]\\(data:image\\/[^)]+\\)/g;
+                        const originalContent = m.content || "";
+                        // Remove existing mindmap images (both base64 and file URL patterns)
+                        const mindmapPattern = /\\n*!\\[🧠[^\\]]*\\]\\((?:data:image\\/[^)]+|(?:\\/api\\/v1\\/files\\/[^)]+))\\)/g;
                         let cleanedContent = originalContent.replace(mindmapPattern, "");
                         cleanedContent = cleanedContent.replace(/\\n{{3,}}/g, "\\n\\n").trim();
                         // Append new image
-                        const newContent = cleanedContent + "\\n\\n" + markdownImage;
+                        newContent = cleanedContent + "\\n\\n" + markdownImage;
                         
                         // Critical: Update content in both messages array AND history object
-                        // The history object is often the source of truth for the database
-                        if (chatData.chat.history && chatData.chat.history.messages && chatData.chat.history.messages[messageId]) {{
-                            chatData.chat.history.messages[messageId].content = newContent;
+                        // The history object is the source of truth for the database
+                        if (chatData.chat.history && chatData.chat.history.messages) {{
+                            if (chatData.chat.history.messages[messageId]) {{
+                                chatData.chat.history.messages[messageId].content = newContent;
+                            }}
                         }}
                         
                         return {{ ...m, content: newContent }};
@@ -1172,28 +1263,40 @@ class Action:
                 }});
             }}
             
-            // First: Update frontend display via event API (for immediate visual feedback)
-            await fetch(`/api/v1/chats/${{chatId}}/messages/${{messageId}}/event`, {{
-                method: "POST",
-                headers: {{
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${{token}}`
-                }},
-                body: JSON.stringify({{
-                    type: "chat:message",
-                    data: {{ content: updatedMessages.find(m => m.id === messageId)?.content || "" }}
-                }})
-            }});
+            if (!newContent) {{
+                console.warn("[MindMap Image] Could not find message to update");
+                return;
+            }}
             
-            // Second: Persist to database by updating the entire chat
+            // Try to update frontend display via event API (optional, may not exist in all versions)
+            try {{
+                await fetch(`/api/v1/chats/${{chatId}}/messages/${{messageId}}/event`, {{
+                    method: "POST",
+                    headers: {{
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${{token}}`
+                    }},
+                    body: JSON.stringify({{
+                        type: "chat:message",
+                        data: {{ content: newContent }}
+                    }})
+                }});
+            }} catch (eventErr) {{
+                // Event API is optional, continue with persistence
+                console.log("[MindMap Image] Event API not available, continuing...");
+            }}
+            
+            // Persist to database by updating the entire chat object
+            // This follows the OpenWebUI Backend-Controlled API Flow
             const updatePayload = {{
                 chat: {{
                     ...chatData.chat,
                     messages: updatedMessages
+                    // history is already updated in-place above
                 }}
             }};
             
-            const persistResponse = await fetch(`/api/v1/chats/${{chatId}}`, {{
+            const persistResponse = await fetchWithRetry(`/api/v1/chats/${{chatId}}`, {{
                 method: "POST",
                 headers: {{
                     "Content-Type": "application/json",
@@ -1202,22 +1305,13 @@ class Action:
                 body: JSON.stringify(updatePayload)
             }});
             
-            if (persistResponse.ok) {{
+            if (persistResponse && persistResponse.ok) {{
                 console.log("[MindMap Image] ✅ Message persisted successfully!");
             }} else {{
-                console.error("[MindMap Image] Persist API error:", persistResponse.status);
-                // Try alternative update method
-                const altResponse = await fetch(`/api/v1/chats/${{chatId}}/share`, {{
-                    method: "POST",
-                    headers: {{
-                        "Content-Type": "application/json",
-                        "Authorization": `Bearer ${{token}}`
-                    }}
-                }});
-                console.log("[MindMap Image] Alt persist attempted:", altResponse.status);
+                console.error("[MindMap Image] ❌ Failed to persist message after retries");
             }}
         }} else {{
-            console.warn("[MindMap Image] ⚠️ Missing chatId or messageId");
+            console.warn("[MindMap Image] ⚠️ Missing chatId or messageId, cannot persist");
         }}
         
     }} catch (error) {{
@@ -1235,7 +1329,7 @@ class Action:
         __metadata__: Optional[dict] = None,
         __request__: Optional[Request] = None,
     ) -> Optional[dict]:
-        logger.info("Action: Smart Mind Map (v0.8.0) started")
+        logger.info("Action: Smart Mind Map (v0.9.1) started")
         user_ctx = self._get_user_context(__user__)
         user_language = user_ctx["user_language"]
         user_name = user_ctx["user_name"]
@@ -1422,30 +1516,28 @@ class Action:
                 # Image mode: use JavaScript to render and embed as Markdown image
                 chat_id = self._extract_chat_id(body, __metadata__)
                 message_id = self._extract_message_id(body, __metadata__)
-                
+
                 await self._emit_status(
                     __event_emitter__,
                     "Smart Mind Map: Rendering image...",
                     False,
                 )
-                
+
                 if __event_call__:
                     js_code = self._generate_image_js_code(
                         unique_id=unique_id,
                         chat_id=chat_id,
                         message_id=message_id,
                         markdown_syntax=markdown_syntax,
-                        svg_width=self.valves.SVG_WIDTH,
-                        svg_height=self.valves.SVG_HEIGHT,
                     )
-                    
+
                     await __event_call__(
                         {
                             "type": "execute",
                             "data": {"code": js_code},
                         }
                     )
-                
+
                 await self._emit_status(
                     __event_emitter__, "Smart Mind Map: Image generated!", True
                 )
@@ -1454,9 +1546,9 @@ class Action:
                     f"Mind map image has been generated, {user_name}!",
                     "success",
                 )
-                logger.info("Action: Smart Mind Map (v0.9.0) completed in image mode")
+                logger.info("Action: Smart Mind Map (v0.9.1) completed in image mode")
                 return body
-            
+
             # HTML mode (default): embed as HTML block
             html_embed_tag = f"```html\n{final_html}\n```"
             body["messages"][-1]["content"] = f"{long_text_content}\n\n{html_embed_tag}"
@@ -1469,7 +1561,7 @@ class Action:
                 f"Mind map has been generated, {user_name}!",
                 "success",
             )
-            logger.info("Action: Smart Mind Map (v0.9.0) completed in HTML mode")
+            logger.info("Action: Smart Mind Map (v0.9.1) completed in HTML mode")
 
         except Exception as e:
             error_message = f"Smart Mind Map processing failed: {str(e)}"

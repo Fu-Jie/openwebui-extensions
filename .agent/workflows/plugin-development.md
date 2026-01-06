@@ -25,6 +25,10 @@ Every plugin **MUST** have bilingual versions for both code and documentation:
 - **Valves**: Use `pydantic` for configuration.
 - **Database**: Re-use `open_webui.internal.db` shared connection.
 - **User Context**: Use `_get_user_context` helper method.
+- **Chat API**: For message updates, follow the "OpenWebUI Chat API 更新规范" in `.github/copilot-instructions.md`.
+  - Use Event API for immediate UI updates
+  - Use Chat Persistence API for database storage
+  - Always update both `messages[]` and `history.messages`
 
 ### Commit Messages
 - **Language**: **English ONLY**. Do not use Chinese in commit messages.

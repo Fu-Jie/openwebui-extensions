@@ -1,6 +1,6 @@
 # Smart Mind Map - Mind Mapping Generation Plugin
 
-**Author:** [Fu-Jie](https://github.com/Fu-Jie) | **Version:** 0.8.2 | **License:** MIT
+**Author:** [Fu-Jie](https://github.com/Fu-Jie) | **Version:** 0.9.1 | **License:** MIT
 
 > **Important**: To ensure the maintainability and usability of all plugins, each plugin should be accompanied by clear and comprehensive documentation to ensure its functionality, configuration, and usage are well explained.
 
@@ -20,6 +20,7 @@ Smart Mind Map is a powerful OpenWebUI action plugin that intelligently analyzes
 - ✅ **Real-time Rendering**: Renders mind maps directly in the chat interface without navigation
 - ✅ **Export Capabilities**: Supports PNG, SVG code, and Markdown source export
 - ✅ **Customizable Configuration**: Configurable LLM model, minimum text length, and other parameters
+- ✅ **Image Output Mode**: Generate static SVG images embedded directly in Markdown (no interactive HTML)
 
 ---
 
@@ -80,6 +81,7 @@ You can adjust the following parameters in the plugin's settings (Valves):
 | `MIN_TEXT_LENGTH` | `100` | Minimum text length (in characters) required for mind map analysis. Text that's too short cannot generate valid mind maps. |
 | `CLEAR_PREVIOUS_HTML` | `false` | Whether to clear previous plugin-generated HTML content when generating a new mind map. |
 | `MESSAGE_COUNT` | `1` | Number of recent messages to use for mind map generation (1-5). |
+| `OUTPUT_MODE` | `html` | Output mode: `html` for interactive HTML (default), or `image` to embed as static Markdown image. |
 
 ---
 
@@ -276,6 +278,32 @@ This plugin uses only OpenWebUI's built-in dependencies. **No additional package
 ---
 
 ## Changelog
+
+### v0.9.1
+
+**New Feature: Image Output Mode**
+
+- Added `OUTPUT_MODE` configuration parameter with two options:
+  - `html` (default): Interactive HTML mind map with full control panel
+  - `image`: Static SVG image embedded directly in Markdown (uploaded to `/api/v1/files`)
+- Image mode features:
+  - Auto-responsive width (adapts to chat container)
+  - Automatic theme detection (light/dark)
+  - Persistent storage via Chat API (survives page refresh)
+  - Efficient file storage (no huge base64 strings in chat history)
+
+**Improvements:**
+
+- Implemented robust Chat API update mechanism with retry logic
+- Fixed message persistence using both `messages[]` and `history.messages`
+- Added Event API for immediate frontend updates
+- Removed unnecessary `SVG_WIDTH` and `SVG_HEIGHT` parameters (now auto-calculated)
+
+**Technical Details:**
+
+- Image mode uses `__event_call__` to execute JavaScript in the browser
+- SVG is rendered offline, converted to Blob, and uploaded to OpenWebUI Files API
+- Updates chat message with `/api/v1/files/{id}/content` URL via OpenWebUI Backend-Controlled API flow
 
 ### v0.8.2
 
