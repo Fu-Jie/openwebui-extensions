@@ -7,7 +7,7 @@ OpenWebUI 增强功能集合。包含个人开发与收集的插件、提示词�
 <!-- STATS_START -->
 ## 📊 社区统计
 
-> 🕐 自动更新于 2026-01-07 15:11
+> 🕐 自动更新于 2026-01-07 16:11
 
 | 👤 作者 | 👥 粉丝 | ⭐ 积分 | 🏆 贡献 |
 |:---:|:---:|:---:|:---:|
@@ -15,17 +15,17 @@ OpenWebUI 增强功能集合。包含个人开发与收集的插件、提示词�
 
 | 📝 发布 | ⬇️ 下载 | 👁️ 浏览 | 👍 点赞 | 💾 收藏 |
 |:---:|:---:|:---:|:---:|:---:|
-| **11** | **851** | **9042** | **54** | **48** |
+| **11** | **852** | **9058** | **54** | **48** |
 
 ### 🔥 热门插件 Top 5
 
 | 排名 | 插件 | 下载 | 浏览 |
 |:---:|------|:---:|:---:|
-| 🥇 | [Turn Any Text into Beautiful Mind Maps](https://openwebui.com/posts/turn_any_text_into_beautiful_mind_maps_3094c59a) | 268 | 2341 |
+| 🥇 | [Turn Any Text into Beautiful Mind Maps](https://openwebui.com/posts/turn_any_text_into_beautiful_mind_maps_3094c59a) | 268 | 2343 |
 | 🥈 | [Export to Excel](https://openwebui.com/posts/export_mulit_table_to_excel_244b8f9d) | 173 | 475 |
 | 🥉 | [Async Context Compression](https://openwebui.com/posts/async_context_compression_b1655bc8) | 117 | 1275 |
-| 4️⃣ | [Flash Card ](https://openwebui.com/posts/flash_card_65a2ea8f) | 79 | 1491 |
-| 5️⃣ | [Smart Infographic](https://openwebui.com/posts/smart_infographic_ad6f0c7f) | 72 | 999 |
+| 4️⃣ | [Flash Card ](https://openwebui.com/posts/flash_card_65a2ea8f) | 79 | 1492 |
+| 5️⃣ | [Smart Infographic](https://openwebui.com/posts/smart_infographic_ad6f0c7f) | 73 | 1011 |
 
 *完整统计请查看 [社区统计报告](./docs/community-stats.md)*
 <!-- STATS_END -->
