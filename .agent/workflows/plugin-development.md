@@ -82,6 +82,11 @@ Reference: `.github/workflows/release.yml`
     - Generates release notes based on changes.
     - Creates a GitHub Release tag (e.g., `v2024.01.01-1`).
     - Uploads individual `.py` files of **changed plugins only** as assets.
+4.  **Market Publishing**:
+    - Workflow: `.github/workflows/publish_plugin.yml`
+    - Trigger: Release published.
+    - Action: Automatically updates the plugin code and metadata on OpenWebUI.com using `scripts/publish_plugin.py`.
+    - Requirement: `OPENWEBUI_API_KEY` secret must be set.
 
 ### Pull Request Check
 - Workflow: `.github/workflows/plugin-version-check.yml`
