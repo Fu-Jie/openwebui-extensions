@@ -35,38 +35,71 @@ plugins/actions/export_to_docx/
 
 所有插件 README 必须遵循以下统一结构顺序：
 
-1.  **标题 (Title)**: 插件名称
-2.  **元数据 (Metadata)**: 作者、版本、许可证、项目链接 (一行显示)
-    - 格式: `**Author:** [Name](Link) | **Version:** x.x.x | **Project:** [Link](Link)`
-3.  **描述 (Description)**: 简短的功能介绍
+1.  **标题 (Title)**: 插件名称，带 Emoji 图标
+2.  **元数据 (Metadata)**: 作者、版本、项目链接 (一行显示)
+    - 格式: `**Author:** [Fu-Jie](https://github.com/Fu-Jie) | **Version:** x.x.x | **Project:** [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui)`
+    - **注意**: Author 和 Project 为固定值，仅需更新 Version 版本号
+3.  **描述 (Description)**: 一句话功能介绍
 4.  **最新更新 (What's New)**: **必须**放在描述之后，显著展示最新版本的变更点
-5.  **核心特性 (Key Features)**
-6.  **使用方法 (Usage)**
-7.  **配置参数 (Configuration/Valves)**
-8.  **其他 (Others)**: 故障排除、示例等
+5.  **核心特性 (Key Features)**: 使用 Emoji + 粗体标题 + 描述格式
+6.  **使用方法 (How to Use)**: 按步骤说明
+7.  **配置参数 (Configuration/Valves)**: 使用表格格式，包含参数名、默认值、描述
+8.  **其他 (Others)**: 支持的模板类型、语法示例、故障排除等
 
-示例 (Example):
+完整示例 (Full Example):
 
 ```markdown
 # 📊 Smart Plugin
 
 **Author:** [Fu-Jie](https://github.com/Fu-Jie) | **Version:** 1.0.0 | **Project:** [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui)
 
-A powerful plugin for OpenWebUI.
+A one-sentence description of this plugin.
 
 ## 🔥 What's New in v1.0.0
 
-- Feature A
-- Feature B
+- ✨ **Feature Name**: Brief description of the feature.
+- 🔧 **Configuration Change**: What changed in settings.
+- 🐛 **Bug Fix**: What was fixed.
 
-## ✨ Features
-...
+## ✨ Key Features
+
+- 🚀 **Feature A**: Description of feature A.
+- 🎨 **Feature B**: Description of feature B.
+- 📥 **Feature C**: Description of feature C.
+
+## 🚀 How to Use
+
+1. **Install**: Search for "Plugin Name" in the Open WebUI Community and install.
+2. **Trigger**: Enter your text in the chat, then click the **Action Button**.
+3. **Result**: View the generated result.
+
+## ⚙️ Configuration (Valves)
+
+| Parameter | Default | Description |
+| :--- | :--- | :--- |
+| **Show Status (SHOW_STATUS)** | `True` | Whether to show status updates. |
+| **Model ID (MODEL_ID)** | `Empty` | LLM model for processing. |
+| **Output Mode (OUTPUT_MODE)** | `image` | `image` for static, `html` for interactive. |
+
+## 🛠️ Supported Types (Optional)
+
+| Category | Type Name | Use Case |
+| :--- | :--- | :--- |
+| **Category A** | `type-a`, `type-b` | Use case description |
+
+## 📝 Advanced Example (Optional)
+
+\`\`\`syntax
+example code or syntax here
+\`\`\`
 ```
 
 ### 文档内容要求 (Content Requirements)
 
-- **新增功能**: 必须在 "What's New" 章节中明确列出。
+- **新增功能**: 必须在 "What's New" 章节中明确列出，使用 Emoji + 粗体标题格式。
 - **双语**: 必须提供 `README.md` (英文) 和 `README_CN.md` (中文)。
+- **表格对齐**: 配置参数表格使用左对齐 `:---`。
+- **Emoji 规范**: 标题使用合适的 Emoji 增强可读性。
 
 ### 官方文档 (Official Documentation)
 
@@ -508,7 +541,164 @@ Base = declarative_base()
 
 ---
 
-## 🔧 代码规范 (Code Style)
+## 📂 文件存储访问规范 (File Storage Access)
+
+OpenWebUI 支持多种文件存储后端（本地磁盘、S3/MinIO 对象存储等）。插件在访问用户上传的文件或生成的图片时，必须实现多级回退机制以兼容所有存储配置。
+
+### 存储类型检测 (Storage Type Detection)
+
+通过 `Files.get_file_by_id()` 获取的文件对象，其 `path` 属性决定了存储位置：
+
+| Path 格式 | 存储类型 | 访问方式 |
+|-----------|----------|----------|
+| `s3://bucket/key` | S3/MinIO 对象存储 | boto3 直连或 API 回调 |
+| `/app/backend/data/...` | Docker 卷存储 | 本地文件系统读取 |
+| `./uploads/...` | 本地相对路径 | 本地文件系统读取 |
+| `gs://bucket/key` | Google Cloud Storage | API 回调 |
+
+### 多级回退机制 (Multi-level Fallback)
+
+推荐实现以下优先级的文件获取策略：
+
+```python
+def _get_file_content(self, file_id: str, max_bytes: int) -> Optional[bytes]:
+    """获取文件内容，支持多种存储后端"""
+    file_obj = Files.get_file_by_id(file_id)
+    if not file_obj:
+        return None
+
+    # 1️⃣ 数据库直接存储 (小文件)
+    data_field = getattr(file_obj, "data", None)
+    if isinstance(data_field, dict):
+        if "bytes" in data_field:
+            return data_field["bytes"]
+        if "base64" in data_field:
+            return base64.b64decode(data_field["base64"])
+
+    # 2️⃣ S3 直连 (对象存储 - 最快)
+    s3_path = getattr(file_obj, "path", None)
+    if isinstance(s3_path, str) and s3_path.startswith("s3://"):
+        data = self._read_from_s3(s3_path, max_bytes)
+        if data:
+            return data
+
+    # 3️⃣ 本地文件系统 (磁盘存储)
+    for attr in ("path", "file_path"):
+        path = getattr(file_obj, attr, None)
+        if path and not path.startswith(("s3://", "gs://", "http")):
+            # 尝试多个常见路径
+            for base in ["", "./data", "/app/backend/data"]:
+                full_path = Path(base) / path if base else Path(path)
+                if full_path.exists():
+                    return full_path.read_bytes()[:max_bytes]
+
+    # 4️⃣ 公共 URL 下载
+    url = getattr(file_obj, "url", None)
+    if url and url.startswith("http"):
+        return self._download_from_url(url, max_bytes)
+
+    # 5️⃣ 内部 API 回调 (通用兜底方案)
+    if self._api_base_url:
+        api_url = f"{self._api_base_url}/api/v1/files/{file_id}/content"
+        return self._download_from_api(api_url, self._api_token, max_bytes)
+
+    return None
+```
+
+### S3 直连实现 (S3 Direct Access)
+
+当检测到 `s3://` 路径时，使用 `boto3` 直接访问对象存储，读取以下环境变量：
+
+| 环境变量 | 说明 | 示例 |
+|----------|------|------|
+| `S3_ENDPOINT_URL` | S3 兼容服务端点 | `https://minio.example.com` |
+| `S3_ACCESS_KEY_ID` | 访问密钥 ID | `minioadmin` |
+| `S3_SECRET_ACCESS_KEY` | 访问密钥 | `minioadmin` |
+| `S3_ADDRESSING_STYLE` | 寻址样式 | `auto`, `path`, `virtual` |
+
+```python
+# S3 直连示例
+import boto3
+from botocore.config import Config as BotoConfig
+import os
+
+def _read_from_s3(self, s3_path: str, max_bytes: int) -> Optional[bytes]:
+    """从 S3 直接读取文件 (比 API 回调更快)"""
+    if not s3_path.startswith("s3://"):
+        return None
+
+    # 解析 s3://bucket/key
+    parts = s3_path[5:].split("/", 1)
+    bucket, key = parts[0], parts[1]
+
+    # 从环境变量读取配置
+    endpoint = os.environ.get("S3_ENDPOINT_URL")
+    access_key = os.environ.get("S3_ACCESS_KEY_ID")
+    secret_key = os.environ.get("S3_SECRET_ACCESS_KEY")
+    
+    if not all([endpoint, access_key, secret_key]):
+        return None  # 回退到 API 方式
+
+    s3_client = boto3.client(
+        "s3",
+        endpoint_url=endpoint,
+        aws_access_key_id=access_key,
+        aws_secret_access_key=secret_key,
+        config=BotoConfig(s3={"addressing_style": os.environ.get("S3_ADDRESSING_STYLE", "auto")})
+    )
+    
+    response = s3_client.get_object(Bucket=bucket, Key=key)
+    return response["Body"].read(max_bytes)
+```
+
+### API 回调实现 (API Fallback)
+
+当其他方式失败时，通过 OpenWebUI 内部 API 获取文件：
+
+```python
+def _download_from_api(self, api_url: str, token: str, max_bytes: int) -> Optional[bytes]:
+    """通过 OpenWebUI API 获取文件内容"""
+    import urllib.request
+    
+    headers = {"User-Agent": "OpenWebUI-Plugin"}
+    if token:
+        headers["Authorization"] = token
+
+    req = urllib.request.Request(api_url, headers=headers)
+    with urllib.request.urlopen(req, timeout=15) as response:
+        if 200 <= response.status < 300:
+            return response.read(max_bytes)
+    return None
+```
+
+### 获取 API 上下文 (API Context Extraction)
+
+在 `action()` 方法中捕获请求上下文，用于 API 回调：
+
+```python
+async def action(self, body: dict, __request__=None, ...):
+    # 从请求对象获取 API 凭证
+    if __request__:
+        self._api_token = __request__.headers.get("Authorization")
+        self._api_base_url = str(__request__.base_url).rstrip("/")
+    else:
+        # 从环境变量获取端口作为备用
+        port = os.environ.get("PORT") or "8080"
+        self._api_base_url = f"http://localhost:{port}"
+        self._api_token = None
+```
+
+### 性能对比 (Performance Comparison)
+
+| 方式 | 网络跳数 | 适用场景 |
+|------|----------|----------|
+| S3 直连 | 1 (插件 → S3) | 对象存储，最快 |
+| 本地文件 | 0 | 磁盘存储，最快 |
+| API 回调 | 2 (插件 → OpenWebUI → S3/磁盘) | 通用兜底 |
+
+### 参考实现 (Reference Implementation)
+
+- `plugins/actions/export_to_docx/export_to_word.py` - `_image_bytes_from_owui_file_id` 方法
 
 ### Python 规范
 

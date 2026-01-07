@@ -3,7 +3,7 @@ title: 导出为 Word (增强版)
 author: Fu-Jie
 author_url: https://github.com/Fu-Jie
 funding_url: https://github.com/Fu-Jie/awesome-openwebui
-version: 0.4.1
+version: 0.4.2
 icon_url: data:image/svg+xml;base64,PHN2ZwogIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIKICB3aWR0aD0iMjQiCiAgaGVpZ2h0PSIyNCIKICB2aWV3Qm94PSIwIDAgMjQgMjQiCiAgZmlsbD0ibm9uZSIKICBzdHJva2U9ImN1cnJlbnRDb2xvciIKICBzdHJva2Utd2lkdGg9IjIiCiAgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIgogIHN0cm9rZS1saW5lam9pbj0icm91bmQiCj4KICA8cGF0aCBkPSJNNiAyMmEyIDIgMCAwIDEtMi0yVjRhMiAyIDAgMCAxIDItMmg4YTIuNCAyLjQgMCAwIDEgMS43MDQuNzA2bDMuNTg4IDMuNTg4QTIuNCAyLjQgMCAwIDEgMjAgOHYxMmEyIDIgMCAwIDEtMiAyeiIgLz4KICA8cGF0aCBkPSJNMTQgMnY1YTEgMSAwIDAgMCAxIDFoNSIgLz4KICA8cGF0aCBkPSJNMTAgOUg4IiAvPgogIDxwYXRoIGQ9Ik0xNiAxM0g4IiAvPgogIDxwYXRoIGQ9Ik0xNiAxN0g4IiAvPgo8L3N2Zz4K
 requirements: python-docx, Pygments, latex2mathml, mathml2omml
 description: 将对话导出为 Word (.docx)，支持 Mermaid 图表 (客户端渲染 SVG+PNG)、LaTeX 数学公式、真实超链接、增强表格格式、代码高亮和引用块。
@@ -64,6 +64,16 @@ try:
     LATEX_MATH_AVAILABLE = True
 except Exception:
     LATEX_MATH_AVAILABLE = False
+
+# boto3 for S3 direct access (faster than API fallback)
+try:
+    import boto3
+    from botocore.config import Config as BotoConfig
+    import os
+
+    BOTO3_AVAILABLE = True
+except ImportError:
+    BOTO3_AVAILABLE = False
 
 
 logging.basicConfig(
@@ -290,6 +300,8 @@ class Action:
         self._bookmark_id_counter: int = 1
         self._active_doc: Optional[Document] = None
         self._user_lang: str = "en"  # Will be set per-request
+        self._api_token: Optional[str] = None
+        self._api_base_url: Optional[str] = None
 
     def _get_lang_key(self, user_language: str) -> str:
         """Convert user language code to i18n key (e.g., 'zh-CN' -> 'zh', 'en-US' -> 'en')."""
@@ -346,6 +358,22 @@ class Action:
 
         # Get user language from Valves configuration
         self._user_lang = self._get_lang_key(self.valves.界面语言)
+
+        # Extract API connection info for file fetching (S3/Object Storage support)
+        def _get_default_base_url() -> str:
+            port = os.environ.get("PORT") or "8080"
+            return f"http://localhost:{port}"
+
+        if __request__:
+            try:
+                self._api_token = __request__.headers.get("Authorization")
+                self._api_base_url = str(__request__.base_url).rstrip("/")
+            except Exception:
+                self._api_token = None
+                self._api_base_url = _get_default_base_url()
+        else:
+            self._api_token = None
+            self._api_base_url = _get_default_base_url()
 
         if __event_emitter__:
             last_assistant_message = body["messages"][-1]
@@ -1073,19 +1101,85 @@ class Action:
         b64 = m.group("b64") or ""
         return self._decode_base64_limited(b64, max_bytes)
 
+    def _read_from_s3(self, s3_path: str, max_bytes: int) -> Optional[bytes]:
+        """Read file directly from S3 using environment variables for credentials."""
+        if not BOTO3_AVAILABLE:
+            return None
+
+        # Parse s3://bucket/key
+        if not s3_path.startswith("s3://"):
+            return None
+
+        path_without_prefix = s3_path[5:]  # Remove 's3://'
+        parts = path_without_prefix.split("/", 1)
+        if len(parts) < 2:
+            return None
+
+        bucket = parts[0]
+        key = parts[1]
+
+        # Read S3 config from environment variables
+        endpoint_url = os.environ.get("S3_ENDPOINT_URL")
+        access_key = os.environ.get("S3_ACCESS_KEY_ID")
+        secret_key = os.environ.get("S3_SECRET_ACCESS_KEY")
+        addressing_style = os.environ.get("S3_ADDRESSING_STYLE", "auto")
+
+        if not all([endpoint_url, access_key, secret_key]):
+            logger.debug(
+                "S3 environment variables not fully configured, skipping S3 direct download."
+            )
+            return None
+
+        try:
+            s3_config = BotoConfig(
+                s3={"addressing_style": addressing_style},
+                connect_timeout=5,
+                read_timeout=15,
+            )
+            s3_client = boto3.client(
+                "s3",
+                endpoint_url=endpoint_url,
+                aws_access_key_id=access_key,
+                aws_secret_access_key=secret_key,
+                config=s3_config,
+            )
+
+            response = s3_client.get_object(Bucket=bucket, Key=key)
+            body = response["Body"]
+            data = body.read(max_bytes + 1)
+            body.close()
+
+            if len(data) > max_bytes:
+                return None
+
+            return data
+        except Exception as e:
+            logger.warning(f"S3 direct download failed for {s3_path}: {e}")
+            return None
+
     def _image_bytes_from_owui_file_id(
         self, file_id: str, max_bytes: int
     ) -> Optional[bytes]:
-        if not file_id or Files is None:
-            return None
-        try:
-            file_obj = Files.get_file_by_id(file_id)
-        except Exception:
-            return None
-        if not file_obj:
+        if not file_id:
             return None
 
-        # Common patterns across Open WebUI versions / storage backends.
+        if Files is None:
+            logger.error(
+                "Files model is not available (import failed). Cannot retrieve file content."
+            )
+            return None
+
+        try:
+            file_obj = Files.get_file_by_id(file_id)
+        except Exception as e:
+            logger.error(f"Files.get_file_by_id({file_id}) failed: {e}")
+            return None
+
+        if not file_obj:
+            logger.warning(f"File {file_id} not found in database.")
+            return None
+
+        # 1. Try data field (DB stored)
         data_field = getattr(file_obj, "data", None)
         if isinstance(data_field, dict):
             blob_value = data_field.get("bytes")
@@ -1097,19 +1191,119 @@ class Action:
                 if isinstance(inline, str) and inline.strip():
                     return self._decode_base64_limited(inline, max_bytes)
 
+        # 2. Try S3 direct download (fastest for object storage)
+        s3_path = getattr(file_obj, "path", None)
+        if isinstance(s3_path, str) and s3_path.startswith("s3://"):
+            s3_data = self._read_from_s3(s3_path, max_bytes)
+            if s3_data is not None:
+                return s3_data
+
+        # 3. Try file paths (Disk stored)
+        # We try multiple path variations to be robust against CWD differences (e.g. Docker vs Local)
         for attr in ("path", "file_path", "absolute_path"):
             candidate = getattr(file_obj, attr, None)
             if isinstance(candidate, str) and candidate.strip():
-                raw = self._read_file_bytes_limited(Path(candidate), max_bytes)
+                # Skip obviously non-local paths (S3, GCS, HTTP)
+                if re.match(r"^(s3://|gs://|https?://)", candidate, re.IGNORECASE):
+                    logger.debug(f"Skipping local read for non-local path: {candidate}")
+                    continue
+
+                p = Path(candidate)
+
+                # Attempt 1: As-is (Absolute or relative to CWD)
+                raw = self._read_file_bytes_limited(p, max_bytes)
                 if raw is not None:
                     return raw
 
+                # Attempt 2: Relative to ./data (Common in OpenWebUI)
+                if not p.is_absolute():
+                    try:
+                        raw = self._read_file_bytes_limited(
+                            Path("./data") / p, max_bytes
+                        )
+                        if raw is not None:
+                            return raw
+                    except Exception:
+                        pass
+
+                    # Attempt 3: Relative to /app/backend/data (Docker default)
+                    try:
+                        raw = self._read_file_bytes_limited(
+                            Path("/app/backend/data") / p, max_bytes
+                        )
+                        if raw is not None:
+                            return raw
+                    except Exception:
+                        pass
+
+        # 4. Try URL (Object Storage / S3 Public URL)
+        urls_to_try = []
+        url_attr = getattr(file_obj, "url", None)
+        if isinstance(url_attr, str) and url_attr:
+            urls_to_try.append(url_attr)
+
+        if isinstance(data_field, dict):
+            url_data = data_field.get("url")
+            if isinstance(url_data, str) and url_data:
+                urls_to_try.append(url_data)
+
+        if urls_to_try:
+            import urllib.request
+
+            for url in urls_to_try:
+                if not url.startswith(("http://", "https://")):
+                    continue
+                try:
+                    logger.info(
+                        f"Attempting to download file {file_id} from URL: {url}"
+                    )
+                    # Use a timeout to avoid hanging
+                    req = urllib.request.Request(
+                        url, headers={"User-Agent": "OpenWebUI-Export-Plugin"}
+                    )
+                    with urllib.request.urlopen(req, timeout=15) as response:
+                        if 200 <= response.status < 300:
+                            data = response.read(max_bytes + 1)
+                            if len(data) <= max_bytes:
+                                return data
+                            else:
+                                logger.warning(
+                                    f"File {file_id} from URL is too large (> {max_bytes} bytes)"
+                                )
+                except Exception as e:
+                    logger.warning(f"Failed to download {file_id} from {url}: {e}")
+
+        # 5. Try fetching via Local API (Last resort for S3/Object Storage without direct URL)
+        # If we have the API token and base URL, we can try to fetch the content through the backend API.
+        if self._api_base_url:
+            api_url = f"{self._api_base_url}/api/v1/files/{file_id}/content"
+            try:
+                import urllib.request
+
+                headers = {"User-Agent": "OpenWebUI-Export-Plugin"}
+                if self._api_token:
+                    headers["Authorization"] = self._api_token
+
+                req = urllib.request.Request(api_url, headers=headers)
+                with urllib.request.urlopen(req, timeout=15) as response:
+                    if 200 <= response.status < 300:
+                        data = response.read(max_bytes + 1)
+                        if len(data) <= max_bytes:
+                            return data
+            except Exception:
+                # API fetch failed, just fall through to the next method
+                pass
+
+        # 6. Try direct content attributes (last ditch)
         for attr in ("content", "blob", "data"):
             raw = getattr(file_obj, attr, None)
             if isinstance(raw, (bytes, bytearray)):
                 b = bytes(raw)
                 return b if len(b) <= max_bytes else None
 
+        logger.warning(
+            f"File {file_id} found but no content accessible. Attributes: {dir(file_obj)}"
+        )
         return None
 
     def _add_image_placeholder(self, paragraph, alt: str, reason: str):
