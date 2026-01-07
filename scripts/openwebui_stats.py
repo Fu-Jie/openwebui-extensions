@@ -395,7 +395,7 @@ class OpenWebUIStats:
         )
         lines.append("")
 
-        # Top 5 热门插件
+        # Top 6 热门插件
         lines.append(t["top5_title"])
         lines.append("")
         lines.append(t["top5_header"])
