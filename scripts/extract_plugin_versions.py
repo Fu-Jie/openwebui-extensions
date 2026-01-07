@@ -140,22 +140,49 @@ def compare_versions(current: list[dict], previous_file: str) -> dict[str, list[
         return {"added": current, "updated": [], "removed": []}
 
     # Create lookup dictionaries by title
-    current_by_title = {p["title"]: p for p in current}
-    previous_by_title = {p["title"]: p for p in previous}
+    # Helper to extract title/version from either simple dict or raw post object
+    def get_info(p):
+        if "data" in p and "function" in p["data"]:
+            # It's a raw post object
+            manifest = p["data"]["function"].get("meta", {}).get("manifest", {})
+            title = manifest.get("title") or p.get("title")
+            version = manifest.get("version", "0.0.0")
+            return title, version, p
+        else:
+            # It's a simple dict
+            return p.get("title"), p.get("version"), p
+
+    current_by_title = {}
+    for p in current:
+        title, _, _ = get_info(p)
+        if title:
+            current_by_title[title] = p
+
+    previous_by_title = {}
+    for p in previous:
+        title, _, _ = get_info(p)
+        if title:
+            previous_by_title[title] = p
 
     result = {"added": [], "updated": [], "removed": []}
 
     # Find added and updated plugins
     for title, plugin in current_by_title.items():
+        curr_title, curr_ver, _ = get_info(plugin)
+
         if title not in previous_by_title:
             result["added"].append(plugin)
-        elif plugin["version"] != previous_by_title[title]["version"]:
-            result["updated"].append(
-                {
-                    "current": plugin,
-                    "previous": previous_by_title[title],
-                }
-            )
+        else:
+            prev_plugin = previous_by_title[title]
+            _, prev_ver, _ = get_info(prev_plugin)
+
+            if curr_ver != prev_ver:
+                result["updated"].append(
+                    {
+                        "current": plugin,
+                        "previous": prev_plugin,
+                    }
+                )
 
     # Find removed plugins
     for title, plugin in previous_by_title.items():
@@ -212,9 +239,26 @@ def format_release_notes(
         for update in comparison["updated"]:
             curr = update["current"]
             prev = update["previous"]
-            lines.append(
-                f"- **{curr['title']}**: v{prev['version']} → v{curr['version']}"
+
+            # Extract info safely
+            curr_manifest = (
+                curr.get("data", {})
+                .get("function", {})
+                .get("meta", {})
+                .get("manifest", {})
             )
+            curr_title = curr_manifest.get("title") or curr.get("title")
+            curr_ver = curr_manifest.get("version") or curr.get("version")
+
+            prev_manifest = (
+                prev.get("data", {})
+                .get("function", {})
+                .get("meta", {})
+                .get("manifest", {})
+            )
+            prev_ver = prev_manifest.get("version") or prev.get("version")
+
+            lines.append(f"- **{curr_title}**: v{prev_ver} → v{curr_ver}")
         lines.append("")
 
     if comparison["removed"] and not ignore_removed:
