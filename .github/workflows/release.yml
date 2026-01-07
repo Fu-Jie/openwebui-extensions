@@ -193,8 +193,13 @@ jobs:
             TODAY_PREFIX="v${TODAY}-"
             
             # Count existing releases with today's date prefix
-            # Use || true to prevent script failure, and default to 0 if gh fails
-            EXISTING_COUNT=$(gh release list --limit 100 2>/dev/null | grep -c "^${TODAY_PREFIX}" || echo "0")
+            # grep -c returns 1 if count is 0, so we use || true to avoid script failure
+            EXISTING_COUNT=$(gh release list --limit 100 2>/dev/null | grep -c "^${TODAY_PREFIX}" || true)
+            
+            # Clean up output (handle potential newlines or fallback issues)
+            EXISTING_COUNT=$(echo "$EXISTING_COUNT" | tr -cd '0-9')
+            if [ -z "$EXISTING_COUNT" ]; then EXISTING_COUNT=0; fi
+            
             NEXT_NUM=$((EXISTING_COUNT + 1))
             
             VERSION="${TODAY_PREFIX}${NEXT_NUM}"
@@ -343,6 +348,12 @@ jobs:
       - name: Create Git Tag
         run: |
           VERSION="${{ steps.version.outputs.version }}"
+          
+          if [ -z "$VERSION" ]; then
+            echo "Error: Version is empty!"
+            exit 1
+          fi
+          
           if ! git rev-parse "$VERSION" >/dev/null 2>&1; then
             echo "Creating tag $VERSION"
             git tag "$VERSION"
