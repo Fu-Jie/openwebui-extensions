@@ -112,7 +112,10 @@ def sync_frontmatter(file_path, content, meta, post_data):
     return content
 
 
-def update_plugin(file_path, post_id, token):
+import argparse
+
+
+def update_plugin(file_path, post_id, token, force=False):
     print(f"Processing {os.path.basename(file_path)} (ID: {post_id})...")
 
     with open(file_path, "r", encoding="utf-8") as f:
@@ -140,7 +143,22 @@ def update_plugin(file_path, post_id, token):
         print(f"  Error fetching post: {e}")
         return False
 
-    # 1.5 Sync Metadata back to local file
+    # 2. Check Version (Skip if unchanged)
+    if not force:
+        remote_manifest = (
+            post_data.get("data", {})
+            .get("function", {})
+            .get("meta", {})
+            .get("manifest", {})
+        )
+        remote_version = remote_manifest.get("version")
+        local_version = meta.get("version")
+
+        if local_version and remote_version and local_version == remote_version:
+            print(f"  ⏭️  Skipping: Local version ({local_version}) matches remote.")
+            return True
+
+    # 3. Sync Metadata back to local file (Optional, mostly for local dev)
     try:
         content = sync_frontmatter(file_path, content, meta, post_data)
         # Re-parse meta in case it changed
@@ -148,7 +166,7 @@ def update_plugin(file_path, post_id, token):
     except Exception as e:
         print(f"  Warning: Failed to sync local metadata: {e}")
 
-    # 2. Update ONLY Content and Manifest
+    # 4. Update ONLY Content and Manifest
     try:
         # Ensure structure exists before populating nested fields
         if "data" not in post_data:
@@ -208,7 +226,7 @@ def update_plugin(file_path, post_id, token):
         print(f"  Error preparing update: {e}")
         return False
 
-    # 3. Submit Update
+    # 5. Submit Update
     try:
         response = requests.post(
             f"https://api.openwebui.com/api/v1/posts/{post_id}/update",
@@ -216,7 +234,7 @@ def update_plugin(file_path, post_id, token):
             json=post_data,
         )
         response.raise_for_status()
-        print(f"  ✅ Success!")
+        print(f"  ✅ Success! Updated to version {meta.get('version', 'unknown')}")
         return True
     except Exception as e:
         print(f"  ❌ Failed: {e}")
@@ -224,6 +242,12 @@ def update_plugin(file_path, post_id, token):
 
 
 def main():
+    parser = argparse.ArgumentParser(description="Publish plugins to OpenWebUI Market")
+    parser.add_argument(
+        "--force", action="store_true", help="Force update even if version matches"
+    )
+    args = parser.parse_args()
+
     token = os.environ.get("OPENWEBUI_API_KEY")
     if not token:
         print("Error: OPENWEBUI_API_KEY not set.")
@@ -233,6 +257,7 @@ def main():
     plugins_dir = os.path.join(base_dir, "plugins")
 
     count = 0
+    skipped = 0
     # Walk through plugins directory
     for root, _, files in os.walk(plugins_dir):
         for file in files:
@@ -252,10 +277,16 @@ def main():
 
                 if id_match:
                     post_id = id_match.group(1).strip()
-                    update_plugin(file_path, post_id, token)
-                    count += 1
+                    if update_plugin(file_path, post_id, token, force=args.force):
+                        count += 1
+                    else:
+                        # If update_plugin returns False (error) or True (skip), we might want to track differently
+                        # But current update_plugin returns True for Skip too.
+                        # Let's refine update_plugin return value if needed, but for now
+                        # we can just rely on the logs.
+                        pass
 
-    print(f"\nFinished. Updated {count} plugins.")
+    print(f"\nFinished processing plugins.")
 
 
 if __name__ == "__main__":
