@@ -1,14 +1,14 @@
 # 📊 OpenWebUI Community Stats Report
 
-> 📅 Updated: 2026-01-07 12:23
+> 📅 Updated: 2026-01-07 13:12
 
 ## 📈 Overview
 
 | Metric | Value |
 |------|------|
 | 📝 Total Posts | 11 |
-| ⬇️ Total Downloads | 846 |
-| 👁️ Total Views | 8966 |
+| ⬇️ Total Downloads | 847 |
+| 👁️ Total Views | 8978 |
 | 👍 Total Upvotes | 54 |
 | 💾 Total Saves | 48 |
 | 💬 Total Comments | 15 |
@@ -22,11 +22,11 @@
 
 | Rank | Title | Type | Version | Downloads | Views | Upvotes | Saves | Updated |
 |:---:|------|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| 1 | [Turn Any Text into Beautiful Mind Maps](https://openwebui.com/posts/turn_any_text_into_beautiful_mind_maps_3094c59a) | action | 0.9.1 | 266 | 2316 | 10 | 15 | 2026-01-06 |
+| 1 | [Turn Any Text into Beautiful Mind Maps](https://openwebui.com/posts/turn_any_text_into_beautiful_mind_maps_3094c59a) | action | 0.9.1 | 266 | 2321 | 10 | 15 | 2026-01-06 |
 | 2 | [Export to Excel](https://openwebui.com/posts/export_mulit_table_to_excel_244b8f9d) | action | 0.3.6 | 173 | 474 | 3 | 3 | 2026-01-03 |
 | 3 | [Async Context Compression](https://openwebui.com/posts/async_context_compression_b1655bc8) | filter | 1.1.0 | 116 | 1270 | 5 | 9 | 2025-12-31 |
-| 4 | [Flash Card ](https://openwebui.com/posts/flash_card_65a2ea8f) | action | 0.2.4 | 78 | 1482 | 8 | 5 | 2026-01-03 |
-| 5 | [Smart Infographic](https://openwebui.com/posts/smart_infographic_ad6f0c7f) | action | 1.3.2 | 71 | 977 | 6 | 8 | 2026-01-03 |
+| 4 | [Flash Card ](https://openwebui.com/posts/flash_card_65a2ea8f) | action | 0.2.4 | 79 | 1488 | 8 | 5 | 2026-01-03 |
+| 5 | [Smart Infographic](https://openwebui.com/posts/smart_infographic_ad6f0c7f) | action | 1.3.2 | 71 | 978 | 6 | 8 | 2026-01-03 |
 | 6 | [Export to Word (Enhanced Formatting)](https://openwebui.com/posts/export_to_word_enhanced_formatting_fca6a315) | action | 0.4.0 | 60 | 557 | 5 | 4 | 2026-01-05 |
 | 7 | [智能信息图](https://openwebui.com/posts/智能信息图_e04a48ff) | action | 1.3.1 | 33 | 418 | 3 | 0 | 2025-12-29 |
 | 8 | [导出为 Word-支持公式、流程图、表格和代码块](https://openwebui.com/posts/导出为_word_支持公式流程图表格和代码块_8a6306c0) | action | 0.4.1 | 18 | 782 | 7 | 1 | 2026-01-05 |
