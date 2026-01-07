@@ -193,10 +193,16 @@ jobs:
             TODAY_PREFIX="v${TODAY}-"
             
             # Count existing releases with today's date prefix
-            EXISTING_COUNT=$(gh release list --limit 100 | grep -c "^${TODAY_PREFIX}" || echo "0")
+            # Use || true to prevent script failure, and default to 0 if gh fails
+            EXISTING_COUNT=$(gh release list --limit 100 2>/dev/null | grep -c "^${TODAY_PREFIX}" || echo "0")
             NEXT_NUM=$((EXISTING_COUNT + 1))
             
             VERSION="${TODAY_PREFIX}${NEXT_NUM}"
+            
+            # Final fallback to ensure VERSION is never empty
+            if [ -z "$VERSION" ]; then
+              VERSION="v$(date +'%Y.%m.%d-%H%M%S')"
+            fi
           fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Release version: $VERSION"
@@ -334,13 +340,28 @@ jobs:
           echo "=== Release Notes ==="
           cat release_notes.md
 
+      - name: Create Git Tag
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          if ! git rev-parse "$VERSION" >/dev/null 2>&1; then
+            echo "Creating tag $VERSION"
+            git tag "$VERSION"
+            git push origin "$VERSION"
+          else
+            echo "Tag $VERSION already exists"
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.version }}
+          target_commitish: ${{ github.sha }}
           name: ${{ github.event.inputs.release_title || steps.version.outputs.version }}
           body_path: release_notes.md
           prerelease: ${{ github.event.inputs.prerelease || false }}
+          make_latest: true
           files: |
             plugin_versions.json
         env:

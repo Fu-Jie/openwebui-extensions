@@ -339,8 +339,8 @@ class OpenWebUIStats:
             stats: 统计数据
             lang: 语言 ("zh" 中文, "en" 英文)
         """
-        # 获取 Top 5 插件
-        top_plugins = stats["posts"][:5]
+        # 获取 Top 6 插件
+        top_plugins = stats["posts"][:6]
 
         # 中英文文本
         texts = {
@@ -349,17 +349,17 @@ class OpenWebUIStats:
                 "updated": f"> 🕐 自动更新于 {get_beijing_time().strftime('%Y-%m-%d %H:%M')}",
                 "author_header": "| 👤 作者 | 👥 粉丝 | ⭐ 积分 | 🏆 贡献 |",
                 "header": "| 📝 发布 | ⬇️ 下载 | 👁️ 浏览 | 👍 点赞 | 💾 收藏 |",
-                "top5_title": "### 🔥 热门插件 Top 5",
-                "top5_header": "| 排名 | 插件 | 下载 | 浏览 |",
-                "full_stats": "*完整统计请查看 [社区统计报告](./docs/community-stats.md)*",
+                "top6_title": "### 🔥 热门插件 Top 6",
+                "top6_header": "| 排名 | 插件 | 下载 | 浏览 |",
+                "full_stats": "*完整统计请查看 [社区统计报告](./docs/community-stats.zh.md)*",
             },
             "en": {
                 "title": "## 📊 Community Stats",
                 "updated": f"> 🕐 Auto-updated: {get_beijing_time().strftime('%Y-%m-%d %H:%M')}",
                 "author_header": "| 👤 Author | 👥 Followers | ⭐ Points | 🏆 Contributions |",
                 "header": "| 📝 Posts | ⬇️ Downloads | 👁️ Views | 👍 Upvotes | 💾 Saves |",
-                "top5_title": "### 🔥 Top 5 Popular Plugins",
-                "top5_header": "| Rank | Plugin | Downloads | Views |",
+                "top6_title": "### 🔥 Top 6 Popular Plugins",
+                "top6_header": "| Rank | Plugin | Downloads | Views |",
                 "full_stats": "*See full stats in [Community Stats Report](./docs/community-stats.md)*",
             },
         }
@@ -395,13 +395,13 @@ class OpenWebUIStats:
         )
         lines.append("")
 
-        # Top 5 热门插件
-        lines.append(t["top5_title"])
+        # Top 6 热门插件
+        lines.append(t["top6_title"])
         lines.append("")
-        lines.append(t["top5_header"])
+        lines.append(t["top6_header"])
         lines.append("|:---:|------|:---:|:---:|")
 
-        medals = ["🥇", "🥈", "🥉", "4️⃣", "5️⃣"]
+        medals = ["🥇", "🥈", "🥉", "4️⃣", "5️⃣", "6️⃣"]
         for i, post in enumerate(top_plugins):
             medal = medals[i] if i < len(medals) else str(i + 1)
             lines.append(
@@ -520,14 +520,14 @@ def main():
     script_dir = Path(__file__).parent.parent
 
     # 中文报告
-    md_zh_path = script_dir / "docs" / "community-stats.md"
+    md_zh_path = script_dir / "docs" / "community-stats.zh.md"
     md_zh_content = stats_client.generate_markdown(stats, lang="zh")
     with open(md_zh_path, "w", encoding="utf-8") as f:
         f.write(md_zh_content)
     print(f"\n✅ 中文报告已保存到: {md_zh_path}")
 
     # 英文报告
-    md_en_path = script_dir / "docs" / "community-stats.en.md"
+    md_en_path = script_dir / "docs" / "community-stats.md"
     md_en_content = stats_client.generate_markdown(stats, lang="en")
     with open(md_en_path, "w", encoding="utf-8") as f:
         f.write(md_en_content)

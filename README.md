@@ -17,7 +17,7 @@ A collection of enhancements, plugins, and prompts for [OpenWebUI](https://githu
 |:---:|:---:|:---:|:---:|:---:|
 | **11** | **874** | **9244** | **55** | **48** |
 
-### 🔥 Top 5 Popular Plugins
+### 🔥 Top 6 Popular Plugins
 
 | Rank | Plugin | Downloads | Views |
 |:---:|------|:---:|:---:|
