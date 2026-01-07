@@ -1,3 +1,8 @@
+"""
+Fetch remote plugin versions from OpenWebUI Community
+获取远程插件版本信息
+"""
+
 import json
 import os
 import sys
@@ -5,22 +10,17 @@ import sys
 # Add current directory to path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-try:
-    from openwebui_stats import OpenWebUIStats
-except ImportError:
-    print("Error: openwebui_stats.py not found.")
-    sys.exit(1)
+from openwebui_community_client import get_client
 
 
 def main():
-    # Try to get token from env
-    token = os.environ.get("OPENWEBUI_API_KEY")
-    if not token:
-        print("Error: OPENWEBUI_API_KEY environment variable not set.")
+    try:
+        client = get_client()
+    except ValueError as e:
+        print(f"Error: {e}")
         sys.exit(1)
 
-    print("Fetching remote plugins from OpenWebUI...")
-    client = OpenWebUIStats(token)
+    print("Fetching remote plugins from OpenWebUI Community...")
     try:
         posts = client.get_all_posts()
     except Exception as e:
@@ -29,9 +29,6 @@ def main():
 
     formatted_plugins = []
     for post in posts:
-        # Save the full raw post object to ensure we have "compliant update json data"
-        # We inject a 'type' field just for the comparison script to know it's remote,
-        # but otherwise keep the structure identical to the API response.
         post["type"] = "remote_plugin"
         formatted_plugins.append(post)
 

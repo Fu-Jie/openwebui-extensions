@@ -1,3 +1,8 @@
+"""
+Sync OpenWebUI Post IDs to local plugin files
+同步远程插件 ID 到本地文件
+"""
+
 import os
 import sys
 import re
@@ -6,11 +11,12 @@ import difflib
 # Add current directory to path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
+from openwebui_community_client import get_client
+
 try:
-    from openwebui_stats import OpenWebUIStats
     from extract_plugin_versions import scan_plugins_directory
 except ImportError:
-    print("Error: Helper scripts not found.")
+    print("Error: extract_plugin_versions.py not found.")
     sys.exit(1)
 
 
@@ -60,13 +66,13 @@ def insert_id_into_file(file_path, post_id):
 
 
 def main():
-    token = os.environ.get("OPENWEBUI_API_KEY")
-    if not token:
-        print("Error: OPENWEBUI_API_KEY environment variable not set.")
+    try:
+        client = get_client()
+    except ValueError as e:
+        print(f"Error: {e}")
         sys.exit(1)
 
-    print("Fetching remote posts...")
-    client = OpenWebUIStats(token)
+    print("Fetching remote posts from OpenWebUI Community...")
     remote_posts = client.get_all_posts()
     print(f"Fetched {len(remote_posts)} remote posts.")
 
