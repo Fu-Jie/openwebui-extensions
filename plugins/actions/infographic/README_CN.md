@@ -1,15 +1,18 @@
 # 📊 智能信息图 (AntV Infographic)
 
-**作者:** [jeff](https://github.com/Fu-Jie) | **版本:** 1.4.0 | **项目:** [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui)
+**Author:** [Fu-Jie](https://github.com/Fu-Jie) | **Version:** 1.4.1 | **Project:** [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui)
 
 基于 AntV Infographic 引擎的 Open WebUI 插件，能够将长文本内容一键转换为专业、美观的信息图表。
 
-## 🔥 v1.4.0 更新日志
+## 🔥 v1.4.1 更新日志
 
-- ✨ **默认模式变更**：默认输出模式调整为 `image`（静态图片），以获得更好的兼容性和更简洁的聊天记录。
-- ✨ **新增图片输出模式**：支持将信息图作为静态图片 (SVG) 嵌入。
+- ✨ **PNG 上传**：信息图现在以 PNG 格式上传，与 Word 导出完美兼容。
+- 🔧 **Canvas 转换**：使用浏览器 Canvas 高质量转换 SVG 为 PNG（2倍缩放）。
+
+### 此前: v1.4.0
+
+- ✨ **默认模式变更**：默认输出模式调整为 `image`（静态图片）。
 - 📱 **响应式尺寸**：图片模式下自动适应聊天容器宽度。
-- 🔧 **新增配置项**：`OUTPUT_MODE` 用于控制输出格式。
 
 ## ✨ 核心特性
 

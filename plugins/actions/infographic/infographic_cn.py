@@ -3,7 +3,7 @@ title: 📊 智能信息图 (AntV Infographic)
 author: jeff
 author_url: https://github.com/Fu-Jie/awesome-openwebui
 icon_url: data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPgogIDxsaW5lIHgxPSIxMiIgeTE9IjIwIiB4Mj0iMTIiIHkyPSIxMCIgLz4KICA8bGluZSB4MT0iMTgiIHkxPSIyMCIgeDI9IjE4IiB5Mj0iNCIgLz4KICA8bGluZSB4MT0iNiIgeTE9IjIwIiB4Mj0iNiIgeTI9IjE2IiAvPgo8L3N2Zz4=
-version: 1.4.0
+version: 1.4.1
 description: 基于 AntV Infographic 的智能信息图生成插件。支持多种专业模板，自动图标匹配，并提供 SVG/PNG 下载功能。
 """
 
@@ -1189,12 +1189,39 @@ class Action:
         // 清理容器
         document.body.removeChild(container);
         
-        // 将 SVG 字符串转换为 Blob
-        const blob = new Blob([svgData], {{ type: 'image/svg+xml' }});
-        const file = new File([blob], `infographic-${{uniqueId}}.svg`, {{ type: 'image/svg+xml' }});
+        // 使用 canvas 将 SVG 转换为 PNG 以提高兼容性
+        console.log("[Infographic Image] 正在将 SVG 转换为 PNG...");
+        const pngBlob = await new Promise((resolve, reject) => {{
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            const scale = 2; // 更高分辨率以提高清晰度
+            canvas.width = Math.round(width * scale);
+            canvas.height = Math.round(height * scale);
+            
+            // 填充白色背景
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.scale(scale, scale);
+            
+            const img = new Image();
+            img.onload = () => {{
+                ctx.drawImage(img, 0, 0, width, height);
+                canvas.toBlob((blob) => {{
+                    if (blob) {{
+                        resolve(blob);
+                    }} else {{
+                        reject(new Error('Canvas toBlob 失败'));
+                    }}
+                }}, 'image/png');
+            }};
+            img.onerror = (e) => reject(new Error('加载 SVG 图片失败: ' + e));
+            img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
+        }});
+        
+        const file = new File([pngBlob], `infographic-${{uniqueId}}.png`, {{ type: 'image/png' }});
         
         // 上传文件到 OpenWebUI API
-        console.log("[Infographic Image] 上传 SVG 文件...");
+        console.log("[Infographic Image] 上传 PNG 文件...");
         const token = localStorage.getItem("token");
         const formData = new FormData();
         formData.append('file', file);
@@ -1215,7 +1242,7 @@ class Action:
         const fileId = fileData.id;
         const imageUrl = `/api/v1/files/${{fileId}}/content`;
         
-        console.log("[Infographic Image] 文件已上传, ID:", fileId);
+        console.log("[Infographic Image] PNG 文件已上传, ID:", fileId);
         
         // 生成带文件 URL 的 markdown 图片
         const markdownImage = `![📊 信息图](${{imageUrl}})`;

@@ -3,7 +3,7 @@ title: 📊 Smart Infographic (AntV)
 author: jeff
 author_url: https://github.com/Fu-Jie/awesome-openwebui
 icon_url: data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPgogIDxsaW5lIHgxPSIxMiIgeTE9IjIwIiB4Mj0iMTIiIHkyPSIxMCIgLz4KICA8bGluZSB4MT0iMTgiIHkxPSIyMCIgeDI9IjE4IiB5Mj0iNCIgLz4KICA8bGluZSB4MT0iNiIgeTE9IjIwIiB4Mj0iNiIgeTI9IjE2IiAvPgo8L3N2Zz4=
-version: 1.4.0
+version: 1.4.1
 description: AI-powered infographic generator based on AntV Infographic. Supports professional templates, auto-icon matching, and SVG/PNG downloads.
 """
 
@@ -1128,12 +1128,39 @@ class Action:
         // Cleanup container
         document.body.removeChild(container);
         
-        // Convert SVG string to Blob
-        const blob = new Blob([svgData], {{ type: 'image/svg+xml' }});
-        const file = new File([blob], `infographic-${{uniqueId}}.svg`, {{ type: 'image/svg+xml' }});
+        // Convert SVG to PNG using canvas for better compatibility
+        console.log("[Infographic Image] Converting SVG to PNG...");
+        const pngBlob = await new Promise((resolve, reject) => {{
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            const scale = 2; // Higher resolution for clarity
+            canvas.width = Math.round(width * scale);
+            canvas.height = Math.round(height * scale);
+            
+            // Fill white background
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.scale(scale, scale);
+            
+            const img = new Image();
+            img.onload = () => {{
+                ctx.drawImage(img, 0, 0, width, height);
+                canvas.toBlob((blob) => {{
+                    if (blob) {{
+                        resolve(blob);
+                    }} else {{
+                        reject(new Error('Canvas toBlob failed'));
+                    }}
+                }}, 'image/png');
+            }};
+            img.onerror = (e) => reject(new Error('Failed to load SVG as image: ' + e));
+            img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
+        }});
+        
+        const file = new File([pngBlob], `infographic-${{uniqueId}}.png`, {{ type: 'image/png' }});
         
         // Upload file to OpenWebUI API
-        console.log("[Infographic Image] Uploading SVG file...");
+        console.log("[Infographic Image] Uploading PNG file...");
         const token = localStorage.getItem("token");
         const formData = new FormData();
         formData.append('file', file);
@@ -1154,7 +1181,7 @@ class Action:
         const fileId = fileData.id;
         const imageUrl = `/api/v1/files/${{fileId}}/content`;
         
-        console.log("[Infographic Image] File uploaded, ID:", fileId);
+        console.log("[Infographic Image] PNG file uploaded, ID:", fileId);
         
         // Generate markdown image with file URL
         const markdownImage = `![📊 Infographic](${{imageUrl}})`;

@@ -1,15 +1,18 @@
 # 📊 Smart Infographic (AntV)
 
-**Author:** [Fu-Jie](https://github.com/Fu-Jie) | **Version:** 1.4.0 | **Project:** [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui)
+**Author:** [Fu-Jie](https://github.com/Fu-Jie) | **Version:** 1.4.1 | **Project:** [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui)
 
 An Open WebUI plugin powered by the AntV Infographic engine. It transforms long text into professional, beautiful infographics with a single click.
 
-## 🔥 What's New in v1.4.0
+## 🔥 What's New in v1.4.1
 
-- ✨ **Default Mode Change**: Default output mode is now `image` (static image) for better compatibility and cleaner chat history.
-- ✨ **New Image Output Mode**: Support embedding infographics as static images (SVG).
+- ✨ **PNG Upload**: Infographics now upload as PNG format for better Word export compatibility.
+- 🔧 **Canvas Conversion**: Uses browser canvas for high-quality SVG to PNG conversion (2x scale).
+
+### Previous: v1.4.0
+
+- ✨ **Default Mode Change**: Default output mode is now `image` (static image) for better compatibility.
 - 📱 **Responsive Sizing**: Images now auto-adapt to the chat container width.
-- 🔧 **New Configuration**: `OUTPUT_MODE` valve to control output format.
 
 ## ✨ Key Features
 
