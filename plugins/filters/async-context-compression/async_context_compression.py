@@ -6,6 +6,7 @@ author_url: https://github.com/Fu-Jie
 funding_url: https://github.com/Fu-Jie/awesome-openwebui
 description: Reduces token consumption in long conversations while maintaining coherence through intelligent summarization and message compression.
 version: 1.1.0
+openwebui_id: b1655bc8-6de9-4cad-8cb5-a6f7829a02ce
 license: MIT
 
 ═══════════════════════════════════════════════════════════════════════════════

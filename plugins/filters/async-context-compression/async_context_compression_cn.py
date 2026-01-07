@@ -6,6 +6,7 @@ author_url: https://github.com/Fu-Jie
 funding_url: https://github.com/Fu-Jie/awesome-openwebui
 description: 通过智能摘要和消息压缩，降低长对话的 token 消耗，同时保持对话连贯性。
 version: 1.1.0
+openwebui_id: 5c0617cb-a9e4-4bd6-a440-d276534ebd18
 license: MIT
 
 ═══════════════════════════════════════════════════════════════════════════════
