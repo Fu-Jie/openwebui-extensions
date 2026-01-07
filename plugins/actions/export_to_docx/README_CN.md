@@ -1,10 +1,10 @@
 # 📝 导出为 Word (增强版)
 
-**Author:** [Fu-Jie](https://github.com/Fu-Jie) | **Version:** 0.4.2 | **Project:** [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui)
+**Author:** [Fu-Jie](https://github.com/Fu-Jie) | **Version:** 0.4.3 | **Project:** [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui)
 
 将对话导出为 Word (.docx)，支持**代码语法高亮**、**原生数学公式**、**Mermaid 图表**、**引用参考**和**增强表格格式**。
 
-## 🔥 v0.4.2 更新内容
+## 🔥 v0.4.3 更新内容
 
 - ✨ **S3 对象存储支持**: 通过 boto3 直连 S3/MinIO，绕过 API 层，导出速度更快。
 - 🔧 **多级文件回退**: 6 级文件获取机制（数据库 → S3 → 本地 → URL → API → 属性）。
@@ -73,7 +73,7 @@
 
 ## 📝 更新日志
 
-### v0.4.2
+### v0.4.3
 - **S3 对象存储**: 通过 boto3 直连 S3/MinIO，图片获取速度更快。
 - **6 级回退机制**: 稳健的文件获取：数据库 → S3 → 本地 → URL → API → 属性。
 - **日志优化**: 改进错误提示，便于调试文件访问问题。

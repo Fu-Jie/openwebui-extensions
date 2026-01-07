@@ -1,7 +1,7 @@
 # Export to Word
 
 <span class="category-badge action">Action</span>
-<span class="version-badge">v0.4.2</span>
+<span class="version-badge">v0.4.3</span>
 
 Export conversation to Word (.docx) with **syntax highlighting**, **native math equations**, **Mermaid diagrams**, **citations**, and **enhanced table formatting**.
 
@@ -52,6 +52,8 @@ You can configure the following settings via the **Valves** button in the plugin
 | `MERMAID_CAPTION_PREFIX` | Caption prefix label (e.g., 'Figure'). Empty = auto-detect based on language. | `""` |
 | `MATH_ENABLE` | Enable LaTeX math block conversion. | `True` |
 | `MATH_INLINE_DOLLAR_ENABLE` | Enable inline `$ ... $` math conversion. | `True` |
+
+## 🔥 What's New in v0.4.3
 
 ### User-Level Configuration (UserValves)
 
@@ -118,3 +120,4 @@ Users can override the following settings in their personal settings:
 ## Source Code
 
 [:fontawesome-brands-github: View on GitHub](https://github.com/Fu-Jie/awesome-openwebui/tree/main/plugins/actions/export_to_docx){ .md-button }
+**Author:** [Fu-Jie](https://github.com/Fu-Jie) | **Version:** 0.4.3 | **Project:** [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui)

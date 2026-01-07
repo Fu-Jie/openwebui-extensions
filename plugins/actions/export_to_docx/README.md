@@ -1,10 +1,10 @@
 # 📝 Export to Word (Enhanced)
 
-**Author:** [Fu-Jie](https://github.com/Fu-Jie) | **Version:** 0.4.2 | **Project:** [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui)
+**Author:** [Fu-Jie](https://github.com/Fu-Jie) | **Version:** 0.4.3 | **Project:** [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui)
 
 Export conversation to Word (.docx) with **syntax highlighting**, **native math equations**, **Mermaid diagrams**, **citations**, and **enhanced table formatting**.
 
-## 🔥 What's New in v0.4.2
+## 🔥 What's New in v0.4.3
 
 - ✨ **S3 Object Storage Support**: Direct access to images stored in S3/MinIO via boto3, bypassing API layer for faster exports.
 - 🔧 **Multi-level File Fallback**: 6-level fallback mechanism for file retrieval (DB → S3 → Local → URL → API → Attributes).
@@ -73,7 +73,7 @@ Export conversation to Word (.docx) with **syntax highlighting**, **native math 
 
 ## 📝 Changelog
 
-### v0.4.2
+### v0.4.3
 - **S3 Object Storage**: Direct S3/MinIO access via boto3 for faster image retrieval.
 - **6-Level Fallback**: Robust file retrieval: DB → S3 → Local → URL → API → Attributes.
 - **Better Logging**: Improved error messages for debugging file access issues.
