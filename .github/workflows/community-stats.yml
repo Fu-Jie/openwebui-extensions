@@ -35,18 +35,12 @@ jobs:
       - name: Get previous stats
         id: prev_stats
         run: |
-          # 获取当前的统计数据用于比较
+          # 获取当前的 points 用于比较
           if [ -f docs/community-stats.json ]; then
-            OLD_DOWNLOADS=$(jq -r '.total_downloads' docs/community-stats.json 2>/dev/null || echo "0")
-            OLD_POSTS=$(jq -r '.total_posts' docs/community-stats.json 2>/dev/null || echo "0")
-            OLD_UPVOTES=$(jq -r '.total_upvotes' docs/community-stats.json 2>/dev/null || echo "0")
-            echo "old_downloads=$OLD_DOWNLOADS" >> $GITHUB_OUTPUT
-            echo "old_posts=$OLD_POSTS" >> $GITHUB_OUTPUT
-            echo "old_upvotes=$OLD_UPVOTES" >> $GITHUB_OUTPUT
+            OLD_POINTS=$(jq -r '.user.total_points' docs/community-stats.json 2>/dev/null || echo "0")
+            echo "old_points=$OLD_POINTS" >> $GITHUB_OUTPUT
           else
-            echo "old_downloads=0" >> $GITHUB_OUTPUT
-            echo "old_posts=0" >> $GITHUB_OUTPUT
-            echo "old_upvotes=0" >> $GITHUB_OUTPUT
+            echo "old_points=0" >> $GITHUB_OUTPUT
           fi
       
       - name: Generate stats report
@@ -59,23 +53,19 @@ jobs:
       - name: Check for significant changes
         id: check_changes
         run: |
-          # 获取新的统计数据
-          NEW_DOWNLOADS=$(jq -r '.total_downloads' docs/community-stats.json 2>/dev/null || echo "0")
-          NEW_POSTS=$(jq -r '.total_posts' docs/community-stats.json 2>/dev/null || echo "0")
-          NEW_UPVOTES=$(jq -r '.total_upvotes' docs/community-stats.json 2>/dev/null || echo "0")
+          # 获取新的 points
+          NEW_POINTS=$(jq -r '.user.total_points' docs/community-stats.json 2>/dev/null || echo "0")
           
-          echo "📊 Previous: ${{ steps.prev_stats.outputs.old_downloads }} downloads, ${{ steps.prev_stats.outputs.old_posts }} posts, ${{ steps.prev_stats.outputs.old_upvotes }} upvotes"
-          echo "📊 Current: $NEW_DOWNLOADS downloads, $NEW_POSTS posts, $NEW_UPVOTES upvotes"
+          echo "📊 Previous points: ${{ steps.prev_stats.outputs.old_points }}"
+          echo "📊 Current points: $NEW_POINTS"
           
-          # 比较是否有变化
-          if [ "$NEW_DOWNLOADS" != "${{ steps.prev_stats.outputs.old_downloads }}" ] || \
-             [ "$NEW_POSTS" != "${{ steps.prev_stats.outputs.old_posts }}" ] || \
-             [ "$NEW_UPVOTES" != "${{ steps.prev_stats.outputs.old_upvotes }}" ]; then
+          # 只在 points 变化时才 commit
+          if [ "$NEW_POINTS" != "${{ steps.prev_stats.outputs.old_points }}" ]; then
             echo "changed=true" >> $GITHUB_OUTPUT
-            echo "✅ Stats changed, will commit"
+            echo "✅ Points changed (${{ steps.prev_stats.outputs.old_points }} → $NEW_POINTS), will commit"
           else
             echo "changed=false" >> $GITHUB_OUTPUT
-            echo "⏭️ No changes, skipping commit"
+            echo "⏭️ Points unchanged, skipping commit"
           fi
       
       - name: Commit and push changes
