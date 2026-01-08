@@ -164,7 +164,14 @@ class OpenWebUICommunityClient:
                 "data": data or {},
                 "media": media or [],
             }
+            print(f"  [DEBUG] Payload keys: {list(payload.keys())}")
+            print(
+                f"  [DEBUG] data.function keys: {list(payload.get('data', {}).get('function', {}).keys()) if payload.get('data') else 'N/A'}"
+            )
             response = requests.post(url, headers=self.headers, json=payload)
+            if response.status_code != 200:
+                print(f"  [DEBUG] Response status: {response.status_code}")
+                print(f"  [DEBUG] Response body: {response.text[:500]}")
             response.raise_for_status()
             return response.json()
         except Exception as e:
