@@ -7,28 +7,12 @@ A collection of enhancements, plugins, and prompts for [OpenWebUI](https://githu
 <!-- STATS_START -->
 ## 📊 Community Stats
 
-> 🕐 Auto-updated: 2026-01-08 22:10
+[![Plugins](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/Fu-Jie/7beb87fdc36bf10408282b1db495fe55/raw/plugins.json&style=for-the-badge)](https://openwebui.com/u/Fu-Jie)
+[![Downloads](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/Fu-Jie/7beb87fdc36bf10408282b1db495fe55/raw/downloads.json&style=for-the-badge)](https://openwebui.com/u/Fu-Jie)
+[![Upvotes](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/Fu-Jie/7beb87fdc36bf10408282b1db495fe55/raw/upvotes.json&style=for-the-badge)](https://openwebui.com/u/Fu-Jie)
+[![Followers](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/Fu-Jie/7beb87fdc36bf10408282b1db495fe55/raw/followers.json&style=for-the-badge)](https://openwebui.com/u/Fu-Jie)
 
-| 👤 Author | 👥 Followers | ⭐ Points | 🏆 Contributions |
-|:---:|:---:|:---:|:---:|
-| [Fu-Jie](https://openwebui.com/u/Fu-Jie) | **54** | **68** | **20** |
-
-| 📝 Posts | ⬇️ Downloads | 👁️ Views | 👍 Upvotes | 💾 Saves |
-|:---:|:---:|:---:|:---:|:---:|
-| **13** | **960** | **10140** | **60** | **52** |
-
-### 🔥 Top 6 Popular Plugins
-
-| Rank | Plugin | Downloads | Views |
-|:---:|------|:---:|:---:|
-| 🥇 | [Smart Mind Map](https://openwebui.com/posts/turn_any_text_into_beautiful_mind_maps_3094c59a) | 304 | 2659 |
-| 🥈 | [Export to Excel](https://openwebui.com/posts/export_mulit_table_to_excel_244b8f9d) | 179 | 522 |
-| 🥉 | [Async Context Compression](https://openwebui.com/posts/async_context_compression_b1655bc8) | 121 | 1329 |
-| 4️⃣ | [📊 Smart Infographic (AntV)](https://openwebui.com/posts/smart_infographic_ad6f0c7f) | 94 | 1183 |
-| 5️⃣ | [Flash Card](https://openwebui.com/posts/flash_card_65a2ea8f) | 89 | 1612 |
-| 6️⃣ | [Export to Word (Enhanced)](https://openwebui.com/posts/export_to_word_enhanced_formatting_fca6a315) | 75 | 689 |
-
-*See full stats in [Community Stats Report](./docs/community-stats.md)*
+> 📈 *Stats auto-updated hourly • [View Full Report](./docs/community-stats.md) • [My Profile](https://openwebui.com/u/Fu-Jie)*
 <!-- STATS_END -->
 
 ## 📦 Project Contents
