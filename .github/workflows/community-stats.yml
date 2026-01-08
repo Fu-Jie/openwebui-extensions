@@ -1,5 +1,5 @@
 # OpenWebUI 社区统计报告自动生成
-# 每小时自动获取并更新社区统计数据
+# 使用 GitHub Gist 存储动态徽章数据，避免频繁 commit
 
 name: Community Stats
 
@@ -39,10 +39,52 @@ jobs:
         run: |
           python scripts/openwebui_stats.py
       
-      - name: Check for changes
+      - name: Upload badges to Gist
+        if: ${{ secrets.GIST_TOKEN != '' && secrets.GIST_ID != '' }}
+        env:
+          GIST_TOKEN: ${{ secrets.GIST_TOKEN }}
+          GIST_ID: ${{ secrets.GIST_ID }}
+        run: |
+          # Upload each badge JSON to Gist
+          for badge in docs/badges/*.json; do
+            filename=$(basename "$badge")
+            content=$(cat "$badge" | jq -c '.')
+            
+            # Update Gist file
+            curl -s -X PATCH \
+              -H "Authorization: token $GIST_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/gists/$GIST_ID" \
+              -d "{\"files\":{\"$filename\":{\"content\":$content}}}"
+            
+            echo "✅ Uploaded $filename to Gist"
+          done
+      
+      - name: Check for significant changes
         id: check_changes
         run: |
-          git diff --quiet docs/community-stats.zh.md docs/community-stats.md README.md README_CN.md || echo "changed=true" >> $GITHUB_OUTPUT
+          # Only commit if there are changes to markdown files (not just time updates)
+          # This reduces commit frequency by only committing when actual data changes
+          
+          # Get current stats
+          NEW_DOWNLOADS=$(jq -r '.total_downloads' docs/community-stats.json 2>/dev/null || echo "0")
+          NEW_POSTS=$(jq -r '.total_posts' docs/community-stats.json 2>/dev/null || echo "0")
+          
+          # Get previous stats from git
+          OLD_DOWNLOADS=$(git show HEAD:docs/community-stats.json 2>/dev/null | jq -r '.total_downloads' 2>/dev/null || echo "0")
+          OLD_POSTS=$(git show HEAD:docs/community-stats.json 2>/dev/null | jq -r '.total_posts' 2>/dev/null || echo "0")
+          
+          echo "Previous: $OLD_DOWNLOADS downloads, $OLD_POSTS posts"
+          echo "Current: $NEW_DOWNLOADS downloads, $NEW_POSTS posts"
+          
+          # Only mark as changed if downloads or posts count changed
+          if [ "$NEW_DOWNLOADS" != "$OLD_DOWNLOADS" ] || [ "$NEW_POSTS" != "$OLD_POSTS" ]; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "📊 Stats changed, will commit"
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "⏭️ No significant changes, skipping commit"
+          fi
       
       - name: Commit and push changes
         if: steps.check_changes.outputs.changed == 'true'

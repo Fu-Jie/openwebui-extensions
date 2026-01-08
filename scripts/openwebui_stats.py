@@ -331,6 +331,67 @@ class OpenWebUIStats:
             json.dump(stats, f, ensure_ascii=False, indent=2)
         print(f"✅ JSON 数据已保存到: {filepath}")
 
+    def generate_shields_endpoints(self, stats: dict, output_dir: str = "docs/badges"):
+        """
+        生成 Shields.io endpoint JSON 文件
+
+        Args:
+            stats: 统计数据
+            output_dir: 输出目录
+        """
+        Path(output_dir).mkdir(parents=True, exist_ok=True)
+
+        def format_number(n: int) -> str:
+            """格式化数字为易读格式"""
+            if n >= 1000000:
+                return f"{n/1000000:.1f}M"
+            elif n >= 1000:
+                return f"{n/1000:.1f}k"
+            return str(n)
+
+        # 各种徽章数据
+        badges = {
+            "downloads": {
+                "schemaVersion": 1,
+                "label": "downloads",
+                "message": format_number(stats["total_downloads"]),
+                "color": "blue",
+                "namedLogo": "openwebui",
+            },
+            "plugins": {
+                "schemaVersion": 1,
+                "label": "plugins",
+                "message": str(stats["total_posts"]),
+                "color": "green",
+            },
+            "followers": {
+                "schemaVersion": 1,
+                "label": "followers",
+                "message": format_number(stats.get("user", {}).get("followers", 0)),
+                "color": "blue",
+            },
+            "points": {
+                "schemaVersion": 1,
+                "label": "points",
+                "message": format_number(stats.get("user", {}).get("total_points", 0)),
+                "color": "orange",
+            },
+            "upvotes": {
+                "schemaVersion": 1,
+                "label": "upvotes",
+                "message": format_number(stats["total_upvotes"]),
+                "color": "brightgreen",
+            },
+        }
+
+        for name, data in badges.items():
+            filepath = Path(output_dir) / f"{name}.json"
+            with open(filepath, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=2)
+            print(f"  📊 Generated badge: {name}.json")
+
+        print(f"✅ Shields.io endpoints saved to: {output_dir}/")
+
     def generate_readme_stats(self, stats: dict, lang: str = "zh") -> str:
         """
         生成 README 统计徽章区域
@@ -536,6 +597,10 @@ def main():
     # 保存 JSON 数据
     json_path = script_dir / "docs" / "community-stats.json"
     stats_client.save_json(stats, str(json_path))
+
+    # 生成 Shields.io endpoint JSON (用于动态徽章)
+    badges_dir = script_dir / "docs" / "badges"
+    stats_client.generate_shields_endpoints(stats, str(badges_dir))
 
     # 更新 README 文件
     readme_path = script_dir / "README.md"
