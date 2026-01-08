@@ -1,13 +1,13 @@
 {
-  "total_posts": 11,
-  "total_downloads": 916,
-  "total_views": 9670,
+  "total_posts": 12,
+  "total_downloads": 918,
+  "total_views": 9691,
   "total_upvotes": 55,
   "total_downvotes": 1,
   "total_saves": 50,
   "total_comments": 15,
   "by_type": {
-    "action": 9,
+    "action": 10,
     "filter": 2
   },
   "posts": [
@@ -19,7 +19,7 @@
       "author": "Fu-Jie",
       "description": "Intelligently analyzes text content and generates interactive mind maps to help users structure and visualize knowledge.",
       "downloads": 294,
-      "views": 2550,
+      "views": 2553,
       "upvotes": 10,
       "saves": 16,
       "comments": 10,
@@ -66,8 +66,8 @@
       "version": "1.4.1",
       "author": "jeff",
       "description": "AI-powered infographic generator based on AntV Infographic. Supports professional templates, auto-icon matching, and SVG/PNG downloads.",
-      "downloads": 87,
-      "views": 1123,
+      "downloads": 88,
+      "views": 1127,
       "upvotes": 7,
       "saves": 8,
       "comments": 2,
@@ -82,8 +82,8 @@
       "version": "0.2.4",
       "author": "Fu-Jie",
       "description": "Quickly generates beautiful flashcards from text, extracting key points and categories.",
-      "downloads": 84,
-      "views": 1561,
+      "downloads": 85,
+      "views": 1567,
       "upvotes": 8,
       "saves": 5,
       "comments": 2,
@@ -99,7 +99,7 @@
       "author": "Fu-Jie",
       "description": "Export current conversation from Markdown to Word (.docx) with Mermaid diagrams rendered client-side (Mermaid.js, SVG+PNG), LaTeX math, real hyperlinks, improved tables, syntax highlighting, and blockquote support.",
       "downloads": 69,
-      "views": 644,
+      "views": 645,
       "upvotes": 5,
       "saves": 5,
       "comments": 0,
@@ -115,7 +115,7 @@
       "author": "jeff",
       "description": "基于 AntV Infographic 的智能信息图生成插件。支持多种专业模板，自动图标匹配，并提供 SVG/PNG 下载功能。",
       "downloads": 33,
-      "views": 434,
+      "views": 436,
       "upvotes": 3,
       "saves": 0,
       "comments": 0,
@@ -147,7 +147,7 @@
       "author": "Fu-Jie",
       "description": "智能分析文本内容,生成交互式思维导图,帮助用户结构化和可视化知识。",
       "downloads": 15,
-      "views": 273,
+      "views": 275,
       "upvotes": 2,
       "saves": 1,
       "comments": 0,
@@ -163,7 +163,7 @@
       "author": "Fu-Jie",
       "description": "快速将文本提炼为精美的学习记忆卡片，支持核心要点提取与分类。",
       "downloads": 12,
-      "views": 329,
+      "views": 330,
       "upvotes": 3,
       "saves": 1,
       "comments": 0,
@@ -186,6 +186,22 @@
       "created_at": "2025-11-08",
       "updated_at": "2026-01-07",
       "url": "https://openwebui.com/posts/异步上下文压缩_5c0617cb"
+    },
+    {
+      "title": "Deep Dive",
+      "slug": "deep_dive_c0b846e4",
+      "type": "action",
+      "version": "1.0.0",
+      "author": "Fu-Jie",
+      "description": "A comprehensive thinking lens that dives deep into any content - from context to logic, insights, and action paths.",
+      "downloads": 0,
+      "views": 2,
+      "upvotes": 0,
+      "saves": 0,
+      "comments": 0,
+      "created_at": "2026-01-08",
+      "updated_at": "2026-01-08",
+      "url": "https://openwebui.com/posts/deep_dive_c0b846e4"
     }
   ],
   "user": {
@@ -198,6 +214,6 @@
     "total_points": 64,
     "post_points": 54,
     "comment_points": 10,
-    "contributions": 18
+    "contributions": 19
   }
 }
