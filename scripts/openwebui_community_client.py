@@ -47,9 +47,15 @@ class OpenWebUICommunityClient:
             "Content-Type": "application/json",
             "Accept": "application/json",
         }
+        # 如果没有 user_id，尝试通过 API 获取
+        if not self.user_id:
+            self.user_id = self._get_user_id_from_api()
 
     def _parse_user_id_from_token(self, token: str) -> Optional[str]:
         """从 JWT Token 中解析用户 ID"""
+        # sk- 开头的是 API Key，无法解析用户 ID
+        if token.startswith("sk-"):
+            return None
         try:
             parts = token.split(".")
             if len(parts) >= 2:
@@ -65,6 +71,17 @@ class OpenWebUICommunityClient:
             pass
         return None
 
+    def _get_user_id_from_api(self) -> Optional[str]:
+        """通过 API 获取当前用户 ID"""
+        try:
+            url = f"{self.BASE_URL}/auths/"
+            response = requests.get(url, headers=self.headers)
+            response.raise_for_status()
+            data = response.json()
+            return data.get("id")
+        except Exception:
+            return None
+
     # ========== 帖子/插件获取 ==========
 
     def get_user_posts(self, sort: str = "new", page: int = 1) -> List[Dict]:
@@ -78,7 +95,7 @@ class OpenWebUICommunityClient:
         Returns:
             帖子列表
         """
-        url = f"{self.BASE_URL}/posts/user/{self.user_id}?sort={sort}&page={page}"
+        url = f"{self.BASE_URL}/posts/users/{self.user_id}?sort={sort}&page={page}"
         response = requests.get(url, headers=self.headers)
         response.raise_for_status()
         return response.json()
@@ -115,6 +132,96 @@ class OpenWebUICommunityClient:
                 return None
             raise
 
+    # ========== 帖子/插件创建 ==========
+
+    def create_post(
+        self,
+        title: str,
+        content: str,
+        post_type: str = "function",
+        data: Optional[Dict] = None,
+        media: Optional[List[str]] = None,
+    ) -> Optional[Dict]:
+        """
+        创建新帖子
+
+        Args:
+            title: 帖子标题
+            content: 帖子内容（README/描述）
+            post_type: 帖子类型 (function/tool/filter/pipeline)
+            data: 插件数据结构
+            media: 图片 URL 列表
+
+        Returns:
+            创建成功返回帖子数据，失败返回 None
+        """
+        try:
+            url = f"{self.BASE_URL}/posts/create"
+            payload = {
+                "title": title,
+                "content": content,
+                "type": post_type,
+                "data": data or {},
+                "media": media or [],
+            }
+            response = requests.post(url, headers=self.headers, json=payload)
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            print(f"  Error creating post: {e}")
+            return None
+
+    def create_plugin(
+        self,
+        title: str,
+        source_code: str,
+        readme_content: Optional[str] = None,
+        metadata: Optional[Dict] = None,
+        media_urls: Optional[List[str]] = None,
+        plugin_type: str = "action",
+    ) -> Optional[str]:
+        """
+        创建新插件帖子
+
+        Args:
+            title: 插件标题
+            source_code: 插件源代码
+            readme_content: README 内容
+            metadata: 插件元数据
+            media_urls: 图片 URL 列表
+            plugin_type: 插件类型 (action/filter/pipe)
+
+        Returns:
+            创建成功返回帖子 ID，失败返回 None
+        """
+        # 构建 function 数据结构
+        function_data = {
+            "id": "",  # 服务器会生成
+            "name": title,
+            "type": plugin_type,
+            "content": source_code,
+            "meta": {
+                "description": metadata.get("description", "") if metadata else "",
+                "manifest": metadata or {},
+            },
+        }
+
+        data = {"function": function_data}
+
+        result = self.create_post(
+            title=title,
+            content=(
+                readme_content or metadata.get("description", "") if metadata else ""
+            ),
+            post_type="function",
+            data=data,
+            media=media_urls,
+        )
+
+        if result:
+            return result.get("id")
+        return None
+
     # ========== 帖子/插件更新 ==========
 
     def update_post(self, post_id: str, post_data: Dict) -> bool:
@@ -139,15 +246,17 @@ class OpenWebUICommunityClient:
         source_code: str,
         readme_content: Optional[str] = None,
         metadata: Optional[Dict] = None,
+        media_urls: Optional[List[str]] = None,
     ) -> bool:
         """
-        更新插件（代码 + README + 元数据）
+        更新插件（代码 + README + 元数据 + 图片）
 
         Args:
             post_id: 帖子 ID
             source_code: 插件源代码
             readme_content: README 内容（用于社区页面展示）
             metadata: 插件元数据（title, version, description 等）
+            media_urls: 图片 URL 列表
 
         Returns:
             是否成功
@@ -184,7 +293,62 @@ class OpenWebUICommunityClient:
                     "description"
                 ]
 
+        # 更新图片
+        if media_urls:
+            post_data["media"] = media_urls
+
         return self.update_post(post_id, post_data)
+
+    # ========== 图片上传 ==========
+
+    def upload_image(self, file_path: str) -> Optional[str]:
+        """
+        上传图片到 OpenWebUI 社区
+
+        Args:
+            file_path: 图片文件路径
+
+        Returns:
+            上传成功后的图片 URL，失败返回 None
+        """
+        if not os.path.exists(file_path):
+            return None
+
+        # 获取文件信息
+        filename = os.path.basename(file_path)
+
+        # 根据文件扩展名确定 MIME 类型
+        ext = os.path.splitext(filename)[1].lower()
+        mime_types = {
+            ".png": "image/png",
+            ".jpg": "image/jpeg",
+            ".jpeg": "image/jpeg",
+            ".gif": "image/gif",
+            ".webp": "image/webp",
+        }
+        content_type = mime_types.get(ext, "application/octet-stream")
+
+        try:
+            with open(file_path, "rb") as f:
+                files = {"file": (filename, f, content_type)}
+                # 上传时不使用 JSON Content-Type
+                headers = {
+                    "Authorization": f"Bearer {self.api_key}",
+                    "Accept": "application/json",
+                }
+                response = requests.post(
+                    f"{self.BASE_URL}/files/",
+                    headers=headers,
+                    files=files,
+                )
+                response.raise_for_status()
+                result = response.json()
+
+                # 返回图片 URL
+                return result.get("url")
+        except Exception as e:
+            print(f"  Warning: Failed to upload image: {e}")
+            return None
 
     # ========== 版本比较 ==========
 
@@ -228,14 +392,15 @@ class OpenWebUICommunityClient:
     # ========== 插件发布 ==========
 
     def publish_plugin_from_file(
-        self, file_path: str, force: bool = False
+        self, file_path: str, force: bool = False, auto_create: bool = True
     ) -> Tuple[bool, str]:
         """
-        从文件发布插件
+        从文件发布插件（支持首次创建和更新）
 
         Args:
             file_path: 插件文件路径
             force: 是否强制更新（忽略版本检查）
+            auto_create: 如果没有 openwebui_id，是否自动创建新帖子
 
         Returns:
             (是否成功, 消息)
@@ -247,19 +412,50 @@ class OpenWebUICommunityClient:
         if not metadata:
             return False, "No frontmatter found"
 
+        title = metadata.get("title")
+        if not title:
+            return False, "No title in frontmatter"
+
         post_id = metadata.get("openwebui_id") or metadata.get("post_id")
-        if not post_id:
-            return False, "No openwebui_id found"
-
         local_version = metadata.get("version")
-
-        # 版本检查
-        if not force and local_version:
-            if not self.version_needs_update(post_id, local_version):
-                return True, f"Skipped: version {local_version} matches remote"
 
         # 查找 README
         readme_content = self._find_readme(file_path)
+
+        # 查找并上传图片
+        media_urls = None
+        image_path = self._find_image(file_path)
+        if image_path:
+            print(f"  Found image: {os.path.basename(image_path)}")
+            image_url = self.upload_image(image_path)
+            if image_url:
+                print(f"  Uploaded image: {image_url}")
+                media_urls = [image_url]
+
+        # 如果没有 post_id，尝试创建新帖子
+        if not post_id:
+            if not auto_create:
+                return False, "No openwebui_id found and auto_create is disabled"
+
+            print(f"  Creating new post for: {title}")
+            new_post_id = self.create_plugin(
+                title=title,
+                source_code=content,
+                readme_content=readme_content or metadata.get("description", ""),
+                metadata=metadata,
+                media_urls=media_urls,
+            )
+
+            if new_post_id:
+                # 将新 ID 写回本地文件
+                self._inject_id_to_file(file_path, new_post_id)
+                return True, f"Created new post (ID: {new_post_id})"
+            return False, "Failed to create new post"
+
+        # 版本检查（仅对更新有效）
+        if not force and local_version:
+            if not self.version_needs_update(post_id, local_version):
+                return True, f"Skipped: version {local_version} matches remote"
 
         # 更新
         success = self.update_plugin(
@@ -267,6 +463,7 @@ class OpenWebUICommunityClient:
             source_code=content,
             readme_content=readme_content or metadata.get("description", ""),
             metadata=metadata,
+            media_urls=media_urls,
         )
 
         if success:
@@ -306,6 +503,77 @@ class OpenWebUICommunityClient:
                 with open(readme_path, "r", encoding="utf-8") as f:
                     return f.read()
         return None
+
+    def _find_image(self, plugin_file_path: str) -> Optional[str]:
+        """
+        查找插件对应的图片文件
+        图片名称需要和插件文件名一致（不含扩展名）
+
+        例如：
+            export_to_word.py -> export_to_word.png / export_to_word.jpg
+        """
+        plugin_dir = os.path.dirname(plugin_file_path)
+        plugin_name = os.path.splitext(os.path.basename(plugin_file_path))[0]
+
+        # 支持的图片格式
+        image_extensions = [".png", ".jpg", ".jpeg", ".gif", ".webp"]
+
+        for ext in image_extensions:
+            image_path = os.path.join(plugin_dir, plugin_name + ext)
+            if os.path.exists(image_path):
+                return image_path
+        return None
+
+    def _inject_id_to_file(self, file_path: str, post_id: str) -> bool:
+        """
+        将新创建的帖子 ID 写回本地插件文件的 frontmatter
+
+        Args:
+            file_path: 插件文件路径
+            post_id: 新创建的帖子 ID
+
+        Returns:
+            是否成功
+        """
+        try:
+            with open(file_path, "r", encoding="utf-8") as f:
+                lines = f.readlines()
+
+            new_lines = []
+            inserted = False
+            in_frontmatter = False
+
+            for line in lines:
+                # Check for start/end of frontmatter
+                if line.strip() == '"""':
+                    if not in_frontmatter:
+                        in_frontmatter = True
+                    else:
+                        in_frontmatter = False
+
+                new_lines.append(line)
+
+                # Insert after version line
+                if (
+                    in_frontmatter
+                    and not inserted
+                    and line.strip().startswith("version:")
+                ):
+                    new_lines.append(f"openwebui_id: {post_id}\n")
+                    inserted = True
+                    print(f"  Injected openwebui_id: {post_id}")
+
+            if inserted:
+                with open(file_path, "w", encoding="utf-8") as f:
+                    f.writelines(new_lines)
+                return True
+
+            print(f"  Warning: Could not inject ID (no version line found)")
+            return False
+
+        except Exception as e:
+            print(f"  Error injecting ID to file: {e}")
+            return False
 
     # ========== 统计功能 ==========
 
