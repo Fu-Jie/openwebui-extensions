@@ -157,16 +157,26 @@ class OpenWebUICommunityClient:
         """
         try:
             url = f"{self.BASE_URL}/posts/create"
+
+            # 将字符串 URL 转换为字典格式 (API 要求)
+            media_list = []
+            if media:
+                for item in media:
+                    if isinstance(item, str):
+                        media_list.append({"url": item})
+                    elif isinstance(item, dict):
+                        media_list.append(item)
+
             payload = {
                 "title": title,
                 "content": content,
                 "type": post_type,
                 "data": data or {},
-                "media": media or [],
+                "media": media_list,
             }
             print(f"  [DEBUG] Payload keys: {list(payload.keys())}")
             print(
-                f"  [DEBUG] data.function keys: {list(payload.get('data', {}).get('function', {}).keys()) if payload.get('data') else 'N/A'}"
+                f"  [DEBUG] media format: {media_list[:1] if media_list else 'empty'}"
             )
             response = requests.post(url, headers=self.headers, json=payload)
             if response.status_code != 200:
