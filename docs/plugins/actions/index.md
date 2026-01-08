@@ -67,15 +67,15 @@ Actions are interactive plugins that:
 
     [:octicons-arrow-right-24: Documentation](export-to-word.md)
 
--   :material-text-box-search:{ .lg .middle } **Summary**
+-   :material-brain:{ .lg .middle } **Deep Dive**
 
     ---
 
-    Generate concise summaries of long text content with key points extraction.
+    A comprehensive thinking lens that dives deep into any content - Context → Logic → Insight → Path. Supports theme auto-adaptation.
 
-    **Version:** 0.1.0
+    **Version:** 1.0.0
 
-    [:octicons-arrow-right-24: Documentation](summary.md)
+    [:octicons-arrow-right-24: Documentation](deep-dive.md)
 
 -   :material-image-text:{ .lg .middle } **Infographic to Markdown**
 

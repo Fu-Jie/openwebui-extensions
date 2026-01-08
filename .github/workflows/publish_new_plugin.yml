@@ -1,0 +1,68 @@
+name: Publish New Plugin
+
+on:
+  workflow_dispatch:
+    inputs:
+      plugin_dir:
+        description: 'Plugin directory (e.g., plugins/actions/deep-dive)'
+        required: true
+        type: string
+      dry_run:
+        description: 'Dry run mode (preview only)'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests
+
+      - name: Validate plugin directory
+        run: |
+          if [ ! -d "${{ github.event.inputs.plugin_dir }}" ]; then
+            echo "❌ Error: Directory '${{ github.event.inputs.plugin_dir }}' does not exist"
+            exit 1
+          fi
+          echo "✅ Found plugin directory: ${{ github.event.inputs.plugin_dir }}"
+          ls -la "${{ github.event.inputs.plugin_dir }}"
+
+      - name: Publish Plugin
+        env:
+          OPENWEBUI_API_KEY: ${{ secrets.OPENWEBUI_API_KEY }}
+        run: |
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            echo "🔍 Dry run mode - previewing..."
+            python scripts/publish_plugin.py --new "${{ github.event.inputs.plugin_dir }}" --dry-run
+          else
+            echo "🚀 Publishing plugin..."
+            python scripts/publish_plugin.py --new "${{ github.event.inputs.plugin_dir }}"
+          fi
+
+      - name: Commit changes (if ID was added)
+        if: ${{ github.event.inputs.dry_run != 'true' }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # Check if there are changes to commit
+          if git diff --quiet; then
+            echo "No changes to commit"
+          else
+            git add "${{ github.event.inputs.plugin_dir }}"
+            git commit -m "feat: add openwebui_id to ${{ github.event.inputs.plugin_dir }}"
+            git push
+            echo "✅ Committed and pushed openwebui_id changes"
+          fi

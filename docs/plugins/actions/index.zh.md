@@ -67,15 +67,15 @@ Actions 是交互式插件，能够：
 
     [:octicons-arrow-right-24: 查看文档](export-to-word.md)
 
--   :material-text-box-search:{ .lg .middle } **Summary**
+-   :material-brain:{ .lg .middle } **精读 (Deep Dive)**
 
     ---
 
-    对长文本进行精简总结，提取要点。
+    全方位的思维透镜 —— 全景 → 脉络 → 洞察 → 路径。支持主题自适应。
 
-    **版本：** 0.1.0
+    **版本：** 1.0.0
 
-    [:octicons-arrow-right-24: 查看文档](summary.md)
+    [:octicons-arrow-right-24: 查看文档](deep-dive.zh.md)
 
 -   :material-image-text:{ .lg .middle } **信息图转 Markdown**
 
