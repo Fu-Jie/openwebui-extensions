@@ -1,5 +1,5 @@
 # OpenWebUI 社区统计报告自动生成
-# 使用 GitHub Gist 存储动态徽章数据，完全不 commit 到主仓库
+# 只在统计数据变化时 commit，避免频繁提交
 
 name: Community Stats
 
@@ -10,6 +10,9 @@ on:
   # 手动触发
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   update-stats:
     runs-on: ubuntu-latest
@@ -17,6 +20,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
       
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -27,6 +32,23 @@ jobs:
         run: |
           pip install requests python-dotenv
       
+      - name: Get previous stats
+        id: prev_stats
+        run: |
+          # 获取当前的统计数据用于比较
+          if [ -f docs/community-stats.json ]; then
+            OLD_DOWNLOADS=$(jq -r '.total_downloads' docs/community-stats.json 2>/dev/null || echo "0")
+            OLD_POSTS=$(jq -r '.total_posts' docs/community-stats.json 2>/dev/null || echo "0")
+            OLD_UPVOTES=$(jq -r '.total_upvotes' docs/community-stats.json 2>/dev/null || echo "0")
+            echo "old_downloads=$OLD_DOWNLOADS" >> $GITHUB_OUTPUT
+            echo "old_posts=$OLD_POSTS" >> $GITHUB_OUTPUT
+            echo "old_upvotes=$OLD_UPVOTES" >> $GITHUB_OUTPUT
+          else
+            echo "old_downloads=0" >> $GITHUB_OUTPUT
+            echo "old_posts=0" >> $GITHUB_OUTPUT
+            echo "old_upvotes=0" >> $GITHUB_OUTPUT
+          fi
+      
       - name: Generate stats report
         env:
           OPENWEBUI_API_KEY: ${{ secrets.OPENWEBUI_API_KEY }}
@@ -34,45 +56,33 @@ jobs:
         run: |
           python scripts/openwebui_stats.py
       
-      - name: Upload badges to Gist
-        env:
-          GIST_TOKEN: ${{ secrets.GIST_TOKEN }}
-          GIST_ID: ${{ secrets.GIST_ID }}
+      - name: Check for significant changes
+        id: check_changes
         run: |
-          if [ -z "$GIST_TOKEN" ] || [ -z "$GIST_ID" ]; then
-            echo "⚠️ GIST_TOKEN or GIST_ID not set, skipping Gist upload"
-            exit 0
-          fi
+          # 获取新的统计数据
+          NEW_DOWNLOADS=$(jq -r '.total_downloads' docs/community-stats.json 2>/dev/null || echo "0")
+          NEW_POSTS=$(jq -r '.total_posts' docs/community-stats.json 2>/dev/null || echo "0")
+          NEW_UPVOTES=$(jq -r '.total_upvotes' docs/community-stats.json 2>/dev/null || echo "0")
           
-          echo "📤 Uploading badges to Gist..."
+          echo "📊 Previous: ${{ steps.prev_stats.outputs.old_downloads }} downloads, ${{ steps.prev_stats.outputs.old_posts }} posts, ${{ steps.prev_stats.outputs.old_upvotes }} upvotes"
+          echo "📊 Current: $NEW_DOWNLOADS downloads, $NEW_POSTS posts, $NEW_UPVOTES upvotes"
           
-          # Build JSON payload with all badge files
-          files_json="{"
-          first=true
-          for badge in docs/badges/*.json; do
-            filename=$(basename "$badge")
-            content=$(cat "$badge" | sed 's/"/\\"/g' | tr -d '\n')
-            
-            if [ "$first" = true ]; then
-              first=false
-            else
-              files_json+=","
-            fi
-            files_json+="\"$filename\":{\"content\":\"$content\"}"
-          done
-          files_json+="}"
-          
-          # Update Gist with all files at once
-          response=$(curl -s -X PATCH \
-            -H "Authorization: token $GIST_TOKEN" \
-            -H "Accept: application/vnd.github+json" \
-            "https://api.github.com/gists/$GIST_ID" \
-            -d "{\"files\":$files_json}")
-          
-          if echo "$response" | grep -q '"id"'; then
-            echo "✅ Successfully updated Gist: https://gist.github.com/$GIST_ID"
+          # 比较是否有变化
+          if [ "$NEW_DOWNLOADS" != "${{ steps.prev_stats.outputs.old_downloads }}" ] || \
+             [ "$NEW_POSTS" != "${{ steps.prev_stats.outputs.old_posts }}" ] || \
+             [ "$NEW_UPVOTES" != "${{ steps.prev_stats.outputs.old_upvotes }}" ]; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "✅ Stats changed, will commit"
           else
-            echo "❌ Failed to update Gist"
-            echo "$response"
-            exit 1
+            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "⏭️ No changes, skipping commit"
           fi
+      
+      - name: Commit and push changes
+        if: steps.check_changes.outputs.changed == 'true'
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add docs/community-stats.zh.md docs/community-stats.md docs/community-stats.json README.md README_CN.md
+          git diff --staged --quiet || git commit -m "chore: update community stats $(date +'%Y-%m-%d')"
+          git push
