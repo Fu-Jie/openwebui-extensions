@@ -36,8 +36,8 @@ jobs:
         id: prev_stats
         run: |
           # 获取当前的 points 用于比较
-          if [ -f docs/community-stats.json ]; then
-            OLD_POINTS=$(jq -r '.user.total_points' docs/community-stats.json 2>/dev/null || echo "0")
+          if [ -f docs/meta/community-stats.json ]; then
+            OLD_POINTS=$(jq -r '.user.total_points' docs/meta/community-stats.json 2>/dev/null || echo "0")
             echo "old_points=$OLD_POINTS" >> $GITHUB_OUTPUT
           else
             echo "old_points=0" >> $GITHUB_OUTPUT
@@ -54,7 +54,7 @@ jobs:
         id: check_changes
         run: |
           # 获取新的 points
-          NEW_POINTS=$(jq -r '.user.total_points' docs/community-stats.json 2>/dev/null || echo "0")
+          NEW_POINTS=$(jq -r '.user.total_points' docs/meta/community-stats.json 2>/dev/null || echo "0")
           
           echo "📊 Previous points: ${{ steps.prev_stats.outputs.old_points }}"
           echo "📊 Current points: $NEW_POINTS"
@@ -73,6 +73,6 @@ jobs:
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
-          git add docs/community-stats.zh.md docs/community-stats.md docs/community-stats.json README.md README_CN.md
+          git add docs/meta/stats.zh.md docs/meta/stats.md docs/meta/community-stats.json README.md README_CN.md
           git diff --staged --quiet || git commit -m "chore: update community stats $(date +'%Y-%m-%d')"
           git push

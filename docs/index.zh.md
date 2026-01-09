@@ -121,7 +121,7 @@ hide:
 
 我们欢迎各种形式的贡献！无论是新插件、实用的提示词，还是文档改进。
 
-[:octicons-heart-fill-24:{ .heart } 查看贡献指南](contributing_zh.md){ .md-button }
+[:octicons-heart-fill-24:{ .heart } 查看贡献指南](meta/contributing.zh.md){ .md-button }
 
 ---
 

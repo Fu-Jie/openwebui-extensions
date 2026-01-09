@@ -412,7 +412,7 @@ class OpenWebUIStats:
                 "header": "| 📝 发布 | ⬇️ 下载 | 👁️ 浏览 | 👍 点赞 | 💾 收藏 |",
                 "top6_title": "### 🔥 热门插件 Top 6",
                 "top6_header": "| 排名 | 插件 | 下载 | 浏览 |",
-                "full_stats": "*完整统计请查看 [社区统计报告](./docs/community-stats.zh.md)*",
+                "full_stats": "*完整统计请查看 [社区统计报告](docs/meta/stats.zh.md)*",
             },
             "en": {
                 "title": "## 📊 Community Stats",
@@ -421,7 +421,7 @@ class OpenWebUIStats:
                 "header": "| 📝 Posts | ⬇️ Downloads | 👁️ Views | 👍 Upvotes | 💾 Saves |",
                 "top6_title": "### 🔥 Top 6 Popular Plugins",
                 "top6_header": "| Rank | Plugin | Downloads | Views |",
-                "full_stats": "*See full stats in [Community Stats Report](./docs/community-stats.md)*",
+                "full_stats": "*See full stats in [Community Stats Report](docs/meta/stats.md)*",
             },
         }
 
@@ -581,21 +581,21 @@ def main():
     script_dir = Path(__file__).parent.parent
 
     # 中文报告
-    md_zh_path = script_dir / "docs" / "community-stats.zh.md"
+    md_zh_path = script_dir / "docs" / "meta" / "stats.zh.md"
     md_zh_content = stats_client.generate_markdown(stats, lang="zh")
     with open(md_zh_path, "w", encoding="utf-8") as f:
         f.write(md_zh_content)
     print(f"\n✅ 中文报告已保存到: {md_zh_path}")
 
     # 英文报告
-    md_en_path = script_dir / "docs" / "community-stats.md"
+    md_en_path = script_dir / "docs" / "meta" / "stats.md"
     md_en_content = stats_client.generate_markdown(stats, lang="en")
     with open(md_en_path, "w", encoding="utf-8") as f:
         f.write(md_en_content)
     print(f"✅ 英文报告已保存到: {md_en_path}")
 
     # 保存 JSON 数据
-    json_path = script_dir / "docs" / "community-stats.json"
+    json_path = script_dir / "docs" / "meta" / "community-stats.json"
     stats_client.save_json(stats, str(json_path))
 
     # 生成 Shields.io endpoint JSON (用于动态徽章)

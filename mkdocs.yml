@@ -84,6 +84,11 @@ plugins:
           build: true
           nav_translations:
             Home: 首页
+            User Guide: 用户指南
+            Getting Started: 快速入门
+            Installation: 安装指南
+            FAQ: 常见问题
+            Resource Catalog: 资源目录
             Plugins: 插件
             Actions: 动作
             Filters: 过滤器
@@ -91,10 +96,16 @@ plugins:
             Pipelines: 流水线
             Prompts: 提示词
             Enhancements: 增强功能
-            Development: 开发指南
+            Developer Guide: 开发者指南
+            Overview: 概览
+            Plugin Development: 插件开发
+            Documentation Standard: 文档规范
+            Release Workflow: 发布流程
+            Project Info: 项目信息
             Contributing: 贡献指南
-            Plugin Development Guide: 插件开发指南
-            Documentation Guide: 文档编写指南
+            Community Stats: 社区统计
+            Changelog: 更新日志
+            Library: 提示词库
             Smart Mind Map: 智能思维导图
             Smart Infographic: 智能信息图
             Knowledge Card: 知识卡片
@@ -165,11 +176,6 @@ extra:
       link: https://github.com/Fu-Jie/awesome-openwebui
   
   generator: false
-  
-  # Analytics (optional - add your tracking ID)
-  # analytics:
-  #   provider: google
-  #   property: G-XXXXXXXXXX
 
 # Extra CSS
 extra_css:
@@ -178,35 +184,45 @@ extra_css:
 # Navigation Structure
 nav:
   - Home: index.md
-  - Plugins:
-    - plugins/index.md
-    - Actions:
-      - plugins/actions/index.md
-      - Smart Mind Map: plugins/actions/smart-mind-map.md
-      - Smart Infographic: plugins/actions/smart-infographic.md
-      - Knowledge Card: plugins/actions/knowledge-card.md
-      - Export to Excel: plugins/actions/export-to-excel.md
-      - Export to Word: plugins/actions/export-to-word.md
-      - Summary: plugins/actions/summary.md
-    - Filters:
-      - plugins/filters/index.md
-      - Async Context Compression: plugins/filters/async-context-compression.md
-      - Context Enhancement: plugins/filters/context-enhancement.md
-      - Gemini Manifold Companion: plugins/filters/gemini-manifold-companion.md
-    - Pipes:
-      - plugins/pipes/index.md
-      - Gemini Manifold: plugins/pipes/gemini-manifold.md
-    - Pipelines:
-      - plugins/pipelines/index.md
-      - MoE Prompt Refiner: plugins/pipelines/moe-prompt-refiner.md
-  - Prompts:
-    - prompts/index.md
-    - prompts/library.md
+  - User Guide:
+    - Getting Started: getting-started/index.md
+    - Installation: getting-started/installation.md
+    - FAQ: getting-started/faq.md
+  - Resource Catalog:
+    - Plugins:
+      - Overview: plugins/index.md
+      - Actions:
+        - plugins/actions/index.md
+        - Smart Mind Map: plugins/actions/smart-mind-map.md
+        - Smart Infographic: plugins/actions/smart-infographic.md
+        - Knowledge Card: plugins/actions/knowledge-card.md
+        - Export to Excel: plugins/actions/export-to-excel.md
+        - Export to Word: plugins/actions/export-to-word.md
+        - Summary: plugins/actions/summary.md
+      - Filters:
+        - plugins/filters/index.md
+        - Async Context Compression: plugins/filters/async-context-compression.md
+        - Context Enhancement: plugins/filters/context-enhancement.md
+        - Gemini Manifold Companion: plugins/filters/gemini-manifold-companion.md
+      - Pipes:
+        - plugins/pipes/index.md
+        - Gemini Manifold: plugins/pipes/gemini-manifold.md
+      - Pipelines:
+        - plugins/pipelines/index.md
+        - MoE Prompt Refiner: plugins/pipelines/moe-prompt-refiner.md
+    - Prompts:
+      - Overview: prompts/index.md
+      - Library: prompts/library.md
   - Enhancements:
     - enhancements/index.md
     - enhancements/guide.md
-  - Development:
-    - development/index.md
-    - Plugin Development Guide: development/plugin-guide.md
-    - Documentation Guide: development/documentation-guide.md
-  - Contributing: contributing.md
+  - Developer Guide:
+    - Overview: development/index.md
+    - Plugin Development: development/plugin-guide.md
+    - Philosophy: development/gemini_manifold_plugin_philosophy.md
+    - Documentation Standard: development/documentation-guide.md
+    - Release Workflow: development/release-workflow.md
+  - Project Info:
+    - Contributing: meta/contributing.md
+    - Community Stats: meta/stats.md
+    - Changelog: meta/changelog.md

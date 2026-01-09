@@ -121,7 +121,7 @@ hide:
 
 We welcome contributions! Whether it's a new plugin, a helpful prompt, or documentation improvements.
 
-[:octicons-heart-fill-24:{ .heart } Check out our Contributing Guide](contributing.md){ .md-button }
+[:octicons-heart-fill-24:{ .heart } Check out our Contributing Guide](meta/contributing.md){ .md-button }
 
 ---
 
