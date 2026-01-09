@@ -1,77 +1,59 @@
-# 精读 (Deep Dive)
+# 📖 精读
 
-<span class="category-badge action">Action</span>
-<span class="version-badge">v1.0.0</span>
+**作者:** [Fu-Jie](https://github.com/Fu-Jie) | **版本:** 1.0.0 | **项目:** [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui)
 
 全方位的思维透镜 —— 从背景全景到逻辑脉络，从深度洞察到行动路径。
 
----
+## 🔥 v1.0.0 更新内容
 
-## 概述
+- ✨ **思维链结构**: 从表面理解一步步深入到战略行动。
+- 🔍 **阶段 01: 全景 (The Context)**: 提供情境与背景的高层级全景视图。
+- 🧠 **阶段 02: 脉络 (The Logic)**: 解构底层推理逻辑与思维模型。
+- 💎 **阶段 03: 洞察 (The Insight)**: 提取非显性价值与隐藏的深层含义。
+- 🚀 **阶段 04: 路径 (The Path)**: 定义具体的、按优先级排列的战略方向。
+- 🎨 **高端 UI**: 现代化的过程导向设计，带有"思维导火索"时间轴。
+- 🌗 **主题自适应**: 自动适配 OpenWebUI 的深色/浅色主题。
 
-精读插件改变了您理解复杂内容的方式，通过结构化的思维过程引导您进行深度分析。它不仅仅是摘要，而是从四个阶段解构内容：
+## ✨ 核心特性
 
-- **🔍 全景 (The Context)**: 情境与背景的高层级全景视图
-- **🧠 脉络 (The Logic)**: 解构底层推理逻辑与思维模型
-- **💎 洞察 (The Insight)**: 提取非显性价值与隐藏含义
-- **🚀 路径 (The Path)**: 具体的、按优先级排列的战略行动
+- 📖 **深度思考**: 不仅仅是摘要，而是对内容的全面解构。
+- 🧠 **逻辑分析**: 揭示论点是如何构建的，识别隐藏的假设。
+- 💎 **价值提取**: 发现"原来如此"的时刻与思维盲点。
+- 🚀 **行动导向**: 将深度理解转化为立即、可执行的步骤。
+- 🌍 **多语言支持**: 自动适配用户的偏好语言。
+- 🌗 **主题支持**: 根据 OpenWebUI 设置自动切换深色/浅色主题。
 
-## 功能特性
+## 🚀 如何使用
 
-- :material-brain: **思维链**: 完整的结构化分析过程
-- :material-eye: **深度理解**: 揭示隐藏的假设和思维盲点
-- :material-lightbulb-on: **洞察提取**: 发现"原来如此"的时刻
-- :material-rocket-launch: **行动导向**: 将深度理解转化为可执行步骤
-- :material-theme-light-dark: **主题自适应**: 自动适配 OpenWebUI 深色/浅色主题
-- :material-translate: **多语言**: 以用户偏好语言输出
+1. **输入内容**: 在聊天中提供任何文本、文章或会议记录。
+2. **触发精读**: 点击 **精读** 操作按钮。
+3. **探索思维链**: 沿着视觉时间轴从"全景"探索到"路径"。
 
----
+## ⚙️ 配置参数 (Valves)
 
-## 安装
+| 参数 | 默认值 | 描述 |
+| :--- | :--- | :--- |
+| **显示状态 (SHOW_STATUS)** | `True` | 是否在思维过程中显示状态更新。 |
+| **模型 ID (MODEL_ID)** | `空` | 用于分析的 LLM 模型。留空 = 使用当前模型。 |
+| **最小文本长度 (MIN_TEXT_LENGTH)** | `200` | 进行有意义的精读所需的最小字符数。 |
+| **清除旧 HTML (CLEAR_PREVIOUS_HTML)** | `True` | 是否清除之前的插件结果。 |
+| **消息数量 (MESSAGE_COUNT)** | `1` | 要分析的最近消息数量。 |
 
-1. 下载插件文件: [`deep_dive_cn.py`](https://github.com/Fu-Jie/awesome-openwebui/tree/main/plugins/actions/deep-dive)
-2. 上传到 OpenWebUI: **管理面板** → **设置** → **Functions**
-3. 启用插件
+## 🌗 主题支持
 
----
+插件会自动检测并适配 OpenWebUI 的主题设置：
 
-## 使用方法
+- **检测优先级**:
+  1. 父文档 `<meta name="theme-color">` 标签
+  2. 父文档 `html/body` 的 class 或 `data-theme` 属性
+  3. 系统偏好 `prefers-color-scheme: dark`
 
-1. 在聊天中提供任何长文本、文章或会议记录
-2. 点击消息操作栏中的 **精读** 按钮
-3. 沿着视觉时间轴从"全景"探索到"路径"
+- **环境要求**: 为获得最佳效果，请在 OpenWebUI 中启用 **iframe Sandbox Allow Same Origin**：
+  - 进入 **设置** → **界面** → **Artifacts** → 勾选 **iframe Sandbox Allow Same Origin**
 
----
+## 🎨 视觉预览
 
-## 配置参数
-
-| 选项 | 类型 | 默认值 | 描述 |
-|------|------|--------|------|
-| `SHOW_STATUS` | boolean | `true` | 处理过程中是否显示状态更新 |
-| `MODEL_ID` | string | `""` | 用于分析的 LLM 模型（空 = 当前模型） |
-| `MIN_TEXT_LENGTH` | integer | `200` | 分析所需的最小文本长度 |
-| `CLEAR_PREVIOUS_HTML` | boolean | `true` | 是否清除之前的插件结果 |
-| `MESSAGE_COUNT` | integer | `1` | 要分析的最近消息数量 |
-
----
-
-## 主题支持
-
-精读插件自动适配 OpenWebUI 的深色/浅色主题：
-
-- 从父文档 `<meta name="theme-color">` 标签检测主题
-- 回退到 `html/body` 的 class 或 `data-theme` 属性
-- 最后使用系统偏好 `prefers-color-scheme: dark`
-
-!!! tip "最佳效果"
-    请在 OpenWebUI 中启用 **iframe Sandbox Allow Same Origin**：
-    **设置** → **界面** → **Artifacts** → 勾选 **iframe Sandbox Allow Same Origin**
-
----
-
-## 输出示例
-
-插件生成精美的结构化时间轴：
+插件生成结构化的思维时间轴：
 
 ```
 ┌─────────────────────────────────────┐
@@ -95,17 +77,7 @@
 └─────────────────────────────────────┘
 ```
 
----
+## 📂 文件说明
 
-## 系统要求
-
-!!! note "前提条件"
-    - OpenWebUI v0.3.0 或更高版本
-    - 使用当前活跃的 LLM 模型进行分析
-    - 需要 `markdown` Python 包
-
----
-
-## 源代码
-
-[:fontawesome-brands-github: 在 GitHub 上查看](https://github.com/Fu-Jie/awesome-openwebui/tree/main/plugins/actions/deep-dive){ .md-button }
+- `deep_dive.py` - 英文版 (Deep Dive)
+- `deep_dive_cn.py` - 中文版 (精读)
