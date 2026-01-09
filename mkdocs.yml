@@ -199,6 +199,8 @@ nav:
         - Export to Excel: plugins/actions/export-to-excel.md
         - Export to Word: plugins/actions/export-to-word.md
         - Summary: plugins/actions/summary.md
+        - Deep Dive: plugins/actions/deep-dive.md
+        - Infographic Markdown: plugins/actions/infographic-markdown.md
       - Filters:
         - plugins/filters/index.md
         - Async Context Compression: plugins/filters/async-context-compression.md
@@ -221,6 +223,7 @@ nav:
     - Plugin Development: development/plugin-guide.md
     - Philosophy: development/gemini_manifold_plugin_philosophy.md
     - Documentation Standard: development/documentation-guide.md
+    - JS Visualization Guide: development/js-visualization-guide.md
     - Release Workflow: development/release-workflow.md
   - Project Info:
     - Contributing: meta/contributing.md

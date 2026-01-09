@@ -30,7 +30,7 @@
 
     了解如何贡献插件、提示词与文档。
 
-    [:octicons-arrow-right-24: 贡献说明](../contributing.md)
+    [:octicons-arrow-right-24: 贡献说明](../meta/contributing.zh.md)
 
 </div>
 

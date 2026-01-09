@@ -99,4 +99,4 @@ Creative scenarios, storytelling, and interactive experiences.
 
 Have a great prompt? Share it with the community!
 
-[:octicons-heart-fill-24:{ .heart } Submit a Prompt](../contributing.md){ .md-button }
+[:octicons-heart-fill-24:{ .heart } Submit a Prompt](../meta/contributing.md){ .md-button }

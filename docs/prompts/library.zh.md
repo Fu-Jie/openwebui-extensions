@@ -341,4 +341,4 @@ When collaborating:
 
 有好用的提示词？欢迎分享！
 
-[:octicons-heart-fill-24:{ .heart } 贡献提示词](../contributing.md){ .md-button }
+[:octicons-heart-fill-24:{ .heart } 贡献提示词](../meta/contributing.zh.md){ .md-button }

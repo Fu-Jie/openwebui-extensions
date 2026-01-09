@@ -30,7 +30,7 @@ Learn how to develop plugins and contribute to OpenWebUI Extras.
 
     Learn how to contribute plugins, prompts, and documentation to the project.
 
-    [:octicons-arrow-right-24: Contribution Guide](../contributing.md)
+    [:octicons-arrow-right-24: Contribution Guide](../meta/contributing.md)
 
 </div>
 

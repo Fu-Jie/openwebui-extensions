@@ -341,4 +341,4 @@ When collaborating:
 
 Have a great prompt to share? We'd love to include it!
 
-[:octicons-heart-fill-24:{ .heart } Contribute a Prompt](../contributing.md){ .md-button }
+[:octicons-heart-fill-24:{ .heart } Contribute a Prompt](../meta/contributing.md){ .md-button }

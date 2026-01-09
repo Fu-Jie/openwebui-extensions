@@ -1,77 +1,59 @@
-# Deep Dive
+# 🌊 Deep Dive
 
-<span class="category-badge action">Action</span>
-<span class="version-badge">v1.0.0</span>
+**Author:** [Fu-Jie](https://github.com/Fu-Jie) | **Version:** 1.0.0 | **Project:** [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui)
 
 A comprehensive thinking lens that dives deep into any content - from context to logic, insights, and action paths.
 
----
+## 🔥 What's New in v1.0.0
 
-## Overview
+- ✨ **Thinking Chain Structure**: Moves from surface understanding to deep strategic action.
+- 🔍 **Phase 01: The Context**: Panoramic view of the situation and background.
+- 🧠 **Phase 02: The Logic**: Deconstruction of the underlying reasoning and mental models.
+- 💎 **Phase 03: The Insight**: Extraction of non-obvious value and hidden implications.
+- 🚀 **Phase 04: The Path**: Definition of specific, prioritized strategic directions.
+- 🎨 **Premium UI**: Modern, process-oriented design with a "Thinking Line" timeline.
+- 🌗 **Theme Adaptive**: Automatically adapts to OpenWebUI's light/dark theme.
 
-The Deep Dive plugin transforms how you understand complex content by guiding you through a structured thinking process. Rather than just summarizing, it deconstructs content across four phases:
+## ✨ Key Features
 
-- **🔍 The Context (What?)**: Panoramic view of the situation and background
-- **🧠 The Logic (Why?)**: Deconstruction of reasoning and mental models  
-- **💎 The Insight (So What?)**: Non-obvious value and hidden implications
-- **🚀 The Path (Now What?)**: Specific, prioritized strategic actions
+- 🌊 **Deep Thinking**: Not just a summary, but a full deconstruction of content.
+- 🧠 **Logical Analysis**: Reveals how arguments are built and identifies hidden assumptions.
+- 💎 **Value Extraction**: Finds the "Aha!" moments and blind spots.
+- 🚀 **Action Oriented**: Translates deep understanding into immediate, actionable steps.
+- 🌍 **Multi-language**: Automatically adapts to the user's preferred language.
+- 🌗 **Theme Support**: Seamlessly switches between light and dark themes based on OpenWebUI settings.
 
-## Features
+## 🚀 How to Use
 
-- :material-brain: **Thinking Chain**: Complete structured analysis process
-- :material-eye: **Deep Understanding**: Reveals hidden assumptions and blind spots
-- :material-lightbulb-on: **Insight Extraction**: Finds the "Aha!" moments
-- :material-rocket-launch: **Action Oriented**: Translates understanding into actionable steps
-- :material-theme-light-dark: **Theme Adaptive**: Auto-adapts to OpenWebUI light/dark theme
-- :material-translate: **Multi-language**: Outputs in user's preferred language
+1. **Input Content**: Provide any text, article, or meeting notes in the chat.
+2. **Trigger Deep Dive**: Click the **Deep Dive** action button.
+3. **Explore the Chain**: Follow the visual timeline from Context to Path.
 
----
+## ⚙️ Configuration (Valves)
 
-## Installation
+| Parameter | Default | Description |
+| :--- | :--- | :--- |
+| **Show Status (SHOW_STATUS)** | `True` | Whether to show status updates during the thinking process. |
+| **Model ID (MODEL_ID)** | `Empty` | LLM model for analysis. Empty = use current model. |
+| **Min Text Length (MIN_TEXT_LENGTH)** | `200` | Minimum characters required for a meaningful deep dive. |
+| **Clear Previous HTML (CLEAR_PREVIOUS_HTML)** | `True` | Whether to clear previous plugin results. |
+| **Message Count (MESSAGE_COUNT)** | `1` | Number of recent messages to analyze. |
 
-1. Download the plugin file: [`deep_dive.py`](https://github.com/Fu-Jie/awesome-openwebui/tree/main/plugins/actions/deep-dive)
-2. Upload to OpenWebUI: **Admin Panel** → **Settings** → **Functions**
-3. Enable the plugin
+## 🌗 Theme Support
 
----
+The plugin automatically detects and adapts to OpenWebUI's theme settings:
 
-## Usage
+- **Detection Priority**:
+  1. Parent document `<meta name="theme-color">` tag
+  2. Parent document `html/body` class or `data-theme` attribute
+  3. System preference via `prefers-color-scheme: dark`
 
-1. Provide any long text, article, or meeting notes in the chat
-2. Click the **Deep Dive** button in the message action bar
-3. Follow the visual timeline from Context → Logic → Insight → Path
+- **Requirements**: For best results, enable **iframe Sandbox Allow Same Origin** in OpenWebUI:
+  - Go to **Settings** → **Interface** → **Artifacts** → Check **iframe Sandbox Allow Same Origin**
 
----
+## 🎨 Visual Preview
 
-## Configuration
-
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `SHOW_STATUS` | boolean | `true` | Show status updates during processing |
-| `MODEL_ID` | string | `""` | LLM model for analysis (empty = current model) |
-| `MIN_TEXT_LENGTH` | integer | `200` | Minimum text length for analysis |
-| `CLEAR_PREVIOUS_HTML` | boolean | `true` | Clear previous plugin results |
-| `MESSAGE_COUNT` | integer | `1` | Number of recent messages to analyze |
-
----
-
-## Theme Support
-
-Deep Dive automatically adapts to OpenWebUI's light/dark theme:
-
-- Detects theme from parent document `<meta name="theme-color">` tag
-- Falls back to `html/body` class or `data-theme` attribute
-- Uses system preference `prefers-color-scheme: dark` as last resort
-
-!!! tip "For Best Results"
-    Enable **iframe Sandbox Allow Same Origin** in OpenWebUI:
-    **Settings** → **Interface** → **Artifacts** → Check **iframe Sandbox Allow Same Origin**
-
----
-
-## Example Output
-
-The plugin generates a beautiful structured timeline:
+The plugin generates a structured thinking timeline:
 
 ```
 ┌─────────────────────────────────────┐
@@ -95,17 +77,7 @@ The plugin generates a beautiful structured timeline:
 └─────────────────────────────────────┘
 ```
 
----
+## 📂 Files
 
-## Requirements
-
-!!! note "Prerequisites"
-    - OpenWebUI v0.3.0 or later
-    - Uses the active LLM model for analysis
-    - Requires `markdown` Python package
-
----
-
-## Source Code
-
-[:fontawesome-brands-github: View on GitHub](https://github.com/Fu-Jie/awesome-openwebui/tree/main/plugins/actions/deep-dive){ .md-button }
+- `deep_dive.py` - English version
+- `deep_dive_cn.py` - Chinese version (精读)

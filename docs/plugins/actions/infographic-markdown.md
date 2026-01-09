@@ -1,120 +1,69 @@
-# Infographic to Markdown
+# 📊 Smart Infographic (AntV)
 
-> **Version:** 1.0.0 | **Author:** Fu-Jie
+**Author:** [Fu-Jie](https://github.com/Fu-Jie) | **Version:** 1.4.1 | **Project:** [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui)
 
-AI-powered infographic generator that renders SVG on the frontend and embeds it directly into Markdown as a Data URL image.
+An Open WebUI plugin powered by the AntV Infographic engine. It transforms long text into professional, beautiful infographics with a single click.
 
-## Overview
+## 🔥 What's New in v1.4.1
 
-This plugin combines the power of AI text analysis with AntV Infographic visualization to create beautiful infographics that are embedded directly into chat messages as Markdown images.
+- ✨ **PNG Upload**: Infographics now upload as PNG format for better Word export compatibility.
+- 🔧 **Canvas Conversion**: Uses browser canvas for high-quality SVG to PNG conversion (2x scale).
 
-### Key Features
+### Previous: v1.4.0
 
-- :robot: **AI-Powered**: Automatically analyzes text and selects the best infographic template
-- :bar_chart: **Multiple Templates**: Supports 18+ infographic templates (lists, charts, comparisons, etc.)
-- :framed_picture: **Self-Contained**: SVG/PNG embedded as Data URL, no external dependencies
-- :memo: **Markdown Native**: Results are pure Markdown images, compatible everywhere
-- :arrows_counterclockwise: **API Writeback**: Updates message content via REST API for persistence
+- ✨ **Default Mode Change**: Default output mode is now `image` (static image) for better compatibility.
+- 📱 **Responsive Sizing**: Images now auto-adapt to the chat container width.
 
-### How It Works
+## ✨ Key Features
 
-```mermaid
-graph TD
-    A[User triggers action] --> B[Python extracts message content]
-    B --> C[LLM generates Infographic syntax]
-    C --> D[Frontend JS loads AntV library]
-    D --> E[Render SVG offscreen]
-    E --> F[Export to Data URL]
-    F --> G[Update message via API]
-    G --> H[Display as Markdown image]
+- 🚀 **AI-Powered Transformation**: Automatically analyzes text logic, extracts key points, and generates structured charts.
+- 🎨 **Professional Templates**: Includes various AntV official templates: Lists, Trees, Mindmaps, Comparison Tables, Flowcharts, and Statistical Charts.
+- 🔍 **Auto-Icon Matching**: Built-in logic to search and match the most relevant Material Design Icons based on content.
+- 📥 **Multi-Format Export**: Download your infographics as **SVG**, **PNG**, or a **Standalone HTML** file.
+- 🌈 **Highly Customizable**: Supports Dark/Light modes, auto-adapts theme colors, with bold titles and refined card layouts.
+- 📱 **Responsive Design**: Generated charts look great on both desktop and mobile devices.
+
+## 🚀 How to Use
+
+1. **Install**: Search for "Smart Infographic" in the Open WebUI Community and install.
+2. **Trigger**: Enter your text in the chat, then click the **Action Button** (📊 icon) next to the input box.
+3. **AI Processing**: The AI analyzes the text and generates the infographic syntax.
+4. **Preview & Download**: Preview the result and use the download buttons below to save your infographic.
+
+## ⚙️ Configuration (Valves)
+
+You can adjust the following parameters in the plugin settings to optimize the generation:
+
+| Parameter | Default | Description |
+| :--- | :--- | :--- |
+| **Show Status (SHOW_STATUS)** | `True` | Whether to show real-time AI analysis and generation status in the chat. |
+| **Model ID (MODEL_ID)** | `Empty` | Specify the LLM model for text analysis. If empty, the current chat model is used. |
+| **Min Text Length (MIN_TEXT_LENGTH)** | `100` | Minimum characters required to trigger analysis, preventing accidental triggers on short text. |
+| **Clear Previous (CLEAR_PREVIOUS_HTML)** | `False` | Whether to clear previous charts. If `False`, new charts will be appended below. |
+| **Message Count (MESSAGE_COUNT)** | `1` | Number of recent messages to use for analysis. Increase this for more context. |
+| **Output Mode (OUTPUT_MODE)** | `image` | `image` for static image embedding (default, better compatibility), `html` for interactive chart. |
+
+## 🛠️ Supported Template Types
+
+| Category | Template Name | Use Case |
+| :--- | :--- | :--- |
+| **Lists & Hierarchy** | `list-grid`, `tree-vertical`, `mindmap` | Features, Org Charts, Brainstorming |
+| **Sequence & Relation** | `sequence-roadmap`, `relation-circle` | Roadmaps, Circular Flows, Steps |
+| **Comparison & Analysis** | `compare-binary`, `compare-swot`, `quadrant-quarter` | Pros/Cons, SWOT, Quadrants |
+| **Charts & Data** | `chart-bar`, `chart-line`, `chart-pie` | Trends, Distributions, Metrics |
+
+## 📝 Syntax Example (For Advanced Users)
+
+You can also input this syntax directly for AI to render:
+
+```infographic
+infographic list-grid
+data
+  title 🚀 Plugin Benefits
+  desc Why use the Smart Infographic plugin
+  items
+    - label Fast Generation
+      desc Convert text to charts in seconds
+    - label Beautiful Design
+      desc Uses AntV professional design standards
 ```
-
-## Installation
-
-1. Download `infographic_markdown.py` (English) or `infographic_markdown_cn.py` (Chinese)
-2. Navigate to **Admin Panel** → **Settings** → **Functions**
-3. Upload the file and configure settings
-4. Use the action button in chat messages
-
-## Configuration
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `SHOW_STATUS` | bool | `true` | Show operation status updates |
-| `MODEL_ID` | string | `""` | LLM model ID (empty = use current model) |
-| `MIN_TEXT_LENGTH` | int | `50` | Minimum text length required |
-| `MESSAGE_COUNT` | int | `1` | Number of recent messages to use |
-| `SVG_WIDTH` | int | `800` | Width of generated SVG (pixels) |
-| `EXPORT_FORMAT` | string | `"svg"` | Export format: `svg` or `png` |
-
-## Supported Templates
-
-| Category | Template | Description |
-|----------|----------|-------------|
-| List | `list-grid` | Grid cards |
-| List | `list-vertical` | Vertical list |
-| Tree | `tree-vertical` | Vertical tree |
-| Tree | `tree-horizontal` | Horizontal tree |
-| Mind Map | `mindmap` | Mind map |
-| Process | `sequence-roadmap` | Roadmap |
-| Process | `sequence-zigzag` | Zigzag process |
-| Relation | `relation-sankey` | Sankey diagram |
-| Relation | `relation-circle` | Circular relation |
-| Compare | `compare-binary` | Binary comparison |
-| Analysis | `compare-swot` | SWOT analysis |
-| Quadrant | `quadrant-quarter` | Quadrant chart |
-| Chart | `chart-bar` | Bar chart |
-| Chart | `chart-column` | Column chart |
-| Chart | `chart-line` | Line chart |
-| Chart | `chart-pie` | Pie chart |
-| Chart | `chart-doughnut` | Doughnut chart |
-| Chart | `chart-area` | Area chart |
-
-## Usage Example
-
-1. Generate some text content in the chat (or have the AI generate it)
-2. Click the **📊 Infographic to Markdown** action button
-3. Wait for AI analysis and SVG rendering
-4. The infographic will be embedded as a Markdown image
-
-## Technical Details
-
-### Data URL Embedding
-
-The plugin converts SVG graphics to Base64-encoded Data URLs:
-
-```javascript
-const svgData = new XMLSerializer().serializeToString(svg);
-const base64 = btoa(unescape(encodeURIComponent(svgData)));
-const dataUri = "data:image/svg+xml;base64," + base64;
-const markdownImage = `![description](${dataUri})`;
-```
-
-### AntV toDataURL API
-
-```javascript
-// Export as SVG (recommended)
-const svgUrl = await instance.toDataURL({
-    type: 'svg',
-    embedResources: true
-});
-
-// Export as PNG
-const pngUrl = await instance.toDataURL({
-    type: 'png',
-    dpr: 2
-});
-```
-
-## Notes
-
-1. **Browser Compatibility**: Requires modern browsers with ES6+ and Fetch API support
-2. **Network Dependency**: First use requires loading AntV library from CDN
-3. **Data URL Size**: Base64 encoding increases size by ~33%
-4. **Chinese Fonts**: SVG export embeds fonts for correct display
-
-## Related Resources
-
-- [AntV Infographic Documentation](https://infographic.antv.vision/)
-- [Infographic API Reference](https://infographic.antv.vision/reference/infographic-api)
-- [Infographic Syntax Guide](https://infographic.antv.vision/learn/infographic-syntax)

@@ -99,4 +99,4 @@
 
 有好的提示词？欢迎分享给社区！
 
-[:octicons-heart-fill-24:{ .heart } 提交提示词](../contributing.md){ .md-button }
+[:octicons-heart-fill-24:{ .heart } 提交提示词](../meta/contributing.zh.md){ .md-button }
