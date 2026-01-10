@@ -1,6 +1,6 @@
 # Async Context Compression Filter
 
-**Author:** [Fu-Jie](https://github.com/Fu-Jie) | **Version:** 1.1.0 | **License:** MIT
+**Author:** [Fu-Jie](https://github.com/Fu-Jie) | **Version:** 1.1.1 | **License:** MIT
 
 This filter reduces token consumption in long conversations through intelligent summarization and message compression while keeping conversations coherent.
 
@@ -54,6 +54,7 @@ It is recommended to keep this filter early in the chain so it runs before filte
 | `summary_temperature`          | `0.3`    | Randomness for summary generation. Lower is more deterministic.                                                                                                       |
 | `model_thresholds`             | `{}`     | Per-model overrides for `compression_threshold_tokens` and `max_context_tokens` (useful for mixed models).                                                            |
 | `debug_mode`                   | `true`   | Log verbose debug info. Set to `false` in production.                                                                                                                 |
+| `show_debug_log`               | `false`  | Print debug logs to browser console (F12). Useful for frontend debugging.                                                                                             |
 
 ---
 

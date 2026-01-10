@@ -469,10 +469,42 @@ class OpenWebUICommunityClient:
                 return True, f"Created new post (ID: {new_post_id})"
             return False, "Failed to create new post"
 
+        # 获取远程帖子信息（只需获取一次）
+        remote_post = None
+        if post_id:
+            remote_post = self.get_post(post_id)
+
         # 版本检查（仅对更新有效）
-        if not force and local_version:
-            if not self.version_needs_update(post_id, local_version):
-                return True, f"Skipped: version {local_version} matches remote"
+        if not force and local_version and remote_post:
+            remote_version = (
+                remote_post.get("data", {})
+                .get("function", {})
+                .get("meta", {})
+                .get("manifest", {})
+                .get("version")
+            )
+
+            version_changed = local_version != remote_version
+
+            # 检查 README 是否变化
+            readme_changed = False
+            remote_content = remote_post.get("content", "")
+            local_content = readme_content or metadata.get("description", "")
+
+            # 简单的内容比较 (去除首尾空白)
+            if (local_content or "").strip() != (remote_content or "").strip():
+                readme_changed = True
+
+            if not version_changed and not readme_changed:
+                return (
+                    True,
+                    f"Skipped: version {local_version} matches remote and no README changes",
+                )
+
+            if readme_changed and not version_changed:
+                print(
+                    f"  ℹ️  Version match ({local_version}) but README changed. Updating..."
+                )
 
         # 更新
         success = self.update_plugin(
@@ -484,7 +516,9 @@ class OpenWebUICommunityClient:
         )
 
         if success:
-            return True, f"Updated to version {local_version}"
+            if local_version:
+                return True, f"Updated to version {local_version}"
+            return True, "Updated plugin"
         return False, "Update failed"
 
     def _parse_frontmatter(self, content: str) -> Dict[str, str]:
