@@ -157,7 +157,10 @@ class OpenWebUIStats:
             stats["total_comments"] += post.get("commentCount", 0)
 
             # 解析 data 字段 - 正确路径: data.function.meta
-            function_data = post.get("data", {}).get("function", {})
+            function_data = post.get("data", {})
+            if function_data is None:
+                function_data = {}
+            function_data = function_data.get("function", {})
             meta = function_data.get("meta", {})
             manifest = meta.get("manifest", {})
             post_type = meta.get("type", function_data.get("type", "unknown"))
