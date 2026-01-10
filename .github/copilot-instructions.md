@@ -40,7 +40,7 @@ plugins/actions/export_to_docx/
     - 格式: `**Author:** [Fu-Jie](https://github.com/Fu-Jie) | **Version:** x.x.x | **Project:** [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui)`
     - **注意**: Author 和 Project 为固定值，仅需更新 Version 版本号
 3.  **描述 (Description)**: 一句话功能介绍
-4.  **最新更新 (What's New)**: **必须**放在描述之后，显著展示最新版本的变更点
+4.  **最新更新 (What's New)**: **必须**放在描述之后，显著展示最新版本的变更点 (仅展示最近 3 次更新)
 5.  **核心特性 (Key Features)**: 使用 Emoji + 粗体标题 + 描述格式
 6.  **使用方法 (How to Use)**: 按步骤说明
 7.  **配置参数 (Configuration/Valves)**: 使用表格格式，包含参数名、默认值、描述
@@ -96,7 +96,7 @@ example code or syntax here
 
 ### 文档内容要求 (Content Requirements)
 
-- **新增功能**: 必须在 "What's New" 章节中明确列出，使用 Emoji + 粗体标题格式。
+- **新增功能**: 必须在 "What's New" 章节中明确列出，使用 Emoji + 粗体标题格式 (仅保留最近 3 个版本的更新记录)。
 - **双语**: 必须提供 `README.md` (英文) 和 `README_CN.md` (中文)。
 - **表格对齐**: 配置参数表格使用左对齐 `:---`。
 - **Emoji 规范**: 标题使用合适的 Emoji 增强可读性。
