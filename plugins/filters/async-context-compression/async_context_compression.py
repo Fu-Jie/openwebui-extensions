@@ -5,7 +5,7 @@ author: Fu-Jie
 author_url: https://github.com/Fu-Jie
 funding_url: https://github.com/Fu-Jie/awesome-openwebui
 description: Reduces token consumption in long conversations while maintaining coherence through intelligent summarization and message compression.
-version: 1.1.0
+version: 1.1.1
 openwebui_id: b1655bc8-6de9-4cad-8cb5-a6f7829a02ce
 license: MIT
 
@@ -138,6 +138,10 @@ summary_temperature
 debug_mode
   Default: true
   Description: Prints detailed debug information to the log. Recommended to set to `false` in production.
+
+show_debug_log
+  Default: false
+  Description: Print debug logs to browser console (F12). Useful for frontend debugging.
 
 🔧 Deployment
 ═══════════════════════════════════════════════════════
@@ -355,6 +359,9 @@ class Filter:
         debug_mode: bool = Field(
             default=True, description="Enable detailed logging for debugging."
         )
+        show_debug_log: bool = Field(
+            default=False, description="Print debug logs to browser console (F12)"
+        )
 
     def _save_summary(self, chat_id: str, summary: str, compressed_count: int):
         """Saves the summary to the database."""
@@ -516,12 +523,109 @@ class Filter:
 
         return message
 
+    async def _emit_debug_log(
+        self,
+        __event_call__,
+        chat_id: str,
+        original_count: int,
+        compressed_count: int,
+        summary_length: int,
+        kept_first: int,
+        kept_last: int,
+    ):
+        """Emit debug log to browser console via JS execution"""
+        if not self.valves.show_debug_log or not __event_call__:
+            return
+
+        try:
+            # Prepare data for JS
+            log_data = {
+                "chatId": chat_id,
+                "originalCount": original_count,
+                "compressedCount": compressed_count,
+                "summaryLength": summary_length,
+                "keptFirst": kept_first,
+                "keptLast": kept_last,
+                "ratio": (
+                    f"{(1 - compressed_count/original_count)*100:.1f}%"
+                    if original_count > 0
+                    else "0%"
+                ),
+            }
+
+            # Construct JS code
+            js_code = f"""
+                (async function() {{
+                    console.group("🗜️ Async Context Compression Debug");
+                    console.log("Chat ID:", {json.dumps(chat_id)});
+                    console.log("Messages:", {original_count} + " -> " + {compressed_count});
+                    console.log("Compression Ratio:", {json.dumps(log_data['ratio'])});
+                    console.log("Summary Length:", {summary_length} + " chars");
+                    console.log("Configuration:", {{
+                        "Keep First": {kept_first},
+                        "Keep Last": {kept_last}
+                    }});
+                    console.groupEnd();
+                }})();
+            """
+
+            await __event_call__(
+                {
+                    "type": "execute",
+                    "data": {"code": js_code},
+                }
+            )
+        except Exception as e:
+            print(f"Error emitting debug log: {e}")
+
+    async def _log(self, message: str, type: str = "info", event_call=None):
+        """Unified logging to both backend (print) and frontend (console.log)"""
+        # Backend logging
+        if self.valves.debug_mode:
+            print(message)
+
+        # Frontend logging
+        if self.valves.show_debug_log and event_call:
+            try:
+                css = "color: #3b82f6;"  # Blue default
+                if type == "error":
+                    css = "color: #ef4444; font-weight: bold;"  # Red
+                elif type == "warning":
+                    css = "color: #f59e0b;"  # Orange
+                elif type == "success":
+                    css = "color: #10b981; font-weight: bold;"  # Green
+
+                # Clean message for frontend: remove separators and extra newlines
+                lines = message.split("\n")
+                # Keep lines that don't start with lots of equals or hyphens
+                filtered_lines = [
+                    line
+                    for line in lines
+                    if not line.strip().startswith("====")
+                    and not line.strip().startswith("----")
+                ]
+                clean_message = "\n".join(filtered_lines).strip()
+
+                if not clean_message:
+                    return
+
+                # Escape quotes in message for JS string
+                safe_message = clean_message.replace('"', '\\"').replace("\n", "\\n")
+
+                js_code = f"""
+                    console.log("%c[Compression] {safe_message}", "{css}");
+                """
+                await event_call({"type": "execute", "data": {"code": js_code}})
+            except Exception as e:
+                print(f"Failed to emit log to frontend: {e}")
+
     async def inlet(
         self,
         body: dict,
         __user__: Optional[dict] = None,
         __metadata__: dict = None,
         __event_emitter__: Callable[[Any], Awaitable[None]] = None,
+        __event_call__: Callable[[Any], Awaitable[None]] = None,
     ) -> dict:
         """
         Executed before sending to the LLM.
@@ -530,10 +634,11 @@ class Filter:
         messages = body.get("messages", [])
         chat_id = __metadata__["chat_id"]
 
-        if self.valves.debug_mode:
-            print(f"\n{'='*60}")
-            print(f"[Inlet] Chat ID: {chat_id}")
-            print(f"[Inlet] Received {len(messages)} messages")
+        if self.valves.debug_mode or self.valves.show_debug_log:
+            await self._log(
+                f"\n{'='*60}\n[Inlet] Chat ID: {chat_id}\n[Inlet] Received {len(messages)} messages",
+                event_call=__event_call__,
+            )
 
         # Record the target compression progress for the original messages, for use in outlet
         # Target is to compress up to the (total - keep_last) message
@@ -541,17 +646,18 @@ class Filter:
 
         # [Optimization] Simple state cleanup check
         if chat_id in self.temp_state:
-            if self.valves.debug_mode:
-                print(
-                    f"[Inlet] ⚠️ Overwriting unconsumed old state (Chat ID: {chat_id})"
-                )
+            await self._log(
+                f"[Inlet] ⚠️ Overwriting unconsumed old state (Chat ID: {chat_id})",
+                type="warning",
+                event_call=__event_call__,
+            )
 
         self.temp_state[chat_id] = target_compressed_count
 
-        if self.valves.debug_mode:
-            print(
-                f"[Inlet] Recorded target compression progress: {target_compressed_count}"
-            )
+        await self._log(
+            f"[Inlet] Recorded target compression progress: {target_compressed_count}",
+            event_call=__event_call__,
+        )
 
         # Load summary record
         summary_record = await asyncio.to_thread(self._load_summary_record, chat_id)
@@ -600,19 +706,32 @@ class Filter:
                     }
                 )
 
-            if self.valves.debug_mode:
-                print(
-                    f"[Inlet] Applied summary: Head({len(head_messages)}) + Summary + Tail({len(tail_messages)})"
-                )
+            await self._log(
+                f"[Inlet] Applied summary: Head({len(head_messages)}) + Summary + Tail({len(tail_messages)})",
+                type="success",
+                event_call=__event_call__,
+            )
+
+            # Emit debug log to frontend (Keep the structured log as well)
+            await self._emit_debug_log(
+                __event_call__,
+                chat_id,
+                len(messages),
+                len(final_messages),
+                len(summary_record.summary),
+                self.valves.keep_first,
+                self.valves.keep_last,
+            )
         else:
             # No summary, use original messages
             final_messages = messages
 
         body["messages"] = final_messages
 
-        if self.valves.debug_mode:
-            print(f"[Inlet] Final send: {len(body['messages'])} messages")
-            print(f"{'='*60}\n")
+        await self._log(
+            f"[Inlet] Final send: {len(body['messages'])} messages\n{'='*60}\n",
+            event_call=__event_call__,
+        )
 
         return body
 
@@ -622,6 +741,7 @@ class Filter:
         __user__: Optional[dict] = None,
         __metadata__: dict = None,
         __event_emitter__: Callable[[Any], Awaitable[None]] = None,
+        __event_call__: Callable[[Any], Awaitable[None]] = None,
     ) -> dict:
         """
         Executed after the LLM response is complete.
@@ -630,21 +750,23 @@ class Filter:
         chat_id = __metadata__["chat_id"]
         model = body.get("model", "gpt-3.5-turbo")
 
-        if self.valves.debug_mode:
-            print(f"\n{'='*60}")
-            print(f"[Outlet] Chat ID: {chat_id}")
-            print(f"[Outlet] Response complete")
+        if self.valves.debug_mode or self.valves.show_debug_log:
+            await self._log(
+                f"\n{'='*60}\n[Outlet] Chat ID: {chat_id}\n[Outlet] Response complete",
+                event_call=__event_call__,
+            )
 
         # Process Token calculation and summary generation asynchronously in the background (do not wait for completion, do not affect output)
         asyncio.create_task(
             self._check_and_generate_summary_async(
-                chat_id, model, body, __user__, __event_emitter__
+                chat_id, model, body, __user__, __event_emitter__, __event_call__
             )
         )
 
-        if self.valves.debug_mode:
-            print(f"[Outlet] Background processing started")
-            print(f"{'='*60}\n")
+        await self._log(
+            f"[Outlet] Background processing started\n{'='*60}\n",
+            event_call=__event_call__,
+        )
 
         return body
 
@@ -655,6 +777,7 @@ class Filter:
         body: dict,
         user_data: Optional[dict],
         __event_emitter__: Callable[[Any], Awaitable[None]] = None,
+        __event_call__: Callable[[Any], Awaitable[None]] = None,
     ):
         """
         Background processing: Calculates Token count and generates summary (does not block response).
@@ -668,36 +791,50 @@ class Filter:
                 "compression_threshold_tokens", self.valves.compression_threshold_tokens
             )
 
-            if self.valves.debug_mode:
-                print(f"\n[🔍 Background Calculation] Starting Token count...")
+            await self._log(
+                f"\n[🔍 Background Calculation] Starting Token count...",
+                event_call=__event_call__,
+            )
 
             # Calculate Token count in a background thread
             current_tokens = await asyncio.to_thread(
                 self._calculate_messages_tokens, messages
             )
 
-            if self.valves.debug_mode:
-                print(f"[🔍 Background Calculation] Token count: {current_tokens}")
+            await self._log(
+                f"[🔍 Background Calculation] Token count: {current_tokens}",
+                event_call=__event_call__,
+            )
 
             # Check if compression is needed
             if current_tokens >= compression_threshold_tokens:
-                if self.valves.debug_mode:
-                    print(
-                        f"[🔍 Background Calculation] ⚡ Compression threshold triggered (Token: {current_tokens} >= {compression_threshold_tokens})"
-                    )
+                await self._log(
+                    f"[🔍 Background Calculation] ⚡ Compression threshold triggered (Token: {current_tokens} >= {compression_threshold_tokens})",
+                    type="warning",
+                    event_call=__event_call__,
+                )
 
                 # Proceed to generate summary
                 await self._generate_summary_async(
-                    messages, chat_id, body, user_data, __event_emitter__
+                    messages,
+                    chat_id,
+                    body,
+                    user_data,
+                    __event_emitter__,
+                    __event_call__,
                 )
             else:
-                if self.valves.debug_mode:
-                    print(
-                        f"[🔍 Background Calculation] Compression threshold not reached (Token: {current_tokens} < {compression_threshold_tokens})"
-                    )
+                await self._log(
+                    f"[🔍 Background Calculation] Compression threshold not reached (Token: {current_tokens} < {compression_threshold_tokens})",
+                    event_call=__event_call__,
+                )
 
         except Exception as e:
-            print(f"[🔍 Background Calculation] ❌ Error: {str(e)}")
+            await self._log(
+                f"[🔍 Background Calculation] ❌ Error: {str(e)}",
+                type="error",
+                event_call=__event_call__,
+            )
 
     async def _generate_summary_async(
         self,
@@ -706,6 +843,7 @@ class Filter:
         body: dict,
         user_data: Optional[dict],
         __event_emitter__: Callable[[Any], Awaitable[None]] = None,
+        __event_call__: Callable[[Any], Awaitable[None]] = None,
     ):
         """
         Generates summary asynchronously (runs in background, does not block response).
@@ -715,18 +853,20 @@ class Filter:
         3. Generate summary for the remaining middle messages.
         """
         try:
-            if self.valves.debug_mode:
-                print(f"\n[🤖 Async Summary Task] Starting...")
+            await self._log(
+                f"\n[🤖 Async Summary Task] Starting...", event_call=__event_call__
+            )
 
             # 1. Get target compression progress
             # Prioritize getting from temp_state (calculated by inlet). If unavailable (e.g., after restart), assume current is full history.
             target_compressed_count = self.temp_state.pop(chat_id, None)
             if target_compressed_count is None:
                 target_compressed_count = max(0, len(messages) - self.valves.keep_last)
-                if self.valves.debug_mode:
-                    print(
-                        f"[🤖 Async Summary Task] ⚠️ Could not get inlet state, estimating progress using current message count: {target_compressed_count}"
-                    )
+                await self._log(
+                    f"[🤖 Async Summary Task] ⚠️ Could not get inlet state, estimating progress using current message count: {target_compressed_count}",
+                    type="warning",
+                    event_call=__event_call__,
+                )
 
             # 2. Determine the range of messages to compress (Middle)
             start_index = self.valves.keep_first
@@ -736,18 +876,18 @@ class Filter:
 
             # Ensure indices are valid
             if start_index >= end_index:
-                if self.valves.debug_mode:
-                    print(
-                        f"[🤖 Async Summary Task] Middle messages empty (Start: {start_index}, End: {end_index}), skipping"
-                    )
+                await self._log(
+                    f"[🤖 Async Summary Task] Middle messages empty (Start: {start_index}, End: {end_index}), skipping",
+                    event_call=__event_call__,
+                )
                 return
 
             middle_messages = messages[start_index:end_index]
 
-            if self.valves.debug_mode:
-                print(
-                    f"[🤖 Async Summary Task] Middle messages to process: {len(middle_messages)}"
-                )
+            await self._log(
+                f"[🤖 Async Summary Task] Middle messages to process: {len(middle_messages)}",
+                event_call=__event_call__,
+            )
 
             # 3. Check Token limit and truncate (Max Context Truncation)
             # [Optimization] Use the summary model's (if any) threshold to decide how many middle messages can be processed
@@ -762,22 +902,26 @@ class Filter:
                 "max_context_tokens", self.valves.max_context_tokens
             )
 
-            if self.valves.debug_mode:
-                print(
-                    f"[🤖 Async Summary Task] Using max limit for model {summary_model_id}: {max_context_tokens} Tokens"
-                )
-
-            # Calculate current total Tokens (using summary model for counting)
-            total_tokens = await asyncio.to_thread(
-                self._calculate_messages_tokens, messages
+            await self._log(
+                f"[🤖 Async Summary Task] Using max limit for model {summary_model_id}: {max_context_tokens} Tokens",
+                event_call=__event_call__,
             )
 
-            if total_tokens > max_context_tokens:
-                excess_tokens = total_tokens - max_context_tokens
-                if self.valves.debug_mode:
-                    print(
-                        f"[🤖 Async Summary Task] ⚠️ Total Tokens ({total_tokens}) exceed summary model limit ({max_context_tokens}), need to remove approx {excess_tokens} Tokens"
-                    )
+            # Calculate tokens for middle messages only (plus buffer for prompt)
+            # We only send middle_messages to the summary model, so we shouldn't count the full history against its limit.
+            middle_tokens = await asyncio.to_thread(
+                self._calculate_messages_tokens, middle_messages
+            )
+            # Add buffer for prompt and output (approx 2000 tokens)
+            estimated_input_tokens = middle_tokens + 2000
+
+            if estimated_input_tokens > max_context_tokens:
+                excess_tokens = estimated_input_tokens - max_context_tokens
+                await self._log(
+                    f"[🤖 Async Summary Task] ⚠️ Middle messages ({middle_tokens} Tokens) + Buffer exceed summary model limit ({max_context_tokens}), need to remove approx {excess_tokens} Tokens",
+                    type="warning",
+                    event_call=__event_call__,
+                )
 
                 # Remove from the head of middle_messages
                 removed_tokens = 0
@@ -785,20 +929,22 @@ class Filter:
 
                 while removed_tokens < excess_tokens and middle_messages:
                     msg_to_remove = middle_messages.pop(0)
-                    msg_tokens = self._count_tokens(str(msg_to_remove.get("content", "")))
+                    msg_tokens = self._count_tokens(
+                        str(msg_to_remove.get("content", ""))
+                    )
                     removed_tokens += msg_tokens
                     removed_count += 1
 
-                if self.valves.debug_mode:
-                    print(
-                        f"[🤖 Async Summary Task] Removed {removed_count} messages, totaling {removed_tokens} Tokens"
-                    )
+                await self._log(
+                    f"[🤖 Async Summary Task] Removed {removed_count} messages, totaling {removed_tokens} Tokens",
+                    event_call=__event_call__,
+                )
 
             if not middle_messages:
-                if self.valves.debug_mode:
-                    print(
-                        f"[🤖 Async Summary Task] Middle messages empty after truncation, skipping summary generation"
-                    )
+                await self._log(
+                    f"[🤖 Async Summary Task] Middle messages empty after truncation, skipping summary generation",
+                    event_call=__event_call__,
+                )
                 return
 
             # 4. Build conversation text
@@ -820,14 +966,14 @@ class Filter:
                 )
 
             new_summary = await self._call_summary_llm(
-                None, conversation_text, body, user_data
+                None, conversation_text, body, user_data, __event_call__
             )
 
             # 6. Save new summary
-            if self.valves.debug_mode:
-                print(
-                    "[Optimization] Saving summary in a background thread to avoid blocking the event loop."
-                )
+            await self._log(
+                "[Optimization] Saving summary in a background thread to avoid blocking the event loop.",
+                event_call=__event_call__,
+            )
 
             await asyncio.to_thread(
                 self._save_summary, chat_id, new_summary, target_compressed_count
@@ -845,16 +991,22 @@ class Filter:
                     }
                 )
 
-            if self.valves.debug_mode:
-                print(
-                    f"[🤖 Async Summary Task] ✅ Complete! New summary length: {len(new_summary)} characters"
-                )
-                print(
-                    f"[🤖 Async Summary Task] Progress update: Compressed up to original message {target_compressed_count}"
-                )
+            await self._log(
+                f"[🤖 Async Summary Task] ✅ Complete! New summary length: {len(new_summary)} characters",
+                type="success",
+                event_call=__event_call__,
+            )
+            await self._log(
+                f"[🤖 Async Summary Task] Progress update: Compressed up to original message {target_compressed_count}",
+                event_call=__event_call__,
+            )
 
         except Exception as e:
-            print(f"[🤖 Async Summary Task] ❌ Error: {str(e)}")
+            await self._log(
+                f"[🤖 Async Summary Task] ❌ Error: {str(e)}",
+                type="error",
+                event_call=__event_call__,
+            )
             import traceback
 
             traceback.print_exc()
@@ -891,12 +1043,15 @@ class Filter:
         new_conversation_text: str,
         body: dict,
         user_data: dict,
+        __event_call__: Callable[[Any], Awaitable[None]] = None,
     ) -> str:
         """
         Calls the LLM to generate a summary using Open WebUI's built-in method.
         """
-        if self.valves.debug_mode:
-            print(f"[🤖 LLM Call] Using Open WebUI's built-in method")
+        await self._log(
+            f"[🤖 LLM Call] Using Open WebUI's built-in method",
+            event_call=__event_call__,
+        )
 
         # Build summary prompt (Optimized)
         summary_prompt = f"""
@@ -935,8 +1090,7 @@ Based on the content above, generate the summary:
         # Determine the model to use
         model = self.valves.summary_model or body.get("model", "")
 
-        if self.valves.debug_mode:
-            print(f"[🤖 LLM Call] Model: {model}")
+        await self._log(f"[🤖 LLM Call] Model: {model}", event_call=__event_call__)
 
         # Build payload
         payload = {
@@ -954,18 +1108,19 @@ Based on the content above, generate the summary:
                 raise ValueError("Could not get user ID")
 
             # [Optimization] Get user object in a background thread to avoid blocking the event loop.
-            if self.valves.debug_mode:
-                print(
-                    "[Optimization] Getting user object in a background thread to avoid blocking the event loop."
-                )
+            await self._log(
+                "[Optimization] Getting user object in a background thread to avoid blocking the event loop.",
+                event_call=__event_call__,
+            )
             user = await asyncio.to_thread(Users.get_user_by_id, user_id)
 
             if not user:
                 raise ValueError(f"Could not find user: {user_id}")
 
-            if self.valves.debug_mode:
-                print(f"[🤖 LLM Call] User: {user.email}")
-                print(f"[🤖 LLM Call] Sending request...")
+            await self._log(
+                f"[🤖 LLM Call] User: {user.email}\n[🤖 LLM Call] Sending request...",
+                event_call=__event_call__,
+            )
 
             # Create Request object
             request = Request(scope={"type": "http", "app": webui_app})
@@ -978,8 +1133,11 @@ Based on the content above, generate the summary:
 
             summary = response["choices"][0]["message"]["content"].strip()
 
-            if self.valves.debug_mode:
-                print(f"[🤖 LLM Call] ✅ Successfully received summary")
+            await self._log(
+                f"[🤖 LLM Call] ✅ Successfully received summary",
+                type="success",
+                event_call=__event_call__,
+            )
 
             return summary
 
@@ -991,7 +1149,10 @@ Based on the content above, generate the summary:
                     "If this is a pipeline (Pipe) model or an incompatible model, please specify a compatible summary model (e.g., 'gemini-2.5-flash') in the configuration."
                 )
 
-            if self.valves.debug_mode:
-                print(f"[🤖 LLM Call] ❌ {error_message}")
+            await self._log(
+                f"[🤖 LLM Call] ❌ {error_message}",
+                type="error",
+                event_call=__event_call__,
+            )
 
             raise Exception(error_message)
