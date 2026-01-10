@@ -1,12 +1,9 @@
 """
 title: Context & Model Enhancement Filter
-author: Fu-Jie
-author_url: https://github.com/Fu-Jie
-funding_url: https://github.com/Fu-Jie/awesome-openwebui
-version: 0.2
+version: 0.3
 
 description:
-    一个功能全面的 Filter 插件，用于增强请求上下文和优化模型功能。提供四大核心功能：
+    一个专注于增强请求上下文和优化模型功能的 Filter 插件。提供三大核心功能：
 
     1. 环境变量注入：在每条用户消息前自动注入用户环境变量（用户名、时间、时区、语言等）
        - 支持纯文本、图片、多模态消息
@@ -24,222 +21,24 @@ description:
        - 动态模型重定向
        - 智能化的模型识别和适配
 
-    4. 智能内容规范化：生产级的内容清洗与修复系统
-       - 智能修复损坏的代码块（前缀、后缀、缩进）
-       - 规范化 LaTeX 公式格式（行内/块级）
-       - 优化思维链标签（</thought>）格式
-       - 自动闭合未结束的代码块
-       - 智能列表格式修复
-       - 清理冗余的 XML 标签
-       - 可配置的规则系统
-
 features:
     - 自动化环境变量管理
     - 智能模型功能适配
     - 异步状态反馈
     - 幂等性保证
     - 多模型支持
-    - 智能内容清洗与规范化
 """
 
 from pydantic import BaseModel, Field
-from typing import Optional, List, Callable
+from typing import Optional
 import re
 import logging
-from dataclasses import dataclass, field
+import asyncio
 
 
 # 配置日志
 logger = logging.getLogger(__name__)
 
-@dataclass
-class NormalizerConfig:
-    """规范化配置类,用于动态启用/禁用特定规则"""
-    enable_escape_fix: bool = True          # 修复转义字符
-    enable_thought_tag_fix: bool = True     # 修复思考链标签
-    enable_code_block_fix: bool = True      # 修复代码块格式
-    enable_latex_fix: bool = True           # 修复 LaTeX 公式格式
-    enable_list_fix: bool = False            # 修复列表换行
-    enable_unclosed_block_fix: bool = True  # 修复未闭合代码块
-    enable_fullwidth_symbol_fix: bool = False # 修复代码内的全角符号
-    enable_xml_tag_cleanup: bool = True     # 清理 XML 残留标签
-    
-    # 自定义清理函数列表（高级扩展用）
-    custom_cleaners: List[Callable[[str], str]] = field(default_factory=list)
-
-class ContentNormalizer:
-    """LLM 输出内容规范化器 - 生产级实现"""
-    
-    # --- 1. 预编译正则表达式（性能优化） ---
-    _PATTERNS = {
-        # 代码块前缀：如果 ``` 前面不是行首也不是换行符
-        'code_block_prefix': re.compile(r'(?<!^)(?<!\n)(```)', re.MULTILINE),
-        
-        # 代码块后缀：匹配 ```语言名 后面紧跟非空白字符(没有换行)
-        # 匹配 ```python code 这种情况，但不匹配 ```python 或 ```python\n
-        'code_block_suffix': re.compile(r'(```[\w\+\-\.]*)[ \t]+([^\n\r])'),
-        
-        # 代码块缩进：行首的空白字符 + ```
-        'code_block_indent': re.compile(r'^[ \t]+(```)', re.MULTILINE),
-        
-        # 思考链标签：</thought> 后可能跟空格或换行
-        'thought_tag': re.compile(r'</thought>[ \t]*\n*'),
-        
-        # LaTeX 块级公式：\[ ... \]
-        'latex_bracket_block': re.compile(r'\\\[(.+?)\\\]', re.DOTALL),
-        # LaTeX 行内公式：\( ... \)
-        'latex_paren_inline': re.compile(r'\\\((.+?)\\\)'),
-        
-        # 列表项：非换行符 + 数字 + 点 + 空格 (e.g. "Text1. Item")
-        'list_item': re.compile(r'([^\n])(\d+\. )'),
-        
-        # XML 残留标签 (如 Claude 的 artifacts)
-        'xml_artifacts': re.compile(r'</?(?:antArtifact|antThinking|artifact)[^>]*>', re.IGNORECASE),
-    }
-    
-    def __init__(self, config: Optional[NormalizerConfig] = None):
-        self.config = config or NormalizerConfig()
-        self.applied_fixes = []
-    
-    def normalize(self, content: str) -> str:
-        """主入口：按顺序应用所有规范化规则"""
-        self.applied_fixes = []
-        if not content:
-            return content
-        
-        try:
-            # 1. 转义字符修复（必须最先执行，否则影响后续正则）
-            if self.config.enable_escape_fix:
-                original = content
-                content = self._fix_escape_characters(content)
-                if content != original:
-                    self.applied_fixes.append("修复转义字符")
-            
-            # 2. 思考链标签规范化
-            if self.config.enable_thought_tag_fix:
-                original = content
-                content = self._fix_thought_tags(content)
-                if content != original:
-                    self.applied_fixes.append("规范化思考链")
-            
-            # 3. 代码块格式修复
-            if self.config.enable_code_block_fix:
-                original = content
-                content = self._fix_code_blocks(content)
-                if content != original:
-                    self.applied_fixes.append("修复代码块格式")
-            
-            # 4. LaTeX 公式规范化
-            if self.config.enable_latex_fix:
-                original = content
-                content = self._fix_latex_formulas(content)
-                if content != original:
-                    self.applied_fixes.append("规范化 LaTeX 公式")
-            
-            # 5. 列表格式修复
-            if self.config.enable_list_fix:
-                original = content
-                content = self._fix_list_formatting(content)
-                if content != original:
-                    self.applied_fixes.append("修复列表格式")
-            
-            # 6. 未闭合代码块检测与修复
-            if self.config.enable_unclosed_block_fix:
-                original = content
-                content = self._fix_unclosed_code_blocks(content)
-                if content != original:
-                    self.applied_fixes.append("闭合未结束代码块")
-            
-            # 7. 全角符号转半角（仅代码块内）
-            if self.config.enable_fullwidth_symbol_fix:
-                original = content
-                content = self._fix_fullwidth_symbols_in_code(content)
-                if content != original:
-                    self.applied_fixes.append("全角符号转半角")
-            
-            # 8. XML 标签残留清理
-            if self.config.enable_xml_tag_cleanup:
-                original = content
-                content = self._cleanup_xml_tags(content)
-                if content != original:
-                    self.applied_fixes.append("清理 XML 标签")
-            
-            # 9. 执行自定义清理函数
-            for cleaner in self.config.custom_cleaners:
-                original = content
-                content = cleaner(content)
-                if content != original:
-                    self.applied_fixes.append("执行自定义清理")
-            
-            return content
-            
-        except Exception as e:
-            # 生产环境保底机制：如果清洗过程报错，返回原始内容，避免阻断服务
-            logger.error(f"内容规范化失败: {e}", exc_info=True)
-            return content
-    
-    def _fix_escape_characters(self, content: str) -> str:
-        """修复过度转义的字符"""
-        # 注意：先处理具体的转义序列，再处理通用的双反斜杠
-        content = content.replace("\\r\\n", "\n")
-        content = content.replace("\\n", "\n")
-        content = content.replace("\\t", "\t")
-        # 修复过度转义的反斜杠 (例如路径 C:\\Users)
-        content = content.replace("\\\\", "\\")
-        return content
-    
-    def _fix_thought_tags(self, content: str) -> str:
-        """规范化 </thought> 标签，统一为空两行"""
-        return self._PATTERNS['thought_tag'].sub("</thought>\n\n", content)
-    
-    def _fix_code_blocks(self, content: str) -> str:
-        """修复代码块格式（独占行、换行、去缩进）"""
-        # C: 移除代码块前的缩进（必须先执行，否则影响下面的判断）
-        content = self._PATTERNS['code_block_indent'].sub(r"\1", content)
-        # A: 确保 ``` 前有换行
-        content = self._PATTERNS['code_block_prefix'].sub(r"\n\1", content)
-        # B: 确保 ```语言标识 后有换行
-        content = self._PATTERNS['code_block_suffix'].sub(r"\1\n\2", content)
-        return content
-    
-    def _fix_latex_formulas(self, content: str) -> str:
-        """规范化 LaTeX 公式：\[ -> $$ (块级), \( -> $ (行内)"""
-        content = self._PATTERNS['latex_bracket_block'].sub(r"$$\1$$", content)
-        content = self._PATTERNS['latex_paren_inline'].sub(r"$\1$", content)
-        return content
-    
-    def _fix_list_formatting(self, content: str) -> str:
-        """修复列表项缺少换行的问题 (如 'text1. item' -> 'text\\n1. item')"""
-        return self._PATTERNS['list_item'].sub(r"\1\n\2", content)
-    
-    def _fix_unclosed_code_blocks(self, content: str) -> str:
-        """检测并修复未闭合的代码块"""
-        if content.count("```") % 2 != 0:
-            logger.warning("检测到未闭合的代码块，自动补全")
-            content += "\n```"
-        return content
-    
-    def _fix_fullwidth_symbols_in_code(self, content: str) -> str:
-        """在代码块内将全角符号转为半角（精细化操作）"""
-        # 常见误用的全角符号映射
-        FULLWIDTH_MAP = {
-            '，': ',', '。': '.', '（': '(', '）': ')',
-            '【': '[', '】': ']', '；': ';', '：': ':',
-            '？': '?', '！': '!', '"': '"', '"': '"',
-            ''': "'", ''': "'",
-        }
-        
-        parts = content.split("```")
-        # 代码块内容位于索引 1, 3, 5... (奇数位)
-        for i in range(1, len(parts), 2):
-            for full, half in FULLWIDTH_MAP.items():
-                parts[i] = parts[i].replace(full, half)
-        
-        return "```".join(parts)
-    
-    def _cleanup_xml_tags(self, content: str) -> str:
-        """移除无关的 XML 标签"""
-        return self._PATTERNS['xml_artifacts'].sub("", content)
 
 class Filter:
     class Valves(BaseModel):
@@ -349,13 +148,9 @@ class Filter:
                 body["model"] = body["model"] + "-search"
                 features["web_search"] = False
                 search_enabled_for_model = True
-            if user_email == "yi204o@qq.com":
-                features["web_search"] = False
 
         # 如果启用了模型本身的搜索能力，发送状态提示
         if search_enabled_for_model and __event_emitter__:
-            import asyncio
-
             try:
                 asyncio.create_task(
                     self._emit_search_status(__event_emitter__, model_name)
@@ -464,8 +259,6 @@ class Filter:
 
             # 环境变量注入成功后，发送状态提示给用户
             if env_injected and __event_emitter__:
-                import asyncio
-
                 try:
                     # 如果在异步环境中，使用 await
                     asyncio.create_task(self._emit_env_status(__event_emitter__))
@@ -506,67 +299,3 @@ class Filter:
             )
         except Exception as e:
             print(f"发送搜索状态提示时出错: {e}")
-
-    async def _emit_normalization_status(self, __event_emitter__, applied_fixes: List[str] = None):
-        """
-        发送内容规范化完成的状态提示
-        """
-        description = "✓ 内容已自动规范化"
-        if applied_fixes:
-            description += f"：{', '.join(applied_fixes)}"
-
-        try:
-            await __event_emitter__(
-                {
-                    "type": "status",
-                    "data": {
-                        "description": description,
-                        "done": True,
-                    },
-                }
-            )
-        except Exception as e:
-            print(f"发送规范化状态提示时出错: {e}")
-
-    def _contains_html(self, content: str) -> bool:
-        """
-        检测内容是否包含 HTML 标签
-        """
-        # 匹配常见的 HTML 标签
-        pattern = r"<\s*/?\s*(?:html|head|body|div|span|p|br|hr|ul|ol|li|table|thead|tbody|tfoot|tr|td|th|img|a|b|i|strong|em|code|pre|blockquote|h[1-6]|script|style|form|input|button|label|select|option|iframe|link|meta|title)\b"
-        return bool(re.search(pattern, content, re.IGNORECASE))
-
-    def outlet(self, body: dict, __user__: Optional[dict] = None, __event_emitter__=None) -> dict:
-        """
-        处理传出响应体，通过修改最后一条助手消息的内容。
-        使用 ContentNormalizer 进行全面的内容规范化。
-        """
-        if "messages" in body and body["messages"]:
-            last = body["messages"][-1]
-            content = last.get("content", "") or ""
-            
-            if last.get("role") == "assistant" and isinstance(content, str):
-                # 如果包含 HTML，跳过规范化，为了防止错误格式化
-                if self._contains_html(content):
-                    return body
-
-                # 初始化规范化器
-                normalizer = ContentNormalizer()
-                
-                # 执行规范化
-                new_content = normalizer.normalize(content)
-                
-                # 更新内容
-                if new_content != content:
-                    last["content"] = new_content
-                    # 如果内容发生了改变，发送状态提示
-                    if __event_emitter__:
-                        import asyncio
-                        try:
-                            # 传入 applied_fixes
-                            asyncio.create_task(self._emit_normalization_status(__event_emitter__, normalizer.applied_fixes))
-                        except RuntimeError:
-                            # 假如不在循环中，则忽略
-                            pass
-        
-        return body
