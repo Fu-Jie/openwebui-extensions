@@ -4,6 +4,11 @@
 
 This filter reduces token consumption in long conversations through intelligent summarization and message compression while keeping conversations coherent.
 
+## What's new in 1.1.1
+
+- **Frontend Debugging**: Added `show_debug_log` option to print debug info to the browser console (F12).
+- **Optimized Compression**: Improved token calculation logic to prevent aggressive truncation of history, ensuring more context is retained.
+
 ## What's new in 1.1.0 
 
 - Reuses Open WebUI's shared database connection by default (no custom engine or env vars required).
