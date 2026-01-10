@@ -74,6 +74,7 @@ class ContentNormalizer:
         # Fix "reverse optimization": Must precisely match shape delimiters to avoid breaking structure
         # Priority: Longer delimiters match first
         "mermaid_node": re.compile(
+            r'("[^"\\]*(?:\\.[^"\\]*)*")|'  # Match quoted strings first (Group 1)
             r"(\w+)\s*(?:"
             r"(\(\(\()(?![\"])(.*?)(?<![\"])(\)\)\))|"  # (((...))) Double Circle
             r"(\(\()(?![\"])(.*?)(?<![\"])(\)\))|"  # ((...)) Circle
@@ -281,14 +282,18 @@ class ContentNormalizer:
         """Fix common Mermaid syntax errors while preserving node shapes"""
 
         def replacer(match):
-            # Group 1 is ID
-            id_str = match.group(1)
+            # Group 1 is Quoted String (if matched)
+            if match.group(1):
+                return match.group(1)
+
+            # Group 2 is ID
+            id_str = match.group(2)
 
             # Find matching shape group
-            # Groups start at index 2, each shape has 3 groups (Open, Content, Close)
-            # We iterate to find the non-None one
+            # Groups start at index 3 (in match.group terms) or index 2 (in match.groups() tuple)
+            # Tuple: (String, ID, Open1, Content1, Close1, ...)
             groups = match.groups()
-            for i in range(1, len(groups), 3):
+            for i in range(2, len(groups), 3):
                 if groups[i] is not None:
                     open_char = groups[i]
                     content = groups[i + 1]

@@ -69,6 +69,7 @@ class ContentNormalizer:
         # 修复"反向优化"问题：必须精确匹配各种形状的定界符，避免破坏形状结构
         # 优先级：长定界符优先匹配
         "mermaid_node": re.compile(
+            r'("[^"\\]*(?:\\.[^"\\]*)*")|'  # Match quoted strings first (Group 1)
             r"(\w+)\s*(?:"
             r"(\(\(\()(?![\"])(.*?)(?<![\"])(\)\)\))|"  # (((...))) Double Circle
             r"(\(\()(?![\"])(.*?)(?<![\"])(\)\))|"  # ((...)) Circle
@@ -276,14 +277,18 @@ class ContentNormalizer:
         """修复常见的 Mermaid 语法错误，同时保留节点形状"""
 
         def replacer(match):
-            # Group 1 是 ID
-            id_str = match.group(1)
+            # Group 1 is Quoted String (if matched)
+            if match.group(1):
+                return match.group(1)
 
-            # 查找匹配的形状组
-            # 组从索引 2 开始，每个形状有 3 个组 (Open, Content, Close)
-            # 我们遍历找到非 None 的那一组
+            # Group 2 is ID
+            id_str = match.group(2)
+
+            # Find matching shape group
+            # Groups start at index 3 (in match.group terms) or index 2 (in match.groups() tuple)
+            # Tuple: (String, ID, Open1, Content1, Close1, ...)
             groups = match.groups()
-            for i in range(1, len(groups), 3):
+            for i in range(2, len(groups), 3):
                 if groups[i] is not None:
                     open_char = groups[i]
                     content = groups[i + 1]
