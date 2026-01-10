@@ -260,7 +260,46 @@ async def _emit_notification(
 
 ## 📋 日志规范 (Logging Standard)
 
-- **禁止使用** `print()` 语句
+### 1. 前端控制台调试 (Frontend Console Debugging) - **优先推荐 (Preferred)**
+
+对于需要实时查看数据流、排查 UI 交互或内容变更的场景，**优先使用**前端控制台日志。这种方式可以直接在浏览器 DevTools (F12) 中查看，无需访问服务端日志。
+
+**实现方式**: 通过 `__event_emitter__` 发送 `type: "execute"` 事件执行 JS 代码。
+
+```python
+import json
+
+async def _emit_debug_log(self, __event_emitter__, title: str, data: dict):
+    """在浏览器控制台打印结构化调试日志"""
+    if not self.valves.show_debug_log or not __event_emitter__:
+        return
+
+    try:
+        js_code = f"""
+            (async function() {{
+                console.group("🛠️ {title}");
+                console.log({json.dumps(data, ensure_ascii=False)});
+                console.groupEnd();
+            }})();
+        """
+        
+        await __event_emitter__({
+            "type": "execute",
+            "data": {"code": js_code}
+        })
+    except Exception as e:
+        print(f"Error emitting debug log: {e}")
+```
+
+**配置要求**:
+- 在 `Valves` 中添加 `show_debug_log: bool` 开关，默认关闭。
+- 仅在开关开启时发送日志。
+
+### 2. 服务端日志 (Server-side Logging)
+
+用于记录系统级错误、异常堆栈或无需前端感知的后台任务。
+
+- **禁止使用** `print()` 语句 (除非用于简单的脚本调试)
 - 必须使用 Python 标准库 `logging`
 
 ```python

@@ -1,0 +1,519 @@
+"""
+title: Markdown Normalizer
+author: Fu-Jie
+author_url: https://github.com/Fu-Jie
+funding_url: https://github.com/Fu-Jie/awesome-openwebui
+version: 1.0.0
+description: A production-grade content normalizer filter that fixes common Markdown formatting issues in LLM outputs, such as broken code blocks, LaTeX formulas, and list formatting.
+"""
+
+from pydantic import BaseModel, Field
+from typing import Optional, List, Callable
+import re
+import logging
+import logging
+import asyncio
+import json
+from dataclasses import dataclass, field
+
+# Configure logging
+logger = logging.getLogger(__name__)
+
+
+@dataclass
+class NormalizerConfig:
+    """Configuration class for enabling/disabling specific normalization rules"""
+
+    enable_escape_fix: bool = True  # Fix excessive escape characters
+    enable_thought_tag_fix: bool = True  # Normalize thought tags
+    enable_code_block_fix: bool = True  # Fix code block formatting
+    enable_latex_fix: bool = True  # Fix LaTeX formula formatting
+    enable_list_fix: bool = (
+        False  # Fix list item newlines (default off as it can be aggressive)
+    )
+    enable_unclosed_block_fix: bool = True  # Auto-close unclosed code blocks
+    enable_fullwidth_symbol_fix: bool = False  # Fix full-width symbols in code blocks
+    enable_mermaid_fix: bool = True  # Fix common Mermaid syntax errors
+    enable_heading_fix: bool = (
+        True  # Fix missing space in headings (#Header -> # Header)
+    )
+    enable_table_fix: bool = True  # Fix missing closing pipe in tables
+    enable_xml_tag_cleanup: bool = True  # Cleanup leftover XML tags
+
+    # Custom cleaner functions (for advanced extension)
+    custom_cleaners: List[Callable[[str], str]] = field(default_factory=list)
+
+
+class ContentNormalizer:
+    """LLM Output Content Normalizer - Production Grade Implementation"""
+
+    # --- 1. Pre-compiled Regex Patterns (Performance Optimization) ---
+    _PATTERNS = {
+        # Code block prefix: if ``` is not at start of line or file
+        "code_block_prefix": re.compile(r"(?<!^)(?<!\n)(```)", re.MULTILINE),
+        # Code block suffix: ```lang followed by non-whitespace (no newline)
+        "code_block_suffix": re.compile(r"(```[\w\+\-\.]*)[ \t]+([^\n\r])"),
+        # Code block indent: whitespace at start of line + ```
+        "code_block_indent": re.compile(r"^[ \t]+(```)", re.MULTILINE),
+        # Thought tag: </thought> followed by optional whitespace/newlines
+        "thought_end": re.compile(
+            r"</(thought|think|thinking)>[ \t]*\n*", re.IGNORECASE
+        ),
+        "thought_start": re.compile(r"<(thought|think|thinking)>", re.IGNORECASE),
+        # LaTeX block: \[ ... \]
+        "latex_bracket_block": re.compile(r"\\\[(.+?)\\\]", re.DOTALL),
+        # LaTeX inline: \( ... \)
+        "latex_paren_inline": re.compile(r"\\\((.+?)\\\)"),
+        # List item: non-newline + digit + dot + space
+        "list_item": re.compile(r"([^\n])(\d+\. )"),
+        # XML artifacts (e.g. Claude's)
+        "xml_artifacts": re.compile(
+            r"</?(?:antArtifact|antThinking|artifact)[^>]*>", re.IGNORECASE
+        ),
+        # Mermaid: Match various node shapes and quote unquoted labels
+        # Fix "reverse optimization": Must precisely match shape delimiters to avoid breaking structure
+        # Priority: Longer delimiters match first
+        "mermaid_node": re.compile(
+            r"(\w+)\s*(?:"
+            r"(\(\(\()(?![\"])(.*?)(?<![\"])(\)\)\))|"  # (((...))) Double Circle
+            r"(\(\()(?![\"])(.*?)(?<![\"])(\)\))|"  # ((...)) Circle
+            r"(\(\[)(?![\"])(.*?)(?<![\"])(\]\))|"  # ([...]) Stadium
+            r"(\[\()(?![\"])(.*?)(?<![\"])(\)\])|"  # [(...)] Cylinder
+            r"(\[\[)(?![\"])(.*?)(?<![\"])(\]\])|"  # [[...]] Subroutine
+            r"(\{\{)(?![\"])(.*?)(?<![\"])(\}\})|"  # {{...}} Hexagon
+            r"(\[/)(?![\"])(.*?)(?<![\"])(/\])|"  # [/.../] Parallelogram
+            r"(\[\\)(?![\"])(.*?)(?<![\"])(\\\])|"  # [\...\] Parallelogram Alt
+            r"(\[/)(?![\"])(.*?)(?<![\"])(\\\])|"  # [/...\] Trapezoid
+            r"(\[\\)(?![\"])(.*?)(?<![\"])(/\])|"  # [\.../] Trapezoid Alt
+            r"(\()(?![\"])(.*?)(?<![\"])(\))|"  # (...) Round
+            r"(\[)(?![\"])(.*?)(?<![\"])(\])|"  # [...] Square
+            r"(\{)(?![\"])(.*?)(?<![\"])(\})|"  # {...} Rhombus
+            r"(>)(?![\"])(.*?)(?<![\"])(\])"  # >...] Asymmetric
+            r")"
+        ),
+        # Heading: #Heading -> # Heading
+        "heading_space": re.compile(r"^(#+)([^ \n#])", re.MULTILINE),
+        # Table: | col1 | col2 -> | col1 | col2 |
+        "table_pipe": re.compile(r"^(\|.*[^|\n])$", re.MULTILINE),
+    }
+
+    def __init__(self, config: Optional[NormalizerConfig] = None):
+        self.config = config or NormalizerConfig()
+        self.applied_fixes = []
+
+    def normalize(self, content: str) -> str:
+        """Main entry point: apply all normalization rules in order"""
+        self.applied_fixes = []
+        if not content:
+            return content
+
+        original_content = content  # Keep a copy for logging
+
+        try:
+            # 1. Escape character fix (Must be first)
+            if self.config.enable_escape_fix:
+                original = content
+                content = self._fix_escape_characters(content)
+                if content != original:
+                    self.applied_fixes.append("Fix Escape Chars")
+
+            # 2. Thought tag normalization
+            if self.config.enable_thought_tag_fix:
+                original = content
+                content = self._fix_thought_tags(content)
+                if content != original:
+                    self.applied_fixes.append("Normalize Thought Tags")
+
+            # 3. Code block formatting fix
+            if self.config.enable_code_block_fix:
+                original = content
+                content = self._fix_code_blocks(content)
+                if content != original:
+                    self.applied_fixes.append("Fix Code Blocks")
+
+            # 4. LaTeX formula normalization
+            if self.config.enable_latex_fix:
+                original = content
+                content = self._fix_latex_formulas(content)
+                if content != original:
+                    self.applied_fixes.append("Normalize LaTeX")
+
+            # 5. List formatting fix
+            if self.config.enable_list_fix:
+                original = content
+                content = self._fix_list_formatting(content)
+                if content != original:
+                    self.applied_fixes.append("Fix List Format")
+
+            # 6. Unclosed code block fix
+            if self.config.enable_unclosed_block_fix:
+                original = content
+                content = self._fix_unclosed_code_blocks(content)
+                if content != original:
+                    self.applied_fixes.append("Close Code Blocks")
+
+            # 7. Full-width symbol fix (in code blocks only)
+            if self.config.enable_fullwidth_symbol_fix:
+                original = content
+                content = self._fix_fullwidth_symbols_in_code(content)
+                if content != original:
+                    self.applied_fixes.append("Fix Full-width Symbols")
+
+            # 8. Mermaid syntax fix
+            if self.config.enable_mermaid_fix:
+                original = content
+                content = self._fix_mermaid_syntax(content)
+                if content != original:
+                    self.applied_fixes.append("Fix Mermaid Syntax")
+
+            # 9. Heading fix
+            if self.config.enable_heading_fix:
+                original = content
+                content = self._fix_headings(content)
+                if content != original:
+                    self.applied_fixes.append("Fix Headings")
+
+            # 10. Table fix
+            if self.config.enable_table_fix:
+                original = content
+                content = self._fix_tables(content)
+                if content != original:
+                    self.applied_fixes.append("Fix Tables")
+
+            # 11. XML tag cleanup
+            if self.config.enable_xml_tag_cleanup:
+                original = content
+                content = self._cleanup_xml_tags(content)
+                if content != original:
+                    self.applied_fixes.append("Cleanup XML Tags")
+
+            # 9. Custom cleaners
+            for cleaner in self.config.custom_cleaners:
+                original = content
+                content = cleaner(content)
+                if content != original:
+                    self.applied_fixes.append("Custom Cleaner")
+
+            if self.applied_fixes:
+                logger.info(f"Markdown Normalizer Applied Fixes: {self.applied_fixes}")
+                logger.debug(
+                    f"--- Original Content ---\n{original_content}\n------------------------"
+                )
+                logger.debug(
+                    f"--- Normalized Content ---\n{content}\n--------------------------"
+                )
+
+            return content
+
+        except Exception as e:
+            # Production safeguard: return original content on error
+            logger.error(f"Content normalization failed: {e}", exc_info=True)
+            return content
+
+    def _fix_escape_characters(self, content: str) -> str:
+        """Fix excessive escape characters"""
+        content = content.replace("\\r\\n", "\n")
+        content = content.replace("\\n", "\n")
+        content = content.replace("\\t", "\t")
+        content = content.replace("\\\\", "\\")
+        return content
+
+    def _fix_thought_tags(self, content: str) -> str:
+        """Normalize thought tags: unify naming and fix spacing"""
+        # 1. Standardize start tag: <think>, <thinking> -> <thought>
+        content = self._PATTERNS["thought_start"].sub("<thought>", content)
+        # 2. Standardize end tag and ensure newlines: </think> -> </thought>\n\n
+        return self._PATTERNS["thought_end"].sub("</thought>\n\n", content)
+
+    def _fix_code_blocks(self, content: str) -> str:
+        """Fix code block formatting (prefixes, suffixes, indentation)"""
+        # Remove indentation before code blocks
+        content = self._PATTERNS["code_block_indent"].sub(r"\1", content)
+        # Ensure newline before ```
+        content = self._PATTERNS["code_block_prefix"].sub(r"\n\1", content)
+        # Ensure newline after ```lang
+        content = self._PATTERNS["code_block_suffix"].sub(r"\1\n\2", content)
+        return content
+
+    def _fix_latex_formulas(self, content: str) -> str:
+        """Normalize LaTeX formulas: \[ -> $$ (block), \( -> $ (inline)"""
+        content = self._PATTERNS["latex_bracket_block"].sub(r"$$\1$$", content)
+        content = self._PATTERNS["latex_paren_inline"].sub(r"$\1$", content)
+        return content
+
+    def _fix_list_formatting(self, content: str) -> str:
+        """Fix missing newlines in lists (e.g., 'text1. item' -> 'text\\n1. item')"""
+        return self._PATTERNS["list_item"].sub(r"\1\n\2", content)
+
+    def _fix_unclosed_code_blocks(self, content: str) -> str:
+        """Auto-close unclosed code blocks"""
+        if content.count("```") % 2 != 0:
+            content += "\n```"
+        return content
+
+    def _fix_fullwidth_symbols_in_code(self, content: str) -> str:
+        """Convert full-width symbols to half-width inside code blocks"""
+        FULLWIDTH_MAP = {
+            "，": ",",
+            "。": ".",
+            "（": "(",
+            "）": ")",
+            "【": "[",
+            "】": "]",
+            "；": ";",
+            "：": ":",
+            "？": "?",
+            "！": "!",
+            '"': '"',
+            '"': '"',
+            """: "'", """: "'",
+        }
+
+        parts = content.split("```")
+        # Code block content is at odd indices: 1, 3, 5...
+        for i in range(1, len(parts), 2):
+            for full, half in FULLWIDTH_MAP.items():
+                parts[i] = parts[i].replace(full, half)
+
+        return "```".join(parts)
+
+    def _fix_mermaid_syntax(self, content: str) -> str:
+        """Fix common Mermaid syntax errors while preserving node shapes"""
+
+        def replacer(match):
+            # Group 1 is ID
+            id_str = match.group(1)
+
+            # Find matching shape group
+            # Groups start at index 2, each shape has 3 groups (Open, Content, Close)
+            # We iterate to find the non-None one
+            groups = match.groups()
+            for i in range(1, len(groups), 3):
+                if groups[i] is not None:
+                    open_char = groups[i]
+                    content = groups[i + 1]
+                    close_char = groups[i + 2]
+
+                    # Escape quotes in content
+                    content = content.replace('"', '\\"')
+
+                    return f'{id_str}{open_char}"{content}"{close_char}'
+
+            return match.group(0)
+
+        parts = content.split("```")
+        for i in range(1, len(parts), 2):
+            # Check if it's a mermaid block
+            lang_line = parts[i].split("\n", 1)[0].strip().lower()
+            if "mermaid" in lang_line:
+                # Apply the comprehensive regex fix
+                parts[i] = self._PATTERNS["mermaid_node"].sub(replacer, parts[i])
+
+                # Auto-close subgraphs
+                subgraph_count = len(
+                    re.findall(r"\bsubgraph\b", parts[i], re.IGNORECASE)
+                )
+                end_count = len(re.findall(r"\bend\b", parts[i], re.IGNORECASE))
+
+                if subgraph_count > end_count:
+                    missing_ends = subgraph_count - end_count
+                    parts[i] = parts[i].rstrip() + ("\n    end" * missing_ends) + "\n"
+
+        return "```".join(parts)
+
+    def _fix_headings(self, content: str) -> str:
+        """Fix missing space in headings: #Heading -> # Heading"""
+        # We only fix if it's not inside a code block.
+        # But splitting by code block is expensive.
+        # Given headings usually don't appear inside code blocks without space in valid code (except comments),
+        # we might risk false positives in comments like `#TODO`.
+        # To be safe, let's split by code blocks.
+
+        parts = content.split("```")
+        for i in range(0, len(parts), 2):  # Even indices are markdown text
+            parts[i] = self._PATTERNS["heading_space"].sub(r"\1 \2", parts[i])
+        return "```".join(parts)
+
+    def _fix_tables(self, content: str) -> str:
+        """Fix tables missing closing pipe"""
+        parts = content.split("```")
+        for i in range(0, len(parts), 2):
+            parts[i] = self._PATTERNS["table_pipe"].sub(r"\1|", parts[i])
+        return "```".join(parts)
+
+    def _cleanup_xml_tags(self, content: str) -> str:
+        """Remove leftover XML tags"""
+        return self._PATTERNS["xml_artifacts"].sub("", content)
+
+
+class Filter:
+    class Valves(BaseModel):
+        priority: int = Field(
+            default=50,
+            description="Priority level. Higher runs later (recommended to run after other filters).",
+        )
+        enable_escape_fix: bool = Field(
+            default=True, description="Fix excessive escape characters (\\n, \\t, etc.)"
+        )
+        enable_thought_tag_fix: bool = Field(
+            default=True, description="Normalize </thought> tags"
+        )
+        enable_code_block_fix: bool = Field(
+            default=True,
+            description="Fix code block formatting (indentation, newlines)",
+        )
+        enable_latex_fix: bool = Field(
+            default=True, description="Normalize LaTeX formulas (\\[ -> $$, \\( -> $)"
+        )
+        enable_list_fix: bool = Field(
+            default=False, description="Fix list item newlines (Experimental)"
+        )
+        enable_unclosed_block_fix: bool = Field(
+            default=True, description="Auto-close unclosed code blocks"
+        )
+        enable_fullwidth_symbol_fix: bool = Field(
+            default=False, description="Fix full-width symbols in code blocks"
+        )
+        enable_mermaid_fix: bool = Field(
+            default=True,
+            description="Fix common Mermaid syntax errors (e.g. unquoted labels)",
+        )
+        enable_heading_fix: bool = Field(
+            default=True,
+            description="Fix missing space in headings (#Header -> # Header)",
+        )
+        enable_table_fix: bool = Field(
+            default=True, description="Fix missing closing pipe in tables"
+        )
+        enable_xml_tag_cleanup: bool = Field(
+            default=True, description="Cleanup leftover XML tags"
+        )
+        show_status: bool = Field(
+            default=True, description="Show status notification when fixes are applied"
+        )
+        show_debug_log: bool = Field(
+            default=False, description="Print debug logs to browser console (F12)"
+        )
+
+    def __init__(self):
+        self.valves = self.Valves()
+
+    def _contains_html(self, content: str) -> bool:
+        """Check if content contains HTML tags (to avoid breaking HTML output)"""
+        pattern = r"<\s*/?\s*(?:html|head|body|div|span|p|br|hr|ul|ol|li|table|thead|tbody|tfoot|tr|td|th|img|a|b|i|strong|em|code|pre|blockquote|h[1-6]|script|style|form|input|button|label|select|option|iframe|link|meta|title)\b"
+        return bool(re.search(pattern, content, re.IGNORECASE))
+
+    async def _emit_status(self, __event_emitter__, applied_fixes: List[str]):
+        """Emit status notification"""
+        if not self.valves.show_status or not applied_fixes:
+            return
+
+        description = "✓ Markdown Normalized"
+        if applied_fixes:
+            description += f": {', '.join(applied_fixes)}"
+
+        try:
+            await __event_emitter__(
+                {
+                    "type": "status",
+                    "data": {
+                        "description": description,
+                        "done": True,
+                    },
+                }
+            )
+        except Exception as e:
+            print(f"Error emitting status: {e}")
+
+    async def _emit_debug_log(
+        self, __event_call__, applied_fixes: List[str], original: str, normalized: str
+    ):
+        """Emit debug log to browser console via JS execution"""
+        if not self.valves.show_debug_log or not __event_call__:
+            return
+
+        try:
+            # Prepare data for JS
+            log_data = {
+                "fixes": applied_fixes,
+                "original": original,
+                "normalized": normalized,
+            }
+
+            # Construct JS code
+            js_code = f"""
+                (async function() {{
+                    console.group("🛠️ Markdown Normalizer Debug");
+                    console.log("Applied Fixes:", {json.dumps(applied_fixes, ensure_ascii=False)});
+                    console.log("Original Content:", {json.dumps(original, ensure_ascii=False)});
+                    console.log("Normalized Content:", {json.dumps(normalized, ensure_ascii=False)});
+                    console.groupEnd();
+                }})();
+            """
+
+            await __event_call__(
+                {
+                    "type": "execute",
+                    "data": {"code": js_code},
+                }
+            )
+        except Exception as e:
+            print(f"Error emitting debug log: {e}")
+
+    async def outlet(
+        self,
+        body: dict,
+        __user__: Optional[dict] = None,
+        __event_emitter__=None,
+        __event_call__=None,
+        __metadata__: Optional[dict] = None,
+    ) -> dict:
+        """
+        Process the response body to normalize Markdown content.
+        """
+        if "messages" in body and body["messages"]:
+            last = body["messages"][-1]
+            content = last.get("content", "") or ""
+
+            if last.get("role") == "assistant" and isinstance(content, str):
+                # Skip if content looks like HTML to avoid breaking it
+                if self._contains_html(content):
+                    return body
+
+                # Configure normalizer based on valves
+                config = NormalizerConfig(
+                    enable_escape_fix=self.valves.enable_escape_fix,
+                    enable_thought_tag_fix=self.valves.enable_thought_tag_fix,
+                    enable_code_block_fix=self.valves.enable_code_block_fix,
+                    enable_latex_fix=self.valves.enable_latex_fix,
+                    enable_list_fix=self.valves.enable_list_fix,
+                    enable_unclosed_block_fix=self.valves.enable_unclosed_block_fix,
+                    enable_fullwidth_symbol_fix=self.valves.enable_fullwidth_symbol_fix,
+                    enable_mermaid_fix=self.valves.enable_mermaid_fix,
+                    enable_heading_fix=self.valves.enable_heading_fix,
+                    enable_table_fix=self.valves.enable_table_fix,
+                    enable_xml_tag_cleanup=self.valves.enable_xml_tag_cleanup,
+                )
+
+                normalizer = ContentNormalizer(config)
+
+                # Execute normalization
+                new_content = normalizer.normalize(content)
+
+                # Update content if changed
+                if new_content != content:
+                    last["content"] = new_content
+
+                    # Emit status if enabled
+                    if __event_emitter__:
+                        await self._emit_status(
+                            __event_emitter__, normalizer.applied_fixes
+                        )
+                        await self._emit_debug_log(
+                            __event_call__,
+                            normalizer.applied_fixes,
+                            content,
+                            new_content,
+                        )
+
+        return body
