@@ -187,7 +187,6 @@ nav:
       - Knowledge Card: plugins/actions/knowledge-card.md
       - Export to Excel: plugins/actions/export-to-excel.md
       - Export to Word: plugins/actions/export-to-word.md
-      - Summary: plugins/actions/summary.md
     - Filters:
       - plugins/filters/index.md
       - Async Context Compression: plugins/filters/async-context-compression.md
