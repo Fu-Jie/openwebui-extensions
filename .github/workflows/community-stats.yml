@@ -32,16 +32,7 @@ jobs:
         run: |
           pip install requests python-dotenv
       
-      - name: Get previous stats
-        id: prev_stats
-        run: |
-          # 获取当前的 points 用于比较
-          if [ -f docs/community-stats.json ]; then
-            OLD_POINTS=$(jq -r '.user.total_points' docs/community-stats.json 2>/dev/null || echo "0")
-            echo "old_points=$OLD_POINTS" >> $GITHUB_OUTPUT
-          else
-            echo "old_points=0" >> $GITHUB_OUTPUT
-          fi
+
       
       - name: Generate stats report
         env:
@@ -49,27 +40,8 @@ jobs:
           OPENWEBUI_USER_ID: ${{ secrets.OPENWEBUI_USER_ID }}
         run: |
           python scripts/openwebui_stats.py
-      
-      - name: Check for significant changes
-        id: check_changes
-        run: |
-          # 获取新的 points
-          NEW_POINTS=$(jq -r '.user.total_points' docs/community-stats.json 2>/dev/null || echo "0")
-          
-          echo "📊 Previous points: ${{ steps.prev_stats.outputs.old_points }}"
-          echo "📊 Current points: $NEW_POINTS"
-          
-          # 只在 points 变化时才 commit
-          if [ "$NEW_POINTS" != "${{ steps.prev_stats.outputs.old_points }}" ]; then
-            echo "changed=true" >> $GITHUB_OUTPUT
-            echo "✅ Points changed (${{ steps.prev_stats.outputs.old_points }} → $NEW_POINTS), will commit"
-          else
-            echo "changed=false" >> $GITHUB_OUTPUT
-            echo "⏭️ Points unchanged, skipping commit"
-          fi
-      
+
       - name: Commit and push changes
-        if: steps.check_changes.outputs.changed == 'true'
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
