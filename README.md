@@ -123,8 +123,7 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
 <table>
   <tbody>
     <tr>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/rbb-dev"><img src="https://avatars.githubusercontent.com/u/37469229?v=4?s=100" width="100px;" alt="rbb-dev"/><br /><sub><b>rbb-dev</b></sub></a><br /><a href="#ideas-rbb-dev" title="Ideas, Planning, & Feedback">🤔</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://trade.xyz/?ref=BZ1RJRXWO"><img src="https://avatars.githubusercontent.com/u/7317522?v=4?s=100" width="100px;" alt="Raxxoor"/><br /><sub><b>Raxxoor</b></sub></a><br /><a href="https://github.com/Fu-Jie/awesome-openwebui/issues?q=author%3Adhaern" title="Bug reports">🐛</a> <a href="#ideas-dhaern" title="Ideas, Planning, & Feedback">🤔</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/rbb-dev"><img src="https://avatars.githubusercontent.com/u/37469229?v=4?s=100" width="100px;" alt="rbb-dev"/><br /><sub><b>rbb-dev</b></sub></a><br /><a href="#ideas-rbb-dev" title="Ideas, Planning, & Feedback">🤔</a> <a href="https://github.com/Fu-Jie/awesome-openwebui/commits?author=rbb-dev" title="Code">💻</a></td>
     </tr>
   </tbody>
 </table>
