@@ -588,38 +588,25 @@ class OpenWebUICommunityClient:
                     return f.read()
         return None
 
-    def _find_images(self, plugin_file_path: str) -> List[str]:
+    def _find_image(self, plugin_file_path: str) -> Optional[str]:
         """
         查找插件对应的图片文件
-        支持两种模式：
-        1. 单图模式：图片名称和插件文件名一致（不含扩展名），如 export_to_word.png
-        2. 多图模式：图片名称为 插件名_1.png, 插件名_2.png 等
+        图片名称需要和插件文件名一致（不含扩展名）
+
+        例如：
+            export_to_word.py -> export_to_word.png / export_to_word.jpg
         """
         plugin_dir = os.path.dirname(plugin_file_path)
         plugin_name = os.path.splitext(os.path.basename(plugin_file_path))[0]
 
         # 支持的图片格式
         image_extensions = [".png", ".jpg", ".jpeg", ".gif", ".webp"]
-        found_images = []
 
-        # 1. 检查单图模式
         for ext in image_extensions:
             image_path = os.path.join(plugin_dir, plugin_name + ext)
             if os.path.exists(image_path):
-                found_images.append(image_path)
-                break  # 如果有单图，优先使用单图
-
-        # 2. 检查多图模式 (plugin_name_1, plugin_name_2, ...)
-        # 如果已经找到了单图，就不再寻找多图，除非单图不存在
-        if not found_images:
-            for i in range(1, 11):  # 最多支持 10 张
-                for ext in image_extensions:
-                    image_path = os.path.join(plugin_dir, f"{plugin_name}_{i}{ext}")
-                    if os.path.exists(image_path):
-                        found_images.append(image_path)
-                        break
-
-        return found_images
+                return image_path
+        return None
 
     def _inject_id_to_file(self, file_path: str, post_id: str) -> bool:
         """
