@@ -105,4 +105,4 @@ OpenWebUI 增强功能集合。包含个人开发与收集的插件、提示词�
 2. 将你的文件添加到对应的 `prompts/` 或 `plugins/` 目录。
 3. 提交 Pull Request。
 
-[贡献指南](./CONTRIBUTING.md) | [更新日志](./CHANGELOG.md)
+[贡献指南](./CONTRIBUTING_CN.md) | [更新日志](./CHANGELOG.md)
