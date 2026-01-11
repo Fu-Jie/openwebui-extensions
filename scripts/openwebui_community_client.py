@@ -260,12 +260,16 @@ class OpenWebUICommunityClient:
 
         response = requests.post(url, headers=self.headers, json=payload)
 
+        if response.status_code != 200:
+            try:
                 error_detail = response.json()
                 print(
-                    f"  [DEBUG] Update failed error detail: {json.dumps(error_detail, indent=2)}"
+                    f"  Error: Update failed ({response.status_code}): {json.dumps(error_detail, indent=2)}"
                 )
             except Exception:
-                print(f"  [DEBUG] Update failed response text: {response.text[:1000]}")
+                print(
+                    f"  Error: Update failed ({response.status_code}): {response.text[:500]}"
+                )
 
         response.raise_for_status()
         return True
