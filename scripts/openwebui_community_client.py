@@ -473,15 +473,14 @@ class OpenWebUICommunityClient:
         readme_content = self._find_readme(file_path)
 
         # 查找并上传图片
-        media_urls = []
-        image_paths = self._find_images(file_path)
-        if image_paths:
-            for image_path in image_paths:
-                print(f"  Found image: {os.path.basename(image_path)}")
-                image_url = self.upload_image(image_path)
-                if image_url:
-                    print(f"  Uploaded image: {image_url}")
-                    media_urls.append(image_url)
+        media_urls = None
+        image_path = self._find_image(file_path)
+        if image_path:
+            print(f"  Found image: {os.path.basename(image_path)}")
+            image_url = self.upload_image(image_path)
+            if image_url:
+                print(f"  Uploaded image: {image_url}")
+                media_urls = [image_url]
 
         # 如果没有 post_id，尝试创建新帖子
         if not post_id:
