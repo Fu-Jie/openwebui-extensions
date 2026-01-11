@@ -260,7 +260,7 @@ from open_webui.main import app as webui_app
 # Open WebUI internal database (re-use shared connection)
 try:
     from open_webui.internal import db as owui_db
-except Exception:  # pragma: no cover - filter runs inside Open WebUI
+except ModuleNotFoundError:  # pragma: no cover - filter runs inside Open WebUI
     owui_db = None
 
 # Try to import tiktoken
@@ -292,8 +292,8 @@ def _discover_owui_engine(db_module: Any) -> Optional[Engine]:
                     return getattr(session, "bind", None) or getattr(
                         session, "engine", None
                     )
-        except Exception:
-            pass
+        except Exception as exc:
+            print(f"[DB Discover] get_db_context failed: {exc}")
 
     for attr in ("engine", "ENGINE", "bind", "BIND"):
         candidate = getattr(db_module, attr, None)
@@ -313,8 +313,8 @@ def _discover_owui_schema(db_module: Any) -> Optional[str]:
         candidate = getattr(metadata, "schema", None) if metadata is not None else None
         if isinstance(candidate, str) and candidate.strip():
             return candidate.strip()
-    except Exception:
-        pass
+    except Exception as exc:
+        print(f"[DB Discover] Base metadata schema lookup failed: {exc}")
 
     try:
         metadata_obj = getattr(db_module, "metadata_obj", None)
@@ -323,8 +323,8 @@ def _discover_owui_schema(db_module: Any) -> Optional[str]:
         )
         if isinstance(candidate, str) and candidate.strip():
             return candidate.strip()
-    except Exception:
-        pass
+    except Exception as exc:
+        print(f"[DB Discover] metadata_obj schema lookup failed: {exc}")
 
     try:
         from open_webui import env as owui_env
@@ -332,8 +332,8 @@ def _discover_owui_schema(db_module: Any) -> Optional[str]:
         candidate = getattr(owui_env, "DATABASE_SCHEMA", None)
         if isinstance(candidate, str) and candidate.strip():
             return candidate.strip()
-    except Exception:
-        pass
+    except Exception as exc:
+        print(f"[DB Discover] env schema lookup failed: {exc}")
 
     return None
 
