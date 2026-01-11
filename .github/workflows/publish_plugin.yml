@@ -1,6 +1,11 @@
 name: Publish Plugins to OpenWebUI Market
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'plugins/**/*.py'
   release:
     types: [published]
   workflow_dispatch:
