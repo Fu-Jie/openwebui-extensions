@@ -53,6 +53,7 @@ Located in the `plugins/` directory, containing Python-based enhancements:
 - **Gemini Manifold Companion** (`gemini_manifold_companion`): Companion filter for Gemini Manifold.
 - **Gemini Multimodal Filter** (`web_gemini_multimodel_filter`): Provides multimodal capabilities (PDF, Office, Video) for any model via Gemini.
 - **Markdown Normalizer** (`markdown_normalizer`): Fixes common Markdown formatting issues in LLM outputs.
+- **Multi-Model Context Merger** (`multi_model_context_merger`): Automatically merges and injects context from multiple model responses.
 
 
 #### Pipes
