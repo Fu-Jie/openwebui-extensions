@@ -5,7 +5,7 @@ author: Fu-Jie
 author_url: https://github.com/Fu-Jie
 funding_url: https://github.com/Fu-Jie/awesome-openwebui
 description: Reduces token consumption in long conversations while maintaining coherence through intelligent summarization and message compression.
-version: 1.1.1
+version: 1.1.2
 openwebui_id: b1655bc8-6de9-4cad-8cb5-a6f7829a02ce
 license: MIT
 
@@ -1002,6 +1002,13 @@ class Filter:
                 event_call=__event_call__,
             )
 
+    def _clean_model_id(self, model_id: Optional[str]) -> Optional[str]:
+        """Cleans the model ID by removing whitespace and quotes."""
+        if not model_id:
+            return None
+        cleaned = model_id.strip().strip('"').strip("'")
+        return cleaned if cleaned else None
+
     async def _generate_summary_async(
         self,
         messages: list,
@@ -1058,11 +1065,13 @@ class Filter:
             # 3. Check Token limit and truncate (Max Context Truncation)
             # [Optimization] Use the summary model's (if any) threshold to decide how many middle messages can be processed
             # This allows using a long-window model (like gemini-flash) to compress history exceeding the current model's window
-            summary_model_id = self.valves.summary_model or body.get("model")
+            summary_model_id = self._clean_model_id(
+                self.valves.summary_model
+            ) or self._clean_model_id(body.get("model"))
 
             if not summary_model_id:
                 await self._log(
-                    "[🤖 Async Summary Task] ⚠️ Summary model is empty, skipping compression",
+                    "[🤖 Async Summary Task] ⚠️ Summary model does not exist, skipping compression",
                     type="warning",
                     event_call=__event_call__,
                 )
@@ -1135,7 +1144,7 @@ class Filter:
                             "done": False,
                         },
                     }
-            )
+                )
 
             new_summary = await self._call_summary_llm(
                 None,
@@ -1191,6 +1200,18 @@ class Filter:
                 type="error",
                 event_call=__event_call__,
             )
+
+            if __event_emitter__:
+                await __event_emitter__(
+                    {
+                        "type": "status",
+                        "data": {
+                            "description": f"Summary Error: {str(e)[:100]}...",
+                            "done": True,
+                        },
+                    }
+                )
+
             import traceback
 
             traceback.print_exc()
@@ -1272,11 +1293,13 @@ This conversation may contain previous summaries (as system messages or text) an
 Based on the content above, generate the summary:
 """
         # Determine the model to use
-        model = self.valves.summary_model or body.get("model", "")
+        model = self._clean_model_id(self.valves.summary_model) or self._clean_model_id(
+            body.get("model")
+        )
 
         if not model:
             await self._log(
-                "[🤖 LLM Call] ⚠️ Model ID is empty, skipping summary generation",
+                "[🤖 LLM Call] ⚠️ Summary model does not exist, skipping summary generation",
                 type="warning",
                 event_call=__event_call__,
             )
@@ -1334,7 +1357,12 @@ Based on the content above, generate the summary:
             return summary
 
         except Exception as e:
-            error_message = f"Error occurred while calling LLM ({model}) to generate summary: {str(e)}"
+            error_msg = str(e)
+            # Handle specific error messages
+            if "Model not found" in error_msg:
+                error_message = f"Summary model '{model}' not found."
+            else:
+                error_message = f"Summary LLM Error ({model}): {error_msg}"
             if not self.valves.summary_model:
                 error_message += (
                     "\n[Hint] You did not specify a summary_model, so the filter attempted to use the current conversation's model. "

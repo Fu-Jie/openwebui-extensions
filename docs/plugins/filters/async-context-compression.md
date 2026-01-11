@@ -1,7 +1,7 @@
 # Async Context Compression
 
 <span class="category-badge filter">Filter</span>
-<span class="version-badge">v1.1.0</span>
+<span class="version-badge">v1.1.2</span>
 
 Reduces token consumption in long conversations through intelligent summarization while maintaining conversational coherence.
 
@@ -29,6 +29,9 @@ This is especially useful for:
 - :material-clock-fast: **Async Processing**: Non-blocking background compression
 - :material-memory: **Context Preservation**: Keeps important information
 - :material-currency-usd-off: **Cost Reduction**: Minimize token usage
+- :material-console: **Frontend Debugging**: Debug logs in browser console
+- :material-alert-circle-check: **Enhanced Error Reporting**: Clear error status notifications
+- :material-check-all: **Open WebUI v0.7.x Compatibility**: Dynamic DB session handling
 
 ---
 
