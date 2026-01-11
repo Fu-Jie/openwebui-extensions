@@ -1,7 +1,7 @@
 # Smart Infographic（智能信息图）
 
 <span class="category-badge action">Action</span>
-<span class="version-badge">v1.4.0</span>
+<span class="version-badge">v1.4.9</span>
 
 基于 AntV 信息图引擎，将长文本一键转成专业、美观的信息图。
 
@@ -14,8 +14,8 @@ Smart Infographic 使用 AI 分析文本，并基于 AntV 可视化引擎生成�
 ## 功能特性
 
 - :material-robot: **AI 转换**：自动分析文本逻辑，提取要点并生成结构化图表
-- :material-palette: **专业模板**：内置 AntV 官方模板：列表、树、思维导图、对比表、流程图、统计图等
-- :material-magnify: **自动匹配图标**：根据内容自动选择最合适的 Material Design Icons
+- :material-palette: **70+ 专业模板**：内置多种 AntV 官方模板，包括列表、树图、路线图、时间线、对比图、SWOT、象限图及统计图表等
+- :material-magnify: **自动匹配图标**：内置图标搜索逻辑，支持 Iconify 图标和 unDraw 插图自动匹配
 - :material-download: **多格式导出**：支持下载 **SVG**、**PNG**、**独立 HTML**
 - :material-theme-light-dark: **主题支持**：适配深色/浅色模式
 - :material-cellphone-link: **响应式**：桌面与移动端都能良好展示
@@ -37,10 +37,11 @@ Smart Infographic 使用 AI 分析文本，并基于 AntV 可视化引擎生成�
 
 | 分类 | 模板名称 | 典型场景 |
 |:---------|:--------------|:---------|
-| **列表与层级** | `list-grid`, `tree-vertical`, `mindmap` | 特性列表、组织结构、头脑风暴 |
-| **序列与关系** | `sequence-roadmap`, `relation-circle` | 路线图、循环流程、步骤拆解 |
-| **对比与分析** | `compare-binary`, `compare-swot`, `quadrant-quarter` | 优劣势、SWOT、象限分析 |
-| **图表与数据** | `chart-bar`, `chart-line`, `chart-pie` | 趋势、分布、指标对比 |
+| **时序与流程** | `sequence-timeline-simple`, `sequence-roadmap-vertical-simple`, `sequence-snake-steps-compact-card` | 时间线、路线图、步骤说明 |
+| **列表与网格** | `list-grid-candy-card-lite`, `list-row-horizontal-icon-arrow`, `list-column-simple-vertical-arrow` | 功能亮点、要点列举、清单 |
+| **对比与分析** | `compare-binary-horizontal-underline-text-vs`, `compare-swot`, `quadrant-quarter-simple-card` | 优劣势对比、SWOT 分析、象限图 |
+| **层级与结构** | `hierarchy-tree-tech-style-capsule-item`, `hierarchy-structure` | 组织架构、层级关系 |
+| **图表与数据** | `chart-column-simple`, `chart-bar-plain-text`, `chart-line-plain-text`, `chart-wordcloud` | 数据趋势、比例分布、数值对比 |
 
 ---
 

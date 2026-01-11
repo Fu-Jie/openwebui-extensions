@@ -1,11 +1,14 @@
 # 📊 Smart Infographic (AntV)
 
-**Author:** [Fu-Jie](https://github.com/Fu-Jie) | **Version:** 1.4.1 | **Project:** [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui)
+**Author:** [Fu-Jie](https://github.com/Fu-Jie) | **Version:** 1.4.9 | **Project:** [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui)
 
 An Open WebUI plugin powered by the AntV Infographic engine. It transforms long text into professional, beautiful infographics with a single click.
 
-## 🔥 What's New in v1.4.1
+## 🔥 What's New in v1.4.9
 
+- 🎨 **70+ Official Templates**: Integrated comprehensive AntV infographic template library.
+- 🖼️ **Iconify & unDraw Support**: Richer visuals with official icons and illustrations.
+- 📏 **Visual Optimization**: Improved text wrapping, adaptive sizing, and layout refinement.
 - ✨ **PNG Upload**: Infographics now upload as PNG format for better Word export compatibility.
 - 🔧 **Canvas Conversion**: Uses browser canvas for high-quality SVG to PNG conversion (2x scale).
 
@@ -17,8 +20,8 @@ An Open WebUI plugin powered by the AntV Infographic engine. It transforms long 
 ## ✨ Key Features
 
 - 🚀 **AI-Powered Transformation**: Automatically analyzes text logic, extracts key points, and generates structured charts.
-- 🎨 **Professional Templates**: Includes various AntV official templates: Lists, Trees, Mindmaps, Comparison Tables, Flowcharts, and Statistical Charts.
-- 🔍 **Auto-Icon Matching**: Built-in logic to search and match the most relevant Material Design Icons based on content.
+- 🎨 **70+ Professional Templates**: Includes various AntV official templates: Lists, Trees, Roadmaps, Timelines, Comparison Tables, SWOT, Quadrants, and Statistical Charts.
+- 🔍 **Auto-Icon Matching**: Built-in logic to search and match the most relevant icons (Iconify) and illustrations (unDraw).
 - 📥 **Multi-Format Export**: Download your infographics as **SVG**, **PNG**, or a **Standalone HTML** file.
 - 🌈 **Highly Customizable**: Supports Dark/Light modes, auto-adapts theme colors, with bold titles and refined card layouts.
 - 📱 **Responsive Design**: Generated charts look great on both desktop and mobile devices.
@@ -47,10 +50,11 @@ You can adjust the following parameters in the plugin settings to optimize the g
 
 | Category | Template Name | Use Case |
 | :--- | :--- | :--- |
-| **Lists & Hierarchy** | `list-grid`, `tree-vertical`, `mindmap` | Features, Org Charts, Brainstorming |
-| **Sequence & Relation** | `sequence-roadmap`, `relation-circle` | Roadmaps, Circular Flows, Steps |
-| **Comparison & Analysis** | `compare-binary`, `compare-swot`, `quadrant-quarter` | Pros/Cons, SWOT, Quadrants |
-| **Charts & Data** | `chart-bar`, `chart-line`, `chart-pie` | Trends, Distributions, Metrics |
+| **Sequence** | `sequence-timeline-simple`, `sequence-roadmap-vertical-simple`, `sequence-snake-steps-compact-card` | Timelines, Roadmaps, Processes |
+| **Lists** | `list-grid-candy-card-lite`, `list-row-horizontal-icon-arrow`, `list-column-simple-vertical-arrow` | Features, Bullet Points, Lists |
+| **Comparison** | `compare-binary-horizontal-underline-text-vs`, `compare-swot`, `quadrant-quarter-simple-card` | Pros/Cons, SWOT, Quadrants |
+| **Hierarchy** | `hierarchy-tree-tech-style-capsule-item`, `hierarchy-structure` | Org Charts, Structures |
+| **Charts** | `chart-column-simple`, `chart-bar-plain-text`, `chart-line-plain-text`, `chart-wordcloud` | Trends, Distributions, Metrics |
 
 ## 📝 Syntax Example (For Advanced Users)
 

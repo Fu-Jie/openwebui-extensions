@@ -1,11 +1,14 @@
 # 📊 智能信息图 (AntV Infographic)
 
-**Author:** [Fu-Jie](https://github.com/Fu-Jie) | **Version:** 1.4.1 | **Project:** [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui)
+**Author:** [Fu-Jie](https://github.com/Fu-Jie) | **Version:** 1.4.9 | **Project:** [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui)
 
 基于 AntV Infographic 引擎的 Open WebUI 插件，能够将长文本内容一键转换为专业、美观的信息图表。
 
-## 🔥 v1.4.1 更新日志
+## 🔥 v1.4.9 更新日志
 
+- 🎨 **70+ 官方模板**：全面集成 AntV 官方信息图模板库。
+- 🖼️ **图标与插图支持**：支持 Iconify 图标库与 unDraw 插图库，视觉效果更丰富。
+- 📏 **视觉优化**：改进文本换行逻辑，优化自适应尺寸，提升卡片布局精细度。
 - ✨ **PNG 上传**：信息图现在以 PNG 格式上传，与 Word 导出完美兼容。
 - 🔧 **Canvas 转换**：使用浏览器 Canvas 高质量转换 SVG 为 PNG（2倍缩放）。
 
@@ -17,8 +20,8 @@
 ## ✨ 核心特性
 
 - 🚀 **智能转换**：自动分析文本核心逻辑，提取关键点并生成结构化图表。
-- 🎨 **专业模板**：内置多种 AntV 官方模板，包括列表、树图、思维导图、对比图、流程图及统计图表等。
-- 🔍 **自动图标匹配**：内置图标搜索逻辑，根据内容自动匹配最相关的 Material Design Icons。
+- 🎨 **70+ 专业模板**：内置多种 AntV 官方模板，包括列表、树图、路线图、时间线、对比图、SWOT、象限图及统计图表等。
+- 🔍 **自动图标匹配**：内置图标搜索逻辑，支持 Iconify 图标和 unDraw 插图自动匹配。
 - 📥 **多格式导出**：支持一键下载为 **SVG**、**PNG** 或 **独立 HTML** 文件。
 - 🌈 **高度自定义**：支持深色/浅色模式，自动适配主题颜色，主标题加粗突出，卡片布局精美。
 - 📱 **响应式设计**：生成的图表在桌面端和移动端均有良好的展示效果。
@@ -47,10 +50,11 @@
 
 | 分类 | 模板名称 | 适用场景 |
 | :--- | :--- | :--- |
-| **列表与层级** | `list-grid`, `tree-vertical`, `mindmap` | 功能亮点、组织架构、思维导图 |
-| **顺序与关系** | `sequence-roadmap`, `relation-circle` | 发展历程、循环关系、步骤说明 |
-| **对比与分析** | `compare-binary`, `compare-swot`, `quadrant-quarter` | 优劣势对比、SWOT 分析、象限图 |
-| **图表与数据** | `chart-bar`, `chart-line`, `chart-pie` | 数据趋势、比例分布、数值对比 |
+| **时序与流程** | `sequence-timeline-simple`, `sequence-roadmap-vertical-simple`, `sequence-snake-steps-compact-card` | 时间线、路线图、步骤说明 |
+| **列表与网格** | `list-grid-candy-card-lite`, `list-row-horizontal-icon-arrow`, `list-column-simple-vertical-arrow` | 功能亮点、要点列举、清单 |
+| **对比与分析** | `compare-binary-horizontal-underline-text-vs`, `compare-swot`, `quadrant-quarter-simple-card` | 优劣势对比、SWOT 分析、象限图 |
+| **层级与结构** | `hierarchy-tree-tech-style-capsule-item`, `hierarchy-structure` | 组织架构、层级关系 |
+| **图表与数据** | `chart-column-simple`, `chart-bar-plain-text`, `chart-line-plain-text`, `chart-wordcloud` | 数据趋势、比例分布、数值对比 |
 
 ## 📝 语法示例 (高级用户)
 

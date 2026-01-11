@@ -1,7 +1,7 @@
 # Smart Infographic
 
 <span class="category-badge action">Action</span>
-<span class="version-badge">v1.4.0</span>
+<span class="version-badge">v1.4.9</span>
 
 An AntV Infographic engine powered plugin that transforms long text into professional, beautiful infographics with a single click.
 
@@ -14,8 +14,8 @@ The Smart Infographic plugin uses AI to analyze text content and generate profes
 ## Features
 
 - :material-robot: **AI-Powered Transformation**: Automatically analyzes text logic, extracts key points, and generates structured charts
-- :material-palette: **Professional Templates**: Includes various AntV official templates: Lists, Trees, Mindmaps, Comparison Tables, Flowcharts, and Statistical Charts
-- :material-magnify: **Auto-Icon Matching**: Built-in logic to search and match the most relevant Material Design Icons based on content
+- :material-palette: **70+ Professional Templates**: Includes various AntV official templates: Lists, Trees, Roadmaps, Timelines, Comparison Tables, SWOT, Quadrants, and Statistical Charts
+- :material-magnify: **Auto-Icon Matching**: Built-in logic to search and match the most relevant icons (Iconify) and illustrations (unDraw)
 - :material-download: **Multi-Format Export**: Download your infographics as **SVG**, **PNG**, or **Standalone HTML** file
 - :material-theme-light-dark: **Theme Support**: Supports Dark/Light modes, auto-adapts theme colors
 - :material-cellphone-link: **Responsive Design**: Generated charts look great on both desktop and mobile devices
@@ -37,10 +37,11 @@ The Smart Infographic plugin uses AI to analyze text content and generate profes
 
 | Category | Template Name | Use Case |
 |:---------|:--------------|:---------|
-| **Lists & Hierarchy** | `list-grid`, `tree-vertical`, `mindmap` | Features, Org Charts, Brainstorming |
-| **Sequence & Relation** | `sequence-roadmap`, `relation-circle` | Roadmaps, Circular Flows, Steps |
-| **Comparison & Analysis** | `compare-binary`, `compare-swot`, `quadrant-quarter` | Pros/Cons, SWOT, Quadrants |
-| **Charts & Data** | `chart-bar`, `chart-line`, `chart-pie` | Trends, Distributions, Metrics |
+| **Sequence** | `sequence-timeline-simple`, `sequence-roadmap-vertical-simple`, `sequence-snake-steps-compact-card` | Timelines, Roadmaps, Processes |
+| **Lists** | `list-grid-candy-card-lite`, `list-row-horizontal-icon-arrow`, `list-column-simple-vertical-arrow` | Features, Bullet Points, Lists |
+| **Comparison** | `compare-binary-horizontal-underline-text-vs`, `compare-swot`, `quadrant-quarter-simple-card` | Pros/Cons, SWOT, Quadrants |
+| **Hierarchy** | `hierarchy-tree-tech-style-capsule-item`, `hierarchy-structure` | Org Charts, Structures |
+| **Charts** | `chart-column-simple`, `chart-bar-plain-text`, `chart-line-plain-text`, `chart-wordcloud` | Trends, Distributions, Metrics |
 
 ---
 
