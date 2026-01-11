@@ -19,6 +19,8 @@ A collection of enhancements, plugins, and prompts for [OpenWebUI](https://githu
 
 ### 🔥 Top 6 Popular Plugins
 
+> 🕐 Last updated: 2026-01-11 17:58
+
 | Rank | Plugin | Downloads | Views |
 |:---:|------|:---:|:---:|
 | 🥇 | [Smart Mind Map](https://openwebui.com/posts/turn_any_text_into_beautiful_mind_maps_3094c59a) | 348 | 3165 |

@@ -414,6 +414,7 @@ class OpenWebUIStats:
                 "author_header": "| 👤 作者 | 👥 粉丝 | ⭐ 积分 | 🏆 贡献 |",
                 "header": "| 📝 发布 | ⬇️ 下载 | 👁️ 浏览 | 👍 点赞 | 💾 收藏 |",
                 "top6_title": "### 🔥 热门插件 Top 6",
+                "top6_updated": f"> 🕐 最后更新于 {get_beijing_time().strftime('%Y-%m-%d %H:%M')}",
                 "top6_header": "| 排名 | 插件 | 下载 | 浏览 |",
                 "full_stats": "*完整统计请查看 [社区统计报告](./docs/community-stats.zh.md)*",
             },
@@ -423,6 +424,7 @@ class OpenWebUIStats:
                 "author_header": "| 👤 Author | 👥 Followers | ⭐ Points | 🏆 Contributions |",
                 "header": "| 📝 Posts | ⬇️ Downloads | 👁️ Views | 👍 Upvotes | 💾 Saves |",
                 "top6_title": "### 🔥 Top 6 Popular Plugins",
+                "top6_updated": f"> 🕐 Last updated: {get_beijing_time().strftime('%Y-%m-%d %H:%M')}",
                 "top6_header": "| Rank | Plugin | Downloads | Views |",
                 "full_stats": "*See full stats in [Community Stats Report](./docs/community-stats.md)*",
             },
@@ -461,6 +463,8 @@ class OpenWebUIStats:
 
         # Top 6 热门插件
         lines.append(t["top6_title"])
+        lines.append("")
+        lines.append(t["top6_updated"])
         lines.append("")
         lines.append(t["top6_header"])
         lines.append("|:---:|------|:---:|:---:|")
