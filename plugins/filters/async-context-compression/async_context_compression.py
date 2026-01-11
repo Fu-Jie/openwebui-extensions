@@ -914,11 +914,7 @@ class Filter:
             # 3. Check Token limit and truncate (Max Context Truncation)
             # [Optimization] Use the summary model's (if any) threshold to decide how many middle messages can be processed
             # This allows using a long-window model (like gemini-flash) to compress history exceeding the current model's window
-            summary_model_id = (
-                self.valves.summary_model
-                or body.get("model")
-                or "gpt-3.5-turbo"
-            )
+            summary_model_id = self.valves.summary_model or body.get("model")
 
             if not summary_model_id:
                 await self._log(
