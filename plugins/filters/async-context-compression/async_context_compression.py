@@ -272,10 +272,11 @@ except ImportError:
 # Database imports
 from sqlalchemy import Column, String, Text, DateTime, Integer, inspect
 from sqlalchemy.orm import declarative_base, sessionmaker
+from sqlalchemy.engine import Engine
 from datetime import datetime
 
 
-def _discover_owui_engine(db_module) -> Any | None:
+def _discover_owui_engine(db_module: Any) -> Optional[Engine]:
     if db_module is None:
         return None
 
@@ -302,7 +303,7 @@ def _discover_owui_engine(db_module) -> Any | None:
     return None
 
 
-def _discover_owui_schema(db_module) -> str | None:
+def _discover_owui_schema(db_module: Any) -> Optional[str]:
     if db_module is None:
         return None
 
@@ -403,20 +404,26 @@ class Filter:
             return
 
         if self._fallback_session_factory is None:
-            raise RuntimeError("Open WebUI database session is unavailable.")
+            raise RuntimeError(
+                "Open WebUI database session is unavailable. Ensure Open WebUI's database layer is initialized."
+            )
 
         session = self._fallback_session_factory()
         try:
             yield session
         finally:
-            with contextlib.suppress(Exception):
+            try:
                 session.close()
+            except Exception as exc:  # pragma: no cover - best-effort cleanup
+                print(f"[Database] ⚠️ Failed to close fallback session: {exc}")
 
     def _init_database(self):
         """Initializes the database table using Open WebUI's shared connection."""
         try:
             if self._db_engine is None:
-                raise RuntimeError("Open WebUI database engine is unavailable.")
+                raise RuntimeError(
+                    "Open WebUI database engine is unavailable. Ensure Open WebUI is configured with a valid DATABASE_URL."
+                )
 
             # Check if table exists using SQLAlchemy inspect
             inspector = inspect(self._db_engine)
