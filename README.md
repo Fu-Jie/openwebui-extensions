@@ -42,10 +42,10 @@ Located in the `plugins/` directory, containing Python-based enhancements:
 #### Actions
 - **Smart Mind Map** (`smart-mind-map`): Generates interactive mind maps from text.
 - **Smart Infographic** (`infographic`): Transforms text into professional infographics using AntV.
-- **Knowledge Card** (`knowledge-card`): Creates beautiful flashcards for learning.
+- **Flash Card** (`flash-card`): Quickly generates beautiful flashcards for learning.
+- **Deep Dive** (`deep-dive`): A comprehensive thinking lens that dives deep into any content.
 - **Export to Excel** (`export_to_excel`): Exports chat history to Excel files.
 - **Export to Word** (`export_to_docx`): Exports chat history to Word documents.
-- **Summary** (`summary`): Text summarization tool.
 
 #### Filters
 - **Async Context Compression** (`async-context-compression`): Optimizes token usage via context compression.
