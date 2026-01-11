@@ -5,7 +5,7 @@ author: Fu-Jie
 author_url: https://github.com/Fu-Jie
 funding_url: https://github.com/Fu-Jie/awesome-openwebui
 description: Reduces token consumption in long conversations while maintaining coherence through intelligent summarization and message compression.
-version: 1.1.2
+version: 1.1.3
 openwebui_id: b1655bc8-6de9-4cad-8cb5-a6f7829a02ce
 license: MIT
 
@@ -370,7 +370,10 @@ class Filter:
         self.valves = self.Valves()
         self._owui_db = owui_db
         self._db_engine = owui_engine
-        self.temp_state = {}  # Used to pass temporary data between inlet and outlet
+        self._db_engine = owui_engine
+        self._fallback_session_factory = (
+            sessionmaker(bind=self._db_engine) if self._db_engine else None
+        )
         self._fallback_session_factory = (
             sessionmaker(bind=self._db_engine) if self._db_engine else None
         )
@@ -638,42 +641,6 @@ class Filter:
 
         return ""
 
-    def _inject_summary_to_first_message(self, message: dict, summary: str) -> dict:
-        """Injects the summary into the first message (prepended to content)."""
-        content = message.get("content", "")
-        summary_block = f"【Historical Conversation Summary】\n{summary}\n\n---\nBelow is the recent conversation:\n\n"
-
-        # Handle different content types
-        if isinstance(content, list):  # Multimodal content
-            # Find the first text part and insert the summary before it
-            new_content = []
-            summary_inserted = False
-
-            for part in content:
-                if (
-                    isinstance(part, dict)
-                    and part.get("type") == "text"
-                    and not summary_inserted
-                ):
-                    # Prepend summary to the first text part
-                    new_content.append(
-                        {"type": "text", "text": summary_block + part.get("text", "")}
-                    )
-                    summary_inserted = True
-                else:
-                    new_content.append(part)
-
-            # If no text part, insert at the beginning
-            if not summary_inserted:
-                new_content.insert(0, {"type": "text", "text": summary_block})
-
-            message["content"] = new_content
-
-        elif isinstance(content, str):  # Plain text
-            message["content"] = summary_block + content
-
-        return message
-
     async def _emit_debug_log(
         self,
         __event_call__,
@@ -803,15 +770,9 @@ class Filter:
         # Target is to compress up to the (total - keep_last) message
         target_compressed_count = max(0, len(messages) - self.valves.keep_last)
 
-        # [Optimization] Simple state cleanup check
-        if chat_id in self.temp_state:
-            await self._log(
-                f"[Inlet] ⚠️ Overwriting unconsumed old state (Chat ID: {chat_id})",
-                type="warning",
-                event_call=__event_call__,
-            )
-
-        self.temp_state[chat_id] = target_compressed_count
+        # Record the target compression progress for the original messages, for use in outlet
+        # Target is to compress up to the (total - keep_last) message
+        target_compressed_count = max(0, len(messages) - self.valves.keep_last)
 
         await self._log(
             f"[Inlet] Recorded target compression progress: {target_compressed_count}",
@@ -844,7 +805,7 @@ class Filter:
                 f"---\n"
                 f"Below is the recent conversation:"
             )
-            summary_msg = {"role": "user", "content": summary_content}
+            summary_msg = {"role": "assistant", "content": summary_content}
 
             # 3. Tail messages (Tail) - All messages starting from the last compression point
             # Note: Must ensure head messages are not duplicated
@@ -914,18 +875,29 @@ class Filter:
                 event_call=__event_call__,
             )
             return body
-        model = body.get("model", "gpt-3.5-turbo")
+        model = body.get("model") or ""
+
+        # Calculate target compression progress directly
+        # Assuming body['messages'] in outlet contains the full history (including new response)
+        messages = body.get("messages", [])
+        target_compressed_count = max(0, len(messages) - self.valves.keep_last)
 
         if self.valves.debug_mode or self.valves.show_debug_log:
             await self._log(
-                f"\n{'='*60}\n[Outlet] Chat ID: {chat_id}\n[Outlet] Response complete",
+                f"\n{'='*60}\n[Outlet] Chat ID: {chat_id}\n[Outlet] Response complete\n[Outlet] Calculated target compression progress: {target_compressed_count} (Messages: {len(messages)})",
                 event_call=__event_call__,
             )
 
         # Process Token calculation and summary generation asynchronously in the background (do not wait for completion, do not affect output)
         asyncio.create_task(
             self._check_and_generate_summary_async(
-                chat_id, model, body, __user__, __event_emitter__, __event_call__
+                chat_id,
+                model,
+                body,
+                __user__,
+                target_compressed_count,
+                __event_emitter__,
+                __event_call__,
             )
         )
 
@@ -942,6 +914,7 @@ class Filter:
         model: str,
         body: dict,
         user_data: Optional[dict],
+        target_compressed_count: Optional[int],
         __event_emitter__: Callable[[Any], Awaitable[None]] = None,
         __event_call__: Callable[[Any], Awaitable[None]] = None,
     ):
@@ -986,6 +959,7 @@ class Filter:
                     chat_id,
                     body,
                     user_data,
+                    target_compressed_count,
                     __event_emitter__,
                     __event_call__,
                 )
@@ -1015,6 +989,7 @@ class Filter:
         chat_id: str,
         body: dict,
         user_data: Optional[dict],
+        target_compressed_count: Optional[int],
         __event_emitter__: Callable[[Any], Awaitable[None]] = None,
         __event_call__: Callable[[Any], Awaitable[None]] = None,
     ):
@@ -1031,12 +1006,11 @@ class Filter:
             )
 
             # 1. Get target compression progress
-            # Prioritize getting from temp_state (calculated by inlet). If unavailable (e.g., after restart), assume current is full history.
-            target_compressed_count = self.temp_state.pop(chat_id, None)
+            # If target_compressed_count is not passed (should not happen with new logic), estimate it
             if target_compressed_count is None:
                 target_compressed_count = max(0, len(messages) - self.valves.keep_last)
                 await self._log(
-                    f"[🤖 Async Summary Task] ⚠️ Could not get inlet state, estimating progress using current message count: {target_compressed_count}",
+                    f"[🤖 Async Summary Task] ⚠️ target_compressed_count is None, estimating: {target_compressed_count}",
                     type="warning",
                     event_call=__event_call__,
                 )

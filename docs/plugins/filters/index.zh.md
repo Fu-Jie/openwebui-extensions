@@ -22,7 +22,7 @@ Filter 充当消息管线中的中间件：
 
     通过智能总结减少长对话的 token 消耗，同时保持连贯性。
 
-    **版本：** 1.1.0
+    **版本：** 1.1.3
 
     [:octicons-arrow-right-24: 查看文档](async-context-compression.md)
 

@@ -5,7 +5,7 @@ author: Fu-Jie
 author_url: https://github.com/Fu-Jie
 funding_url: https://github.com/Fu-Jie/awesome-openwebui
 description: 通过智能摘要和消息压缩，降低长对话的 token 消耗，同时保持对话连贯性。
-version: 1.1.2
+version: 1.1.3
 openwebui_id: 5c0617cb-a9e4-4bd6-a440-d276534ebd18
 license: MIT
 
@@ -290,7 +290,8 @@ class Filter:
         self.valves = self.Valves()
         self._db_engine = owui_engine
         self._SessionLocal = owui_Session
-        self.temp_state = {}  # 用于在 inlet 和 outlet 之间传递临时数据
+        self._SessionLocal = owui_Session
+        self._init_database()
         self._init_database()
 
     def _init_database(self):
@@ -471,42 +472,6 @@ class Filter:
             "max_context_tokens": self.valves.max_context_tokens,
         }
 
-    def _inject_summary_to_first_message(self, message: dict, summary: str) -> dict:
-        """将摘要注入到第一条消息中（追加到内容前面）"""
-        content = message.get("content", "")
-        summary_block = f"【历史对话摘要】\n{summary}\n\n---\n以下是最近的对话：\n\n"
-
-        # 处理不同内容类型
-        if isinstance(content, list):  # 多模态内容
-            # 查找第一个文本部分并在其前面插入摘要
-            new_content = []
-            summary_inserted = False
-
-            for part in content:
-                if (
-                    isinstance(part, dict)
-                    and part.get("type") == "text"
-                    and not summary_inserted
-                ):
-                    # 在第一个文本部分前插入摘要
-                    new_content.append(
-                        {"type": "text", "text": summary_block + part.get("text", "")}
-                    )
-                    summary_inserted = True
-                else:
-                    new_content.append(part)
-
-            # 如果没有文本部分，在开头插入
-            if not summary_inserted:
-                new_content.insert(0, {"type": "text", "text": summary_block})
-
-            message["content"] = new_content
-
-        elif isinstance(content, str):  # 纯文本
-            message["content"] = summary_block + content
-
-        return message
-
     async def _emit_debug_log(
         self,
         __event_call__,
@@ -628,15 +593,9 @@ class Filter:
         # 目标是压缩到倒数第 keep_last 条之前
         target_compressed_count = max(0, len(messages) - self.valves.keep_last)
 
-        # [优化] 简单的状态清理检查
-        if chat_id in self.temp_state:
-            await self._log(
-                f"[Inlet] ⚠️ 覆盖未消费的旧状态 (Chat ID: {chat_id})",
-                type="warning",
-                event_call=__event_call__,
-            )
-
-        self.temp_state[chat_id] = target_compressed_count
+        # 记录原始消息的目标压缩进度，供 outlet 使用
+        # 目标是压缩到倒数第 keep_last 条之前
+        target_compressed_count = max(0, len(messages) - self.valves.keep_last)
 
         await self._log(
             f"[Inlet] 记录目标压缩进度: {target_compressed_count}",
@@ -669,7 +628,7 @@ class Filter:
                 f"---\n"
                 f"以下是最近的对话："
             )
-            summary_msg = {"role": "user", "content": summary_content}
+            summary_msg = {"role": "assistant", "content": summary_content}
 
             # 3. 尾部消息 (Tail) - 从上次压缩点开始的所有消息
             # 注意：这里必须确保不重复包含头部消息
@@ -732,18 +691,29 @@ class Filter:
         在后台计算 Token 数并触发摘要生成（不阻塞当前响应，不影响内容输出）
         """
         chat_id = __metadata__["chat_id"]
-        model = body.get("model", "gpt-3.5-turbo")
+        model = body.get("model") or ""
+
+        # 直接计算目标压缩进度
+        # 假设 outlet 中的 body['messages'] 包含完整历史（包括新响应）
+        messages = body.get("messages", [])
+        target_compressed_count = max(0, len(messages) - self.valves.keep_last)
 
         if self.valves.debug_mode or self.valves.show_debug_log:
             await self._log(
-                f"\n{'='*60}\n[Outlet] Chat ID: {chat_id}\n[Outlet] 响应完成",
+                f"\n{'='*60}\n[Outlet] Chat ID: {chat_id}\n[Outlet] 响应完成\n[Outlet] 计算目标压缩进度: {target_compressed_count} (消息数: {len(messages)})",
                 event_call=__event_call__,
             )
 
         # 在后台异步处理 Token 计算和摘要生成（不等待完成，不影响输出）
         asyncio.create_task(
             self._check_and_generate_summary_async(
-                chat_id, model, body, __user__, __event_emitter__, __event_call__
+                chat_id,
+                model,
+                body,
+                __user__,
+                target_compressed_count,
+                __event_emitter__,
+                __event_call__,
             )
         )
 
@@ -760,6 +730,7 @@ class Filter:
         model: str,
         body: dict,
         user_data: Optional[dict],
+        target_compressed_count: Optional[int],
         __event_emitter__: Callable[[Any], Awaitable[None]] = None,
         __event_call__: Callable[[Any], Awaitable[None]] = None,
     ):
@@ -804,6 +775,7 @@ class Filter:
                     chat_id,
                     body,
                     user_data,
+                    target_compressed_count,
                     __event_emitter__,
                     __event_call__,
                 )
@@ -833,6 +805,7 @@ class Filter:
         chat_id: str,
         body: dict,
         user_data: Optional[dict],
+        target_compressed_count: Optional[int],
         __event_emitter__: Callable[[Any], Awaitable[None]] = None,
         __event_call__: Callable[[Any], Awaitable[None]] = None,
     ):
@@ -847,12 +820,11 @@ class Filter:
             await self._log(f"\n[🤖 异步摘要任务] 开始...", event_call=__event_call__)
 
             # 1. 获取目标压缩进度
-            # 优先从 temp_state 获取（由 inlet 计算），如果获取不到（例如重启后），则假设当前是完整历史
-            target_compressed_count = self.temp_state.pop(chat_id, None)
+            # 如果未传递 target_compressed_count（新逻辑下不应发生），则进行估算
             if target_compressed_count is None:
                 target_compressed_count = max(0, len(messages) - self.valves.keep_last)
                 await self._log(
-                    f"[🤖 异步摘要任务] ⚠️ 无法获取 inlet 状态，使用当前消息数估算进度: {target_compressed_count}",
+                    f"[🤖 异步摘要任务] ⚠️ target_compressed_count 为 None，进行估算: {target_compressed_count}",
                     type="warning",
                     event_call=__event_call__,
                 )

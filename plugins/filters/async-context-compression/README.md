@@ -1,8 +1,13 @@
 # Async Context Compression Filter
 
-**Author:** [Fu-Jie](https://github.com/Fu-Jie) | **Version:** 1.1.2 | **License:** MIT
+**Author:** [Fu-Jie](https://github.com/Fu-Jie) | **Version:** 1.1.3 | **License:** MIT
 
 This filter reduces token consumption in long conversations through intelligent summarization and message compression while keeping conversations coherent.
+
+## What's new in 1.1.3
+- **Improved Compatibility**: Changed summary injection role from `user` to `assistant` for better compatibility across different LLMs.
+- **Enhanced Stability**: Fixed a race condition in state management that could cause "inlet state not found" warnings in high-concurrency scenarios.
+- **Bug Fixes**: Corrected default model handling to prevent misleading logs when no model is specified.
 
 ## What's new in 1.1.2
 
@@ -15,12 +20,7 @@ This filter reduces token consumption in long conversations through intelligent 
 - **Frontend Debugging**: Added `show_debug_log` option to print debug info to the browser console (F12).
 - **Optimized Compression**: Improved token calculation logic to prevent aggressive truncation of history, ensuring more context is retained.
 
-## What's new in 1.1.0 
 
-- Reuses Open WebUI's shared database connection by default (no custom engine or env vars required).
-- Token-based thresholds (`compression_threshold_tokens`, `max_context_tokens`) for safer long-context handling.
-- Per-model overrides via `model_thresholds` for mixed-model workflows.
-- Documentation now mirrors the latest async workflow and retention-first injection.
 
 ---
 

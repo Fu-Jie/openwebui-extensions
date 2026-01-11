@@ -22,7 +22,7 @@ Filters act as middleware in the message pipeline:
 
     Reduces token consumption in long conversations through intelligent summarization while maintaining coherence.
 
-    **Version:** 1.1.2
+    **Version:** 1.1.3
 
     [:octicons-arrow-right-24: Documentation](async-context-compression.md)
 

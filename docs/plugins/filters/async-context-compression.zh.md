@@ -1,7 +1,7 @@
 # Async Context Compression（异步上下文压缩）
 
 <span class="category-badge filter">Filter</span>
-<span class="version-badge">v1.1.2</span>
+<span class="version-badge">v1.1.3</span>
 
 通过智能摘要减少长对话的 token 消耗，同时保持对话连贯。
 
@@ -32,6 +32,8 @@ Async Context Compression 过滤器通过以下方式帮助管理长对话的 to
 - :material-console: **前端调试**：支持浏览器控制台日志
 - :material-alert-circle-check: **增强错误报告**：清晰的错误状态通知
 - :material-check-all: **Open WebUI v0.7.x 兼容性**：动态数据库会话处理
+- :material-account-convert: **兼容性提升**：摘要角色改为 `assistant`
+- :material-shield-check: **稳定性增强**：解决状态管理竞态条件
 
 ---
 
