@@ -293,33 +293,39 @@ class OpenWebUICommunityClient:
         if not post_data:
             return False
 
-        # 确保结构存在
-        if "data" not in post_data:
-            post_data["data"] = {}
-        if "function" not in post_data["data"]:
-            post_data["data"]["function"] = {}
-        if "meta" not in post_data["data"]["function"]:
-            post_data["data"]["function"]["meta"] = {}
-        if "manifest" not in post_data["data"]["function"]["meta"]:
-            post_data["data"]["function"]["meta"]["manifest"] = {}
+        # 严格重建 data 结构，避免包含只读字段（如 data.function.id）
+        current_function = post_data.get("data", {}).get("function", {})
 
-        # 更新源代码
-        post_data["data"]["function"]["content"] = source_code
+        # 过滤 metadata，移除 openwebui_id 等系统字段
+        clean_metadata = {
+            k: v
+            for k, v in (metadata or {}).items()
+            if k not in ["openwebui_id", "post_id"]
+        }
+
+        function_data = {
+            "name": metadata.get("title", current_function.get("name", "Plugin")),
+            "type": current_function.get("type", "action"),
+            "content": source_code,
+            "meta": {
+                "description": metadata.get(
+                    "description",
+                    current_function.get("meta", {}).get("description", ""),
+                ),
+                "manifest": clean_metadata,
+            },
+        }
+
+        post_data["data"] = {"function": function_data}
+        post_data["type"] = "function"
 
         # 更新 README（社区页面展示内容）
         if readme_content:
             post_data["content"] = readme_content
 
-        # 更新元数据
-        if metadata:
-            post_data["data"]["function"]["meta"]["manifest"].update(metadata)
-            if "title" in metadata:
-                post_data["title"] = metadata["title"]
-                post_data["data"]["function"]["name"] = metadata["title"]
-            if "description" in metadata:
-                post_data["data"]["function"]["meta"]["description"] = metadata[
-                    "description"
-                ]
+        # 更新标题
+        if metadata and "title" in metadata:
+            post_data["title"] = metadata["title"]
 
         # 更新图片
         if media_urls:
@@ -331,6 +337,9 @@ class OpenWebUICommunityClient:
                 elif isinstance(item, dict):
                     media_list.append(item)
             post_data["media"] = media_list
+        else:
+            # 如果没有新图片，保留原有的（如果有）
+            pass
 
         return self.update_post(post_id, post_data)
 
