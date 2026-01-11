@@ -5,7 +5,7 @@ author: Fu-Jie
 author_url: https://github.com/Fu-Jie
 funding_url: https://github.com/Fu-Jie/awesome-openwebui
 description: 通过智能摘要和消息压缩，降低长对话的 token 消耗，同时保持对话连贯性。
-version: 1.1.1
+version: 1.1.2
 openwebui_id: 5c0617cb-a9e4-4bd6-a440-d276534ebd18
 license: MIT
 
@@ -820,6 +820,13 @@ class Filter:
                 event_call=__event_call__,
             )
 
+    def _clean_model_id(self, model_id: Optional[str]) -> Optional[str]:
+        """Cleans the model ID by removing whitespace and quotes."""
+        if not model_id:
+            return None
+        cleaned = model_id.strip().strip('"').strip("'")
+        return cleaned if cleaned else None
+
     async def _generate_summary_async(
         self,
         messages: list,
@@ -874,7 +881,17 @@ class Filter:
             # 3. 检查 Token 上限并截断 (Max Context Truncation)
             # [优化] 使用摘要模型(如果有)的阈值来决定能处理多少中间消息
             # 这样可以用长窗口模型(如 gemini-flash)来压缩超过当前模型窗口的历史记录
-            summary_model_id = self.valves.summary_model or body.get("model")
+            summary_model_id = self._clean_model_id(
+                self.valves.summary_model
+            ) or self._clean_model_id(body.get("model"))
+
+            if not summary_model_id:
+                await self._log(
+                    "[🤖 异步摘要任务] ⚠️ 摘要模型不存在，跳过压缩",
+                    type="warning",
+                    event_call=__event_call__,
+                )
+                return
 
             thresholds = self._get_model_thresholds(summary_model_id)
             # 注意：这里使用的是摘要模型的最大上下文限制
@@ -946,8 +963,20 @@ class Filter:
                 )
 
             new_summary = await self._call_summary_llm(
-                None, conversation_text, body, user_data, __event_call__
+                None,
+                conversation_text,
+                {**body, "model": summary_model_id},
+                user_data,
+                __event_call__,
             )
+
+            if not new_summary:
+                await self._log(
+                    "[🤖 异步摘要任务] ⚠️ 摘要生成返回空结果，跳过保存",
+                    type="warning",
+                    event_call=__event_call__,
+                )
+                return
 
             # 6. 保存新摘要
             await self._log(
@@ -987,6 +1016,18 @@ class Filter:
                 type="error",
                 event_call=__event_call__,
             )
+
+            if __event_emitter__:
+                await __event_emitter__(
+                    {
+                        "type": "status",
+                        "data": {
+                            "description": f"摘要生成错误: {str(e)[:100]}...",
+                            "done": True,
+                        },
+                    }
+                )
+
             import traceback
 
             traceback.print_exc()
@@ -1068,7 +1109,17 @@ class Filter:
 请根据上述内容，生成摘要：
 """
         # 确定使用的模型
-        model = self.valves.summary_model or body.get("model", "")
+        model = self._clean_model_id(self.valves.summary_model) or self._clean_model_id(
+            body.get("model")
+        )
+
+        if not model:
+            await self._log(
+                "[🤖 LLM 调用] ⚠️ 摘要模型不存在，跳过摘要生成",
+                type="warning",
+                event_call=__event_call__,
+            )
+            return ""
 
         await self._log(f"[🤖 LLM 调用] 模型: {model}", event_call=__event_call__)
 
@@ -1122,7 +1173,12 @@ class Filter:
             return summary
 
         except Exception as e:
-            error_message = f"调用 LLM ({model}) 生成摘要时发生错误: {str(e)}"
+            error_msg = str(e)
+            # Handle specific error messages
+            if "Model not found" in error_msg:
+                error_message = f"摘要模型 '{model}' 不存在。"
+            else:
+                error_message = f"摘要 LLM 错误 ({model}): {error_msg}"
             if not self.valves.summary_model:
                 error_message += (
                     "\n[提示] 您未指定 summary_model，因此过滤器尝试使用当前对话的模型。"

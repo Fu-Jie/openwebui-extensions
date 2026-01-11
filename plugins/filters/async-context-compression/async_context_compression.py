@@ -5,7 +5,7 @@ author: Fu-Jie
 author_url: https://github.com/Fu-Jie
 funding_url: https://github.com/Fu-Jie/awesome-openwebui
 description: Reduces token consumption in long conversations while maintaining coherence through intelligent summarization and message compression.
-version: 1.1.1
+version: 1.1.2
 openwebui_id: b1655bc8-6de9-4cad-8cb5-a6f7829a02ce
 license: MIT
 
@@ -249,6 +249,7 @@ import asyncio
 import json
 import hashlib
 import time
+import contextlib
 
 # Open WebUI built-in imports
 from open_webui.utils.chat import generate_chat_completion
@@ -257,9 +258,10 @@ from fastapi.requests import Request
 from open_webui.main import app as webui_app
 
 # Open WebUI internal database (re-use shared connection)
-from open_webui.internal.db import engine as owui_engine
-from open_webui.internal.db import Session as owui_Session
-from open_webui.internal.db import Base as owui_Base
+try:
+    from open_webui.internal import db as owui_db
+except ModuleNotFoundError:  # pragma: no cover - filter runs inside Open WebUI
+    owui_db = None
 
 # Try to import tiktoken
 try:
@@ -269,14 +271,91 @@ except ImportError:
 
 # Database imports
 from sqlalchemy import Column, String, Text, DateTime, Integer, inspect
+from sqlalchemy.orm import declarative_base, sessionmaker
+from sqlalchemy.engine import Engine
 from datetime import datetime
+
+
+def _discover_owui_engine(db_module: Any) -> Optional[Engine]:
+    """Discover the Open WebUI SQLAlchemy engine via provided db module helpers."""
+    if db_module is None:
+        return None
+
+    db_context = getattr(db_module, "get_db_context", None) or getattr(
+        db_module, "get_db", None
+    )
+    if callable(db_context):
+        try:
+            with db_context() as session:
+                try:
+                    return session.get_bind()
+                except AttributeError:
+                    return getattr(session, "bind", None) or getattr(
+                        session, "engine", None
+                    )
+        except Exception as exc:
+            print(f"[DB Discover] get_db_context failed: {exc}")
+
+    for attr in ("engine", "ENGINE", "bind", "BIND"):
+        candidate = getattr(db_module, attr, None)
+        if candidate is not None:
+            return candidate
+
+    return None
+
+
+def _discover_owui_schema(db_module: Any) -> Optional[str]:
+    """Discover the Open WebUI database schema name if configured."""
+    if db_module is None:
+        return None
+
+    try:
+        base = getattr(db_module, "Base", None)
+        metadata = getattr(base, "metadata", None) if base is not None else None
+        candidate = getattr(metadata, "schema", None) if metadata is not None else None
+        if isinstance(candidate, str) and candidate.strip():
+            return candidate.strip()
+    except Exception as exc:
+        print(f"[DB Discover] Base metadata schema lookup failed: {exc}")
+
+    try:
+        metadata_obj = getattr(db_module, "metadata_obj", None)
+        candidate = (
+            getattr(metadata_obj, "schema", None) if metadata_obj is not None else None
+        )
+        if isinstance(candidate, str) and candidate.strip():
+            return candidate.strip()
+    except Exception as exc:
+        print(f"[DB Discover] metadata_obj schema lookup failed: {exc}")
+
+    try:
+        from open_webui import env as owui_env
+
+        candidate = getattr(owui_env, "DATABASE_SCHEMA", None)
+        if isinstance(candidate, str) and candidate.strip():
+            return candidate.strip()
+    except Exception as exc:
+        print(f"[DB Discover] env schema lookup failed: {exc}")
+
+    return None
+
+
+owui_engine = _discover_owui_engine(owui_db)
+owui_schema = _discover_owui_schema(owui_db)
+owui_Base = getattr(owui_db, "Base", None) if owui_db is not None else None
+if owui_Base is None:
+    owui_Base = declarative_base()
 
 
 class ChatSummary(owui_Base):
     """Chat Summary Storage Table"""
 
     __tablename__ = "chat_summary"
-    __table_args__ = {"extend_existing": True}
+    __table_args__ = (
+        {"extend_existing": True, "schema": owui_schema}
+        if owui_schema
+        else {"extend_existing": True}
+    )
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     chat_id = Column(String(255), unique=True, nullable=False, index=True)
@@ -289,14 +368,66 @@ class ChatSummary(owui_Base):
 class Filter:
     def __init__(self):
         self.valves = self.Valves()
+        self._owui_db = owui_db
         self._db_engine = owui_engine
-        self._SessionLocal = owui_Session
         self.temp_state = {}  # Used to pass temporary data between inlet and outlet
+        self._fallback_session_factory = (
+            sessionmaker(bind=self._db_engine) if self._db_engine else None
+        )
         self._init_database()
+
+    @contextlib.contextmanager
+    def _db_session(self):
+        """Yield a database session using Open WebUI helpers with graceful fallbacks."""
+        db_module = self._owui_db
+        db_context = None
+        if db_module is not None:
+            db_context = getattr(db_module, "get_db_context", None) or getattr(
+                db_module, "get_db", None
+            )
+
+        if callable(db_context):
+            with db_context() as session:
+                yield session
+                return
+
+        factory = None
+        if db_module is not None:
+            factory = getattr(db_module, "SessionLocal", None) or getattr(
+                db_module, "ScopedSession", None
+            )
+        if callable(factory):
+            session = factory()
+            try:
+                yield session
+            finally:
+                close = getattr(session, "close", None)
+                if callable(close):
+                    close()
+            return
+
+        if self._fallback_session_factory is None:
+            raise RuntimeError(
+                "Open WebUI database session is unavailable. Ensure Open WebUI's database layer is initialized."
+            )
+
+        session = self._fallback_session_factory()
+        try:
+            yield session
+        finally:
+            try:
+                session.close()
+            except Exception as exc:  # pragma: no cover - best-effort cleanup
+                print(f"[Database] ⚠️ Failed to close fallback session: {exc}")
 
     def _init_database(self):
         """Initializes the database table using Open WebUI's shared connection."""
         try:
+            if self._db_engine is None:
+                raise RuntimeError(
+                    "Open WebUI database engine is unavailable. Ensure Open WebUI is configured with a valid DATABASE_URL."
+                )
+
             # Check if table exists using SQLAlchemy inspect
             inspector = inspect(self._db_engine)
             if not inspector.has_table("chat_summary"):
@@ -366,7 +497,7 @@ class Filter:
     def _save_summary(self, chat_id: str, summary: str, compressed_count: int):
         """Saves the summary to the database."""
         try:
-            with self._SessionLocal() as session:
+            with self._db_session() as session:
                 # Find existing record
                 existing = session.query(ChatSummary).filter_by(chat_id=chat_id).first()
 
@@ -406,7 +537,7 @@ class Filter:
     def _load_summary_record(self, chat_id: str) -> Optional[ChatSummary]:
         """Loads the summary record object from the database."""
         try:
-            with self._SessionLocal() as session:
+            with self._db_session() as session:
                 record = session.query(ChatSummary).filter_by(chat_id=chat_id).first()
                 if record:
                     # Detach the object from the session so it can be used after session close
@@ -486,6 +617,26 @@ class Filter:
             "compression_threshold_tokens": self.valves.compression_threshold_tokens,
             "max_context_tokens": self.valves.max_context_tokens,
         }
+
+    def _extract_chat_id(self, body: dict, metadata: Optional[dict]) -> str:
+        """Extract chat_id from body or metadata."""
+        if isinstance(body, dict):
+            chat_id = body.get("chat_id")
+            if isinstance(chat_id, str) and chat_id.strip():
+                return chat_id.strip()
+
+            body_metadata = body.get("metadata", {})
+            if isinstance(body_metadata, dict):
+                chat_id = body_metadata.get("chat_id")
+                if isinstance(chat_id, str) and chat_id.strip():
+                    return chat_id.strip()
+
+        if isinstance(metadata, dict):
+            chat_id = metadata.get("chat_id")
+            if isinstance(chat_id, str) and chat_id.strip():
+                return chat_id.strip()
+
+        return ""
 
     def _inject_summary_to_first_message(self, message: dict, summary: str) -> dict:
         """Injects the summary into the first message (prepended to content)."""
@@ -632,7 +783,15 @@ class Filter:
         Compression Strategy: Only responsible for injecting existing summaries, no Token calculation.
         """
         messages = body.get("messages", [])
-        chat_id = __metadata__["chat_id"]
+        chat_id = self._extract_chat_id(body, __metadata__)
+
+        if not chat_id:
+            await self._log(
+                "[Inlet] ❌ Missing chat_id in metadata, skipping compression",
+                type="error",
+                event_call=__event_call__,
+            )
+            return body
 
         if self.valves.debug_mode or self.valves.show_debug_log:
             await self._log(
@@ -747,7 +906,14 @@ class Filter:
         Executed after the LLM response is complete.
         Calculates Token count in the background and triggers summary generation (does not block current response, does not affect content output).
         """
-        chat_id = __metadata__["chat_id"]
+        chat_id = self._extract_chat_id(body, __metadata__)
+        if not chat_id:
+            await self._log(
+                "[Outlet] ❌ Missing chat_id in metadata, skipping compression",
+                type="error",
+                event_call=__event_call__,
+            )
+            return body
         model = body.get("model", "gpt-3.5-turbo")
 
         if self.valves.debug_mode or self.valves.show_debug_log:
@@ -836,6 +1002,13 @@ class Filter:
                 event_call=__event_call__,
             )
 
+    def _clean_model_id(self, model_id: Optional[str]) -> Optional[str]:
+        """Cleans the model ID by removing whitespace and quotes."""
+        if not model_id:
+            return None
+        cleaned = model_id.strip().strip('"').strip("'")
+        return cleaned if cleaned else None
+
     async def _generate_summary_async(
         self,
         messages: list,
@@ -892,9 +1065,17 @@ class Filter:
             # 3. Check Token limit and truncate (Max Context Truncation)
             # [Optimization] Use the summary model's (if any) threshold to decide how many middle messages can be processed
             # This allows using a long-window model (like gemini-flash) to compress history exceeding the current model's window
-            summary_model_id = self.valves.summary_model or body.get(
-                "model", "gpt-3.5-turbo"
-            )
+            summary_model_id = self._clean_model_id(
+                self.valves.summary_model
+            ) or self._clean_model_id(body.get("model"))
+
+            if not summary_model_id:
+                await self._log(
+                    "[🤖 Async Summary Task] ⚠️ Summary model does not exist, skipping compression",
+                    type="warning",
+                    event_call=__event_call__,
+                )
+                return
 
             thresholds = self._get_model_thresholds(summary_model_id)
             # Note: Using the summary model's max context limit here
@@ -966,8 +1147,20 @@ class Filter:
                 )
 
             new_summary = await self._call_summary_llm(
-                None, conversation_text, body, user_data, __event_call__
+                None,
+                conversation_text,
+                {**body, "model": summary_model_id},
+                user_data,
+                __event_call__,
             )
+
+            if not new_summary:
+                await self._log(
+                    "[🤖 Async Summary Task] ⚠️ Summary generation returned empty result, skipping save",
+                    type="warning",
+                    event_call=__event_call__,
+                )
+                return
 
             # 6. Save new summary
             await self._log(
@@ -1007,6 +1200,18 @@ class Filter:
                 type="error",
                 event_call=__event_call__,
             )
+
+            if __event_emitter__:
+                await __event_emitter__(
+                    {
+                        "type": "status",
+                        "data": {
+                            "description": f"Summary Error: {str(e)[:100]}...",
+                            "done": True,
+                        },
+                    }
+                )
+
             import traceback
 
             traceback.print_exc()
@@ -1088,7 +1293,17 @@ This conversation may contain previous summaries (as system messages or text) an
 Based on the content above, generate the summary:
 """
         # Determine the model to use
-        model = self.valves.summary_model or body.get("model", "")
+        model = self._clean_model_id(self.valves.summary_model) or self._clean_model_id(
+            body.get("model")
+        )
+
+        if not model:
+            await self._log(
+                "[🤖 LLM Call] ⚠️ Summary model does not exist, skipping summary generation",
+                type="warning",
+                event_call=__event_call__,
+            )
+            return ""
 
         await self._log(f"[🤖 LLM Call] Model: {model}", event_call=__event_call__)
 
@@ -1142,7 +1357,12 @@ Based on the content above, generate the summary:
             return summary
 
         except Exception as e:
-            error_message = f"Error occurred while calling LLM ({model}) to generate summary: {str(e)}"
+            error_msg = str(e)
+            # Handle specific error messages
+            if "Model not found" in error_msg:
+                error_message = f"Summary model '{model}' not found."
+            else:
+                error_message = f"Summary LLM Error ({model}): {error_msg}"
             if not self.valves.summary_model:
                 error_message += (
                     "\n[Hint] You did not specify a summary_model, so the filter attempted to use the current conversation's model. "

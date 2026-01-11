@@ -1,8 +1,14 @@
 # Async Context Compression Filter
 
-**Author:** [Fu-Jie](https://github.com/Fu-Jie) | **Version:** 1.1.1 | **License:** MIT
+**Author:** [Fu-Jie](https://github.com/Fu-Jie) | **Version:** 1.1.2 | **License:** MIT
 
 This filter reduces token consumption in long conversations through intelligent summarization and message compression while keeping conversations coherent.
+
+## What's new in 1.1.2
+
+- **Open WebUI v0.7.x Compatibility**: Resolved a critical database session binding error affecting Open WebUI v0.7.x users. The plugin now dynamically discovers the database engine and session context, ensuring compatibility across versions.
+- **Enhanced Error Reporting**: Errors during background summary generation are now reported via both the status bar and browser console.
+- **Robust Model Handling**: Improved handling of missing or invalid model IDs to prevent crashes.
 
 ## What's new in 1.1.1
 
