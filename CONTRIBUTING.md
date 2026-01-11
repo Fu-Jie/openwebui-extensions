@@ -1,87 +1,61 @@
-# 贡献指南 (Contributing Guide)
+# Contributing Guide
 
-感谢你对 **OpenWebUI Extras** 感兴趣！我们非常欢迎社区贡献更多的插件、提示词和创意。
+Thank you for your interest in **OpenWebUI Extras**! We welcome all kinds of contributions, including prompts, plugins, and documentation improvements.
 
-## 🤝 如何贡献
+## 🚀 Quick Start
 
-### 1. 分享提示词 (Prompts)
+1. **Fork** this repository and clone it to your local machine.
+2. **Add/Modify** content:
+   - **Prompts**: Place in the corresponding category in `prompts/`.
+   - **Plugins**: Place in the corresponding category in `plugins/` (Actions, Filters, Pipes, Tools).
+3. **Submit PR**: Submit your changes, and we will review them as soon as possible.
 
-如果你有一个好用的提示词：
-1. 在 `prompts/` 目录下找到合适的分类（如 `coding/`, `writing/`）。如果没有合适的，可以新建一个文件夹。
-2. 创建一个新的 `.md` 或 `.json` 文件。
-3. 提交 Pull Request (PR)。
+## 💡 Plugin Development Tips
 
-### 2. 开发插件 (Plugins)
+To ensure your plugin is correctly recognized and published:
+- Include complete metadata (Frontmatter):
+  ```python
+  """
+  title: Plugin Name
+  author: Your Name
+  version: 0.1.0
+  description: Short description
+  """
+  ```
+- If updating an existing plugin, remember to **increment the version number** (e.g., `0.1.0` -> `0.1.1`). Our CI will automatically sync it to the OpenWebUI Community.
 
-如果你开发了一个新的 OpenWebUI 插件 (Function/Tool)：
-1. 确保你的插件代码包含完整的元数据（Frontmatter）：
-   ```python
-   """
-   title: 插件名称
-   author: 你的名字
-   version: 0.1.0
-   description: 简短描述插件的功能
-   """
-   ```
-2. 将插件文件放入 `plugins/` 目录下的合适位置：
-   - `plugins/actions/`: 用于添加按钮或修改消息的 Action 插件。
-   - `plugins/filters/`: 用于拦截请求或响应的 Filter 插件。
-   - `plugins/pipes/`: 用于自定义模型或 API 的 Pipe 插件。
-   - `plugins/tools/`: 用于 LLM 调用的 Tool 插件。
-3. 建议在 `docs/` 下添加一个简单的使用说明。
+## 🛠️ Simple Guidelines
 
-### 3. 改进文档
+- **Keep it Simple**: Clear logic and basic comments are enough.
+- **Local Testing**: Ensure it works in your OpenWebUI environment before submitting.
+- **Docs**: For complex features, adding a simple guide in `docs/` is recommended.
 
-如果你发现文档有错误或可以改进的地方，直接提交 PR 即可。
+---
 
-## 🛠️ 开发规范
+# 贡献指南
 
-- **代码风格**：Python 代码请遵循 PEP 8 规范。
-- **注释**：关键逻辑请添加注释，方便他人理解。
-- **测试**：提交前请在本地 OpenWebUI 环境中测试通过。
+感谢你对 **OpenWebUI Extras** 感兴趣！我们欢迎任何形式的贡献，无论是提示词、插件还是文档改进。
 
-## 📝 提交 PR
+## 🚀 快速贡献流程
 
-1. Fork 本仓库。
-2. 创建一个新的分支 (`git checkout -b feature/AmazingFeature`)。
-3. 提交你的修改 (`git commit -m 'Add some AmazingFeature'`)。
-4. 推送到分支 (`git push origin feature/AmazingFeature`)。
-5. 开启一个 Pull Request。
+1. **Fork** 本仓库并克隆到本地。
+2. **修改/添加** 内容：
+   - **提示词**: 放入 `prompts/` 对应分类。
+   - **插件**: 放入 `plugins/` 对应分类（Actions, Filters, Pipes, Tools）。
+3. **提交 PR**: 提交你的修改，我们会尽快审核。
 
-## 📦 版本更新与发布
+## 💡 插件开发建议
 
-当你更新插件时，请遵循以下流程：
-
-### 1. 更新版本号
-
-在插件文件的 docstring 中更新版本号（遵循[语义化版本](https://semver.org/lang/zh-CN/)）：
-
-```python
-"""
-title: 我的插件
-version: 0.2.0  # 更新此处
-...
-"""
-```
-
-### 2. 更新更新日志
-
-在 `CHANGELOG.md` 的 `[Unreleased]` 部分添加你的更改：
-
-```markdown
-### Added / 新增
-- 新功能描述
-
-### Fixed / 修复
-- Bug 修复描述
-```
-
-### 3. 发布流程
-
-维护者会通过以下方式发布新版本：
-- 手动触发 GitHub Actions 中的 "Plugin Release" 工作流
-- 或创建版本标签 (`v*`)
-
-详细说明请参阅 [发布工作流文档](docs/release-workflow.zh.md)。
+为了让你的插件能被自动识别和发布，请确保：
+- 包含完整的元数据（Frontmatter）：
+  ```python
+  """
+  title: 插件名称
+  author: 你的名字
+  version: 0.1.0
+  description: 简短描述
+  """
+  ```
+- 如果是更新已有插件，请记得**增加版本号**（如 `0.1.0` -> `0.1.1`），这样系统会自动同步到 OpenWebUI 社区。
 
 再次感谢你的贡献！🚀
