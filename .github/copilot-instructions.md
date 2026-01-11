@@ -1619,6 +1619,14 @@ feat(flash-card): add _get_user_context for safer user info retrieval
 - **`code`**: 贡献者直接编写并提交了 Pull Request。
 - **组合使用**: 如果贡献者既提出了方案又完成了实现，应同时添加：`for ideas, code`。
 
+### 4. 多次贡献处理 (Multiple Contributions)
+
+All Contributors 支持勋章累加，无需担心重复添加：
+
+- **累加勋章**: 如果贡献者已在列表中，再次发送指令指定新类型（如 `@all-contributors please add @user for doc`），Bot 会自动将新勋章追加到该用户头像下方。
+- **一次性添加**: 支持在单条指令中列出所有类型：`for code, doc, ideas`。
+- **手动修正**: 若需删除或修正勋章，需手动编辑 `.all-contributorsrc` 文件中的 `contributions` 数组。
+
 ---
 
 ## �📚 参考资源 (Reference Resources)
