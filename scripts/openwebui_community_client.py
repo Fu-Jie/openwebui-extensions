@@ -258,12 +258,8 @@ class OpenWebUICommunityClient:
         allowed_keys = ["title", "content", "type", "data", "media"]
         payload = {k: v for k, v in post_data.items() if k in allowed_keys}
 
-        print(f"  [DEBUG] Updating post {post_id} with keys: {list(payload.keys())}")
         response = requests.post(url, headers=self.headers, json=payload)
 
-        if response.status_code != 200:
-            print(f"  [DEBUG] Update failed status: {response.status_code}")
-            try:
                 error_detail = response.json()
                 print(
                     f"  [DEBUG] Update failed error detail: {json.dumps(error_detail, indent=2)}"
@@ -301,8 +297,6 @@ class OpenWebUICommunityClient:
 
         # 严格重建 data 结构，避免包含只读字段（如 data.function.id）
         current_function = post_data.get("data", {}).get("function", {})
-        print(f"  [DEBUG] Current function keys: {list(current_function.keys())}")
-        print(f"  [DEBUG] Current function ID: {current_function.get('id')}")
 
         # 过滤 metadata，移除 openwebui_id 等系统字段
         clean_metadata = {
