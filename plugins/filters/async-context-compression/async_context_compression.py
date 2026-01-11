@@ -257,9 +257,7 @@ from fastapi.requests import Request
 from open_webui.main import app as webui_app
 
 # Open WebUI internal database (re-use shared connection)
-from open_webui.internal.db import engine as owui_engine
-from open_webui.internal.db import Session as owui_Session
-from open_webui.internal.db import Base as owui_Base
+import open_webui.internal.db as owui_db
 
 # Try to import tiktoken
 try:
@@ -270,6 +268,9 @@ except ImportError:
 # Database imports
 from sqlalchemy import Column, String, Text, DateTime, Integer, inspect
 from datetime import datetime
+
+
+owui_Base = owui_db.Base
 
 
 class ChatSummary(owui_Base):
@@ -289,8 +290,14 @@ class ChatSummary(owui_Base):
 class Filter:
     def __init__(self):
         self.valves = self.Valves()
-        self._db_engine = owui_engine
-        self._SessionLocal = owui_Session
+        self._db_engine = owui_db.engine
+        self._SessionLocal = (
+            getattr(owui_db, "ScopedSession", None)
+            or getattr(owui_db, "SessionLocal", None)
+            or getattr(owui_db, "Session", None)
+        )
+        if self._SessionLocal is None:
+            raise RuntimeError("Open WebUI database session factory unavailable.")
         self.temp_state = {}  # Used to pass temporary data between inlet and outlet
         self._init_database()
 
@@ -632,7 +639,15 @@ class Filter:
         Compression Strategy: Only responsible for injecting existing summaries, no Token calculation.
         """
         messages = body.get("messages", [])
-        chat_id = __metadata__["chat_id"]
+        chat_id = (__metadata__ or {}).get("chat_id")
+
+        if not chat_id:
+            await self._log(
+                "[Inlet] ❌ Missing chat_id in metadata, skipping compression",
+                type="error",
+                event_call=__event_call__,
+            )
+            return body
 
         if self.valves.debug_mode or self.valves.show_debug_log:
             await self._log(
@@ -747,7 +762,14 @@ class Filter:
         Executed after the LLM response is complete.
         Calculates Token count in the background and triggers summary generation (does not block current response, does not affect content output).
         """
-        chat_id = __metadata__["chat_id"]
+        chat_id = (__metadata__ or {}).get("chat_id")
+        if not chat_id:
+            await self._log(
+                "[Outlet] ❌ Missing chat_id in metadata, skipping compression",
+                type="error",
+                event_call=__event_call__,
+            )
+            return body
         model = body.get("model", "gpt-3.5-turbo")
 
         if self.valves.debug_mode or self.valves.show_debug_log:
@@ -892,9 +914,19 @@ class Filter:
             # 3. Check Token limit and truncate (Max Context Truncation)
             # [Optimization] Use the summary model's (if any) threshold to decide how many middle messages can be processed
             # This allows using a long-window model (like gemini-flash) to compress history exceeding the current model's window
-            summary_model_id = self.valves.summary_model or body.get(
-                "model", "gpt-3.5-turbo"
+            summary_model_id = (
+                self.valves.summary_model
+                or body.get("model")
+                or "gpt-3.5-turbo"
             )
+
+            if not summary_model_id:
+                await self._log(
+                    "[🤖 Async Summary Task] ⚠️ Summary model is empty, skipping compression",
+                    type="warning",
+                    event_call=__event_call__,
+                )
+                return
 
             thresholds = self._get_model_thresholds(summary_model_id)
             # Note: Using the summary model's max context limit here
@@ -963,11 +995,23 @@ class Filter:
                             "done": False,
                         },
                     }
-                )
+            )
 
             new_summary = await self._call_summary_llm(
-                None, conversation_text, body, user_data, __event_call__
+                None,
+                conversation_text,
+                {**body, "model": summary_model_id},
+                user_data,
+                __event_call__,
             )
+
+            if not new_summary:
+                await self._log(
+                    "[🤖 Async Summary Task] ⚠️ Summary generation returned empty result, skipping save",
+                    type="warning",
+                    event_call=__event_call__,
+                )
+                return
 
             # 6. Save new summary
             await self._log(
@@ -1089,6 +1133,14 @@ Based on the content above, generate the summary:
 """
         # Determine the model to use
         model = self.valves.summary_model or body.get("model", "")
+
+        if not model:
+            await self._log(
+                "[🤖 LLM Call] ⚠️ Model ID is empty, skipping summary generation",
+                type="warning",
+                event_call=__event_call__,
+            )
+            return ""
 
         await self._log(f"[🤖 LLM Call] Model: {model}", event_call=__event_call__)
 
