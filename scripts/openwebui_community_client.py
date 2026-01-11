@@ -253,7 +253,18 @@ class OpenWebUICommunityClient:
             是否成功
         """
         url = f"{self.BASE_URL}/posts/{post_id}/update"
-        response = requests.post(url, headers=self.headers, json=post_data)
+
+        # 仅发送允许更新的字段，避免 422 错误
+        allowed_keys = ["title", "content", "type", "data", "media"]
+        payload = {k: v for k, v in post_data.items() if k in allowed_keys}
+
+        print(f"  [DEBUG] Updating post {post_id} with keys: {list(payload.keys())}")
+        response = requests.post(url, headers=self.headers, json=payload)
+
+        if response.status_code != 200:
+            print(f"  [DEBUG] Update failed status: {response.status_code}")
+            print(f"  [DEBUG] Update failed response: {response.text[:500]}")
+
         response.raise_for_status()
         return True
 
@@ -312,7 +323,14 @@ class OpenWebUICommunityClient:
 
         # 更新图片
         if media_urls:
-            post_data["media"] = media_urls
+            # 将字符串 URL 转换为字典格式 (API 要求)
+            media_list = []
+            for item in media_urls:
+                if isinstance(item, str):
+                    media_list.append({"url": item})
+                elif isinstance(item, dict):
+                    media_list.append(item)
+            post_data["media"] = media_list
 
         return self.update_post(post_id, post_data)
 
