@@ -301,6 +301,8 @@ class OpenWebUICommunityClient:
 
         # 严格重建 data 结构，避免包含只读字段（如 data.function.id）
         current_function = post_data.get("data", {}).get("function", {})
+        print(f"  [DEBUG] Current function keys: {list(current_function.keys())}")
+        print(f"  [DEBUG] Current function ID: {current_function.get('id')}")
 
         # 过滤 metadata，移除 openwebui_id 等系统字段
         clean_metadata = {
@@ -310,6 +312,7 @@ class OpenWebUICommunityClient:
         }
 
         function_data = {
+            "id": current_function.get("id", ""),
             "name": metadata.get("title", current_function.get("name", "Plugin")),
             "type": current_function.get("type", "action"),
             "content": source_code,
