@@ -1,9 +1,9 @@
 """
 title: 📊 智能信息图 (AntV Infographic)
-author: jeff
+author: Fu-Jie
 author_url: https://github.com/Fu-Jie/awesome-openwebui
 icon_url: data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPgogIDxsaW5lIHgxPSIxMiIgeTE9IjIwIiB4Mj0iMTIiIHkyPSIxMCIgLz4KICA8bGluZSB4MT0iMTgiIHkxPSIyMCIgeDI9IjE4IiB5Mj0iNCIgLz4KICA8bGluZSB4MT0iNiIgeTE9IjIwIiB4Mj0iNiIgeTI9IjE2IiAvPgo8L3N2Zz4=
-version: 1.4.1
+version: 1.4.9
 openwebui_id: e04a48ff-23ee-4a41-8ea7-66c19524e7c8
 description: 基于 AntV Infographic 的智能信息图生成插件。支持多种专业模板，自动图标匹配，并提供 SVG/PNG 下载功能。
 """
@@ -45,32 +45,61 @@ Infographic syntax is a Mermaid-like declarative syntax for describing infograph
 - ❌ Wrong: `children:` `items:` `data:` (with colons)
 - ✅ Correct: `children` `items` `data` (without colons)
 
-### Template Library & Selection Guide
+### 模板库与选择指南
 
-#### 1. List & Hierarchy (Text-heavy)
--   **Linear & Short (Steps/Phases)** -> `list-row-horizontal-icon-arrow`
--   **Linear & Long (Rankings/Details)** -> `list-vertical`
--   **Grouped / Parallel (Features/Catalog)** -> `list-grid`
--   **Hierarchical (Org Chart/Taxonomy)** -> `tree-vertical` or `tree-horizontal`
--   **Central Idea (Brainstorming)** -> `mindmap`
+根据内容结构选择最合适的模板。
 
-#### 2. Sequence & Relationship (Flow-based)
--   **Time-based (History/Plan)** -> `sequence-roadmap-vertical-simple`
--   **Process Flow (Complex)** -> `sequence-zigzag` or `sequence-horizontal`
--   **Resource Flow / Distribution** -> `relation-sankey`
--   **Circular Relationship** -> `relation-circle`
+**模板选择指南 (官方):**
+- 严格时序 (流程/步骤/趋势) → `sequence-*` 系列
+  - 时间线 → `sequence-timeline-simple`
+  - 路线图 → `sequence-roadmap-vertical-simple`
+  - 折线步骤 → `sequence-horizontal-zigzag-underline-text`
+  - 蛇形步骤 → `sequence-snake-steps-compact-card`
+- 列举要点 → `list-row-horizontal-icon-arrow` 或 `list-column-simple-vertical-arrow`
+- 对比分析 (A vs B) → `compare-binary-horizontal-underline-text-vs`
+- SWOT 分析 → `compare-swot`
+- 层级结构 (树状图) → `hierarchy-tree-tech-style-capsule-item`
+- 数据图表 → `chart-*` 系列
+- 象限分析 → `quadrant-quarter-simple-card`
+- 网格列表 → `list-grid-candy-card-lite`
+- 关系展示 → `relation-circle-icon-badge`
 
-#### 3. Comparison & Analysis
--   **Binary Comparison (A vs B)** -> `compare-binary`
--   **SWOT Analysis** -> `compare-swot`
--   **Quadrant Analysis (Importance vs Urgency)** -> `quadrant-quarter`
--   **Multi-item Grid Comparison** -> `list-grid` (use for comparing multiple items)
+**可用模板:**
 
-#### 4. Charts & Data (Metric-heavy)
--   **Key Metrics / Data Cards** -> `statistic-card`
--   **Distribution / Comparison** -> `chart-bar` or `chart-column`
--   **Trend over Time** -> `chart-line` or `chart-area`
--   **Proportion / Part-to-Whole** -> `chart-pie` or `chart-doughnut`
+*Sequence (时序/流程):*
+`sequence-timeline-simple`, `sequence-roadmap-vertical-simple`, `sequence-horizontal-zigzag-underline-text`, 
+`sequence-snake-steps-compact-card`, `sequence-zigzag-steps-underline-text`, `sequence-circular-simple`
+
+*List (列表):*
+`list-grid-candy-card-lite`, `list-grid-badge-card`, `list-row-horizontal-icon-arrow`,
+`list-column-simple-vertical-arrow`, `list-column-done-list`
+
+*Compare (对比):*
+`compare-binary-horizontal-underline-text-vs`, `compare-swot`
+
+*Hierarchy (层级):*
+`hierarchy-tree-tech-style-capsule-item`, `hierarchy-structure`
+
+*Chart (图表):*
+`chart-column-simple`, `chart-bar-plain-text`, `chart-pie-plain-text`, `chart-wordcloud`
+
+*Other:*
+`quadrant-quarter-simple-card`, `relation-circle-icon-badge`
+
+**按容量分类:**
+- 高容量 (长描述): `list-column-*`, `compare-binary-*`, `sequence-timeline-*`
+- 中容量: `list-row-*`, `sequence-roadmap-*`
+- 低容量 (短文本): `list-grid-*`, `hierarchy-*`
+
+### 图标和插图资源
+
+**图标 (Iconify):**
+- 格式: `<集合>/<图标名>`, 如 `mdi/rocket-launch`
+- 常用: `mdi/*`, `fa/*`, `bi/*`
+
+**插图 (unDraw):**
+- 格式: 文件名 (不含 .svg), 如 `coding`, `team-work`
+- 使用 `illus` 字段
 
 ### Infographic Syntax Guide
 
@@ -203,6 +232,12 @@ data
       desc Plan for next sprint
       illus mdi/star
 
+### Content Refinement Principles
+1. **Brevity is King**: Infographics are visual. Keep text to a minimum.
+2. **Title Limit**: Keep `label` (item titles) under 15 characters.
+3. **Description Limit**: Keep `desc` (item descriptions) under 25 characters (approx. 2 lines).
+4. **Impact**: Use strong verbs and nouns. Avoid filler words.
+
 ### Output Rules
 1.  **Strict Syntax**: Follow the indentation and formatting rules exactly.
 2.  **No Explanations**: Output ONLY the syntax code block.
@@ -224,9 +259,11 @@ USER_PROMPT_GENERATE_INFOGRAPHIC = """
 
 请根据文本特点选择最合适的信息图模板，并输出规范的 infographic 语法。注意保持正确的缩进格式（两个空格）。
 
-**重要提示：** 
-- 如果使用 `list-grid` 格式，请确保每个卡片的 `desc` 描述文字控制在 **30个汉字**（或约60个英文字符）**以内**，以保证所有卡片描述都只占用2行，维持视觉一致性。
-- 描述应简洁精炼，突出核心要点。
+**视觉优化指南：** 
+- **要点化生成：** 信息图不是文章。请将内容转化为“关键词+短语”的形式，严禁生成长难句。
+- **标题限制：** 每个卡片的 `label`（标题）请控制在 **8个汉字**以内。
+- **描述限制：** 每个卡片的 `desc`（描述）请控制在 **15个汉字**以内，确保即使在小屏幕上也能完整显示。
+- **结构化思维：** 优先使用并列、递进或对比结构，使信息一目了然。
 """
 
 # =================================================================
@@ -333,7 +370,7 @@ CSS_TEMPLATE_INFOGRAPHIC = """
     padding: 16px;
     min-height: 600px;
     background: #fff;
-    overflow: visible; /* Ensure content is visible */
+    overflow: visible;
     transition: height 0.3s ease;
 }
 .infographic-render-container svg text {
@@ -341,35 +378,58 @@ CSS_TEMPLATE_INFOGRAPHIC = """
 }
 .infographic-render-container svg foreignObject {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif !important;
-    line-height: 1.4 !important;
+    line-height: 1.3 !important;
+    overflow: visible !important;
 }
 /* 主标题样式 */
 .infographic-render-container svg foreignObject[data-element-type="title"] > * {
-    font-size: 1.5em !important;
-    font-weight: bold !important;
-    line-height: 1.4 !important;
-    white-space: nowrap !important;
-    overflow: hidden !important;
-    text-overflow: ellipsis !important;
-}
-/* 页面副标题和卡片标题样式 */
-.infographic-render-container svg foreignObject[data-element-type="desc"] > *,
-.infographic-render-container svg foreignObject[data-element-type="item-label"] > * {
-    font-size: 0.6em !important;
-    line-height: 1.4 !important;
-    white-space: nowrap !important;
-    overflow: hidden !important;
-    text-overflow: ellipsis !important;
-}
-/* 卡片标题额外增加底部间距 */
-.infographic-render-container svg foreignObject[data-element-type="item-label"] > * {
-    padding-bottom: 8px !important;
-    display: block !important;
-}
-/* 卡片描述文字保持正常换行 */
-.infographic-render-container svg foreignObject[data-element-type="item-desc"] > * {
-    line-height: 1.4 !important;
+    font-size: 1.3em !important;
+    font-weight: 800 !important;
+    line-height: 1.3 !important;
     white-space: normal !important;
+    word-break: break-word !important;
+    display: -webkit-box !important;
+    -webkit-line-clamp: 2 !important;
+    -webkit-box-orient: vertical !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    text-align: center !important;
+}
+/* 页面副标题样式 */
+.infographic-render-container svg foreignObject[data-element-type="desc"] > * {
+    font-size: 0.85em !important;
+    line-height: 1.3 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    text-align: center !important;
+    display: block !important;
+    color: var(--ig-muted-text-color) !important;
+}
+/* 卡片标题样式 */
+.infographic-render-container svg foreignObject[data-element-type="item-label"] > * {
+    font-size: 0.9em !important;
+    font-weight: 600 !important;
+    line-height: 1.3 !important;
+    white-space: normal !important;
+    word-break: break-word !important;
+    display: -webkit-box !important;
+    -webkit-line-clamp: 2 !important;
+    -webkit-box-orient: vertical !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    padding-bottom: 2px !important;
+}
+/* 卡片描述文字 */
+.infographic-render-container svg foreignObject[data-element-type="item-desc"] > * {
+    font-size: 0.82em !important;
+    line-height: 1.3 !important;
+    white-space: normal !important;
+    display: -webkit-box !important;
+    -webkit-line-clamp: 2 !important;
+    -webkit-box-orient: vertical !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
 }
 .infographic-container-wrapper .download-area {
     text-align: center;
@@ -537,34 +597,36 @@ SCRIPT_TEMPLATE_INFOGRAPHIC = """
             }
         }
 
-        // 2. 模板映射配置
-        // 2. 模板映射配置
+        // 2. 模板映射配置 (官方 AntV 结构 ID)
         const TEMPLATE_MAPPING = {
-            // 列表与层级
+            // 列表与层级 - 短名称映射到完整模板名
             'list-grid': 'list-grid-compact-card',
+            'list-column': 'list-column-simple-vertical-arrow',
+            'list-row': 'list-row-simple-horizontal-arrow',
+            'hierarchy-tree': 'hierarchy-tree-tech-style-capsule-item',
+            
+            // 时序与时间线
+            'sequence-roadmap-vertical': 'sequence-roadmap-vertical-simple',
+            'sequence-timeline': 'sequence-timeline-simple',
+            'sequence-steps': 'sequence-steps-simple',
+            'sequence-horizontal-zigzag': 'sequence-horizontal-zigzag-simple',
+            
+            // 对比
+            'compare-binary-horizontal': 'compare-binary-horizontal-simple-vs',
+            'compare-hierarchy-row': 'compare-hierarchy-row-simple',
+            
+            // 图表
+            'chart-column': 'chart-column-simple',
+            'quadrant': 'quadrant-quarter-simple-card',
+            
+            // 向后兼容的旧映射
             'list-vertical': 'list-column-simple-vertical-arrow',
             'tree-vertical': 'hierarchy-tree-tech-style-capsule-item',
-            'tree-horizontal': 'hierarchy-tree-lr-tech-style-capsule-item',
-            'mindmap': 'hierarchy-mindmap-branch-gradient-capsule-item',
-            
-            // 顺序与关系
             'sequence-roadmap': 'sequence-roadmap-vertical-simple',
             'sequence-zigzag': 'sequence-horizontal-zigzag-simple',
-            'sequence-horizontal': 'sequence-horizontal-zigzag-simple',
-            'relation-sankey': 'relation-sankey-simple', // 暂无直接对应，保留原值或需移除
-            'relation-circle': 'relation-circle-icon-badge',
-            
-            // 对比与分析
             'compare-binary': 'compare-binary-horizontal-simple-vs',
-            'compare-swot': 'compare-swot',
-            'quadrant-quarter': 'quadrant-quarter-simple-card',
-            
-            // 图表与数据
-            'statistic-card': 'list-grid-compact-card',
             'chart-bar': 'chart-bar-plain-text',
-            'chart-column': 'chart-column-simple',
             'chart-line': 'chart-line-plain-text',
-            'chart-area': 'chart-area-simple', // 暂无直接对应
             'chart-pie': 'chart-pie-plain-text',
             'chart-doughnut': 'chart-pie-donut-plain-text'
         };
@@ -657,10 +719,48 @@ SCRIPT_TEMPLATE_INFOGRAPHIC = """
             containerEl.dataset.infographicRendered = 'true';
             console.log('[Infographic] 渲染完成');
 
-            // 自动调整高度
+            // 自动调整高度与元素标记
             setTimeout(() => {
                 const svg = containerEl.querySelector('svg');
                 if (svg) {
+                    // 1. 标记元素以便 CSS 应用样式
+                    const fos = Array.from(svg.querySelectorAll('foreignObject'));
+                    let titleFound = false;
+                    let descFound = false;
+                    
+                    fos.forEach((fo) => {
+                        const text = fo.textContent.trim();
+                        if (!text || fo.querySelector('i') || (fo.querySelector('svg') && fo.querySelectorAll('*').length < 5)) {
+                            fo.setAttribute('data-element-type', 'icon');
+                            return;
+                        }
+                        
+                        // 动态增加高度和宽度，容纳换行后的文字
+                        const currentHeight = parseInt(fo.getAttribute('height') || '0');
+                        if (currentHeight > 0 && currentHeight < 200) {
+                            fo.setAttribute('height', Math.round(currentHeight * 1.8).toString());
+                        }
+                        const currentWidth = parseInt(fo.getAttribute('width') || '0');
+                        if (currentWidth > 0 && currentWidth < 300) {
+                            fo.setAttribute('width', Math.max(Math.round(currentWidth * 1.2), 180).toString());
+                        }
+
+                        if (!titleFound) {
+                            fo.setAttribute('data-element-type', 'title');
+                            titleFound = true;
+                        } else if (!descFound) {
+                            fo.setAttribute('data-element-type', 'desc');
+                            descFound = true;
+                        } else {
+                            if (fo.querySelector('strong') || fo.style.fontWeight === 'bold' || text.length < 15) {
+                                fo.setAttribute('data-element-type', 'item-label');
+                            } else {
+                                fo.setAttribute('data-element-type', 'item-desc');
+                            }
+                        }
+                    });
+
+                    // 2. 调整高度
                     const bbox = svg.getBoundingClientRect();
                     let contentHeight = bbox.height;
                     if (svg.viewBox && svg.viewBox.baseVal && svg.viewBox.baseVal.height) {

@@ -1,9 +1,9 @@
 """
 title: 📊 Smart Infographic (AntV)
-author: jeff
+author: Fu-Jie
 author_url: https://github.com/Fu-Jie/awesome-openwebui
 icon_url: data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPgogIDxsaW5lIHgxPSIxMiIgeTE9IjIwIiB4Mj0iMTIiIHkyPSIxMCIgLz4KICA8bGluZSB4MT0iMTgiIHkxPSIyMCIgeDI9IjE4IiB5Mj0iNCIgLz4KICA8bGluZSB4MT0iNiIgeTE9IjIwIiB4Mj0iNiIgeTI9IjE2IiAvPgo8L3N2Zz4=
-version: 1.4.1
+version: 1.4.9
 openwebui_id: ad6f0c7f-c571-4dea-821d-8e71697274cf
 description: AI-powered infographic generator based on AntV Infographic. Supports professional templates, auto-icon matching, and SVG/PNG downloads.
 """
@@ -47,24 +47,63 @@ Infographic syntax is a Mermaid-like declarative syntax for describing infograph
 
 ### Template Library & Selection Guide
 
-Choose the most appropriate template based on the content structure:
+Choose the most appropriate template based on content structure.
 
-#### 1. List & Hierarchy
-- **List**: `list-grid` (Grid Cards), `list-vertical` (Vertical List)
-- **Tree**: `tree-vertical` (Vertical Tree), `tree-horizontal` (Horizontal Tree)
-- **Mindmap**: `mindmap` (Mind Map)
+**Template Selection Guidelines (Official):**
+- Strict sequential order (processes/steps/trends) → `sequence-*` series
+  - Timeline → `sequence-timeline-simple`
+  - Roadmap → `sequence-roadmap-vertical-simple`
+  - Zigzag steps → `sequence-horizontal-zigzag-underline-text`
+  - Snake steps → `sequence-snake-steps-compact-card`
+- Listing viewpoints → `list-row-horizontal-icon-arrow` or `list-column-simple-vertical-arrow`
+- Comparative analysis (A vs B) → `compare-binary-horizontal-underline-text-vs`
+- SWOT analysis → `compare-swot`
+- Hierarchical structure (tree) → `hierarchy-tree-tech-style-capsule-item`
+- Data charts → `chart-*` series
+- Quadrant analysis → `quadrant-quarter-simple-card`
+- Grid lists (bullet points) → `list-grid-candy-card-lite`
+- Relationship display → `relation-circle-icon-badge`
 
-#### 2. Sequence & Relationship
-- **Process**: `sequence-roadmap` (Roadmap), `sequence-zigzag` (Zigzag Process), `sequence-horizontal` (Horizontal Process)
-- **Relationship**: `relation-sankey` (Sankey Diagram), `relation-circle` (Circular Relationship)
+**Available Templates:**
 
-#### 3. Comparison & Analysis
-- **Comparison**: `compare-binary` (Binary Comparison), `list-grid` (Multi-item Grid Comparison)
-- **Analysis**: `compare-swot` (SWOT Analysis), `quadrant-quarter` (Quadrant Chart)
+*Sequence (时序/流程):*
+`sequence-timeline-simple`, `sequence-roadmap-vertical-simple`, `sequence-horizontal-zigzag-underline-text`, 
+`sequence-snake-steps-compact-card`, `sequence-zigzag-steps-underline-text`, `sequence-circular-simple`,
+`sequence-pyramid-simple`, `sequence-ascending-steps`
 
-#### 4. Charts & Data
-- **Statistics**: `statistic-card` (Statistic Cards)
-- **Charts**: `chart-bar` (Bar Chart), `chart-column` (Column Chart), `chart-line` (Line Chart), `chart-pie` (Pie Chart), `chart-doughnut` (Doughnut Chart), `chart-area` (Area Chart)
+*List (列表):*
+`list-grid-candy-card-lite`, `list-grid-badge-card`, `list-row-horizontal-icon-arrow`,
+`list-column-simple-vertical-arrow`, `list-column-done-list`
+
+*Compare (对比):*
+`compare-binary-horizontal-underline-text-vs`, `compare-binary-horizontal-simple-fold`,
+`compare-hierarchy-left-right-circle-node-pill-badge`, `compare-swot`
+
+*Hierarchy (层级):*
+`hierarchy-tree-tech-style-capsule-item`, `hierarchy-tree-curved-line-rounded-rect-node`, `hierarchy-structure`
+
+*Chart (图表):*
+`chart-column-simple`, `chart-bar-plain-text`, `chart-line-plain-text`, 
+`chart-pie-plain-text`, `chart-pie-donut-plain-text`, `chart-wordcloud`
+
+*Other:*
+`quadrant-quarter-simple-card`, `relation-circle-icon-badge`
+
+**Text Capacity by Template Type:**
+- HIGH capacity (long descriptions OK): `list-column-*`, `compare-binary-*`, `sequence-timeline-*`
+- MEDIUM capacity: `list-row-*`, `sequence-roadmap-*`
+- LOW capacity (short text only): `list-grid-*`, `hierarchy-*`, `sequence-steps`
+
+### Icon and Illustration Resources
+
+**Icons (Iconify):**
+- Format: `<collection>/<icon-name>`, e.g., `mdi/rocket-launch`
+- Popular: `mdi/*` (Material Design), `fa/*` (Font Awesome), `bi/*` (Bootstrap)
+- Examples: `mdi/code-tags`, `mdi/chart-line`, `mdi/account-group`, `mdi/cloud`
+
+**Illustrations (unDraw):**
+- Format: filename without .svg, e.g., `coding`, `team-work`
+- Use `illus` field instead of `icon`
 
 ### Data Structure Examples
 
@@ -211,6 +250,12 @@ data
 - `children`: Nested items (for trees, SWOT, etc.)
 - `illus`: Illustration icon (specific to some templates like Quadrant)
 
+### Content Refinement Principles
+1. **Brevity is King**: Infographics are visual. Keep text to a minimum.
+2. **Title Limit**: Keep `label` (item titles) under 15 characters (approx. 10 Chinese characters).
+3. **Description Limit**: Keep `desc` (item descriptions) under 40 characters (approx. 20 Chinese characters / 2 lines).
+4. **Impact**: Use strong verbs and nouns. Avoid filler words.
+
 ## Output Requirements
 1. **Language**: Output content in the user's language.
 2. **Format**: Wrap output in ```infographic ... ```.
@@ -233,9 +278,18 @@ User Language: {user_language}
 
 Please select the most appropriate infographic template based on text characteristics and output standard infographic syntax. Pay attention to correct indentation format (two spaces).
 
-**Important Note:** 
-- If using `list-grid` format, ensure each card's `desc` description is limited to **maximum 30 Chinese characters** (or **approximately 60 English characters**) to maintain visual consistency with all descriptions fitting in 2 lines.
-- Descriptions should be concise and highlight key points.
+**Visual Optimization Guide (MUST FOLLOW):**
+- **Point-based Generation:** Infographics are not articles. Extract KEYWORDS ONLY, avoid complete sentences.
+- **Main Title (`data.title`):** **MUST** be ≤ **15 Chinese characters** (or ≤30 English characters). Trim version numbers or details if needed.
+- **Subtitle (`data.desc`):** **MUST** be ≤ **20 Chinese characters** (or ≤40 English characters).
+- **Card Title (`label`):** **MUST** be ≤ **6 Chinese characters** (or ≤12 English characters). Use 2-4 keywords only.
+- **Card Description (`desc`):** **MUST** be ≤ **12 Chinese characters** (or ≤24 English characters). Use short phrases.
+
+⚠️ **CRITICAL**: If the original text is too long, you MUST rephrase and shorten it. Do NOT simply truncate with "...".
+Examples:
+- ❌ "多步任务与工具协作能力" → ✅ "多步任务协作"
+- ❌ "Open WebUI v0.7.x 重大版本更新" → ✅ "v0.7 核心更新"
+- ❌ "自动查找历史聊天记录" → ✅ "历史检索"
 """
 
 # =================================================================
@@ -340,8 +394,9 @@ CSS_TEMPLATE_INFOGRAPHIC = """
 .infographic-container-wrapper .infographic-render-container {
     border-radius: 8px;
     padding: 16px;
+    min-height: 600px;
     background: #fff;
-    overflow: visible; /* Ensure content is visible */
+    overflow: visible;
     transition: height 0.3s ease;
 }
 .infographic-render-container svg text {
@@ -349,35 +404,59 @@ CSS_TEMPLATE_INFOGRAPHIC = """
 }
 .infographic-render-container svg foreignObject {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif !important;
-    line-height: 1.4 !important;
+    line-height: 1.3 !important;
+    overflow: visible !important;
 }
 /* Main title styles */
 .infographic-render-container svg foreignObject[data-element-type="title"] > * {
-    font-size: 1.5em !important;
-    font-weight: bold !important;
-    line-height: 1.4 !important;
-    white-space: nowrap !important;
+    font-size: 1.3em !important;
+    font-weight: 800 !important;
+    line-height: 1.3 !important;
+    white-space: normal !important;
+    word-break: break-word !important;
+    display: -webkit-box !important;
+    -webkit-line-clamp: 2 !important;
+    -webkit-box-orient: vertical !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important;
+    text-align: center !important;
 }
-/* Page subtitle and card title styles */
-.infographic-render-container svg foreignObject[data-element-type="desc"] > *,
-.infographic-render-container svg foreignObject[data-element-type="item-label"] > * {
-    font-size: 0.6em !important;
-    line-height: 1.4 !important;
-    white-space: nowrap !important;
-    overflow: hidden !important;
-    text-overflow: ellipsis !important;
-}
-/* Card title with extra bottom spacing */
-.infographic-render-container svg foreignObject[data-element-type="item-label"] > * {
-    padding-bottom: 8px !important;
+/* Page subtitle styles */
+.infographic-render-container svg foreignObject[data-element-type="desc"] > * {
+    font-size: 0.85em !important;
+    line-height: 1.3 !important;
+    white-space: normal !important;
+    word-break: break-word !important;
+    overflow: visible !important;
+    text-align: center !important;
     display: block !important;
+    color: var(--ig-muted-text-color) !important;
 }
-/* Card description text keeps normal wrapping */
+/* Card title styles */
+.infographic-render-container svg foreignObject[data-element-type="item-label"] > * {
+    font-size: 0.9em !important;
+    font-weight: 600 !important;
+    line-height: 1.3 !important;
+    white-space: normal !important;
+    word-break: break-word !important;
+    display: -webkit-box !important;
+    -webkit-line-clamp: 2 !important;
+    -webkit-box-orient: vertical !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    padding-bottom: 2px !important;
+}
+/* Card description text */
 .infographic-render-container svg foreignObject[data-element-type="item-desc"] > * {
+    font-size: 0.8em !important;
     line-height: 1.4 !important;
     white-space: normal !important;
+    word-break: break-word !important;
+    display: -webkit-box !important;
+    -webkit-line-clamp: 2 !important;
+    -webkit-box-orient: vertical !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
 }
 .infographic-container-wrapper .download-area {
     text-align: center;
@@ -533,36 +612,40 @@ SCRIPT_TEMPLATE_INFOGRAPHIC = """
             }}
         }}
 
-        // 2. Template Mapping Configuration
+        // 2. Template Mapping Configuration (Official AntV Structure IDs)
         const TEMPLATE_MAPPING = {{
-            // List & Hierarchy
+            // List & Hierarchy - map short names to full template names
             'list-grid': 'list-grid-compact-card',
+            'list-column': 'list-column-simple-vertical-arrow',
+            'list-row': 'list-row-simple-horizontal-arrow',
+            'hierarchy-tree': 'hierarchy-tree-tech-style-capsule-item',
+            
+            // Sequence & Timeline
+            'sequence-roadmap-vertical': 'sequence-roadmap-vertical-simple',
+            'sequence-timeline': 'sequence-timeline-simple',
+            'sequence-steps': 'sequence-steps-simple',
+            'sequence-horizontal-zigzag': 'sequence-horizontal-zigzag-simple',
+            
+            // Comparison
+            'compare-binary-horizontal': 'compare-binary-horizontal-simple-vs',
+            'compare-hierarchy-row': 'compare-hierarchy-row-simple',
+            
+            // Charts
+            'chart-column': 'chart-column-simple',
+            'quadrant': 'quadrant-quarter-simple-card',
+            
+            // Legacy mappings for backward compatibility
             'list-vertical': 'list-column-simple-vertical-arrow',
             'tree-vertical': 'hierarchy-tree-tech-style-capsule-item',
-            'tree-horizontal': 'hierarchy-tree-lr-tech-style-capsule-item',
-            'mindmap': 'hierarchy-mindmap-branch-gradient-capsule-item',
-            
-            // Sequence & Relationship
             'sequence-roadmap': 'sequence-roadmap-vertical-simple',
             'sequence-zigzag': 'sequence-horizontal-zigzag-simple',
-            'sequence-horizontal': 'sequence-horizontal-zigzag-simple',
-            'relation-sankey': 'relation-sankey-simple',
-            'relation-circle': 'relation-circle-icon-badge',
-            
-            // Comparison & Analysis
             'compare-binary': 'compare-binary-horizontal-simple-vs',
-            'compare-swot': 'compare-swot',
-            'quadrant-quarter': 'quadrant-quarter-simple-card',
-            
-            // Charts & Data
-            'statistic-card': 'list-grid-compact-card',
             'chart-bar': 'chart-bar-plain-text',
-            'chart-column': 'chart-column-simple',
             'chart-line': 'chart-line-plain-text',
-            'chart-area': 'chart-area-simple',
             'chart-pie': 'chart-pie-plain-text',
             'chart-doughnut': 'chart-pie-donut-plain-text'
         }};
+
 
         // 3. Apply Mapping Strategy
         for (const [key, value] of Object.entries(TEMPLATE_MAPPING)) {{
@@ -629,10 +712,48 @@ SCRIPT_TEMPLATE_INFOGRAPHIC = """
             containerEl.dataset.infographicRendered = 'true';
             console.log('[Infographic] Rendering complete');
 
-            // Auto-adjust height
+            // Auto-adjust height and tag elements
             setTimeout(() => {
                 const svg = containerEl.querySelector('svg');
                 if (svg) {
+                    // 1. Tag elements for CSS styling
+                    const fos = Array.from(svg.querySelectorAll('foreignObject'));
+                    let titleFound = false;
+                    let descFound = false;
+                    
+                    fos.forEach((fo) => {
+                        const text = fo.textContent.trim();
+                        if (!text || fo.querySelector('i') || (fo.querySelector('svg') && fo.querySelectorAll('*').length < 5)) {
+                            fo.setAttribute('data-element-type', 'icon');
+                            return;
+                        }
+                        
+                        // Dynamically increase height and width to accommodate wrapped text
+                        const currentHeight = parseInt(fo.getAttribute('height') || '0');
+                        if (currentHeight > 0 && currentHeight < 200) {
+                            fo.setAttribute('height', Math.round(currentHeight * 1.8).toString());
+                        }
+                        const currentWidth = parseInt(fo.getAttribute('width') || '0');
+                        if (currentWidth > 0 && currentWidth < 300) {
+                            fo.setAttribute('width', Math.max(Math.round(currentWidth * 1.2), 180).toString());
+                        }
+
+                        if (!titleFound) {
+                            fo.setAttribute('data-element-type', 'title');
+                            titleFound = true;
+                        } else if (!descFound) {
+                            fo.setAttribute('data-element-type', 'desc');
+                            descFound = true;
+                        } else {
+                            if (fo.querySelector('strong') || fo.style.fontWeight === 'bold' || text.length < 15) {
+                                fo.setAttribute('data-element-type', 'item-label');
+                            } else {
+                                fo.setAttribute('data-element-type', 'item-desc');
+                            }
+                        }
+                    });
+
+                    // 2. Adjust height
                     const bbox = svg.getBoundingClientRect();
                     let contentHeight = bbox.height;
                     if (svg.viewBox && svg.viewBox.baseVal && svg.viewBox.baseVal.height) {

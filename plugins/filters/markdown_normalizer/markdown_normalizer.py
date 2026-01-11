@@ -3,7 +3,7 @@ title: Markdown Normalizer
 author: Fu-Jie
 author_url: https://github.com/Fu-Jie
 funding_url: https://github.com/Fu-Jie/awesome-openwebui
-version: 1.0.0
+version: 1.0.1
 description: A production-grade content normalizer filter that fixes common Markdown formatting issues in LLM outputs, such as broken code blocks, LaTeX formulas, and list formatting.
 """
 
@@ -91,6 +91,8 @@ class ContentNormalizer:
             r"(\{)(?![\"])(.*?)(?<![\"])(\})|"  # {...} Rhombus
             r"(>)(?![\"])(.*?)(?<![\"])(\])"  # >...] Asymmetric
             r")"
+            r"(\s*\[\d+\])?",  # Capture optional citation [1]
+            re.DOTALL,
         ),
         # Heading: #Heading -> # Heading
         "heading_space": re.compile(r"^(#+)([^ \n#])", re.MULTILINE),
@@ -290,14 +292,19 @@ class ContentNormalizer:
             id_str = match.group(2)
 
             # Find matching shape group
-            # Groups start at index 3 (in match.group terms) or index 2 (in match.groups() tuple)
-            # Tuple: (String, ID, Open1, Content1, Close1, ...)
             groups = match.groups()
-            for i in range(2, len(groups), 3):
+            citation = groups[-1] or ""  # Last group is citation
+
+            # Iterate over shape groups (excluding the last citation group)
+            for i in range(2, len(groups) - 1, 3):
                 if groups[i] is not None:
                     open_char = groups[i]
                     content = groups[i + 1]
                     close_char = groups[i + 2]
+
+                    # Append citation to content if present
+                    if citation:
+                        content += citation
 
                     # Escape quotes in content
                     content = content.replace('"', '\\"')
@@ -397,7 +404,7 @@ class Filter:
             default=True, description="Show status notification when fixes are applied"
         )
         show_debug_log: bool = Field(
-            default=False, description="Print debug logs to browser console (F12)"
+            default=True, description="Print debug logs to browser console (F12)"
         )
 
     def __init__(self):

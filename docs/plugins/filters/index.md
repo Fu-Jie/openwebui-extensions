@@ -46,6 +46,16 @@ Filters act as middleware in the message pipeline:
 
     [:octicons-arrow-right-24: Documentation](gemini-manifold-companion.md)
 
+-   :material-format-paint:{ .lg .middle } **Markdown Normalizer**
+
+    ---
+
+    Fixes common Markdown formatting issues in LLM outputs, including Mermaid syntax, code blocks, and LaTeX formulas.
+
+    **Version:** 1.0.1
+
+    [:octicons-arrow-right-24: Documentation](markdown_normalizer.md)
+
 </div>
 
 ---

@@ -3,7 +3,7 @@ title: Markdown 格式修复器 (Markdown Normalizer)
 author: Fu-Jie
 author_url: https://github.com/Fu-Jie
 funding_url: https://github.com/Fu-Jie/awesome-openwebui
-version: 1.0.0
+version: 1.0.1
 description: 生产级内容规范化过滤器，修复 LLM 输出中常见的 Markdown 格式问题，如损坏的代码块、LaTeX 公式、Mermaid 图表和列表格式。
 """
 
@@ -86,6 +86,8 @@ class ContentNormalizer:
             r"(\{)(?![\"])(.*?)(?<![\"])(\})|"  # {...} Rhombus
             r"(>)(?![\"])(.*?)(?<![\"])(\])"  # >...] Asymmetric
             r")"
+            r"(\s*\[\d+\])?",  # Capture optional citation [1]
+            re.DOTALL,
         ),
         # Heading: #Heading -> # Heading
         "heading_space": re.compile(r"^(#+)([^ \n#])", re.MULTILINE),
@@ -285,14 +287,19 @@ class ContentNormalizer:
             id_str = match.group(2)
 
             # Find matching shape group
-            # Groups start at index 3 (in match.group terms) or index 2 (in match.groups() tuple)
-            # Tuple: (String, ID, Open1, Content1, Close1, ...)
             groups = match.groups()
-            for i in range(2, len(groups), 3):
+            citation = groups[-1] or ""  # Last group is citation
+
+            # Iterate over shape groups (excluding the last citation group)
+            for i in range(2, len(groups) - 1, 3):
                 if groups[i] is not None:
                     open_char = groups[i]
                     content = groups[i + 1]
                     close_char = groups[i + 2]
+
+                    # Append citation to content if present
+                    if citation:
+                        content += citation
 
                     # 如果内容包含引号，进行转义
                     content = content.replace('"', '\\"')
@@ -397,7 +404,7 @@ class Filter:
         )
         show_status: bool = Field(default=True, description="应用修复时显示状态通知")
         show_debug_log: bool = Field(
-            default=False, description="在浏览器控制台打印调试日志 (F12)"
+            default=True, description="在浏览器控制台打印调试日志 (F12)"
         )
 
     def __init__(self):
