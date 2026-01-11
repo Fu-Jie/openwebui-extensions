@@ -618,6 +618,26 @@ class Filter:
             "max_context_tokens": self.valves.max_context_tokens,
         }
 
+    def _extract_chat_id(self, body: dict, metadata: Optional[dict]) -> str:
+        """Extract chat_id from body or metadata."""
+        if isinstance(body, dict):
+            chat_id = body.get("chat_id")
+            if isinstance(chat_id, str) and chat_id.strip():
+                return chat_id.strip()
+
+            body_metadata = body.get("metadata", {})
+            if isinstance(body_metadata, dict):
+                chat_id = body_metadata.get("chat_id")
+                if isinstance(chat_id, str) and chat_id.strip():
+                    return chat_id.strip()
+
+        if isinstance(metadata, dict):
+            chat_id = metadata.get("chat_id")
+            if isinstance(chat_id, str) and chat_id.strip():
+                return chat_id.strip()
+
+        return ""
+
     def _inject_summary_to_first_message(self, message: dict, summary: str) -> dict:
         """Injects the summary into the first message (prepended to content)."""
         content = message.get("content", "")
@@ -763,7 +783,7 @@ class Filter:
         Compression Strategy: Only responsible for injecting existing summaries, no Token calculation.
         """
         messages = body.get("messages", [])
-        chat_id = (__metadata__ or {}).get("chat_id")
+        chat_id = self._extract_chat_id(body, __metadata__)
 
         if not chat_id:
             await self._log(
@@ -886,7 +906,7 @@ class Filter:
         Executed after the LLM response is complete.
         Calculates Token count in the background and triggers summary generation (does not block current response, does not affect content output).
         """
-        chat_id = (__metadata__ or {}).get("chat_id")
+        chat_id = self._extract_chat_id(body, __metadata__)
         if not chat_id:
             await self._log(
                 "[Outlet] ❌ Missing chat_id in metadata, skipping compression",
