@@ -51,6 +51,7 @@ Located in the `plugins/` directory, containing Python-based enhancements:
 - **Async Context Compression** (`async-context-compression`): Optimizes token usage via context compression.
 - **Context Enhancement** (`context_enhancement_filter`): Enhances chat context.
 - **Gemini Manifold Companion** (`gemini_manifold_companion`): Companion filter for Gemini Manifold.
+- **Gemini Multimodal Filter** (`web_gemini_multimodel_filter`): Provides multimodal capabilities (PDF, Office, Video) for any model via Gemini.
 - **Markdown Normalizer** (`markdown_normalizer`): Fixes common Markdown formatting issues in LLM outputs.
 
 
