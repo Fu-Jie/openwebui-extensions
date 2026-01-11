@@ -15,6 +15,16 @@
       "contributions": [
         "ideas"
       ]
+    },
+    {
+      "login": "dhaern",
+      "name": "Raxxoor",
+      "avatar_url": "https://avatars.githubusercontent.com/u/7317522?v=4",
+      "profile": "https://trade.xyz/?ref=BZ1RJRXWO",
+      "contributions": [
+        "bug",
+        "ideas"
+      ]
     }
   ],
   "contributorsPerLine": 7,
