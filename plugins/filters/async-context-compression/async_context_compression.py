@@ -277,6 +277,7 @@ from datetime import datetime
 
 
 def _discover_owui_engine(db_module: Any) -> Optional[Engine]:
+    """Discover the Open WebUI SQLAlchemy engine via provided db module helpers."""
     if db_module is None:
         return None
 
@@ -288,7 +289,7 @@ def _discover_owui_engine(db_module: Any) -> Optional[Engine]:
             with db_context() as session:
                 try:
                     return session.get_bind()
-                except Exception:
+                except AttributeError:
                     return getattr(session, "bind", None) or getattr(
                         session, "engine", None
                     )
@@ -304,6 +305,7 @@ def _discover_owui_engine(db_module: Any) -> Optional[Engine]:
 
 
 def _discover_owui_schema(db_module: Any) -> Optional[str]:
+    """Discover the Open WebUI database schema name if configured."""
     if db_module is None:
         return None
 
@@ -376,6 +378,7 @@ class Filter:
 
     @contextlib.contextmanager
     def _db_session(self):
+        """Yield a database session using Open WebUI helpers with graceful fallbacks."""
         db_module = self._owui_db
         db_context = None
         if db_module is not None:
