@@ -1587,6 +1587,40 @@ feat(flash-card): add _get_user_context for safer user info retrieval
 
 ---
 
+## 🤝 贡献者认可规范 (Contributor Recognition Standards)
+
+本项目使用 [All Contributors](https://allcontributors.org/) 规范来认可所有形式的贡献。
+
+### 1. 如何添加贡献者 (How to Add)
+
+在 GitHub 的 **Issue** 或 **Pull Request** 评论区发送以下指令，Bot 会自动创建 PR 更新 README：
+
+```text
+@all-contributors please add @username for <contribution-type>
+```
+
+### 2. 常用贡献类型 (Common Contribution Types)
+
+| 类型 (Type) | 含义 (Meaning) | 图标 (Icon) |
+| :--- | :--- | :---: |
+| **`ideas`** | 提供想法、功能建议或改进思路 | 🤔 |
+| **`code`** | 编写并提交代码实现 | 💻 |
+| **`bug`** | 报告 Bug 或发现逻辑缺陷 | 🐛 |
+| **`doc`** | 改进文档、README 或注释 | 📖 |
+| **`translation`** | 提供多语言翻译支持 | 🌍 |
+| **`review`** | 进行代码审查 (Code Review) | 👀 |
+| **`design`** | 提供 UI/UX 设计或图标 | 🎨 |
+| **`question`** | 在讨论区回答用户问题 | 💬 |
+| **`tutorial`** | 编写教程或使用指南 | ✅ |
+
+### 3. 核心区别：`ideas` vs `code`
+
+- **`ideas`**: 贡献者提供了核心思路、逻辑优化方案或功能需求，但未直接编写代码。
+- **`code`**: 贡献者直接编写并提交了 Pull Request。
+- **组合使用**: 如果贡献者既提出了方案又完成了实现，应同时添加：`for ideas, code`。
+
+---
+
 ## �📚 参考资源 (Reference Resources)
 
 - [Action 插件模板 (英文)](plugins/actions/ACTION_PLUGIN_TEMPLATE.py)
