@@ -320,6 +320,43 @@ logger.error(f"Processing failed: {e}", exc_info=True)
 
 ---
 
+## 🛡️ Filter 插件开发规范 (Filter Plugin Standards)
+
+### 1. 状态管理 (State Management) - **关键 (Critical)**
+
+Filter 实例在 OpenWebUI 生命周期中是**单例 (Singleton)**。这意味着同一个 Filter 实例会处理所有并发请求。
+
+- **❌ 禁止 (Prohibited)**: 使用 `self` 存储请求级别的临时状态（如 `self.temp_state`）。这会导致严重的**竞态条件 (Race Conditions)**，即一个请求的数据被另一个请求覆盖。
+- **✅ 推荐 (Recommended)**:
+    - **无状态设计**: `inlet` 和 `outlet` 应该尽可能独立。
+    - **重新计算**: 在 `outlet` 中根据 `body['messages']` 重新计算所需的状态，而不是依赖 `inlet` 传递。
+    - **元数据传递**: 如果必须传递状态，尝试使用 `body` 中的临时字段（需谨慎处理清理）或 `__metadata__`（如果可写）。
+
+### 2. 摘要注入角色 (Summary Injection Role)
+
+当注入历史摘要或上下文时：
+
+- **❌ 避免 (Avoid)**: 使用 `system` 角色（部分模型对 system prompt 位置敏感或不支持中间插入）。
+- **❌ 避免 (Avoid)**: 使用 `user` 角色（容易混淆用户真实意图）。
+- **✅ 推荐 (Recommended)**: 使用 **`assistant`** 角色。这通常被模型视为上下文历史的一部分，兼容性最好。
+
+### 3. 模型默认值 (Model Defaults)
+
+- **❌ 禁止 (Prohibited)**: 硬编码特定模型 ID（如 `gpt-3.5-turbo`）作为默认值。这会导致非 OpenAI 用户出错。
+- **✅ 推荐 (Recommended)**:
+    - 默认值设为 `None` 或空字符串。
+    - 优先使用当前对话的模型 (`body.get("model")`)。
+    - 如果必须指定，通过 `Valves` 让用户配置。
+
+### 4. 异步处理 (Async Processing)
+
+对于耗时的后台任务（如摘要生成、日志记录）：
+
+- **✅ 推荐 (Recommended)**: 在 `outlet` 中使用 `asyncio.create_task()` 启动后台任务，确保不阻塞用户响应。
+- **✅ 推荐 (Recommended)**: 在后台任务中捕获所有异常，防止崩溃影响主进程。
+
+---
+
 ## 🎨 HTML 注入规范 (HTML Injection)
 
 使用统一的标记和结构：
