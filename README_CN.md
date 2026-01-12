@@ -7,7 +7,7 @@ OpenWebUI 增强功能集合。包含个人开发与收集的插件、提示词�
 <!-- STATS_START -->
 ## 📊 社区统计
 
-> 🕐 自动更新于 2026-01-13 03:09
+> 🕐 自动更新于 2026-01-13 04:09
 
 | 👤 作者 | 👥 粉丝 | ⭐ 积分 | 🏆 贡献 |
 |:---:|:---:|:---:|:---:|
@@ -15,19 +15,19 @@ OpenWebUI 增强功能集合。包含个人开发与收集的插件、提示词�
 
 | 📝 发布 | ⬇️ 下载 | 👁️ 浏览 | 👍 点赞 | 💾 收藏 |
 |:---:|:---:|:---:|:---:|:---:|
-| **15** | **1243** | **13815** | **82** | **80** |
+| **15** | **1245** | **13840** | **82** | **80** |
 
 ### 🔥 热门插件 Top 6
 
-> 🕐 自动更新于 2026-01-13 03:09
+> 🕐 自动更新于 2026-01-13 04:09
 
 | 排名 | 插件 | 版本 | 下载 | 浏览 | 更新日期 |
 |:---:|------|:---:|:---:|:---:|:---:|
-| 🥇 | [Smart Mind Map](https://openwebui.com/posts/turn_any_text_into_beautiful_mind_maps_3094c59a) | 0.9.1 | 393 | 3567 | 2026-01-07 |
+| 🥇 | [Smart Mind Map](https://openwebui.com/posts/turn_any_text_into_beautiful_mind_maps_3094c59a) | 0.9.1 | 395 | 3578 | 2026-01-07 |
 | 🥈 | [Export to Excel](https://openwebui.com/posts/export_mulit_table_to_excel_244b8f9d) | 0.3.7 | 189 | 612 | 2026-01-07 |
 | 🥉 | [📊 Smart Infographic (AntV)](https://openwebui.com/posts/smart_infographic_ad6f0c7f) | 1.4.9 | 149 | 1621 | 2026-01-11 |
-| 4️⃣ | [Async Context Compression](https://openwebui.com/posts/async_context_compression_b1655bc8) | 1.1.3 | 144 | 1604 | 2026-01-11 |
-| 5️⃣ | [Export to Word (Enhanced)](https://openwebui.com/posts/export_to_word_enhanced_formatting_fca6a315) | 0.4.3 | 106 | 949 | 2026-01-07 |
+| 4️⃣ | [Async Context Compression](https://openwebui.com/posts/async_context_compression_b1655bc8) | 1.1.3 | 144 | 1605 | 2026-01-11 |
+| 5️⃣ | [Export to Word (Enhanced)](https://openwebui.com/posts/export_to_word_enhanced_formatting_fca6a315) | 0.4.3 | 106 | 951 | 2026-01-07 |
 | 6️⃣ | [Flash Card](https://openwebui.com/posts/flash_card_65a2ea8f) | 0.2.4 | 103 | 1899 | 2026-01-07 |
 
 *完整统计请查看 [社区统计报告](./docs/community-stats.zh.md)*
