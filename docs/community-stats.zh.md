@@ -1,14 +1,14 @@
 # 📊 OpenWebUI 社区统计报告
 
-> 📅 更新时间: 2026-01-12 15:14
+> 📅 更新时间: 2026-01-12 16:12
 
 ## 📈 总览
 
 | 指标 | 数值 |
 |------|------|
 | 📝 发布数量 | 14 |
-| ⬇️ 总下载量 | 1197 |
-| 👁️ 总浏览量 | 13327 |
+| ⬇️ 总下载量 | 1199 |
+| 👁️ 总浏览量 | 13348 |
 | 👍 总点赞数 | 79 |
 | 💾 总收藏数 | 78 |
 | 💬 总评论数 | 18 |
@@ -22,9 +22,9 @@
 
 | 排名 | 标题 | 类型 | 版本 | 下载 | 浏览 | 点赞 | 收藏 | 更新日期 |
 |:---:|------|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| 1 | [Smart Mind Map](https://openwebui.com/posts/turn_any_text_into_beautiful_mind_maps_3094c59a) | action | 0.9.1 | 382 | 3469 | 11 | 22 | 2026-01-07 |
-| 2 | [Export to Excel](https://openwebui.com/posts/export_mulit_table_to_excel_244b8f9d) | action | 0.3.7 | 186 | 600 | 3 | 4 | 2026-01-07 |
-| 3 | [📊 Smart Infographic (AntV)](https://openwebui.com/posts/smart_infographic_ad6f0c7f) | action | 1.4.9 | 142 | 1563 | 8 | 10 | 2026-01-11 |
+| 1 | [Smart Mind Map](https://openwebui.com/posts/turn_any_text_into_beautiful_mind_maps_3094c59a) | action | 0.9.1 | 383 | 3476 | 11 | 22 | 2026-01-07 |
+| 2 | [Export to Excel](https://openwebui.com/posts/export_mulit_table_to_excel_244b8f9d) | action | 0.3.7 | 187 | 603 | 3 | 4 | 2026-01-07 |
+| 3 | [📊 Smart Infographic (AntV)](https://openwebui.com/posts/smart_infographic_ad6f0c7f) | action | 1.4.9 | 142 | 1567 | 8 | 10 | 2026-01-11 |
 | 4 | [Async Context Compression](https://openwebui.com/posts/async_context_compression_b1655bc8) | action | 1.1.3 | 139 | 1552 | 6 | 10 | 2026-01-11 |
 | 5 | [Export to Word (Enhanced)](https://openwebui.com/posts/export_to_word_enhanced_formatting_fca6a315) | action | 0.4.3 | 101 | 911 | 6 | 10 | 2026-01-07 |
 | 6 | [Flash Card](https://openwebui.com/posts/flash_card_65a2ea8f) | action | 0.2.4 | 100 | 1859 | 8 | 6 | 2026-01-07 |
@@ -35,4 +35,4 @@
 | 11 | [闪记卡 (Flash Card)](https://openwebui.com/posts/闪记卡生成插件_4a31eac3) | action | 0.2.4 | 12 | 367 | 4 | 1 | 2026-01-07 |
 | 12 | [异步上下文压缩](https://openwebui.com/posts/异步上下文压缩_5c0617cb) | action | 1.1.3 | 9 | 232 | 4 | 1 | 2026-01-11 |
 | 13 | [精读](https://openwebui.com/posts/精读_99830b0f) | action | 1.0.0 | 3 | 118 | 2 | 1 | 2026-01-08 |
-| 14 | [ 🛠️ Debug Open WebUI Plugins in Your Browser](https://openwebui.com/posts/debug_open_webui_plugins_in_your_browser_81bf7960) | unknown |  | 0 | 459 | 10 | 6 | 2026-01-10 |
+| 14 | [ 🛠️ Debug Open WebUI Plugins in Your Browser](https://openwebui.com/posts/debug_open_webui_plugins_in_your_browser_81bf7960) | unknown |  | 0 | 466 | 10 | 6 | 2026-01-10 |
