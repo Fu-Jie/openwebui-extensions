@@ -1,14 +1,14 @@
 """
 title: Markdown Normalizer
 author: Fu-Jie
-author_url: https://github.com/Fu-Jie
-funding_url: https://github.com/Fu-Jie/awesome-openwebui
-version: 1.0.1
-description: A production-grade content normalizer filter that fixes common Markdown formatting issues in LLM outputs, such as broken code blocks, LaTeX formulas, and list formatting.
+author_url: https://github.com/Fu-Jie/awesome-openwebui
+funding_url: https://github.com/open-webui
+version: 1.1.0
+description: A content normalizer filter that fixes common Markdown formatting issues in LLM outputs, such as broken code blocks, LaTeX formulas, and list formatting.
 """
 
 from pydantic import BaseModel, Field
-from typing import Optional, List, Callable
+from typing import Optional, List, Callable, Dict
 import re
 import logging
 import logging
@@ -75,7 +75,7 @@ class ContentNormalizer:
         # Priority: Longer delimiters match first
         "mermaid_node": re.compile(
             r'("[^"\\]*(?:\\.[^"\\]*)*")|'  # Match quoted strings first (Group 1)
-            r"(\w+)\s*(?:"
+            r"(\w+)(?:"
             r"(\(\(\()(?![\"])(.*?)(?<![\"])(\)\)\))|"  # (((...))) Double Circle
             r"(\(\()(?![\"])(.*?)(?<![\"])(\)\))|"  # ((...)) Circle
             r"(\(\[)(?![\"])(.*?)(?<![\"])(\]\))|"  # ([...]) Stadium
@@ -86,7 +86,7 @@ class ContentNormalizer:
             r"(\[\\)(?![\"])(.*?)(?<![\"])(\\\])|"  # [\...\] Parallelogram Alt
             r"(\[/)(?![\"])(.*?)(?<![\"])(\\\])|"  # [/...\] Trapezoid
             r"(\[\\)(?![\"])(.*?)(?<![\"])(/\])|"  # [\.../] Trapezoid Alt
-            r"(\()(?![\"])(.*?)(?<![\"])(\))|"  # (...) Round
+            r"(\()(?![\"])([^)]*?)(?<![\"])(\))|"  # (...) Round - Modified to be safer
             r"(\[)(?![\"])(.*?)(?<![\"])(\])|"  # [...] Square
             r"(\{)(?![\"])(.*?)(?<![\"])(\})|"  # {...} Rhombus
             r"(>)(?![\"])(.*?)(?<![\"])(\])"  # >...] Asymmetric
@@ -267,9 +267,10 @@ class ContentNormalizer:
             "：": ":",
             "？": "?",
             "！": "!",
-            '"': '"',
-            '"': '"',
-            """: "'", """: "'",
+            "“": '"',
+            "”": '"',
+            "‘": "'",
+            "’": "'",
         }
 
         parts = content.split("```")
@@ -410,9 +411,46 @@ class Filter:
     def __init__(self):
         self.valves = self.Valves()
 
+    def _get_chat_context(
+        self, body: dict, __metadata__: Optional[dict] = None
+    ) -> Dict[str, str]:
+        """
+        Unified extraction of chat context information (chat_id, message_id).
+        Prioritizes extraction from body, then metadata.
+        """
+        chat_id = ""
+        message_id = ""
+
+        # 1. Try to get from body
+        if isinstance(body, dict):
+            chat_id = body.get("chat_id", "")
+            message_id = body.get("id", "")  # message_id is usually 'id' in body
+
+            # Check body.metadata as fallback
+            if not chat_id or not message_id:
+                body_metadata = body.get("metadata", {})
+                if isinstance(body_metadata, dict):
+                    if not chat_id:
+                        chat_id = body_metadata.get("chat_id", "")
+                    if not message_id:
+                        message_id = body_metadata.get("message_id", "")
+
+        # 2. Try to get from __metadata__ (as supplement)
+        if __metadata__ and isinstance(__metadata__, dict):
+            if not chat_id:
+                chat_id = __metadata__.get("chat_id", "")
+            if not message_id:
+                message_id = __metadata__.get("message_id", "")
+
+        return {
+            "chat_id": str(chat_id).strip(),
+            "message_id": str(message_id).strip(),
+        }
+
     def _contains_html(self, content: str) -> bool:
         """Check if content contains HTML tags (to avoid breaking HTML output)"""
-        pattern = r"<\s*/?\s*(?:html|head|body|div|span|p|br|hr|ul|ol|li|table|thead|tbody|tfoot|tr|td|th|img|a|b|i|strong|em|code|pre|blockquote|h[1-6]|script|style|form|input|button|label|select|option|iframe|link|meta|title)\b"
+        # Removed common Mermaid-compatible tags like br, b, i, strong, em, span
+        pattern = r"<\s*/?\s*(?:html|head|body|div|p|hr|ul|ol|li|table|thead|tbody|tfoot|tr|td|th|img|a|code|pre|blockquote|h[1-6]|script|style|form|input|button|label|select|option|iframe|link|meta|title)\b"
         return bool(re.search(pattern, content, re.IGNORECASE))
 
     async def _emit_status(self, __event_emitter__, applied_fixes: List[str]):
@@ -438,24 +476,23 @@ class Filter:
             print(f"Error emitting status: {e}")
 
     async def _emit_debug_log(
-        self, __event_call__, applied_fixes: List[str], original: str, normalized: str
+        self,
+        __event_call__,
+        applied_fixes: List[str],
+        original: str,
+        normalized: str,
+        chat_id: str = "",
     ):
         """Emit debug log to browser console via JS execution"""
         if not self.valves.show_debug_log or not __event_call__:
             return
 
         try:
-            # Prepare data for JS
-            log_data = {
-                "fixes": applied_fixes,
-                "original": original,
-                "normalized": normalized,
-            }
-
             # Construct JS code
             js_code = f"""
                 (async function() {{
                     console.group("🛠️ Markdown Normalizer Debug");
+                    console.log("Chat ID:", {json.dumps(chat_id)});
                     console.log("Applied Fixes:", {json.dumps(applied_fixes, ensure_ascii=False)});
                     console.log("Original Content:", {json.dumps(original, ensure_ascii=False)});
                     console.log("Normalized Content:", {json.dumps(normalized, ensure_ascii=False)});
@@ -521,11 +558,13 @@ class Filter:
                         await self._emit_status(
                             __event_emitter__, normalizer.applied_fixes
                         )
+                        chat_ctx = self._get_chat_context(body, __metadata__)
                         await self._emit_debug_log(
                             __event_call__,
                             normalizer.applied_fixes,
                             content,
                             new_content,
+                            chat_id=chat_ctx["chat_id"],
                         )
 
         return body

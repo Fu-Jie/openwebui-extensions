@@ -125,19 +125,45 @@ if x == 1:
 ```
 
 ## 7. Mermaid 语法修复 (Mermaid Syntax Fix)
-**功能**: 修复 Mermaid 图表中常见的语法错误，特别是未加引号的标签包含特殊字符的情况。
+**功能**: 修复 Mermaid 图表中常见的语法错误，特别是未加引号的标签包含特殊字符、嵌套括号或 HTML 标签的情况。
 **默认**: 开启 (`enable_mermaid_fix = True`)
-**示例**:
-*   **Before**:
-    ```mermaid
-    graph TD
-    A[Label with (parens)] --> B(Label with [brackets])
-    ```
-*   **After**:
-    ```mermaid
-    graph TD
-    A["Label with (parens)"] --> B("Label with [brackets]")
-    ```
+
+### 7.1 基础特殊字符
+**Before**:
+```mermaid
+graph TD
+A[Label with (parens)] --> B(Label with [brackets])
+```
+**After**:
+```mermaid
+graph TD
+A["Label with (parens)"] --> B("Label with [brackets]")
+```
+
+### 7.2 嵌套括号修复 (v1.1.0+)
+**Before**:
+```mermaid
+graph TD
+A((开始: 发现可疑快照)) --> B[物理损坏(Allocation Errors)]
+```
+**After**:
+```mermaid
+graph TD
+A(("开始: 发现可疑快照")) --> B["物理损坏(Allocation Errors)"]
+```
+
+### 7.3 包含 HTML 标签 (v1.1.0+)
+**Before**:
+```mermaid
+graph TD
+A[第一步<br/>环境隔离] --> B{状态?}
+```
+**After**:
+```mermaid
+graph TD
+A["第一步<br/>环境隔离"] --> B{"状态?"}
+```
+*注：插件已优化 HTML 保护机制，允许包含 `<br/>` 等标签的 Mermaid 图表正常触发修复。*
 
 ## 8. XML 标签清理 (XML Cleanup)
 

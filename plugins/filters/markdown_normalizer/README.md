@@ -1,6 +1,9 @@
 # Markdown Normalizer Filter
 
-A production-grade content normalizer filter for Open WebUI that fixes common Markdown formatting issues in LLM outputs. It ensures that code blocks, LaTeX formulas, Mermaid diagrams, and other Markdown elements are rendered correctly.
+**Author:** [Fu-Jie](https://github.com/Fu-Jie)
+**Version:** 1.1.0
+
+A content normalizer filter for Open WebUI that fixes common Markdown formatting issues in LLM outputs. It ensures that code blocks, LaTeX formulas, Mermaid diagrams, and other Markdown elements are rendered correctly.
 
 ## Features
 
@@ -40,6 +43,14 @@ A production-grade content normalizer filter for Open WebUI that fixes common Ma
 *   `enable_xml_tag_cleanup`: Cleanup leftover XML tags.
 *   `show_status`: Show status notification when fixes are applied.
 *   `show_debug_log`: Print debug logs to browser console.
+
+## Changelog
+
+### v1.1.0
+*   **Mermaid Fix Refinement**: Improved regex to handle nested parentheses in node labels (e.g., `ID("Label (text)")`) and avoided matching connection labels.
+*   **HTML Safeguard Optimization**: Refined `_contains_html` to allow common tags like `<br/>`, `<b>`, `<i>`, etc., ensuring Mermaid diagrams with these tags are still normalized.
+*   **Full-width Symbol Cleanup**: Fixed duplicate keys and incorrect quote mapping in `FULLWIDTH_MAP`.
+*   **Bug Fixes**: Fixed missing `Dict` import in Python files.
 
 ## License
 

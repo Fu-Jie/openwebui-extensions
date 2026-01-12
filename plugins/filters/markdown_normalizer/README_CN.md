@@ -1,6 +1,9 @@
 # Markdown 格式化过滤器 (Markdown Normalizer)
 
-这是一个用于 Open WebUI 的生产级内容格式化过滤器，旨在修复 LLM 输出中常见的 Markdown 格式问题。它能确保代码块、LaTeX 公式、Mermaid 图表和其他 Markdown 元素被正确渲染。
+**作者:** [Fu-Jie](https://github.com/Fu-Jie)
+**版本:** 1.1.0
+
+这是一个用于 Open WebUI 的内容格式化过滤器，旨在修复 LLM 输出中常见的 Markdown 格式问题。它能确保代码块、LaTeX 公式、Mermaid 图表和其他 Markdown 元素被正确渲染。
 
 ## 功能特性
 
@@ -40,6 +43,14 @@
 *   `enable_xml_tag_cleanup`: 清理残留的 XML 标签。
 *   `show_status`: 应用修复时显示状态通知。
 *   `show_debug_log`: 在浏览器控制台打印调试日志。
+
+## 更新日志
+
+### v1.1.0
+*   **Mermaid 修复优化**: 改进了正则表达式以处理节点标签中的嵌套括号（如 `ID("标签 (文本)")`），并避免误匹配连接线上的文字。
+*   **HTML 保护机制优化**: 优化了 `_contains_html` 检测，允许 `<br/>`, `<b>`, `<i>` 等常见标签，确保包含这些标签的 Mermaid 图表能被正常规范化。
+*   **全角符号清理**: 修复了 `FULLWIDTH_MAP` 中的重复键名和错误的引号映射。
+*   **Bug 修复**: 修复了 Python 文件中缺失的 `Dict` 类型导入。
 
 ## 许可证
 
