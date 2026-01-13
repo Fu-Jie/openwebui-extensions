@@ -29,6 +29,58 @@ class TestMarkdownNormalizer(unittest.TestCase):
         expected = "Line 1\nLine 2\tTabbed"
         self.assertEqual(self.normalizer.normalize(input_text), expected)
 
+
+    def test_escape_fix_respects_code_blocks(self):
+        """Test that escape fix can be limited to outside code blocks"""
+        # Test case: JSON string with \n should be preserved inside code block
+        input_text = 'Text with\nescape\n```json\n{"message": "Line 1\\nLine 2"}\n```\nMore text\nhere'
+        
+        # With enable_escape_fix_in_code_blocks=False (default, safe mode)
+        config_safe = NormalizerConfig(
+            enable_escape_fix=True,
+            enable_escape_fix_in_code_blocks=False,
+            enable_code_block_fix=False  # Disable to avoid interfering with test
+        )
+        normalizer_safe = ContentNormalizer(config_safe)
+        result_safe = normalizer_safe.normalize(input_text)
+        
+        # Outside code blocks: escapes should be fixed
+        # Inside code blocks: escapes should be preserved
+        self.assertIn('Text with', result_safe)
+        self.assertIn('escape', result_safe)
+        self.assertIn('{"message": "Line 1\\nLine 2"}', result_safe)  # Preserved in code
+        self.assertIn('More text', result_safe)
+        
+        # With enable_escape_fix_in_code_blocks=True (global mode)
+        config_global = NormalizerConfig(
+            enable_escape_fix=True,
+            enable_escape_fix_in_code_blocks=True,
+            enable_code_block_fix=False
+        )
+        normalizer_global = ContentNormalizer(config_global)
+        result_global = normalizer_global.normalize(input_text)
+        
+        # All escapes should be fixed (original behavior)
+        self.assertNotIn('\\n', result_global)  # All backslash-n converted
+    
+    def test_fullwidth_quotes_in_code(self):
+        """Test that explicit full-width quotation marks are converted"""
+        # Test with full-width quotation marks (U+FF02 and U+FF07)
+        input_text = '```python\nprint(＂hello＂)\nprint(＇world＇)\n```'
+        
+        config = NormalizerConfig(
+            enable_fullwidth_symbol_fix=True,
+            enable_code_block_fix=False
+        )
+        normalizer = ContentNormalizer(config)
+        result = normalizer.normalize(input_text)
+        
+        # Full-width quotes should be converted to half-width
+        self.assertIn('print("hello")', result)
+        self.assertIn("print('world')", result)
+        self.assertNotIn('＂', result)
+        self.assertNotIn('＇', result)
+
     def test_thought_tag_fix(self):
         # Case 1: Standard tag spacing
         input_text = "Thinking...</thought>Result"

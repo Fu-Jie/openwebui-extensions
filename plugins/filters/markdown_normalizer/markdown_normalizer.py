@@ -11,7 +11,6 @@ from pydantic import BaseModel, Field
 from typing import Optional, List, Callable, Dict
 import re
 import logging
-import logging
 import asyncio
 import json
 from dataclasses import dataclass, field
@@ -25,6 +24,7 @@ class NormalizerConfig:
     """Configuration class for enabling/disabling specific normalization rules"""
 
     enable_escape_fix: bool = True  # Fix excessive escape characters
+    enable_escape_fix_in_code_blocks: bool = False  # Apply escape fix inside code blocks (default: False for safety)
     enable_thought_tag_fix: bool = True  # Normalize thought tags
     enable_code_block_fix: bool = True  # Fix code block formatting
     enable_latex_fix: bool = True  # Fix LaTeX formula formatting
@@ -214,12 +214,28 @@ class ContentNormalizer:
             return content
 
     def _fix_escape_characters(self, content: str) -> str:
-        """Fix excessive escape characters"""
-        content = content.replace("\\r\\n", "\n")
-        content = content.replace("\\n", "\n")
-        content = content.replace("\\t", "\t")
-        content = content.replace("\\\\", "\\")
-        return content
+        """Fix excessive escape characters
+        
+        If enable_escape_fix_in_code_blocks is False (default), this method will only
+        fix escape characters outside of code blocks to avoid breaking valid code
+        examples (e.g., JSON strings with \\n, regex patterns, etc.).
+        """
+        if self.config.enable_escape_fix_in_code_blocks:
+            # Apply globally (original behavior)
+            content = content.replace("\\r\\n", "\n")
+            content = content.replace("\\n", "\n")
+            content = content.replace("\\t", "\t")
+            content = content.replace("\\\\", "\\")
+            return content
+        else:
+            # Apply only outside code blocks (safe mode)
+            parts = content.split("```")
+            for i in range(0, len(parts), 2):  # Even indices are markdown text (not code)
+                parts[i] = parts[i].replace("\\r\\n", "\n")
+                parts[i] = parts[i].replace("\\n", "\n")
+                parts[i] = parts[i].replace("\\t", "\t")
+                parts[i] = parts[i].replace("\\\\", "\\")
+            return "```".join(parts)
 
     def _fix_thought_tags(self, content: str) -> str:
         """Normalize thought tags: unify naming and fix spacing"""
@@ -239,7 +255,7 @@ class ContentNormalizer:
         return content
 
     def _fix_latex_formulas(self, content: str) -> str:
-        """Normalize LaTeX formulas: \[ -> $$ (block), \( -> $ (inline)"""
+        r"""Normalize LaTeX formulas: \[ -> $$ (block), \( -> $ (inline)"""
         content = self._PATTERNS["latex_bracket_block"].sub(r"$$\1$$", content)
         content = self._PATTERNS["latex_paren_inline"].sub(r"$\1$", content)
         return content
@@ -267,6 +283,8 @@ class ContentNormalizer:
             "：": ":",
             "？": "?",
             "！": "!",
+            "＂": '"',  # U+FF02 FULLWIDTH QUOTATION MARK
+            "＇": "'",  # U+FF07 FULLWIDTH APOSTROPHE
             "“": '"',
             "”": '"',
             "‘": "'",
@@ -367,6 +385,10 @@ class Filter:
         )
         enable_escape_fix: bool = Field(
             default=True, description="Fix excessive escape characters (\\n, \\t, etc.)"
+        )
+        enable_escape_fix_in_code_blocks: bool = Field(
+            default=False, 
+            description="Apply escape fix inside code blocks (⚠️ Warning: May break valid code like JSON strings or regex patterns. Default: False for safety)"
         )
         enable_thought_tag_fix: bool = Field(
             default=True, description="Normalize </thought> tags"
@@ -532,6 +554,7 @@ class Filter:
                 # Configure normalizer based on valves
                 config = NormalizerConfig(
                     enable_escape_fix=self.valves.enable_escape_fix,
+                    enable_escape_fix_in_code_blocks=self.valves.enable_escape_fix_in_code_blocks,
                     enable_thought_tag_fix=self.valves.enable_thought_tag_fix,
                     enable_code_block_fix=self.valves.enable_code_block_fix,
                     enable_latex_fix=self.valves.enable_latex_fix,

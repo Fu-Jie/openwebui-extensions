@@ -24,6 +24,7 @@ class NormalizerConfig:
     """配置类，用于启用/禁用特定的规范化规则"""
 
     enable_escape_fix: bool = True  # 修复过度的转义字符
+    enable_escape_fix_in_code_blocks: bool = False  # 在代码块内应用转义修复 (默认: False 更安全)
     enable_thought_tag_fix: bool = True  # 规范化思维链标签
     enable_code_block_fix: bool = True  # 修复代码块格式
     enable_latex_fix: bool = True  # 修复 LaTeX 公式格式
@@ -234,7 +235,7 @@ class ContentNormalizer:
         return content
 
     def _fix_latex_formulas(self, content: str) -> str:
-        """Normalize LaTeX formulas: \[ -> $$ (block), \( -> $ (inline)"""
+        r"""规范化 LaTeX 公式: \[ -> $$ (块级), \( -> $ (行内)"""
         content = self._PATTERNS["latex_bracket_block"].sub(r"$$\1$$", content)
         content = self._PATTERNS["latex_paren_inline"].sub(r"$\1$", content)
         return content
@@ -262,6 +263,8 @@ class ContentNormalizer:
             "：": ":",
             "？": "?",
             "！": "!",
+            "＂": '"',  # U+FF02 全角引号
+            "＇": "'",  # U+FF07 全角撇号
             "“": '"',
             "”": '"',
             "‘": "'",
@@ -557,6 +560,7 @@ class Filter:
                 # Configure normalizer based on valves
                 config = NormalizerConfig(
                     enable_escape_fix=self.valves.enable_escape_fix,
+                    enable_escape_fix_in_code_blocks=self.valves.enable_escape_fix_in_code_blocks,
                     enable_thought_tag_fix=self.valves.enable_thought_tag_fix,
                     enable_code_block_fix=self.valves.enable_code_block_fix,
                     enable_latex_fix=self.valves.enable_latex_fix,
