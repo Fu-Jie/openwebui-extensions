@@ -45,6 +45,20 @@ A content normalizer filter for Open WebUI that fixes common Markdown formatting
 *   `show_status`: Show status notification when fixes are applied.
 *   `show_debug_log`: Print debug logs to browser console.
 
+## Testing
+
+Comprehensive testing has been performed to validate all fixes. See [TESTING.md](TESTING.md) for detailed test coverage including:
+
+- ✅ JSON strings with escape sequences
+- ✅ Python regex patterns
+- ✅ Multiple code blocks
+- ✅ Fullwidth symbol conversion
+- ✅ Mixed content (code + LaTeX + tables)
+- ✅ Edge cases and error handling
+- ✅ Thought tag normalization
+
+All 15 unit tests and 7 comprehensive integration tests pass.
+
 ## Changelog
 
 ### v1.1.0
