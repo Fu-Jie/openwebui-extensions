@@ -10,7 +10,7 @@ A collection of enhancements, plugins, and prompts for [OpenWebUI](https://githu
 <!-- STATS_START -->
 ## 📊 Community Stats
 
-> 🕐 Auto-updated: 2026-01-14 03:08
+> 🕐 Auto-updated: 2026-01-14 04:09
 
 | 👤 Author | 👥 Followers | ⭐ Points | 🏆 Contributions |
 |:---:|:---:|:---:|:---:|
@@ -18,19 +18,19 @@ A collection of enhancements, plugins, and prompts for [OpenWebUI](https://githu
 
 | 📝 Posts | ⬇️ Downloads | 👁️ Views | 👍 Upvotes | 💾 Saves |
 |:---:|:---:|:---:|:---:|:---:|
-| **15** | **1320** | **15305** | **88** | **94** |
+| **15** | **1326** | **15377** | **88** | **95** |
 
 ### 🔥 Top 6 Popular Plugins
 
-> 🕐 Auto-updated: 2026-01-14 03:08
+> 🕐 Auto-updated: 2026-01-14 04:09
 
 | Rank | Plugin | Version | Downloads | Views | Updated |
 |:---:|------|:---:|:---:|:---:|:---:|
-| 🥇 | [Smart Mind Map](https://openwebui.com/posts/turn_any_text_into_beautiful_mind_maps_3094c59a) | 0.9.1 | 422 | 3803 | 2026-01-07 |
-| 🥈 | [Export to Excel](https://openwebui.com/posts/export_mulit_table_to_excel_244b8f9d) | 0.3.7 | 190 | 634 | 2026-01-07 |
-| 🥉 | [📊 Smart Infographic (AntV)](https://openwebui.com/posts/smart_infographic_ad6f0c7f) | 1.4.9 | 158 | 1723 | 2026-01-11 |
-| 4️⃣ | [Async Context Compression](https://openwebui.com/posts/async_context_compression_b1655bc8) | 1.1.3 | 150 | 1658 | 2026-01-11 |
-| 5️⃣ | [Export to Word (Enhanced)](https://openwebui.com/posts/export_to_word_enhanced_formatting_fca6a315) | 0.4.3 | 110 | 1005 | 2026-01-07 |
+| 🥇 | [Smart Mind Map](https://openwebui.com/posts/turn_any_text_into_beautiful_mind_maps_3094c59a) | 0.9.1 | 422 | 3808 | 2026-01-07 |
+| 🥈 | [Export to Excel](https://openwebui.com/posts/export_mulit_table_to_excel_244b8f9d) | 0.3.7 | 190 | 636 | 2026-01-07 |
+| 🥉 | [📊 Smart Infographic (AntV)](https://openwebui.com/posts/smart_infographic_ad6f0c7f) | 1.4.9 | 160 | 1730 | 2026-01-11 |
+| 4️⃣ | [Async Context Compression](https://openwebui.com/posts/async_context_compression_b1655bc8) | 1.1.3 | 151 | 1664 | 2026-01-11 |
+| 5️⃣ | [Export to Word (Enhanced)](https://openwebui.com/posts/export_to_word_enhanced_formatting_fca6a315) | 0.4.3 | 110 | 1009 | 2026-01-07 |
 | 6️⃣ | [Flash Card](https://openwebui.com/posts/flash_card_65a2ea8f) | 0.2.4 | 107 | 1980 | 2026-01-07 |
 
 *See full stats in [Community Stats Report](./docs/community-stats.md)*
