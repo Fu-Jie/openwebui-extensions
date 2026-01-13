@@ -28,6 +28,7 @@ A production-grade content normalizer filter for Open WebUI that fixes common Ma
 
 *   `priority`: Filter priority (default: 50).
 *   `enable_escape_fix`: Fix excessive escape characters.
+*   `enable_escape_fix_in_code_blocks`: Apply escape fix inside code blocks (⚠️ Warning: May break valid code like JSON strings or regex patterns. Default: False for safety).
 *   `enable_thought_tag_fix`: Normalize thought tags.
 *   `enable_code_block_fix`: Fix code block formatting.
 *   `enable_latex_fix`: Normalize LaTeX formulas.

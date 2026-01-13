@@ -31,6 +31,7 @@ A content normalizer filter for Open WebUI that fixes common Markdown formatting
 
 *   `priority`: Filter priority (default: 50).
 *   `enable_escape_fix`: Fix excessive escape characters.
+*   `enable_escape_fix_in_code_blocks`: Apply escape fix inside code blocks (⚠️ Warning: May break valid code like JSON strings or regex patterns. Default: False for safety).
 *   `enable_thought_tag_fix`: Normalize thought tags.
 *   `enable_code_block_fix`: Fix code block formatting.
 *   `enable_latex_fix`: Normalize LaTeX formulas.
@@ -47,9 +48,12 @@ A content normalizer filter for Open WebUI that fixes common Markdown formatting
 ## Changelog
 
 ### v1.1.0
+*   **🛡️ Safe Escape Fixing**: Added `enable_escape_fix_in_code_blocks` valve (default: False) to prevent corrupting valid code examples (JSON strings, regex patterns, etc.). Escape fixes now only apply outside code blocks by default.
+*   **📝 Enhanced Full-width Symbol Map**: Added explicit full-width quotation marks (＂ U+FF02, ＇ U+FF07) and Unicode comments to all 16 mappings for better maintainability.
+*   **🧹 Code Cleanup**: Removed duplicate `import logging` statement and fixed docstring warnings.
+*   **✅ Improved Test Coverage**: Added comprehensive tests for code-block-aware escape fixing and full-width quote conversion.
 *   **Mermaid Fix Refinement**: Improved regex to handle nested parentheses in node labels (e.g., `ID("Label (text)")`) and avoided matching connection labels.
 *   **HTML Safeguard Optimization**: Refined `_contains_html` to allow common tags like `<br/>`, `<b>`, `<i>`, etc., ensuring Mermaid diagrams with these tags are still normalized.
-*   **Full-width Symbol Cleanup**: Fixed duplicate keys and incorrect quote mapping in `FULLWIDTH_MAP`.
 *   **Bug Fixes**: Fixed missing `Dict` import in Python files.
 
 ## License

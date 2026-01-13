@@ -28,6 +28,7 @@
 
 *   `priority`: 过滤器优先级 (默认: 50)。
 *   `enable_escape_fix`: 修复过度的转义字符。
+*   `enable_escape_fix_in_code_blocks`: 在代码块内应用转义修复 (⚠️ 警告: 可能破坏 JSON 字符串或正则表达式等有效代码。默认: False 更安全)。
 *   `enable_thought_tag_fix`: 规范化思维标签。
 *   `enable_code_block_fix`: 修复代码块格式。
 *   `enable_latex_fix`: 规范化 LaTeX 公式。
