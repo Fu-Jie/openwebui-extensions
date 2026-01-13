@@ -56,10 +56,14 @@ Comprehensive testing has been performed to validate all fixes. See [TESTING.md]
 - ✅ Mixed content (code + LaTeX + tables)
 - ✅ Edge cases and error handling
 - ✅ Thought tag normalization
+- ✅ Mermaid edge label preservation
 
-All 15 unit tests and 7 comprehensive integration tests pass.
+All 16 unit tests and 7 comprehensive integration tests pass.
 
 ## Changelog
+
+### v1.1.1
+*   **🐛 Mermaid Edge Label Fix**: Fixed issue where edge labels (text on arrows like `-- label -->`) with parentheses were incorrectly being quoted, breaking Mermaid syntax. Edge labels are now protected from node label normalization.
 
 ### v1.1.0
 *   **🛡️ Safe Escape Fixing**: Added `enable_escape_fix_in_code_blocks` valve (default: False) to prevent corrupting valid code examples (JSON strings, regex patterns, etc.). Escape fixes now only apply outside code blocks by default.

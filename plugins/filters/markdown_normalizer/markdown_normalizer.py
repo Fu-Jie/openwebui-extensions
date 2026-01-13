@@ -3,7 +3,7 @@ title: Markdown Normalizer
 author: Fu-Jie
 author_url: https://github.com/Fu-Jie/awesome-openwebui
 funding_url: https://github.com/open-webui
-version: 1.1.0
+version: 1.1.1
 description: A content normalizer filter that fixes common Markdown formatting issues in LLM outputs, such as broken code blocks, LaTeX formulas, and list formatting.
 """
 
@@ -337,8 +337,25 @@ class ContentNormalizer:
             # Check if it's a mermaid block
             lang_line = parts[i].split("\n", 1)[0].strip().lower()
             if "mermaid" in lang_line:
-                # Apply the comprehensive regex fix
-                parts[i] = self._PATTERNS["mermaid_node"].sub(replacer, parts[i])
+                # Protect edge labels (text between -- and --> or similar arrow syntaxes)
+                # from being modified by temporarily replacing them with placeholders
+                edge_labels = []
+                def protect_edge_label(m):
+                    edge_labels.append((m.group(1), m.group(2)))  # (label, arrow)
+                    return f"--___EDGE_LABEL_{len(edge_labels)-1}___"
+                
+                # Match edge labels: -- text --> or -- text --->, -- text -.-> etc.
+                # Arrow patterns: --> | -.-> | ==> | --o | --x | ---|> etc.
+                protected = re.sub(r'--\s+(.+?)\s+(--+[>ox]|--+\|>|[-.]=+>)', protect_edge_label, parts[i])
+                
+                # Apply the comprehensive regex fix to protected content
+                fixed = self._PATTERNS["mermaid_node"].sub(replacer, protected)
+                
+                # Restore edge labels
+                for idx, (label, arrow) in enumerate(edge_labels):
+                    fixed = fixed.replace(f"--___EDGE_LABEL_{idx}___", f"-- {label} {arrow}")
+                
+                parts[i] = fixed
 
                 # Auto-close subgraphs
                 subgraph_count = len(

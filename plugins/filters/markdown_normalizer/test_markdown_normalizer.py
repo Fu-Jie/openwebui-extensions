@@ -238,6 +238,28 @@ graph TD
         normalized_nested = self.normalizer.normalize(original_nested)
         self.assertEqual(normalized_nested.count("end"), 2)
 
+    def test_mermaid_edge_labels(self):
+        """Test that Mermaid edge labels are NOT modified by the node fix"""
+        # This is a regression test for the issue where edge labels with parentheses
+        # were being incorrectly quoted, breaking Mermaid syntax
+        input_text = """
+```mermaid
+graph TD
+    RepairLevel -- 强制修复(有损) --> DataLoss[DBCC CHECKDB]
+    LockCheck -- 报错 5061 (锁冲突) --> KillProcess[执行脚本]
+    Start([开始]) --> End{结束}
+```
+"""
+        normalized = self.normalizer.normalize(input_text)
+        
+        # Edge labels should NOT be modified (no quotes added around parentheses content)
+        self.assertIn("强制修复(有损)", normalized)
+        self.assertIn("报错 5061 (锁冲突)", normalized)
+        self.assertNotIn('强制修复("有损")', normalized)
+        self.assertNotIn('报错 5061 ("锁冲突")', normalized)
+        
+        # Node labels SHOULD be quoted
+        self.assertIn('(["开始"])', normalized)
+        self.assertIn('{"结束"}', normalized)
 
-if __name__ == "__main__":
-    unittest.main()
+

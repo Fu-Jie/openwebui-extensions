@@ -3,7 +3,7 @@ title: Markdown 格式修复器 (Markdown Normalizer)
 author: Fu-Jie
 author_url: https://github.com/Fu-Jie/awesome-openwebui
 funding_url: https://github.com/open-webui
-version: 1.1.0
+version: 1.1.1
 description: 内容规范化过滤器，修复 LLM 输出中常见的 Markdown 格式问题，如损坏的代码块、LaTeX 公式、Mermaid 图表和列表格式。
 """
 
@@ -317,8 +317,25 @@ class ContentNormalizer:
             # Check if it's a mermaid block
             lang_line = parts[i].split("\n", 1)[0].strip().lower()
             if "mermaid" in lang_line:
-                # Apply the comprehensive regex fix
-                parts[i] = self._PATTERNS["mermaid_node"].sub(replacer, parts[i])
+                # 保护边标签（-- 和 --> 之间的文本）不被修改
+                # 通过临时替换为占位符来保护
+                edge_labels = []
+                def protect_edge_label(m):
+                    edge_labels.append((m.group(1), m.group(2)))  # (标签, 箭头)
+                    return f"--___EDGE_LABEL_{len(edge_labels)-1}___"
+                
+                # 匹配边标签: -- 文本 --> 或 -- 文本 -.-> 等
+                # 箭头模式: --> | -.-> | ==> | --o | --x | ---|> 等
+                protected = re.sub(r'--\s+(.+?)\s+(--+[>ox]|--+\|>|[-.]=+>)', protect_edge_label, parts[i])
+                
+                # 对保护后的内容应用节点修复
+                fixed = self._PATTERNS["mermaid_node"].sub(replacer, protected)
+                
+                # 恢复边标签
+                for idx, (label, arrow) in enumerate(edge_labels):
+                    fixed = fixed.replace(f"--___EDGE_LABEL_{idx}___", f"-- {label} {arrow}")
+                
+                parts[i] = fixed
 
                 # Auto-close subgraphs
                 # Count 'subgraph' and 'end' (case-insensitive)
