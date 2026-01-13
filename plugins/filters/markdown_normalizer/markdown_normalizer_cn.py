@@ -3,7 +3,7 @@ title: Markdown 格式修复器 (Markdown Normalizer)
 author: Fu-Jie
 author_url: https://github.com/Fu-Jie/awesome-openwebui
 funding_url: https://github.com/open-webui
-version: 1.1.0
+version: 1.1.2
 description: 内容规范化过滤器，修复 LLM 输出中常见的 Markdown 格式问题，如损坏的代码块、LaTeX 公式、Mermaid 图表和列表格式。
 """
 
@@ -314,8 +314,38 @@ class ContentNormalizer:
             # Check if it's a mermaid block
             lang_line = parts[i].split("\n", 1)[0].strip().lower()
             if "mermaid" in lang_line:
-                # Apply the comprehensive regex fix
-                parts[i] = self._PATTERNS["mermaid_node"].sub(replacer, parts[i])
+                # Protect edge labels (text between link start and arrow) from being modified
+                # by temporarily replacing them with placeholders.
+                # Covers all Mermaid link types:
+                #   - Solid line:  A -- text --> B, A -- text --o B, A -- text --x B
+                #   - Dotted line: A -. text .-> B, A -. text .-o B
+                #   - Thick line:  A == text ==> B, A == text ==o B
+                #   - No arrow:    A -- text --- B
+                edge_labels = []
+
+                def protect_edge_label(m):
+                    start = m.group(1)  # Link start: --, -., or ==
+                    label = m.group(2)  # Text content
+                    arrow = m.group(3)  # Arrow/end pattern
+                    edge_labels.append((start, label, arrow))
+                    return f"___EDGE_LABEL_{len(edge_labels)-1}___"
+
+                # Comprehensive edge label pattern for all Mermaid link types
+                edge_label_pattern = (
+                    r"(--|-\.|\=\=)\s+(.+?)\s+(--+[>ox]?|--+\|>|\.-[>ox]?|=+[>ox]?)"
+                )
+                protected = re.sub(edge_label_pattern, protect_edge_label, parts[i])
+
+                # Apply the comprehensive regex fix to protected content
+                fixed = self._PATTERNS["mermaid_node"].sub(replacer, protected)
+
+                # Restore edge labels
+                for idx, (start, label, arrow) in enumerate(edge_labels):
+                    fixed = fixed.replace(
+                        f"___EDGE_LABEL_{idx}___", f"{start} {label} {arrow}"
+                    )
+
+                parts[i] = fixed
 
                 # Auto-close subgraphs
                 # Count 'subgraph' and 'end' (case-insensitive)
@@ -490,15 +520,6 @@ class Filter:
             )
         except Exception as e:
             print(f"Error emitting status: {e}")
-
-    async def _emit_debug_log(
-        self,
-        __event_emitter__,
-        applied_fixes: List[str],
-        original: str,
-        normalized: str,
-    ):
-        """Emit debug log to browser console via JS execution"""
 
     async def _emit_debug_log(
         self,

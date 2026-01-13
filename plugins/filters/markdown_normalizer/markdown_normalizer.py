@@ -3,14 +3,13 @@ title: Markdown Normalizer
 author: Fu-Jie
 author_url: https://github.com/Fu-Jie/awesome-openwebui
 funding_url: https://github.com/open-webui
-version: 1.1.0
+version: 1.1.2
 description: A content normalizer filter that fixes common Markdown formatting issues in LLM outputs, such as broken code blocks, LaTeX formulas, and list formatting.
 """
 
 from pydantic import BaseModel, Field
 from typing import Optional, List, Callable, Dict
 import re
-import logging
 import logging
 import asyncio
 import json
@@ -25,6 +24,9 @@ class NormalizerConfig:
     """Configuration class for enabling/disabling specific normalization rules"""
 
     enable_escape_fix: bool = True  # Fix excessive escape characters
+    enable_escape_fix_in_code_blocks: bool = (
+        False  # Apply escape fix inside code blocks (default: False for safety)
+    )
     enable_thought_tag_fix: bool = True  # Normalize thought tags
     enable_code_block_fix: bool = True  # Fix code block formatting
     enable_latex_fix: bool = True  # Fix LaTeX formula formatting
@@ -214,12 +216,30 @@ class ContentNormalizer:
             return content
 
     def _fix_escape_characters(self, content: str) -> str:
-        """Fix excessive escape characters"""
-        content = content.replace("\\r\\n", "\n")
-        content = content.replace("\\n", "\n")
-        content = content.replace("\\t", "\t")
-        content = content.replace("\\\\", "\\")
-        return content
+        """Fix excessive escape characters
+
+        If enable_escape_fix_in_code_blocks is False (default), this method will only
+        fix escape characters outside of code blocks to avoid breaking valid code
+        examples (e.g., JSON strings with \\n, regex patterns, etc.).
+        """
+        if self.config.enable_escape_fix_in_code_blocks:
+            # Apply globally (original behavior)
+            content = content.replace("\\r\\n", "\n")
+            content = content.replace("\\n", "\n")
+            content = content.replace("\\t", "\t")
+            content = content.replace("\\\\", "\\")
+            return content
+        else:
+            # Apply only outside code blocks (safe mode)
+            parts = content.split("```")
+            for i in range(
+                0, len(parts), 2
+            ):  # Even indices are markdown text (not code)
+                parts[i] = parts[i].replace("\\r\\n", "\n")
+                parts[i] = parts[i].replace("\\n", "\n")
+                parts[i] = parts[i].replace("\\t", "\t")
+                parts[i] = parts[i].replace("\\\\", "\\")
+            return "```".join(parts)
 
     def _fix_thought_tags(self, content: str) -> str:
         """Normalize thought tags: unify naming and fix spacing"""
@@ -239,7 +259,7 @@ class ContentNormalizer:
         return content
 
     def _fix_latex_formulas(self, content: str) -> str:
-        """Normalize LaTeX formulas: \[ -> $$ (block), \( -> $ (inline)"""
+        r"""Normalize LaTeX formulas: \[ -> $$ (block), \( -> $ (inline)"""
         content = self._PATTERNS["latex_bracket_block"].sub(r"$$\1$$", content)
         content = self._PATTERNS["latex_paren_inline"].sub(r"$\1$", content)
         return content
@@ -267,6 +287,8 @@ class ContentNormalizer:
             "：": ":",
             "？": "?",
             "！": "!",
+            "＂": '"',  # U+FF02 FULLWIDTH QUOTATION MARK
+            "＇": "'",  # U+FF07 FULLWIDTH APOSTROPHE
             "“": '"',
             "”": '"',
             "‘": "'",
@@ -319,8 +341,38 @@ class ContentNormalizer:
             # Check if it's a mermaid block
             lang_line = parts[i].split("\n", 1)[0].strip().lower()
             if "mermaid" in lang_line:
-                # Apply the comprehensive regex fix
-                parts[i] = self._PATTERNS["mermaid_node"].sub(replacer, parts[i])
+                # Protect edge labels (text between link start and arrow) from being modified
+                # by temporarily replacing them with placeholders.
+                # Covers all Mermaid link types:
+                #   - Solid line:  A -- text --> B, A -- text --o B, A -- text --x B
+                #   - Dotted line: A -. text .-> B, A -. text .-o B
+                #   - Thick line:  A == text ==> B, A == text ==o B
+                #   - No arrow:    A -- text --- B
+                edge_labels = []
+
+                def protect_edge_label(m):
+                    start = m.group(1)  # Link start: --, -., or ==
+                    label = m.group(2)  # Text content
+                    arrow = m.group(3)  # Arrow/end pattern
+                    edge_labels.append((start, label, arrow))
+                    return f"___EDGE_LABEL_{len(edge_labels)-1}___"
+
+                # Comprehensive edge label pattern for all Mermaid link types
+                edge_label_pattern = (
+                    r"(--|-\.|\=\=)\s+(.+?)\s+(--+[>ox]?|--+\|>|\.-[>ox]?|=+[>ox]?)"
+                )
+                protected = re.sub(edge_label_pattern, protect_edge_label, parts[i])
+
+                # Apply the comprehensive regex fix to protected content
+                fixed = self._PATTERNS["mermaid_node"].sub(replacer, protected)
+
+                # Restore edge labels
+                for idx, (start, label, arrow) in enumerate(edge_labels):
+                    fixed = fixed.replace(
+                        f"___EDGE_LABEL_{idx}___", f"{start} {label} {arrow}"
+                    )
+
+                parts[i] = fixed
 
                 # Auto-close subgraphs
                 subgraph_count = len(
@@ -367,6 +419,10 @@ class Filter:
         )
         enable_escape_fix: bool = Field(
             default=True, description="Fix excessive escape characters (\\n, \\t, etc.)"
+        )
+        enable_escape_fix_in_code_blocks: bool = Field(
+            default=False,
+            description="Apply escape fix inside code blocks (⚠️ Warning: May break valid code like JSON strings or regex patterns. Default: False for safety)",
         )
         enable_thought_tag_fix: bool = Field(
             default=True, description="Normalize </thought> tags"
@@ -532,6 +588,7 @@ class Filter:
                 # Configure normalizer based on valves
                 config = NormalizerConfig(
                     enable_escape_fix=self.valves.enable_escape_fix,
+                    enable_escape_fix_in_code_blocks=self.valves.enable_escape_fix_in_code_blocks,
                     enable_thought_tag_fix=self.valves.enable_thought_tag_fix,
                     enable_code_block_fix=self.valves.enable_code_block_fix,
                     enable_latex_fix=self.valves.enable_latex_fix,

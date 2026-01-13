@@ -1,13 +1,13 @@
 # Markdown Normalizer Filter
 
-**Author:** [Fu-Jie](https://github.com/Fu-Jie)
-**Version:** 1.1.0
+**Author:** [Fu-Jie](https://github.com/Fu-Jie/awesome-openwebui)
+**Version:** 1.1.2
 
 A content normalizer filter for Open WebUI that fixes common Markdown formatting issues in LLM outputs. It ensures that code blocks, LaTeX formulas, Mermaid diagrams, and other Markdown elements are rendered correctly.
 
 ## Features
 
-*   **Mermaid Syntax Fix**: Automatically fixes common Mermaid syntax errors, such as unquoted node labels (including multi-line labels and citations) and unclosed subgraphs, ensuring diagrams render correctly.
+*   **Mermaid Syntax Fix**: Automatically fixes common Mermaid syntax errors, such as unquoted node labels (including multi-line labels and citations) and unclosed subgraphs. **New in v1.1.2**: Comprehensive protection for edge labels (text on connecting lines) across all link types (solid, dotted, thick).
 *   **Frontend Console Debugging**: Supports printing structured debug logs directly to the browser console (F12) for easier troubleshooting.
 *   **Code Block Formatting**: Fixes broken code block prefixes, suffixes, and indentation.
 *   **LaTeX Normalization**: Standardizes LaTeX formula delimiters (`\[` -> `$$`, `\(` -> `$`).
@@ -45,6 +45,10 @@ A content normalizer filter for Open WebUI that fixes common Markdown formatting
 *   `show_debug_log`: Print debug logs to browser console.
 
 ## Changelog
+
+### v1.1.2
+*   **Mermaid Edge Label Protection**: Implemented comprehensive protection for edge labels (text on connecting lines) to prevent them from being incorrectly modified. Now supports all Mermaid link types including solid (`--`), dotted (`-.`), and thick (`==`) lines with or without arrows.
+*   **Bug Fixes**: Fixed an issue where lines without arrows (e.g., `A -- text --- B`) were not correctly protected.
 
 ### v1.1.0
 *   **Mermaid Fix Refinement**: Improved regex to handle nested parentheses in node labels (e.g., `ID("Label (text)")`) and avoided matching connection labels.
