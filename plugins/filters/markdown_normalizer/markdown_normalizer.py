@@ -4,6 +4,7 @@ author: Fu-Jie
 author_url: https://github.com/Fu-Jie/awesome-openwebui
 funding_url: https://github.com/open-webui
 version: 1.1.2
+openwebui_id: baaa8732-9348-40b7-8359-7e009660e23c
 description: A content normalizer filter that fixes common Markdown formatting issues in LLM outputs, such as broken code blocks, LaTeX formulas, and list formatting.
 """
 
