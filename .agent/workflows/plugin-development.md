@@ -25,6 +25,8 @@ Every plugin **MUST** have bilingual versions for both code and documentation:
 - **Valves**: Use `pydantic` for configuration.
 - **Database**: Re-use `open_webui.internal.db` shared connection.
 - **User Context**: Use `_get_user_context` helper method.
+- **Chat Context**: Use `_get_chat_context` helper method for `chat_id` and `message_id`.
+- **Debugging**: Use `_emit_debug_log` for frontend console logging (requires `SHOW_DEBUG_LOG` valve).
 - **Chat API**: For message updates, follow the "OpenWebUI Chat API 更新规范" in `.github/copilot-instructions.md`.
   - Use Event API for immediate UI updates
   - Use Chat Persistence API for database storage
@@ -86,6 +88,7 @@ Reference: `.github/workflows/release.yml`
     - Workflow: `.github/workflows/publish_plugin.yml`
     - Trigger: Release published.
     - Action: Automatically updates the plugin code and metadata on OpenWebUI.com using `scripts/publish_plugin.py`.
+    - **Auto-Sync**: If a local plugin has no ID but matches an existing published plugin by **Title**, the script will automatically fetch the ID, update the local file, and proceed with the update.
     - Requirement: `OPENWEBUI_API_KEY` secret must be set.
 
 ### Pull Request Check

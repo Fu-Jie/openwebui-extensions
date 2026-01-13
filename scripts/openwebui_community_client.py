@@ -483,25 +483,44 @@ class OpenWebUICommunityClient:
                 print(f"  Uploaded image: {image_url}")
                 media_urls = [image_url]
 
-        # 如果没有 post_id，尝试创建新帖子
+        # 如果没有 post_id，尝试查找或创建
         if not post_id:
-            if not auto_create:
-                return False, "No openwebui_id found and auto_create is disabled"
+            # 1. 尝试通过标题查找已存在的帖子
+            print(f"  Searching for existing post with title: {title}")
+            try:
+                all_posts = self.get_all_posts()
+                existing_post = next(
+                    (p for p in all_posts if p.get("title") == title), None
+                )
+            except Exception as e:
+                print(f"  Warning: Failed to fetch posts for title check: {e}")
+                existing_post = None
 
-            print(f"  Creating new post for: {title}")
-            new_post_id = self.create_plugin(
-                title=title,
-                source_code=content,
-                readme_content=readme_content or metadata.get("description", ""),
-                metadata=metadata,
-                media_urls=media_urls,
-            )
+            if existing_post:
+                post_id = existing_post.get("id")
+                print(f"  Found existing post: {title} (ID: {post_id})")
+                self._inject_id_to_file(file_path, post_id)
+                # post_id 已设置，后续将进入更新流程
 
-            if new_post_id:
-                # 将新 ID 写回本地文件
-                self._inject_id_to_file(file_path, new_post_id)
-                return True, f"Created new post (ID: {new_post_id})"
-            return False, "Failed to create new post"
+            else:
+                # 2. 如果没找到，且允许自动创建，则创建
+                if not auto_create:
+                    return False, "No openwebui_id found and auto_create is disabled"
+
+                print(f"  Creating new post for: {title}")
+                new_post_id = self.create_plugin(
+                    title=title,
+                    source_code=content,
+                    readme_content=readme_content or metadata.get("description", ""),
+                    metadata=metadata,
+                    media_urls=media_urls,
+                )
+
+                if new_post_id:
+                    # 将新 ID 写回本地文件
+                    self._inject_id_to_file(file_path, new_post_id)
+                    return True, f"Created new post (ID: {new_post_id})"
+                return False, "Failed to create new post"
 
         # 获取远程帖子信息（只需获取一次）
         remote_post = None
