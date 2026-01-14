@@ -7,10 +7,10 @@
 ## 📚 Table of Contents
 
 1. [Quick Start](#1-quick-start)
-2. [Core Concepts & SDK Details](#2-core-concepts--sdk-details)
+2. [Core Concepts & SDK Details](#2-core-concepts-sdk-details)
 3. [Deep Dive into Plugin Types](#3-deep-dive-into-plugin-types)
 4. [Advanced Development Patterns](#4-advanced-development-patterns)
-5. [Best Practices & Design Principles](#5-best-practices--design-principles)
+5. [Best Practices & Design Principles](#5-best-practices-design-principles)
 6. [Troubleshooting](#6-troubleshooting)
 
 ---
@@ -351,8 +351,7 @@ async def action(self, body, __event_call__, __metadata__, ...):
 
 #### Reference Implementations
 
-- `plugins/actions/js-render-poc/infographic_markdown.py` - AntV Infographic + Data URL
-- `plugins/actions/js-render-poc/js_render_poc.py` - Basic proof of concept
+- `plugins/actions/infographic/infographic.py` - Production-ready implementation using AntV + Data URL
 
 ---
 

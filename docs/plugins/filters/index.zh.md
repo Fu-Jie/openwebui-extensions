@@ -36,15 +36,7 @@ Filter 充当消息管线中的中间件：
 
     [:octicons-arrow-right-24: 查看文档](context-enhancement.md)
 
--   :material-google:{ .lg .middle } **Gemini Manifold Companion**
 
-    ---
-
-    Gemini Manifold Pipe 插件的伴随过滤器。
-
-    **版本：** 1.7.0
-
-    [:octicons-arrow-right-24: 查看文档](gemini-manifold-companion.md)
 
 -   :material-format-paint:{ .lg .middle } **Markdown Normalizer**
 

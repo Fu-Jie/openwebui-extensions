@@ -1,8 +1,8 @@
 """
 title: 导出为 Excel
 author: Fu-Jie
-author_url: https://github.com/Fu-Jie
-funding_url: https://github.com/Fu-Jie/awesome-openwebui
+author_url: https://github.com/Fu-Jie/awesome-openwebui
+funding_url: https://github.com/open-webui
 version: 0.3.7
 icon_url: data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxwYXRoIGQ9Ik0xNSAySDZhMiAyIDAgMCAwLTIgMnYxNmEyIDIgMCAwIDAgMiAyaDEyYTIgMiAwIDAgMCAyLTJWN1oiLz48cGF0aCBkPSJNMTQgMnY0YTIgMiAwIDAgMCAyIDJoNCIvPjxwYXRoIGQ9Ik04IDEzaDIiLz48cGF0aCBkPSJNMTQgMTNoMiIvPjxwYXRoIGQ9Ik04IDE3aDIiLz48cGF0aCBkPSJNMTQgMTdoMiIvPjwvc3ZnPg==
 description: 从聊天消息中提取表格并导出为 Excel (.xlsx) 文件，支持智能格式化。
@@ -31,6 +31,10 @@ class Action:
             default="chat_title",
             description="标题来源: 'chat_title' (对话标题), 'ai_generated' (AI生成), 'markdown_title' (Markdown标题)",
         )
+        SHOW_STATUS: bool = Field(
+            default=True,
+            description="是否显示操作状态更新。",
+        )
         EXPORT_SCOPE: Literal["last_message", "all_messages"] = Field(
             default="last_message",
             description="导出范围: 'last_message' (仅最后一条消息), 'all_messages' (所有消息)",
@@ -39,14 +43,57 @@ class Action:
             default="",
             description="AI 标题生成模型 ID。留空则使用当前对话模型。",
         )
+        SHOW_DEBUG_LOG: bool = Field(
+            default=False,
+            description="是否在浏览器控制台打印调试日志。",
+        )
 
     def __init__(self):
         self.valves = self.Valves()
 
-    async def _send_notification(self, emitter: Callable, type: str, content: str):
-        await emitter(
-            {"type": "notification", "data": {"type": type, "content": content}}
-        )
+    async def _emit_status(
+        self,
+        emitter: Optional[Callable[[Any], Awaitable[None]]],
+        description: str,
+        done: bool = False,
+    ):
+        """Emits a status update event."""
+        if self.valves.SHOW_STATUS and emitter:
+            await emitter(
+                {"type": "status", "data": {"description": description, "done": done}}
+            )
+
+    async def _emit_notification(
+        self,
+        emitter: Optional[Callable[[Any], Awaitable[None]]],
+        content: str,
+        ntype: str = "info",
+    ):
+        """Emits a notification event (info, success, warning, error)."""
+        if emitter:
+            await emitter(
+                {"type": "notification", "data": {"type": ntype, "content": content}}
+            )
+
+    async def _emit_debug_log(self, emitter, title: str, data: dict):
+        """在浏览器控制台打印结构化调试日志"""
+        if not self.valves.SHOW_DEBUG_LOG or not emitter:
+            return
+
+        try:
+            import json
+
+            js_code = f"""
+                (async function() {{
+                    console.group("🛠️ {title}");
+                    console.log({json.dumps(data, ensure_ascii=False)});
+                    console.groupEnd();
+                }})();
+            """
+
+            await emitter({"type": "execute", "data": {"code": js_code}})
+        except Exception as e:
+            print(f"Error emitting debug log: {e}")
 
     async def action(
         self,
@@ -180,17 +227,18 @@ class Action:
                 # 通知用户提取到的表格数量
                 table_count = len(all_tables)
                 if self.valves.EXPORT_SCOPE == "all_messages":
-                    await self._send_notification(
+                    await self._emit_notification(
                         __event_emitter__,
-                        "info",
                         f"从所有消息中提取到 {table_count} 个表格。",
+                        "info",
                     )
                     # 等待片刻让用户看到通知，再触发下载
                     await asyncio.sleep(1.5)
 
                 # Generate Workbook Title (Filename)
                 title = ""
-                chat_id = self.extract_chat_id(body, None)
+                chat_ctx = self._get_chat_context(body, None)
+                chat_id = chat_ctx["chat_id"]
                 chat_title = ""
                 if chat_id:
                     chat_title = await self.fetch_chat_title(chat_id, user_id)
@@ -318,8 +366,8 @@ class Action:
                         },
                     }
                 )
-                await self._send_notification(
-                    __event_emitter__, "error", "未找到可导出的表格！"
+                await self._emit_notification(
+                    __event_emitter__, "未找到可导出的表格！", "error"
                 )
                 raise e
             except Exception as e:
@@ -333,8 +381,8 @@ class Action:
                         },
                     }
                 )
-                await self._send_notification(
-                    __event_emitter__, "error", "未找到可导出的表格！"
+                await self._emit_notification(
+                    __event_emitter__, "未找到可导出的表格！", "error"
                 )
 
     async def generate_title_using_ai(
@@ -377,20 +425,20 @@ class Action:
             async def notification_task():
                 # 立即发送首次通知
                 if event_emitter:
-                    await self._send_notification(
+                    await self._emit_notification(
                         event_emitter,
-                        "info",
                         "AI 正在为您生成文件名，请稍候...",
+                        "info",
                     )
 
                 # 之后每5秒通知一次
                 while True:
                     await asyncio.sleep(5)
                     if event_emitter:
-                        await self._send_notification(
+                        await self._emit_notification(
                             event_emitter,
-                            "info",
                             "文件名生成中，请耐心等待...",
+                            "info",
                         )
 
             # 并发运行任务
@@ -420,10 +468,10 @@ class Action:
         except Exception as e:
             print(f"生成标题时出错: {e}")
             if event_emitter:
-                await self._send_notification(
+                await self._emit_notification(
                     event_emitter,
-                    "warning",
                     f"AI 文件名生成失败，将使用默认名称。错误: {str(e)}",
+                    "warning",
                 )
 
         return ""
@@ -438,24 +486,56 @@ class Action:
                 return match.group(1).strip()
         return ""
 
-    def extract_chat_id(self, body: dict, metadata: Optional[dict]) -> str:
-        """从 body 或 metadata 中提取 chat_id"""
-        if isinstance(body, dict):
-            chat_id = body.get("chat_id") or body.get("id")
-            if isinstance(chat_id, str) and chat_id.strip():
-                return chat_id.strip()
+    def _get_user_context(self, __user__: Optional[Dict[str, Any]]) -> Dict[str, str]:
+        """安全提取用户上下文信息。"""
+        if isinstance(__user__, (list, tuple)):
+            user_data = __user__[0] if __user__ else {}
+        elif isinstance(__user__, dict):
+            user_data = __user__
+        else:
+            user_data = {}
 
-            for key in ("chat", "conversation"):
-                nested = body.get(key)
-                if isinstance(nested, dict):
-                    nested_id = nested.get("id") or nested.get("chat_id")
-                    if isinstance(nested_id, str) and nested_id.strip():
-                        return nested_id.strip()
-        if isinstance(metadata, dict):
-            chat_id = metadata.get("chat_id")
-            if isinstance(chat_id, str) and chat_id.strip():
-                return chat_id.strip()
-        return ""
+        return {
+            "user_id": user_data.get("id", "unknown_user"),
+            "user_name": user_data.get("name", "用户"),
+            "user_language": user_data.get("language", "zh-CN"),
+        }
+
+    def _get_chat_context(
+        self, body: dict, __metadata__: Optional[dict] = None
+    ) -> Dict[str, str]:
+        """
+        统一提取聊天上下文信息 (chat_id, message_id)。
+        优先从 body 中提取，其次从 metadata 中提取。
+        """
+        chat_id = ""
+        message_id = ""
+
+        # 1. 尝试从 body 获取
+        if isinstance(body, dict):
+            chat_id = body.get("chat_id", "")
+            message_id = body.get("id", "")  # message_id 在 body 中通常是 id
+
+            # 再次检查 body.metadata
+            if not chat_id or not message_id:
+                body_metadata = body.get("metadata", {})
+                if isinstance(body_metadata, dict):
+                    if not chat_id:
+                        chat_id = body_metadata.get("chat_id", "")
+                    if not message_id:
+                        message_id = body_metadata.get("message_id", "")
+
+        # 2. 尝试从 __metadata__ 获取 (作为补充)
+        if __metadata__ and isinstance(__metadata__, dict):
+            if not chat_id:
+                chat_id = __metadata__.get("chat_id", "")
+            if not message_id:
+                message_id = __metadata__.get("message_id", "")
+
+        return {
+            "chat_id": str(chat_id).strip(),
+            "message_id": str(message_id).strip(),
+        }
 
     async def fetch_chat_title(self, chat_id: str, user_id: str = "") -> str:
         """通过 chat_id 从数据库获取对话标题"""

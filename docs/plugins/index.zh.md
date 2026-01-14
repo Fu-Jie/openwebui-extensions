@@ -48,15 +48,15 @@ OpenWebUI 支持四种类型的插件，每种都有不同的用途：
 
 | 插件 | 类型 | 描述 | 版本 |
 |--------|------|-------------|---------|
-| [Smart Mind Map（智能思维导图）](actions/smart-mind-map.md) | Action | 从文本生成交互式思维导图 | 0.8.0 |
-| [Smart Infographic（智能信息图）](actions/smart-infographic.md) | Action | 将文本转成专业信息图 | 1.0.0 |
-| [Knowledge Card（知识卡片）](actions/knowledge-card.md) | Action | 生成精美学习卡片 | 0.2.0 |
-| [Export to Excel（导出到 Excel）](actions/export-to-excel.md) | Action | 导出聊天记录为 Excel | 1.0.0 |
-| [Export to Word（导出为 Word）](actions/export-to-word.md) | Action | 将聊天内容导出为 Word (.docx) 并保留格式 | 0.1.0 |
-| [Async Context Compression（异步上下文压缩）](filters/async-context-compression.md) | Filter | 智能上下文压缩 | 1.0.0 |
-| [Context Enhancement（上下文增强）](filters/context-enhancement.md) | Filter | 提升对话上下文 | 1.0.0 |
-| [Gemini Manifold Companion](filters/gemini-manifold-companion.md) | Filter | Gemini Manifold 伴侣 | 1.0.0 |
-| [Gemini Manifold](pipes/gemini-manifold.md) | Pipe | Gemini 模型集成 | 1.0.0 |
+| [Smart Mind Map（智能思维导图）](actions/smart-mind-map.md) | Action | 从文本生成交互式思维导图 | 0.9.1 |
+| [Smart Infographic（智能信息图）](actions/smart-infographic.md) | Action | 将文本转成专业信息图 | 1.4.9 |
+| [Flash Card（闪记卡）](actions/flash-card.md) | Action | 生成精美学习卡片 | 0.2.4 |
+| [Export to Excel（导出到 Excel）](actions/export-to-excel.md) | Action | 导出聊天记录为 Excel | 0.3.7 |
+| [Export to Word（导出为 Word）](actions/export-to-word.md) | Action | 将聊天内容导出为 Word (.docx) 并保留格式 | 0.4.3 |
+| [Async Context Compression（异步上下文压缩）](filters/async-context-compression.md) | Filter | 智能上下文压缩 | 1.1.3 |
+| [Context Enhancement（上下文增强）](filters/context-enhancement.md) | Filter | 提升对话上下文 | 0.3.0 |
+| [Multi-Model Context Merger（多模型上下文合并）](filters/multi-model-context-merger.md) | Filter | 合并多个模型的上下文 | 0.1.0 |
+| [Web Gemini Multimodal Filter（Web Gemini 多模态过滤器）](filters/web-gemini-multimodel.md) | Filter | 为任何模型提供多模态能力 | 0.3.2 |
 | [MoE Prompt Refiner](pipelines/moe-prompt-refiner.md) | Pipeline | 多模型提示词优化 | 1.0.0 |
 
 ---

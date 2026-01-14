@@ -15,19 +15,7 @@ Pipes 可以用于：
 
 ## 可用的 Pipe 插件
 
-<div class="grid cards" markdown>
 
--   :material-google:{ .lg .middle } **Gemini Manifold**
-
-    ---
-
-    面向 Google Gemini 的集成流水线，支持完整流式返回。
-
-    **版本：** 1.0.0
-
-    [:octicons-arrow-right-24: 查看文档](gemini-manifold.md)
-
-</div>
 
 ---
 

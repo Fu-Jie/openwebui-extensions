@@ -73,13 +73,13 @@ hide:
 
     [:octicons-arrow-right-24: Learn More](plugins/actions/smart-mind-map.md)
 
--   :material-card-text:{ .lg .middle } **Knowledge Card**
+-   :material-card-text:{ .lg .middle } **Flash Card**
 
     ---
 
-    Quickly generates beautiful learning memory cards, perfect for studying and quick memorization.
+    Quickly generates beautiful flashcards from text, extracting key points and categories.
 
-    [:octicons-arrow-right-24: Learn More](plugins/actions/knowledge-card.md)
+    [:octicons-arrow-right-24: Learn More](plugins/actions/flash-card.md)
 
 -   :material-arrow-collapse-vertical:{ .lg .middle } **Async Context Compression**
 

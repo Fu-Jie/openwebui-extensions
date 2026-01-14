@@ -37,15 +37,15 @@ Actions 是交互式插件，能够：
 
     [:octicons-arrow-right-24: 查看文档](smart-infographic.md)
 
--   :material-card-text:{ .lg .middle } **Knowledge Card**
+-   :material-card-text:{ .lg .middle } **Flash Card（闪记卡）**
 
     ---
 
-    快速生成精美的学习记忆卡片，适合学习与记忆。
+    快速生成精美的学习记忆卡片，非常适合学习和快速记忆。
 
-    **版本：** 0.2.2
+    **版本：** 0.2.4
 
-    [:octicons-arrow-right-24: 查看文档](knowledge-card.md)
+    [:octicons-arrow-right-24: 查看文档](flash-card.md)
 
 -   :material-file-excel:{ .lg .middle } **Export to Excel**
 
@@ -77,15 +77,7 @@ Actions 是交互式插件，能够：
 
     [:octicons-arrow-right-24: 查看文档](deep-dive.zh.md)
 
--   :material-image-text:{ .lg .middle } **信息图转 Markdown**
 
-    ---
-
-    AI 驱动的信息图生成器，渲染 SVG 并以 Markdown Data URL 图片嵌入。
-
-    **版本：** 1.0.0
-
-    [:octicons-arrow-right-24: 查看文档](infographic-markdown.zh.md)
 
 </div>
 

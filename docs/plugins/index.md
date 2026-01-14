@@ -48,15 +48,15 @@ OpenWebUI supports four types of plugins, each serving a different purpose:
 
 | Plugin | Type | Description | Version |
 |--------|------|-------------|---------|
-| [Smart Mind Map](actions/smart-mind-map.md) | Action | Generate interactive mind maps from text | 0.8.0 |
-| [Smart Infographic](actions/smart-infographic.md) | Action | Transform text into professional infographics | 1.0.0 |
-| [Knowledge Card](actions/knowledge-card.md) | Action | Create beautiful learning flashcards | 0.2.0 |
-| [Export to Excel](actions/export-to-excel.md) | Action | Export chat history to Excel files | 1.0.0 |
-| [Export to Word](actions/export-to-word.md) | Action | Export chat content to Word (.docx) with formatting | 0.1.0 |
-| [Async Context Compression](filters/async-context-compression.md) | Filter | Intelligent context compression | 1.0.0 |
-| [Context Enhancement](filters/context-enhancement.md) | Filter | Enhance chat context | 1.0.0 |
-| [Gemini Manifold Companion](filters/gemini-manifold-companion.md) | Filter | Companion for Gemini Manifold | 1.0.0 |
-| [Gemini Manifold](pipes/gemini-manifold.md) | Pipe | Gemini model integration | 1.0.0 |
+| [Smart Mind Map](actions/smart-mind-map.md) | Action | Generate interactive mind maps from text | 0.9.1 |
+| [Smart Infographic](actions/smart-infographic.md) | Action | Transform text into professional infographics | 1.4.9 |
+| [Flash Card](actions/flash-card.md) | Action | Create beautiful learning flashcards | 0.2.4 |
+| [Export to Excel](actions/export-to-excel.md) | Action | Export chat history to Excel files | 0.3.7 |
+| [Export to Word](actions/export-to-word.md) | Action | Export chat content to Word (.docx) with formatting | 0.4.3 |
+| [Async Context Compression](filters/async-context-compression.md) | Filter | Intelligent context compression | 1.1.3 |
+| [Context Enhancement](filters/context-enhancement.md) | Filter | Enhance chat context | 0.3.0 |
+| [Multi-Model Context Merger](filters/multi-model-context-merger.md) | Filter | Merge context from multiple models | 0.1.0 |
+| [Web Gemini Multimodal Filter](filters/web-gemini-multimodel.md) | Filter | Multimodal capabilities for any model | 0.3.2 |
 | [MoE Prompt Refiner](pipelines/moe-prompt-refiner.md) | Pipeline | Multi-model prompt refinement | 1.0.0 |
 
 ---

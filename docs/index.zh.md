@@ -73,13 +73,13 @@ hide:
 
     [:octicons-arrow-right-24: 了解更多](plugins/actions/smart-mind-map.md)
 
--   :material-card-text:{ .lg .middle } **知识卡片**
+-   :material-card-text:{ .lg .middle } **Flash Card（闪记卡）**
 
     ---
 
     快速生成精美的学习记忆卡片，非常适合学习和快速记忆。
 
-    [:octicons-arrow-right-24: 了解更多](plugins/actions/knowledge-card.md)
+    [:octicons-arrow-right-24: 了解更多](plugins/actions/flash-card.md)
 
 -   :material-arrow-collapse-vertical:{ .lg .middle } **异步上下文压缩**
 

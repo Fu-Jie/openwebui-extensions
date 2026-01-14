@@ -1,8 +1,8 @@
 """
 title: Export to Excel
 author: Fu-Jie
-author_url: https://github.com/Fu-Jie
-funding_url: https://github.com/Fu-Jie/awesome-openwebui
+author_url: https://github.com/Fu-Jie/awesome-openwebui
+funding_url: https://github.com/open-webui
 version: 0.3.7
 openwebui_id: 244b8f9d-7459-47d6-84d3-c7ae8e3ec710
 icon_url: data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxwYXRoIGQ9Ik0xNSAySDZhMiAyIDAgMCAwLTIgMnYxNmEyIDIgMCAwIDAgMiAyaDEyYTIgMiAwIDAgMCAyLTJWN1oiLz48cGF0aCBkPSJNMTQgMnY0YTIgMiAwIDAgMCAyIDJoNCIvPjxwYXRoIGQ9Ik04IDEzaDIiLz48cGF0aCBkPSJNMTQgMTNoMiIvPjxwYXRoIGQ9Ik04IDE3aDIiLz48cGF0aCBkPSJNMTQgMTdoMiIvPjwvc3ZnPg==
@@ -32,6 +32,10 @@ class Action:
             default="chat_title",
             description="Title Source: 'chat_title' (Chat Title), 'ai_generated' (AI Generated), 'markdown_title' (Markdown Title)",
         )
+        SHOW_STATUS: bool = Field(
+            default=True,
+            description="Whether to show operation status updates.",
+        )
         EXPORT_SCOPE: Literal["last_message", "all_messages"] = Field(
             default="last_message",
             description="Export Scope: 'last_message' (Last Message Only), 'all_messages' (All Messages)",
@@ -40,14 +44,57 @@ class Action:
             default="",
             description="Model ID for AI title generation. Leave empty to use the current chat model.",
         )
+        SHOW_DEBUG_LOG: bool = Field(
+            default=False,
+            description="Whether to print debug logs in the browser console.",
+        )
 
     def __init__(self):
         self.valves = self.Valves()
 
-    async def _send_notification(self, emitter: Callable, type: str, content: str):
-        await emitter(
-            {"type": "notification", "data": {"type": type, "content": content}}
-        )
+    async def _emit_status(
+        self,
+        emitter: Optional[Callable[[Any], Awaitable[None]]],
+        description: str,
+        done: bool = False,
+    ):
+        """Emits a status update event."""
+        if self.valves.SHOW_STATUS and emitter:
+            await emitter(
+                {"type": "status", "data": {"description": description, "done": done}}
+            )
+
+    async def _emit_notification(
+        self,
+        emitter: Optional[Callable[[Any], Awaitable[None]]],
+        content: str,
+        ntype: str = "info",
+    ):
+        """Emits a notification event (info, success, warning, error)."""
+        if emitter:
+            await emitter(
+                {"type": "notification", "data": {"type": ntype, "content": content}}
+            )
+
+    async def _emit_debug_log(self, emitter, title: str, data: dict):
+        """Print structured debug logs in the browser console"""
+        if not self.valves.SHOW_DEBUG_LOG or not emitter:
+            return
+
+        try:
+            import json
+
+            js_code = f"""
+                (async function() {{
+                    console.group("🛠️ {title}");
+                    console.log({json.dumps(data, ensure_ascii=False)});
+                    console.groupEnd();
+                }})();
+            """
+
+            await emitter({"type": "execute", "data": {"code": js_code}})
+        except Exception as e:
+            print(f"Error emitting debug log: {e}")
 
     async def action(
         self,
@@ -190,17 +237,18 @@ class Action:
                 # Notify user about the number of tables found
                 table_count = len(all_tables)
                 if self.valves.EXPORT_SCOPE == "all_messages":
-                    await self._send_notification(
+                    await self._emit_notification(
                         __event_emitter__,
-                        "info",
                         f"Found {table_count} table(s) in all messages.",
+                        "info",
                     )
                     # Wait a moment for user to see the notification before download dialog
                     await asyncio.sleep(1.5)
                 # Generate Workbook Title (Filename)
                 # Use the title of the chat, or the first header of the first message with tables
                 title = ""
-                chat_id = self.extract_chat_id(body, None)
+                chat_ctx = self._get_chat_context(body, None)
+                chat_id = chat_ctx["chat_id"]
                 chat_title = ""
                 if chat_id:
                     chat_title = await self.fetch_chat_title(chat_id, user_id)
@@ -330,8 +378,8 @@ class Action:
                         },
                     }
                 )
-                await self._send_notification(
-                    __event_emitter__, "error", "No tables found to export!"
+                await self._emit_notification(
+                    __event_emitter__, "No tables found to export!", "error"
                 )
                 raise e
             except Exception as e:
@@ -345,8 +393,8 @@ class Action:
                         },
                     }
                 )
-                await self._send_notification(
-                    __event_emitter__, "error", "No tables found to export!"
+                await self._emit_notification(
+                    __event_emitter__, "No tables found to export!", "error"
                 )
 
     async def generate_title_using_ai(
@@ -389,20 +437,20 @@ class Action:
             async def notification_task():
                 # Send initial notification immediately
                 if event_emitter:
-                    await self._send_notification(
+                    await self._emit_notification(
                         event_emitter,
-                        "info",
                         "AI is generating a filename for your Excel file...",
+                        "info",
                     )
 
                 # Subsequent notifications every 5 seconds
                 while True:
                     await asyncio.sleep(5)
                     if event_emitter:
-                        await self._send_notification(
+                        await self._emit_notification(
                             event_emitter,
-                            "info",
                             "Still generating filename, please be patient...",
+                            "info",
                         )
 
             # Run tasks concurrently
@@ -432,10 +480,10 @@ class Action:
         except Exception as e:
             print(f"Error generating title: {e}")
             if event_emitter:
-                await self._send_notification(
+                await self._emit_notification(
                     event_emitter,
-                    "warning",
                     f"AI title generation failed, using default title. Error: {str(e)}",
+                    "warning",
                 )
 
         return ""
@@ -450,24 +498,56 @@ class Action:
                 return match.group(1).strip()
         return ""
 
-    def extract_chat_id(self, body: dict, metadata: Optional[dict]) -> str:
-        """Extract chat_id from body or metadata"""
-        if isinstance(body, dict):
-            chat_id = body.get("chat_id") or body.get("id")
-            if isinstance(chat_id, str) and chat_id.strip():
-                return chat_id.strip()
+    def _get_user_context(self, __user__: Optional[Dict[str, Any]]) -> Dict[str, str]:
+        """Safely extracts user context information."""
+        if isinstance(__user__, (list, tuple)):
+            user_data = __user__[0] if __user__ else {}
+        elif isinstance(__user__, dict):
+            user_data = __user__
+        else:
+            user_data = {}
 
-            for key in ("chat", "conversation"):
-                nested = body.get(key)
-                if isinstance(nested, dict):
-                    nested_id = nested.get("id") or nested.get("chat_id")
-                    if isinstance(nested_id, str) and nested_id.strip():
-                        return nested_id.strip()
-        if isinstance(metadata, dict):
-            chat_id = metadata.get("chat_id")
-            if isinstance(chat_id, str) and chat_id.strip():
-                return chat_id.strip()
-        return ""
+        return {
+            "user_id": user_data.get("id", "unknown_user"),
+            "user_name": user_data.get("name", "User"),
+            "user_language": user_data.get("language", "en-US"),
+        }
+
+    def _get_chat_context(
+        self, body: dict, __metadata__: Optional[dict] = None
+    ) -> Dict[str, str]:
+        """
+        Unified extraction of chat context information (chat_id, message_id).
+        Prioritizes extraction from body, then metadata.
+        """
+        chat_id = ""
+        message_id = ""
+
+        # 1. Try to get from body
+        if isinstance(body, dict):
+            chat_id = body.get("chat_id", "")
+            message_id = body.get("id", "")  # message_id is usually 'id' in body
+
+            # Check body.metadata as fallback
+            if not chat_id or not message_id:
+                body_metadata = body.get("metadata", {})
+                if isinstance(body_metadata, dict):
+                    if not chat_id:
+                        chat_id = body_metadata.get("chat_id", "")
+                    if not message_id:
+                        message_id = body_metadata.get("message_id", "")
+
+        # 2. Try to get from __metadata__ (as supplement)
+        if __metadata__ and isinstance(__metadata__, dict):
+            if not chat_id:
+                chat_id = __metadata__.get("chat_id", "")
+            if not message_id:
+                message_id = __metadata__.get("message_id", "")
+
+        return {
+            "chat_id": str(chat_id).strip(),
+            "message_id": str(message_id).strip(),
+        }
 
     async def fetch_chat_title(self, chat_id: str, user_id: str = "") -> str:
         """Fetch chat title from database by chat_id"""
