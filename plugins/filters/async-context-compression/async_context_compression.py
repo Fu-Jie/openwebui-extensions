@@ -2,8 +2,8 @@
 title: Async Context Compression
 id: async_context_compression
 author: Fu-Jie
-author_url: https://github.com/Fu-Jie
-funding_url: https://github.com/Fu-Jie/awesome-openwebui
+author_url: https://github.com/Fu-Jie/awesome-openwebui
+funding_url: https://github.com/open-webui
 description: Reduces token consumption in long conversations while maintaining coherence through intelligent summarization and message compression.
 version: 1.1.3
 openwebui_id: b1655bc8-6de9-4cad-8cb5-a6f7829a02ce
@@ -621,25 +621,41 @@ class Filter:
             "max_context_tokens": self.valves.max_context_tokens,
         }
 
-    def _extract_chat_id(self, body: dict, metadata: Optional[dict]) -> str:
-        """Extract chat_id from body or metadata."""
+    def _get_chat_context(
+        self, body: dict, __metadata__: Optional[dict] = None
+    ) -> Dict[str, str]:
+        """
+        Unified extraction of chat context information (chat_id, message_id).
+        Prioritizes extraction from body, then metadata.
+        """
+        chat_id = ""
+        message_id = ""
+
+        # 1. Try to get from body
         if isinstance(body, dict):
-            chat_id = body.get("chat_id")
-            if isinstance(chat_id, str) and chat_id.strip():
-                return chat_id.strip()
+            chat_id = body.get("chat_id", "")
+            message_id = body.get("id", "")  # message_id is usually 'id' in body
 
-            body_metadata = body.get("metadata", {})
-            if isinstance(body_metadata, dict):
-                chat_id = body_metadata.get("chat_id")
-                if isinstance(chat_id, str) and chat_id.strip():
-                    return chat_id.strip()
+            # Check body.metadata as fallback
+            if not chat_id or not message_id:
+                body_metadata = body.get("metadata", {})
+                if isinstance(body_metadata, dict):
+                    if not chat_id:
+                        chat_id = body_metadata.get("chat_id", "")
+                    if not message_id:
+                        message_id = body_metadata.get("message_id", "")
 
-        if isinstance(metadata, dict):
-            chat_id = metadata.get("chat_id")
-            if isinstance(chat_id, str) and chat_id.strip():
-                return chat_id.strip()
+        # 2. Try to get from __metadata__ (as supplement)
+        if __metadata__ and isinstance(__metadata__, dict):
+            if not chat_id:
+                chat_id = __metadata__.get("chat_id", "")
+            if not message_id:
+                message_id = __metadata__.get("message_id", "")
 
-        return ""
+        return {
+            "chat_id": str(chat_id).strip(),
+            "message_id": str(message_id).strip(),
+        }
 
     async def _emit_debug_log(
         self,
@@ -750,7 +766,8 @@ class Filter:
         Compression Strategy: Only responsible for injecting existing summaries, no Token calculation.
         """
         messages = body.get("messages", [])
-        chat_id = self._extract_chat_id(body, __metadata__)
+        chat_ctx = self._get_chat_context(body, __metadata__)
+        chat_id = chat_ctx["chat_id"]
 
         if not chat_id:
             await self._log(
@@ -867,7 +884,8 @@ class Filter:
         Executed after the LLM response is complete.
         Calculates Token count in the background and triggers summary generation (does not block current response, does not affect content output).
         """
-        chat_id = self._extract_chat_id(body, __metadata__)
+        chat_ctx = self._get_chat_context(body, __metadata__)
+        chat_id = chat_ctx["chat_id"]
         if not chat_id:
             await self._log(
                 "[Outlet] ❌ Missing chat_id in metadata, skipping compression",

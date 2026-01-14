@@ -1,8 +1,8 @@
 """
 title: Flash Card
 author: Fu-Jie
-author_url: https://github.com/Fu-Jie
-funding_url: https://github.com/Fu-Jie/awesome-openwebui
+author_url: https://github.com/Fu-Jie/awesome-openwebui
+funding_url: https://github.com/open-webui
 version: 0.2.4
 openwebui_id: 65a2ea8f-2a13-4587-9d76-55eea0035cc8
 icon_url: data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxwb2x5Z29uIHBvaW50cz0iMTIgMiAyIDcgMTIgMTIgMjIgNyAxMiAyIi8+PHBvbHlsaW5lIHBvaW50cz0iMiAxNyAxMiAyMiAyMiAxNyIvPjxwb2x5bGluZSBwb2ludHM9IjIgMTIgMTIgMTcgMjIgMTIiLz48L3N2Zz4=
@@ -89,6 +89,10 @@ class Action:
             default=True,
             description="Whether to show status updates in the chat interface.",
         )
+        SHOW_DEBUG_LOG: bool = Field(
+            default=False,
+            description="Whether to print debug logs in the browser console.",
+        )
         CLEAR_PREVIOUS_HTML: bool = Field(
             default=False,
             description="Whether to force clear previous plugin results (if True, overwrites instead of merging).",
@@ -114,6 +118,42 @@ class Action:
             "user_id": user_data.get("id", "unknown_user"),
             "user_name": user_data.get("name", "User"),
             "user_language": user_data.get("language", "en-US"),
+        }
+
+    def _get_chat_context(
+        self, body: dict, __metadata__: Optional[dict] = None
+    ) -> Dict[str, str]:
+        """
+        Unified extraction of chat context information (chat_id, message_id).
+        Prioritizes extraction from body, then metadata.
+        """
+        chat_id = ""
+        message_id = ""
+
+        # 1. Try to get from body
+        if isinstance(body, dict):
+            chat_id = body.get("chat_id", "")
+            message_id = body.get("id", "")  # message_id is usually 'id' in body
+
+            # Check body.metadata as fallback
+            if not chat_id or not message_id:
+                body_metadata = body.get("metadata", {})
+                if isinstance(body_metadata, dict):
+                    if not chat_id:
+                        chat_id = body_metadata.get("chat_id", "")
+                    if not message_id:
+                        message_id = body_metadata.get("message_id", "")
+
+        # 2. Try to get from __metadata__ (as supplement)
+        if __metadata__ and isinstance(__metadata__, dict):
+            if not chat_id:
+                chat_id = __metadata__.get("chat_id", "")
+            if not message_id:
+                message_id = __metadata__.get("message_id", "")
+
+        return {
+            "chat_id": str(chat_id).strip(),
+            "message_id": str(message_id).strip(),
         }
 
     async def action(
@@ -330,6 +370,26 @@ Important Principles:
             await emitter(
                 {"type": "notification", "data": {"type": ntype, "content": content}}
             )
+
+    async def _emit_debug_log(self, emitter, title: str, data: dict):
+        """Print structured debug logs in the browser console"""
+        if not self.valves.SHOW_DEBUG_LOG or not emitter:
+            return
+
+        try:
+            import json
+
+            js_code = f"""
+                (async function() {{
+                    console.group("🛠️ {title}");
+                    console.log({json.dumps(data, ensure_ascii=False)});
+                    console.groupEnd();
+                }})();
+            """
+
+            await emitter({"type": "execute", "data": {"code": js_code}})
+        except Exception as e:
+            print(f"Error emitting debug log: {e}")
 
     def _remove_existing_html(self, content: str) -> str:
         """Removes existing plugin-generated HTML code blocks from the content."""

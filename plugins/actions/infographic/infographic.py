@@ -2,6 +2,7 @@
 title: 📊 Smart Infographic (AntV)
 author: Fu-Jie
 author_url: https://github.com/Fu-Jie/awesome-openwebui
+funding_url: https://github.com/open-webui
 icon_url: data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPgogIDxsaW5lIHgxPSIxMiIgeTE9IjIwIiB4Mj0iMTIiIHkyPSIxMCIgLz4KICA8bGluZSB4MT0iMTgiIHkxPSIyMCIgeDI9IjE4IiB5Mj0iNCIgLz4KICA8bGluZSB4MT0iNiIgeTE9IjIwIiB4Mj0iNiIgeTI9IjE2IiAvPgo8L3N2Zz4=
 version: 1.4.9
 openwebui_id: ad6f0c7f-c571-4dea-821d-8e71697274cf
@@ -262,6 +263,8 @@ data
 3. **No Colons**: Do NOT use colons after keys.
 4. **Indentation**: Use 2 spaces.
 """
+
+import json
 
 USER_PROMPT_GENERATE_INFOGRAPHIC = """
 Please analyze the following text content and convert its core information into AntV Infographic syntax format.
@@ -947,49 +950,64 @@ class Action:
             default="image",
             description="Output mode: 'html' for interactive HTML, or 'image' to embed as Markdown image (default).",
         )
+        SHOW_DEBUG_LOG: bool = Field(
+            default=False,
+            description="Whether to print debug logs in the browser console.",
+        )
 
     def __init__(self):
         self.valves = self.Valves()
 
-    def _extract_chat_id(self, body: dict, metadata: Optional[dict]) -> str:
-        """Extract chat_id from body or metadata"""
+    def _get_user_context(self, __user__: Optional[Dict[str, Any]]) -> Dict[str, str]:
+        """Safely extracts user context information."""
+        if isinstance(__user__, (list, tuple)):
+            user_data = __user__[0] if __user__ else {}
+        elif isinstance(__user__, dict):
+            user_data = __user__
+        else:
+            user_data = {}
+
+        return {
+            "user_id": user_data.get("id", "unknown_user"),
+            "user_name": user_data.get("name", "User"),
+            "user_language": user_data.get("language", "en-US"),
+        }
+
+    def _get_chat_context(
+        self, body: dict, __metadata__: Optional[dict] = None
+    ) -> Dict[str, str]:
+        """
+        Unified extraction of chat context information (chat_id, message_id).
+        Prioritizes extraction from body, then metadata.
+        """
+        chat_id = ""
+        message_id = ""
+
+        # 1. Try to get from body
         if isinstance(body, dict):
-            chat_id = body.get("chat_id")
-            if isinstance(chat_id, str) and chat_id.strip():
-                return chat_id.strip()
+            chat_id = body.get("chat_id", "")
+            message_id = body.get("id", "")  # message_id is usually 'id' in body
 
-            body_metadata = body.get("metadata", {})
-            if isinstance(body_metadata, dict):
-                chat_id = body_metadata.get("chat_id")
-                if isinstance(chat_id, str) and chat_id.strip():
-                    return chat_id.strip()
+            # Check body.metadata as fallback
+            if not chat_id or not message_id:
+                body_metadata = body.get("metadata", {})
+                if isinstance(body_metadata, dict):
+                    if not chat_id:
+                        chat_id = body_metadata.get("chat_id", "")
+                    if not message_id:
+                        message_id = body_metadata.get("message_id", "")
 
-        if isinstance(metadata, dict):
-            chat_id = metadata.get("chat_id")
-            if isinstance(chat_id, str) and chat_id.strip():
-                return chat_id.strip()
+        # 2. Try to get from __metadata__ (as supplement)
+        if __metadata__ and isinstance(__metadata__, dict):
+            if not chat_id:
+                chat_id = __metadata__.get("chat_id", "")
+            if not message_id:
+                message_id = __metadata__.get("message_id", "")
 
-        return ""
-
-    def _extract_message_id(self, body: dict, metadata: Optional[dict]) -> str:
-        """Extract message_id from body or metadata"""
-        if isinstance(body, dict):
-            message_id = body.get("id")
-            if isinstance(message_id, str) and message_id.strip():
-                return message_id.strip()
-
-            body_metadata = body.get("metadata", {})
-            if isinstance(body_metadata, dict):
-                message_id = body_metadata.get("message_id")
-                if isinstance(message_id, str) and message_id.strip():
-                    return message_id.strip()
-
-        if isinstance(metadata, dict):
-            message_id = metadata.get("message_id")
-            if isinstance(message_id, str) and message_id.strip():
-                return message_id.strip()
-
-        return ""
+        return {
+            "chat_id": str(chat_id).strip(),
+            "message_id": str(message_id).strip(),
+        }
 
     def _extract_infographic_syntax(self, llm_output: str) -> str:
         """Extract infographic syntax from LLM output"""
@@ -1017,6 +1035,24 @@ class Action:
             await emitter(
                 {"type": "notification", "data": {"type": ntype, "content": content}}
             )
+
+    async def _emit_debug_log(self, emitter, title: str, data: dict):
+        """Print structured debug logs in the browser console"""
+        if not self.valves.SHOW_DEBUG_LOG or not emitter:
+            return
+
+        try:
+            js_code = f"""
+                (async function() {{
+                    console.group("🛠️ {title}");
+                    console.log({json.dumps(data, ensure_ascii=False)});
+                    console.groupEnd();
+                }})();
+            """
+
+            await emitter({"type": "execute", "data": {"code": js_code}})
+        except Exception as e:
+            print(f"Error emitting debug log: {e}")
 
     def _remove_existing_html(self, content: str) -> str:
         """Remove existing plugin-generated HTML code blocks from content"""
@@ -1628,8 +1664,9 @@ class Action:
             # Check output mode
             if self.valves.OUTPUT_MODE == "image":
                 # Image mode: use JavaScript to render and embed as Markdown image
-                chat_id = self._extract_chat_id(body, body.get("metadata"))
-                message_id = self._extract_message_id(body, body.get("metadata"))
+                chat_ctx = self._get_chat_context(body, __metadata__)
+                chat_id = chat_ctx["chat_id"]
+                message_id = chat_ctx["message_id"]
 
                 await self._emit_status(
                     __event_emitter__,

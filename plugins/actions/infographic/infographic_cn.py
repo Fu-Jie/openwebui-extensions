@@ -2,6 +2,7 @@
 title: 📊 智能信息图 (AntV Infographic)
 author: Fu-Jie
 author_url: https://github.com/Fu-Jie/awesome-openwebui
+funding_url: https://github.com/open-webui
 icon_url: data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPgogIDxsaW5lIHgxPSIxMiIgeTE9IjIwIiB4Mj0iMTIiIHkyPSIxMCIgLz4KICA8bGluZSB4MT0iMTgiIHkxPSIyMCIgeDI9IjE4IiB5Mj0iNCIgLz4KICA8bGluZSB4MT0iNiIgeTE9IjIwIiB4Mj0iNiIgeTI9IjE2IiAvPgo8L3N2Zz4=
 version: 1.4.9
 openwebui_id: e04a48ff-23ee-4a41-8ea7-66c19524e7c8
@@ -243,6 +244,8 @@ data
 2.  **No Explanations**: Output ONLY the syntax code block.
 3.  **Language**: Use the user's requested language for content.
 """
+
+import json
 
 USER_PROMPT_GENERATE_INFOGRAPHIC = """
 请分析以下文本内容，将其核心信息转换为 AntV Infographic 语法格式。
@@ -954,6 +957,10 @@ class Action:
             default="image",
             description="输出模式：'html' 为交互式HTML，'image' 将嵌入为Markdown图片（默认）。",
         )
+        SHOW_DEBUG_LOG: bool = Field(
+            default=False,
+            description="是否在浏览器控制台打印调试日志。",
+        )
 
     def __init__(self):
         self.valves = self.Valves()
@@ -967,45 +974,56 @@ class Action:
             "Sunday": "星期日",
         }
 
-    def _extract_chat_id(self, body: dict, metadata: Optional[dict]) -> str:
-        """从 body 或 metadata 中提取 chat_id"""
+    def _get_user_context(self, __user__: Optional[Dict[str, Any]]) -> Dict[str, str]:
+        """安全提取用户上下文信息。"""
+        if isinstance(__user__, (list, tuple)):
+            user_data = __user__[0] if __user__ else {}
+        elif isinstance(__user__, dict):
+            user_data = __user__
+        else:
+            user_data = {}
+
+        return {
+            "user_id": user_data.get("id", "unknown_user"),
+            "user_name": user_data.get("name", "用户"),
+            "user_language": user_data.get("language", "zh-CN"),
+        }
+
+    def _get_chat_context(
+        self, body: dict, __metadata__: Optional[dict] = None
+    ) -> Dict[str, str]:
+        """
+        统一提取聊天上下文信息 (chat_id, message_id)。
+        优先从 body 中提取，其次从 metadata 中提取。
+        """
+        chat_id = ""
+        message_id = ""
+
+        # 1. 尝试从 body 获取
         if isinstance(body, dict):
-            chat_id = body.get("chat_id")
-            if isinstance(chat_id, str) and chat_id.strip():
-                return chat_id.strip()
+            chat_id = body.get("chat_id", "")
+            message_id = body.get("id", "")  # message_id 在 body 中通常是 id
 
-            body_metadata = body.get("metadata", {})
-            if isinstance(body_metadata, dict):
-                chat_id = body_metadata.get("chat_id")
-                if isinstance(chat_id, str) and chat_id.strip():
-                    return chat_id.strip()
+            # 再次检查 body.metadata
+            if not chat_id or not message_id:
+                body_metadata = body.get("metadata", {})
+                if isinstance(body_metadata, dict):
+                    if not chat_id:
+                        chat_id = body_metadata.get("chat_id", "")
+                    if not message_id:
+                        message_id = body_metadata.get("message_id", "")
 
-        if isinstance(metadata, dict):
-            chat_id = metadata.get("chat_id")
-            if isinstance(chat_id, str) and chat_id.strip():
-                return chat_id.strip()
+        # 2. 尝试从 __metadata__ 获取 (作为补充)
+        if __metadata__ and isinstance(__metadata__, dict):
+            if not chat_id:
+                chat_id = __metadata__.get("chat_id", "")
+            if not message_id:
+                message_id = __metadata__.get("message_id", "")
 
-        return ""
-
-    def _extract_message_id(self, body: dict, metadata: Optional[dict]) -> str:
-        """从 body 或 metadata 中提取 message_id"""
-        if isinstance(body, dict):
-            message_id = body.get("id")
-            if isinstance(message_id, str) and message_id.strip():
-                return message_id.strip()
-
-            body_metadata = body.get("metadata", {})
-            if isinstance(body_metadata, dict):
-                message_id = body_metadata.get("message_id")
-                if isinstance(message_id, str) and message_id.strip():
-                    return message_id.strip()
-
-        if isinstance(metadata, dict):
-            message_id = metadata.get("message_id")
-            if isinstance(message_id, str) and message_id.strip():
-                return message_id.strip()
-
-        return ""
+        return {
+            "chat_id": str(chat_id).strip(),
+            "message_id": str(message_id).strip(),
+        }
 
     def _extract_infographic_syntax(self, llm_output: str) -> str:
         """提取LLM输出中的infographic语法"""
@@ -1057,6 +1075,24 @@ class Action:
             await emitter(
                 {"type": "notification", "data": {"type": ntype, "content": content}}
             )
+
+    async def _emit_debug_log(self, emitter, title: str, data: dict):
+        """在浏览器控制台打印结构化调试日志"""
+        if not self.valves.SHOW_DEBUG_LOG or not emitter:
+            return
+
+        try:
+            js_code = f"""
+                (async function() {{
+                    console.group("🛠️ {title}");
+                    console.log({json.dumps(data, ensure_ascii=False)});
+                    console.groupEnd();
+                }})();
+            """
+
+            await emitter({"type": "execute", "data": {"code": js_code}})
+        except Exception as e:
+            print(f"Error emitting debug log: {e}")
 
     def _remove_existing_html(self, content: str) -> str:
         """移除内容中已有的插件生成 HTML 代码块"""
@@ -1662,8 +1698,9 @@ class Action:
             # 检查输出模式
             if self.valves.OUTPUT_MODE == "image":
                 # 图片模式：使用 JavaScript 渲染并嵌入为 Markdown 图片
-                chat_id = self._extract_chat_id(body, body.get("metadata"))
-                message_id = self._extract_message_id(body, body.get("metadata"))
+                chat_ctx = self._get_chat_context(body, __metadata__)
+                chat_id = chat_ctx["chat_id"]
+                message_id = chat_ctx["message_id"]
 
                 await self._emit_status(
                     __event_emitter__,

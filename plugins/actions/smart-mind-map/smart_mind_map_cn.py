@@ -1,8 +1,8 @@
 """
 title: 思维导图
 author: Fu-Jie
-author_url: https://github.com/Fu-Jie
-funding_url: https://github.com/Fu-Jie/awesome-openwebui
+author_url: https://github.com/Fu-Jie/awesome-openwebui
+funding_url: https://github.com/open-webui
 version: 0.9.1
 openwebui_id: 8d4b097b-219b-4dd2-b509-05fbe6388335
 icon_url: data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxyZWN0IHg9IjE2IiB5PSIxNiIgd2lkdGg9IjYiIGhlaWdodD0iNiIgcng9IjEiLz48cmVjdCB4PSIyIiB5PSIxNiIgd2lkdGg9IjYiIGhlaWdodD0iNiIgcng9IjEiLz48cmVjdCB4PSI5IiB5PSIyIiB3aWR0aD0iNiIgaGVpZ2h0PSI2IiByeD0iMSIvPjxwYXRoIGQ9Ik01IDE2di0zYTEgMSAwIDAgMSAxLTFoMTJhMSAxIDAgMCAxIDEgMXYzIi8+PHBhdGggZD0iTTEyIDEyVjgiLz48L3N2Zz4=
@@ -48,6 +48,8 @@ SYSTEM_PROMPT_MINDMAP_ASSISTANT = """
     - 原因: 文本内容不足或不明确
     ```
 """
+
+import json
 
 USER_PROMPT_GENERATE_MINDMAP = """
 请分析以下长篇文本,并将其核心主题、关键概念、分支和子分支结构化为标准的Markdown列表语法,以供Markmap.js渲染。
@@ -790,6 +792,10 @@ class Action:
             default="html",
             description="输出模式: 'html' 为交互式HTML(默认),'image' 为嵌入Markdown图片。",
         )
+        SHOW_DEBUG_LOG: bool = Field(
+            default=False,
+            description="是否在浏览器控制台打印调试日志。",
+        )
 
     def __init__(self):
         self.valves = self.Valves()
@@ -818,45 +824,41 @@ class Action:
             "user_language": user_data.get("language", "zh-CN"),
         }
 
-    def _extract_chat_id(self, body: dict, metadata: Optional[dict]) -> str:
-        """从 body 或 metadata 中提取 chat_id"""
+    def _get_chat_context(
+        self, body: dict, __metadata__: Optional[dict] = None
+    ) -> Dict[str, str]:
+        """
+        统一提取聊天上下文信息 (chat_id, message_id)。
+        优先从 body 中提取，其次从 metadata 中提取。
+        """
+        chat_id = ""
+        message_id = ""
+
+        # 1. 尝试从 body 获取
         if isinstance(body, dict):
-            chat_id = body.get("chat_id")
-            if isinstance(chat_id, str) and chat_id.strip():
-                return chat_id.strip()
+            chat_id = body.get("chat_id", "")
+            message_id = body.get("id", "")  # message_id 在 body 中通常是 id
 
-            body_metadata = body.get("metadata", {})
-            if isinstance(body_metadata, dict):
-                chat_id = body_metadata.get("chat_id")
-                if isinstance(chat_id, str) and chat_id.strip():
-                    return chat_id.strip()
+            # 再次检查 body.metadata
+            if not chat_id or not message_id:
+                body_metadata = body.get("metadata", {})
+                if isinstance(body_metadata, dict):
+                    if not chat_id:
+                        chat_id = body_metadata.get("chat_id", "")
+                    if not message_id:
+                        message_id = body_metadata.get("message_id", "")
 
-        if isinstance(metadata, dict):
-            chat_id = metadata.get("chat_id")
-            if isinstance(chat_id, str) and chat_id.strip():
-                return chat_id.strip()
+        # 2. 尝试从 __metadata__ 获取 (作为补充)
+        if __metadata__ and isinstance(__metadata__, dict):
+            if not chat_id:
+                chat_id = __metadata__.get("chat_id", "")
+            if not message_id:
+                message_id = __metadata__.get("message_id", "")
 
-        return ""
-
-    def _extract_message_id(self, body: dict, metadata: Optional[dict]) -> str:
-        """从 body 或 metadata 中提取 message_id"""
-        if isinstance(body, dict):
-            message_id = body.get("id")
-            if isinstance(message_id, str) and message_id.strip():
-                return message_id.strip()
-
-            body_metadata = body.get("metadata", {})
-            if isinstance(body_metadata, dict):
-                message_id = body_metadata.get("message_id")
-                if isinstance(message_id, str) and message_id.strip():
-                    return message_id.strip()
-
-        if isinstance(metadata, dict):
-            message_id = metadata.get("message_id")
-            if isinstance(message_id, str) and message_id.strip():
-                return message_id.strip()
-
-        return ""
+        return {
+            "chat_id": str(chat_id).strip(),
+            "message_id": str(message_id).strip(),
+        }
 
     def _extract_markdown_syntax(self, llm_output: str) -> str:
         match = re.search(r"```markdown\s*(.*?)\s*```", llm_output, re.DOTALL)
@@ -880,6 +882,24 @@ class Action:
             await emitter(
                 {"type": "notification", "data": {"type": ntype, "content": content}}
             )
+
+    async def _emit_debug_log(self, emitter, title: str, data: dict):
+        """在浏览器控制台打印结构化调试日志"""
+        if not self.valves.SHOW_DEBUG_LOG or not emitter:
+            return
+
+        try:
+            js_code = f"""
+                (async function() {{
+                    console.group("🛠️ {title}");
+                    console.log({json.dumps(data, ensure_ascii=False)});
+                    console.groupEnd();
+                }})();
+            """
+
+            await emitter({"type": "execute", "data": {"code": js_code}})
+        except Exception as e:
+            print(f"Error emitting debug log: {e}")
 
     def _remove_existing_html(self, content: str) -> str:
         """移除内容中已有的插件生成 HTML 代码块 (通过标记识别)。"""
@@ -1508,8 +1528,9 @@ class Action:
             # 检查输出模式
             if self.valves.OUTPUT_MODE == "image":
                 # 图片模式: 使用 JavaScript 渲染并嵌入为 Markdown 图片
-                chat_id = self._extract_chat_id(body, __metadata__)
-                message_id = self._extract_message_id(body, __metadata__)
+                chat_ctx = self._get_chat_context(body, __metadata__)
+                chat_id = chat_ctx["chat_id"]
+                message_id = chat_ctx["message_id"]
 
                 await self._emit_status(
                     __event_emitter__,

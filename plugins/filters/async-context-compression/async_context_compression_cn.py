@@ -2,8 +2,8 @@
 title: 异步上下文压缩
 id: async_context_compression
 author: Fu-Jie
-author_url: https://github.com/Fu-Jie
-funding_url: https://github.com/Fu-Jie/awesome-openwebui
+author_url: https://github.com/Fu-Jie/awesome-openwebui
+funding_url: https://github.com/open-webui
 description: 通过智能摘要和消息压缩，降低长对话的 token 消耗，同时保持对话连贯性。
 version: 1.1.3
 openwebui_id: 5c0617cb-a9e4-4bd6-a440-d276534ebd18
@@ -472,6 +472,42 @@ class Filter:
             "max_context_tokens": self.valves.max_context_tokens,
         }
 
+    def _get_chat_context(
+        self, body: dict, __metadata__: Optional[dict] = None
+    ) -> Dict[str, str]:
+        """
+        统一提取聊天上下文信息 (chat_id, message_id)。
+        优先从 body 中提取，其次从 metadata 中提取。
+        """
+        chat_id = ""
+        message_id = ""
+
+        # 1. 尝试从 body 获取
+        if isinstance(body, dict):
+            chat_id = body.get("chat_id", "")
+            message_id = body.get("id", "")  # message_id 在 body 中通常是 id
+
+            # 再次检查 body.metadata
+            if not chat_id or not message_id:
+                body_metadata = body.get("metadata", {})
+                if isinstance(body_metadata, dict):
+                    if not chat_id:
+                        chat_id = body_metadata.get("chat_id", "")
+                    if not message_id:
+                        message_id = body_metadata.get("message_id", "")
+
+        # 2. 尝试从 __metadata__ 获取 (作为补充)
+        if __metadata__ and isinstance(__metadata__, dict):
+            if not chat_id:
+                chat_id = __metadata__.get("chat_id", "")
+            if not message_id:
+                message_id = __metadata__.get("message_id", "")
+
+        return {
+            "chat_id": str(chat_id).strip(),
+            "message_id": str(message_id).strip(),
+        }
+
     async def _emit_debug_log(
         self,
         __event_call__,
@@ -581,7 +617,8 @@ class Filter:
         压缩策略：只负责注入已有的摘要，不进行 Token 计算
         """
         messages = body.get("messages", [])
-        chat_id = __metadata__["chat_id"]
+        chat_ctx = self._get_chat_context(body, __metadata__)
+        chat_id = chat_ctx["chat_id"]
 
         if self.valves.debug_mode or self.valves.show_debug_log:
             await self._log(
@@ -690,7 +727,8 @@ class Filter:
         在 LLM 响应完成后执行
         在后台计算 Token 数并触发摘要生成（不阻塞当前响应，不影响内容输出）
         """
-        chat_id = __metadata__["chat_id"]
+        chat_ctx = self._get_chat_context(body, __metadata__)
+        chat_id = chat_ctx["chat_id"]
         model = body.get("model") or ""
 
         # 直接计算目标压缩进度

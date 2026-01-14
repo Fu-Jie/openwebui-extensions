@@ -1,3 +1,12 @@
+"""
+title: Multi-Model Context Merger
+author: Fu-Jie
+author_url: https://github.com/Fu-Jie/awesome-openwebui
+funding_url: https://github.com/Fu-Jie/awesome-openwebui
+version: 0.1.0
+description: Automatically merges context from multiple model responses in the previous turn.
+"""
+
 import asyncio
 from typing import List, Optional, Dict
 from pydantic import BaseModel, Field

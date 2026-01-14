@@ -1,8 +1,8 @@
 """
 title: Export to Word (Enhanced)
 author: Fu-Jie
-author_url: https://github.com/Fu-Jie
-funding_url: https://github.com/Fu-Jie/awesome-openwebui
+author_url: https://github.com/Fu-Jie/awesome-openwebui
+funding_url: https://github.com/open-webui
 version: 0.4.3
 openwebui_id: fca6a315-2a45-42cc-8c96-55cbc85f87f2
 icon_url: data:image/svg+xml;base64,PHN2ZwogIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIKICB3aWR0aD0iMjQiCiAgaGVpZ2h0PSIyNCIKICB2aWV3Qm94PSIwIDAgMjQgMjQiCiAgZmlsbD0ibm9uZSIKICBzdHJva2U9ImN1cnJlbnRDb2xvciIKICBzdHJva2Utd2lkdGg9IjIiCiAgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIgogIHN0cm9rZS1saW5lam9pbj0icm91bmQiCj4KICA8cGF0aCBkPSJNNiAyMmEyIDIgMCAwIDEtMi0yVjRhMiAyIDAgMCAxIDItMmg4YTIuNCAyLjQgMCAwIDEgMS43MDQuNzA2bDMuNTg4IDMuNTg4QTIuNCAyLjQgMCAwIDEgMjAgOHYxMmEyIDIgMCAwIDEtMiAyeiIgLz4KICA8cGF0aCBkPSJNMTQgMnY1YTEgMSAwIDAgMCAxIDFoNSIgLz4KICA8cGF0aCBkPSJNMTAgOUg4IiAvPgogIDxwYXRoIGQ9Ik0xNiAxM0g4IiAvPgogIDxwYXRoIGQ9Ik0xNiAxN0g4IiAvPgo8L3N2Zz4K
@@ -149,6 +149,14 @@ class Action:
         TITLE_SOURCE: str = Field(
             default="chat_title",
             description="Title Source: 'chat_title' (Chat Title), 'ai_generated' (AI Generated), 'markdown_title' (Markdown Title)",
+        )
+        SHOW_STATUS: bool = Field(
+            default=True,
+            description="Whether to show operation status updates.",
+        )
+        SHOW_DEBUG_LOG: bool = Field(
+            default=False,
+            description="Whether to print debug logs in the browser console.",
         )
 
         MAX_EMBED_IMAGE_MB: int = Field(
@@ -320,10 +328,100 @@ class Action:
                 return msg
         return msg
 
-    async def _send_notification(self, emitter: Callable, type: str, content: str):
-        await emitter(
-            {"type": "notification", "data": {"type": type, "content": content}}
-        )
+    def _get_user_context(self, __user__: Optional[Dict[str, Any]]) -> Dict[str, str]:
+        """Safely extracts user context information."""
+        if isinstance(__user__, (list, tuple)):
+            user_data = __user__[0] if __user__ else {}
+        elif isinstance(__user__, dict):
+            user_data = __user__
+        else:
+            user_data = {}
+
+        return {
+            "user_id": user_data.get("id", "unknown_user"),
+            "user_name": user_data.get("name", "User"),
+            "user_language": user_data.get("language", "en-US"),
+        }
+
+    def _get_chat_context(
+        self, body: dict, __metadata__: Optional[dict] = None
+    ) -> Dict[str, str]:
+        """
+        Unified extraction of chat context information (chat_id, message_id).
+        Prioritizes extraction from body, then metadata.
+        """
+        chat_id = ""
+        message_id = ""
+
+        # 1. Try to get from body
+        if isinstance(body, dict):
+            chat_id = body.get("chat_id", "")
+            message_id = body.get("id", "")  # message_id is usually 'id' in body
+
+            # Check body.metadata as fallback
+            if not chat_id or not message_id:
+                body_metadata = body.get("metadata", {})
+                if isinstance(body_metadata, dict):
+                    if not chat_id:
+                        chat_id = body_metadata.get("chat_id", "")
+                    if not message_id:
+                        message_id = body_metadata.get("message_id", "")
+
+        # 2. Try to get from __metadata__ (as supplement)
+        if __metadata__ and isinstance(__metadata__, dict):
+            if not chat_id:
+                chat_id = __metadata__.get("chat_id", "")
+            if not message_id:
+                message_id = __metadata__.get("message_id", "")
+
+        return {
+            "chat_id": str(chat_id).strip(),
+            "message_id": str(message_id).strip(),
+        }
+
+    async def _emit_status(
+        self,
+        emitter: Optional[Callable[[Any], Awaitable[None]]],
+        description: str,
+        done: bool = False,
+    ):
+        """Emits a status update event."""
+        if self.valves.SHOW_STATUS and emitter:
+            await emitter(
+                {"type": "status", "data": {"description": description, "done": done}}
+            )
+
+    async def _emit_notification(
+        self,
+        emitter: Optional[Callable[[Any], Awaitable[None]]],
+        content: str,
+        ntype: str = "info",
+    ):
+        """Emits a notification event (info, success, warning, error)."""
+        if emitter:
+            await emitter(
+                {"type": "notification", "data": {"type": ntype, "content": content}}
+            )
+
+    async def _emit_debug_log(self, emitter, title: str, data: dict):
+        """Print structured debug logs in the browser console"""
+        if not self.valves.SHOW_DEBUG_LOG or not emitter:
+            return
+
+        try:
+            import json
+
+            js_code = f"""
+                (async function() {{
+                    console.group("🛠️ {title}");
+                    console.log({json.dumps(data, ensure_ascii=False)});
+                    console.groupEnd();
+                }})();
+            """
+
+            await emitter({"type": "execute", "data": {"code": js_code}})
+        except Exception as e:
+            print(f"Error emitting debug log: {e}")
 
     async def action(
         self,
@@ -397,14 +495,15 @@ class Action:
                     message_content = self._strip_reasoning_blocks(message_content)
 
                 if not message_content or not message_content.strip():
-                    await self._send_notification(
-                        __event_emitter__, "error", self._get_msg("error_no_content")
+                    await self._emit_notification(
+                        __event_emitter__, self._get_msg("error_no_content"), "error"
                     )
                     return
 
                 # Generate filename
                 title = ""
-                chat_id = self.extract_chat_id(body, __metadata__)
+                chat_ctx = self._get_chat_context(body, __metadata__)
+                chat_id = chat_ctx["chat_id"]
 
                 # Fetch chat_title directly via chat_id as it's usually missing in body
                 chat_title = ""
@@ -873,10 +972,10 @@ class Action:
                     }
                 )
 
-                await self._send_notification(
+                await self._emit_notification(
                     __event_emitter__,
-                    "success",
                     self._get_msg("success", filename=filename),
+                    "success",
                 )
 
                 return {"message": "Download triggered"}
@@ -892,10 +991,10 @@ class Action:
                         },
                     }
                 )
-                await self._send_notification(
+                await self._emit_notification(
                     __event_emitter__,
-                    "error",
                     self._get_msg("error_export", error=str(e)),
+                    "error",
                 )
 
     async def generate_title_using_ai(

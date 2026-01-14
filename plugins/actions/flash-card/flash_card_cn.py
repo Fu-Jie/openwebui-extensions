@@ -1,8 +1,8 @@
 """
 title: 闪记卡 (Flash Card)
 author: Fu-Jie
-author_url: https://github.com/Fu-Jie
-funding_url: https://github.com/Fu-Jie/awesome-openwebui
+author_url: https://github.com/Fu-Jie/awesome-openwebui
+funding_url: https://github.com/open-webui
 version: 0.2.4
 openwebui_id: 4a31eac3-a3c4-4c30-9ca5-dab36b5fac65
 icon_url: data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxwb2x5Z29uIHBvaW50cz0iMTIgMiAyIDcgMTIgMTIgMjIgNyAxMiAyIi8+PHBvbHlsaW5lIHBvaW50cz0iMiAxNyAxMiAyMiAyMiAxNyIvPjxwb2x5bGluZSBwb2ludHM9IjIgMTIgMTIgMTcgMjIgMTIiLz48L3N2Zz4=
@@ -86,6 +86,10 @@ class Action:
         SHOW_STATUS: bool = Field(
             default=True, description="是否在聊天界面显示状态更新。"
         )
+        SHOW_DEBUG_LOG: bool = Field(
+            default=False,
+            description="是否在浏览器控制台打印调试日志。",
+        )
         CLEAR_PREVIOUS_HTML: bool = Field(
             default=False,
             description="是否强制清除旧的插件结果（如果为 True，则不合并，直接覆盖）。",
@@ -111,6 +115,42 @@ class Action:
             "user_id": user_data.get("id", "unknown_user"),
             "user_name": user_data.get("name", "用户"),
             "user_language": user_data.get("language", "zh-CN"),
+        }
+
+    def _get_chat_context(
+        self, body: dict, __metadata__: Optional[dict] = None
+    ) -> Dict[str, str]:
+        """
+        统一提取聊天上下文信息 (chat_id, message_id)。
+        优先从 body 中提取，其次从 metadata 中提取。
+        """
+        chat_id = ""
+        message_id = ""
+
+        # 1. 尝试从 body 获取
+        if isinstance(body, dict):
+            chat_id = body.get("chat_id", "")
+            message_id = body.get("id", "")  # message_id 在 body 中通常是 id
+
+            # 再次检查 body.metadata
+            if not chat_id or not message_id:
+                body_metadata = body.get("metadata", {})
+                if isinstance(body_metadata, dict):
+                    if not chat_id:
+                        chat_id = body_metadata.get("chat_id", "")
+                    if not message_id:
+                        message_id = body_metadata.get("message_id", "")
+
+        # 2. 尝试从 __metadata__ 获取 (作为补充)
+        if __metadata__ and isinstance(__metadata__, dict):
+            if not chat_id:
+                chat_id = __metadata__.get("chat_id", "")
+            if not message_id:
+                message_id = __metadata__.get("message_id", "")
+
+        return {
+            "chat_id": str(chat_id).strip(),
+            "message_id": str(message_id).strip(),
         }
 
     async def action(
@@ -313,6 +353,26 @@ class Action:
             await emitter(
                 {"type": "notification", "data": {"type": ntype, "content": content}}
             )
+
+    async def _emit_debug_log(self, emitter, title: str, data: dict):
+        """在浏览器控制台打印结构化调试日志"""
+        if not self.valves.SHOW_DEBUG_LOG or not emitter:
+            return
+
+        try:
+            import json
+
+            js_code = f"""
+                (async function() {{
+                    console.group("🛠️ {title}");
+                    console.log({json.dumps(data, ensure_ascii=False)});
+                    console.groupEnd();
+                }})();
+            """
+
+            await emitter({"type": "execute", "data": {"code": js_code}})
+        except Exception as e:
+            print(f"Error emitting debug log: {e}")
 
     def _remove_existing_html(self, content: str) -> str:
         """移除内容中已有的插件生成 HTML 代码块 (通过标记识别)。"""

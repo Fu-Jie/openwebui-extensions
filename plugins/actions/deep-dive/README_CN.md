@@ -1,6 +1,6 @@
 # 📖 精读
 
-**作者:** [Fu-Jie](https://github.com/Fu-Jie) | **版本:** 1.0.0 | **项目:** [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui)
+**作者:** [Fu-Jie](https://github.com/Fu-Jie/awesome-openwebui) | **版本:** 1.0.0 | **项目:** [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui)
 
 全方位的思维透镜 —— 从背景全景到逻辑脉络，从深度洞察到行动路径。
 
