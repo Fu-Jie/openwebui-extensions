@@ -36,15 +36,7 @@ Filters act as middleware in the message pipeline:
 
     [:octicons-arrow-right-24: Documentation](context-enhancement.md)
 
--   :material-google:{ .lg .middle } **Gemini Manifold Companion**
 
-    ---
-
-    Companion filter for the Gemini Manifold pipe plugin.
-
-    **Version:** 1.7.0
-
-    [:octicons-arrow-right-24: Documentation](gemini-manifold-companion.md)
 
 -   :material-format-paint:{ .lg .middle } **Markdown Normalizer**
 
@@ -52,9 +44,29 @@ Filters act as middleware in the message pipeline:
 
     Fixes common Markdown formatting issues in LLM outputs, including Mermaid syntax, code blocks, and LaTeX formulas.
 
-    **Version:** 1.0.1
+    **Version:** 1.1.2
 
     [:octicons-arrow-right-24: Documentation](markdown_normalizer.md)
+
+-   :material-merge:{ .lg .middle } **Multi-Model Context Merger**
+
+    ---
+
+    Automatically merges context from multiple model responses in the previous turn, enabling collaborative answers.
+
+    **Version:** 0.1.0
+
+    [:octicons-arrow-right-24: Documentation](multi-model-context-merger.md)
+
+-   :material-file-document-multiple:{ .lg .middle } **Web Gemini Multimodal Filter**
+
+    ---
+
+    A powerful filter that provides multimodal capabilities (PDF, Office, Images, Audio, Video) to any model in OpenWebUI.
+
+    **Version:** 0.3.2
+
+    [:octicons-arrow-right-24: Documentation](web-gemini-multimodel.md)
 
 </div>
 

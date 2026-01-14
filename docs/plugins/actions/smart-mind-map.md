@@ -1,7 +1,7 @@
 # Smart Mind Map
 
 <span class="category-badge action">Action</span>
-<span class="version-badge">v0.8.0</span>
+<span class="version-badge">v0.9.1</span>
 
 Intelligently analyzes text content and generates interactive mind maps for better visualization and understanding.
 

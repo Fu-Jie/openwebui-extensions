@@ -15,19 +15,7 @@ Pipes allow you to:
 
 ## Available Pipe Plugins
 
-<div class="grid cards" markdown>
 
--   :material-google:{ .lg .middle } **Gemini Manifold**
-
-    ---
-
-    Integration pipeline for Google's Gemini models with full streaming support.
-
-    **Version:** 1.0.0
-
-    [:octicons-arrow-right-24: Documentation](gemini-manifold.md)
-
-</div>
 
 ---
 

@@ -1,7 +1,7 @@
 # Smart Mind Map（智能思维导图）
 
 <span class="category-badge action">Action</span>
-<span class="version-badge">v0.8.0</span>
+<span class="version-badge">v0.9.1</span>
 
 智能分析文本内容，生成交互式思维导图，帮助你更直观地理解信息结构。
 

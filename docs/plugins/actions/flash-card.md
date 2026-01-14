@@ -1,9 +1,9 @@
-# Knowledge Card
+# Flash Card
 
 <span class="category-badge action">Action</span>
-<span class="version-badge">v0.2.2</span>
+<span class="version-badge">v0.2.4</span>
 
-Quickly generates beautiful learning memory cards, perfect for studying and quick memorization.
+Quickly generates beautiful flashcards from text, extracting key points and categories.
 
 ---
 

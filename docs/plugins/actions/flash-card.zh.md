@@ -1,7 +1,7 @@
 # Knowledge Card（知识卡片）
 
 <span class="category-badge action">Action</span>
-<span class="version-badge">v0.2.0</span>
+<span class="version-badge">v0.2.4</span>
 
 快速生成精美的学习记忆卡片，适合学习和速记。
 

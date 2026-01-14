@@ -23,7 +23,7 @@ Actions are interactive plugins that:
 
     Intelligently analyzes text content and generates interactive mind maps with beautiful visualizations.
 
-    **Version:** 0.8.0
+    **Version:** 0.9.1
 
     [:octicons-arrow-right-24: Documentation](smart-mind-map.md)
 
@@ -37,15 +37,15 @@ Actions are interactive plugins that:
 
     [:octicons-arrow-right-24: Documentation](smart-infographic.md)
 
--   :material-card-text:{ .lg .middle } **Knowledge Card**
+-   :material-card-text:{ .lg .middle } **Flash Card**
 
     ---
 
-    Quickly generates beautiful learning memory cards, perfect for studying and memorization.
+    Quickly generates beautiful flashcards from text, extracting key points and categories.
 
-    **Version:** 0.2.2
+    **Version:** 0.2.4
 
-    [:octicons-arrow-right-24: Documentation](knowledge-card.md)
+    [:octicons-arrow-right-24: Documentation](flash-card.md)
 
 -   :material-file-excel:{ .lg .middle } **Export to Excel**
 
@@ -77,15 +77,7 @@ Actions are interactive plugins that:
 
     [:octicons-arrow-right-24: Documentation](deep-dive.md)
 
--   :material-image-text:{ .lg .middle } **Infographic to Markdown**
 
-    ---
-
-    AI-powered infographic generator that renders SVG and embeds it as Markdown Data URL image.
-
-    **Version:** 1.0.0
-
-    [:octicons-arrow-right-24: Documentation](infographic-markdown.md)
 
 </div>
 
