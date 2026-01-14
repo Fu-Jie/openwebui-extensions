@@ -23,7 +23,7 @@ The Smart Mind Map plugin transforms text content into beautiful, interactive mi
 
 ## Installation
 
-1. Download the plugin file: [`思维导图.py`](https://github.com/Fu-Jie/awesome-openwebui/tree/main/plugins/actions/smart-mind-map)
+1. Download the plugin file: [`smart_mind_map.py`](https://github.com/Fu-Jie/awesome-openwebui/tree/main/plugins/actions/smart-mind-map)
 2. Upload to OpenWebUI: **Admin Panel** → **Settings** → **Functions** (Actions)
 3. Enable the plugin, and optionally allow iframe same-origin access so theme auto-detection works
 

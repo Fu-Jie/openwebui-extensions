@@ -23,7 +23,7 @@ Smart Mind Map 会将文本转换成漂亮的交互式思维导图。插件会�
 
 ## 安装
 
-1. 下载插件文件：[`思维导图.py`](https://github.com/Fu-Jie/awesome-openwebui/tree/main/plugins/actions/smart-mind-map)
+1. 下载插件文件：[`smart_mind_map.py`](https://github.com/Fu-Jie/awesome-openwebui/tree/main/plugins/actions/smart-mind-map)
 2. 上传到 OpenWebUI：**Admin Panel** → **Settings** → **Functions**（Actions）
 3. 启用插件，并可在设置中允许 iframe same-origin 以启用主题自动检测
 
