@@ -1,5 +1,9 @@
 # OpenWebUI 社区统计报告自动生成
-# 只在统计数据变化时 commit，避免频繁提交
+# 智能检测：只在有意义的变更时才 commit
+# - 新增插件 (total_posts)
+# - 插件版本变更 (version)
+# - 积分增加 (total_points)
+# - 粉丝增加 (followers)
 
 name: Community Stats
 
@@ -31,9 +35,23 @@ jobs:
       - name: Install dependencies
         run: |
           pip install requests python-dotenv
-      
 
-      
+      - name: Capture existing stats (before update)
+        id: old_stats
+        run: |
+          if [ -f docs/community-stats.json ]; then
+            echo "total_posts=$(jq -r '.total_posts // 0' docs/community-stats.json)" >> $GITHUB_OUTPUT
+            echo "total_points=$(jq -r '.user.total_points // 0' docs/community-stats.json)" >> $GITHUB_OUTPUT
+            echo "followers=$(jq -r '.user.followers // 0' docs/community-stats.json)" >> $GITHUB_OUTPUT
+            # 提取所有插件的版本号，生成一个排序后的字符串用于比较
+            echo "versions=$(jq -r '[.posts[].version] | sort | join(",")' docs/community-stats.json)" >> $GITHUB_OUTPUT
+          else
+            echo "total_posts=0" >> $GITHUB_OUTPUT
+            echo "total_points=0" >> $GITHUB_OUTPUT
+            echo "followers=0" >> $GITHUB_OUTPUT
+            echo "versions=" >> $GITHUB_OUTPUT
+          fi
+
       - name: Generate stats report
         env:
           OPENWEBUI_API_KEY: ${{ secrets.OPENWEBUI_API_KEY }}
@@ -41,10 +59,71 @@ jobs:
         run: |
           python scripts/openwebui_stats.py
 
+      - name: Capture new stats (after update)
+        id: new_stats
+        run: |
+          echo "total_posts=$(jq -r '.total_posts // 0' docs/community-stats.json)" >> $GITHUB_OUTPUT
+          echo "total_points=$(jq -r '.user.total_points // 0' docs/community-stats.json)" >> $GITHUB_OUTPUT
+          echo "followers=$(jq -r '.user.followers // 0' docs/community-stats.json)" >> $GITHUB_OUTPUT
+          echo "versions=$(jq -r '[.posts[].version] | sort | join(",")' docs/community-stats.json)" >> $GITHUB_OUTPUT
+
+      - name: Check for significant changes
+        id: check_changes
+        run: |
+          OLD_POSTS="${{ steps.old_stats.outputs.total_posts }}"
+          NEW_POSTS="${{ steps.new_stats.outputs.total_posts }}"
+          OLD_POINTS="${{ steps.old_stats.outputs.total_points }}"
+          NEW_POINTS="${{ steps.new_stats.outputs.total_points }}"
+          OLD_FOLLOWERS="${{ steps.old_stats.outputs.followers }}"
+          NEW_FOLLOWERS="${{ steps.new_stats.outputs.followers }}"
+          OLD_VERSIONS="${{ steps.old_stats.outputs.versions }}"
+          NEW_VERSIONS="${{ steps.new_stats.outputs.versions }}"
+          
+          SHOULD_COMMIT="false"
+          CHANGE_REASON=""
+          
+          # 检查新增插件
+          if [ "$NEW_POSTS" -gt "$OLD_POSTS" ]; then
+            SHOULD_COMMIT="true"
+            CHANGE_REASON="new plugin added ($OLD_POSTS -> $NEW_POSTS)"
+            echo "📦 New plugin detected: $OLD_POSTS -> $NEW_POSTS"
+          fi
+          
+          # 检查版本变更
+          if [ "$OLD_VERSIONS" != "$NEW_VERSIONS" ]; then
+            SHOULD_COMMIT="true"
+            CHANGE_REASON="${CHANGE_REASON:+$CHANGE_REASON, }plugin version updated"
+            echo "🔄 Plugin version changed"
+          fi
+          
+          # 检查积分增加
+          if [ "$NEW_POINTS" -gt "$OLD_POINTS" ]; then
+            SHOULD_COMMIT="true"
+            CHANGE_REASON="${CHANGE_REASON:+$CHANGE_REASON, }points increased ($OLD_POINTS -> $NEW_POINTS)"
+            echo "⭐ Points increased: $OLD_POINTS -> $NEW_POINTS"
+          fi
+          
+          # 检查粉丝增加
+          if [ "$NEW_FOLLOWERS" -gt "$OLD_FOLLOWERS" ]; then
+            SHOULD_COMMIT="true"
+            CHANGE_REASON="${CHANGE_REASON:+$CHANGE_REASON, }followers increased ($OLD_FOLLOWERS -> $NEW_FOLLOWERS)"
+            echo "👥 Followers increased: $OLD_FOLLOWERS -> $NEW_FOLLOWERS"
+          fi
+          
+          echo "should_commit=$SHOULD_COMMIT" >> $GITHUB_OUTPUT
+          echo "change_reason=$CHANGE_REASON" >> $GITHUB_OUTPUT
+          
+          if [ "$SHOULD_COMMIT" = "false" ]; then
+            echo "ℹ️ No significant changes detected, skipping commit"
+          else
+            echo "✅ Significant changes detected: $CHANGE_REASON"
+          fi
+
       - name: Commit and push changes
+        if: steps.check_changes.outputs.should_commit == 'true'
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
-          git add docs/community-stats.zh.md docs/community-stats.md docs/community-stats.json README.md README_CN.md
-          git diff --staged --quiet || git commit -m "chore: update community stats $(date +'%Y-%m-%d')"
+          git add docs/community-stats.zh.md docs/community-stats.md docs/community-stats.json docs/badges README.md README_CN.md
+          git diff --staged --quiet || git commit -m "chore: update community stats - ${{ steps.check_changes.outputs.change_reason }}"
           git push
