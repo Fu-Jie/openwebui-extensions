@@ -53,9 +53,17 @@ A content normalizer filter for Open WebUI that fixes common Markdown formatting
 
 ## Changelog
 
+### v1.2.3
+
+* **List Marker Protection Enhancement**: Fixed a bug where list markers (`*`) followed by plain text and emphasis were having their spaces incorrectly stripped (e.g., `*   U16 forward` became `*U16 forward`).
+* **Placeholder Support**: Confirmed that 4 or more underscores (e.g., `____`) are correctly treated as placeholders and not modified by the emphasis fix.
+
 ### v1.2.2
 
-* **Version Bump**: Documentation and metadata updated for the latest release.
+* **Code Block Indentation Fix**: Fixed an issue where code blocks nested inside lists were having their indentation incorrectly stripped. Now preserves proper indentation for nested code blocks.
+* **Underscore Emphasis Support**: Extended emphasis spacing fix to support `__` (double underscore for bold) and `___` (triple underscore for bold+italic) syntax.
+* **List Marker Protection**: Fixed a bug where list markers (`*`) followed by emphasis markers (`**`) were incorrectly merged (e.g., `*   **Yes**` became `***Yes**`). Added safeguard to prevent this.
+* **Test Suite**: Added comprehensive pytest test suite with 56 test cases covering all major features.
 
 ### v1.2.1
 

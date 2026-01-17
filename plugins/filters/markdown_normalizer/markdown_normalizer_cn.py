@@ -3,7 +3,7 @@ title: Markdown 格式修复器 (Markdown Normalizer)
 author: Fu-Jie
 author_url: https://github.com/Fu-Jie/awesome-openwebui
 funding_url: https://github.com/open-webui
-version: 1.2.2
+version: 1.2.3
 description: 内容规范化过滤器，修复 LLM 输出中常见的 Markdown 格式问题，如损坏的代码块、LaTeX 公式、Mermaid 图表和列表格式。
 """
 
@@ -101,12 +101,13 @@ class ContentNormalizer:
         "heading_space": re.compile(r"^(#+)([^ \n#])", re.MULTILINE),
         # Table: | col1 | col2 -> | col1 | col2 |
         "table_pipe": re.compile(r"^(\|.*[^|\n])$", re.MULTILINE),
-        # Emphasis spacing: ** text ** -> **text**
+        # Emphasis spacing: ** text ** -> **text**, __ text __ -> __text__
         # Matches emphasis blocks within a single line. We use a recursive approach
         # in _fix_emphasis_spacing to handle nesting and spaces correctly.
         # NOTE: We use [^\n] instead of . to prevent cross-line matching.
+        # Supports: * (italic), ** (bold), *** (bold+italic), _ (italic), __ (bold), ___ (bold+italic)
         "emphasis_spacing": re.compile(
-            r"(?<!\*|_)(\*{1,3}|_)(?P<inner>[^\n]*?)(\1)(?!\*|_)"
+            r"(?<!\*|_)(\*{1,3}|_{1,3})(?P<inner>[^\n]*?)(\1)(?!\*|_)"
         ),
     }
 
@@ -463,6 +464,20 @@ class ContentNormalizer:
                 # If it's single '*' or '_', and both sides have spaces, it's almost certainly an operator.
                 if symbol in ["*", "_"]:
                     return match.group(0)
+
+            # Safeguard: List marker protection
+            # If symbol is single '*' and inner content starts with whitespace followed by emphasis markers,
+            # this is likely a list item like "*   **bold**" - don't merge them.
+            # Pattern: "*   **text**" should NOT become "***text**"
+            if symbol == "*" and inner.lstrip().startswith(("*", "_")):
+                return match.group(0)
+
+            # Extended list marker protection:
+            # If symbol is single '*' and inner starts with multiple spaces (list indentation pattern),
+            # this is likely a list item like "*   text" - don't strip the spaces.
+            # Pattern: "*   U16 forward **Kuang**" should NOT become "*U16 forward **Kuang**"
+            if symbol == "*" and inner.startswith("   "):
+                return match.group(0)
 
             return f"{symbol}{stripped_inner}{symbol}"
 
