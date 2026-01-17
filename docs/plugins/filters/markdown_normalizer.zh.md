@@ -4,6 +4,7 @@
 
 ## 功能特性
 
+*   **Details 标签规范化**: 确保 `<details>` 标签（常用于思维链）有正确的间距。在 `</details>` 后添加空行，并在自闭合 `<details />` 标签后添加换行，防止渲染问题。
 *   **Mermaid 语法修复**: 自动修复常见的 Mermaid 语法错误，如未加引号的节点标签（支持多行标签和引用标记）和未闭合的子图 (Subgraph)，确保图表能正确渲染。
 *   **前端控制台调试**: 支持将结构化的调试日志直接打印到浏览器控制台 (F12)，方便排查问题。
 *   **代码块格式化**: 修复破损的代码块前缀、后缀和缩进问题。
@@ -29,6 +30,7 @@
 *   `priority`: 过滤器优先级 (默认: 50)。
 *   `enable_escape_fix`: 修复过度的转义字符。
 *   `enable_thought_tag_fix`: 规范化思维标签。
+*   `enable_details_tag_fix`: 规范化 Details 标签 (默认: True)。
 *   `enable_code_block_fix`: 修复代码块格式。
 *   `enable_latex_fix`: 规范化 LaTeX 公式。
 *   `enable_list_fix`: 修复列表项换行 (实验性)。

@@ -30,11 +30,8 @@ A production-grade content normalizer filter for Open WebUI that fixes common Ma
 *   `priority`: Filter priority (default: 50).
 *   `enable_escape_fix`: Fix excessive escape characters.
 *   `enable_thought_tag_fix`: Normalize thought tags.
-*   `enable_thought_tag_fix`: 规范化思维标签。
 *   `enable_details_tag_fix`: Normalize details tags (default: True).
-*   `enable_details_tag_fix`: 规范化 Details 标签 (默认: True)。
 *   `enable_code_block_fix`: Fix code block formatting.
-*   `enable_code_block_fix`: 修复代码块格式。
 *   `enable_latex_fix`: Normalize LaTeX formulas.
 *   `enable_list_fix`: Fix list item newlines (Experimental).
 *   `enable_unclosed_block_fix`: Auto-close unclosed code blocks.
