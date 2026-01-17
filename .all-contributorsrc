@@ -36,6 +36,15 @@
         "bug",
         "ideas"
       ]
+    },
+    {
+      "login": "nahoj",
+      "name": "Johan Grande",
+      "avatar_url": "https://avatars.githubusercontent.com/u/469017?v=4",
+      "profile": "https://perso.crans.org/grande/",
+      "contributions": [
+        "ideas"
+      ]
     }
   ],
   "contributorsPerLine": 7,
