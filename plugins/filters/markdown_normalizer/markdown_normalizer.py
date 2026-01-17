@@ -3,7 +3,7 @@ title: Markdown Normalizer
 author: Fu-Jie
 author_url: https://github.com/Fu-Jie/awesome-openwebui
 funding_url: https://github.com/open-webui
-version: 1.2.0
+version: 1.2.2
 openwebui_id: baaa8732-9348-40b7-8359-7e009660e23c
 description: A content normalizer filter that fixes common Markdown formatting issues in LLM outputs, such as broken code blocks, LaTeX formulas, and list formatting.
 """
@@ -43,6 +43,7 @@ class NormalizerConfig:
     )
     enable_table_fix: bool = True  # Fix missing closing pipe in tables
     enable_xml_tag_cleanup: bool = True  # Cleanup leftover XML tags
+    enable_emphasis_spacing_fix: bool = True  # Fix spaces inside **emphasis**
 
     # Custom cleaner functions (for advanced extension)
     custom_cleaners: List[Callable[[str], str]] = field(default_factory=list)
@@ -53,8 +54,8 @@ class ContentNormalizer:
 
     # --- 1. Pre-compiled Regex Patterns (Performance Optimization) ---
     _PATTERNS = {
-        # Code block prefix: if ``` is not at start of line or file
-        "code_block_prefix": re.compile(r"(?<!^)(?<!\n)(```)", re.MULTILINE),
+        # Code block prefix: if ``` is not at start of line (ignoring whitespace)
+        "code_block_prefix": re.compile(r"(\S[ \t]*)(```)"),
         # Code block suffix: ```lang followed by non-whitespace (no newline)
         "code_block_suffix": re.compile(r"(```[\w\+\-\.]*)[ \t]+([^\n\r])"),
         # Code block indent: whitespace at start of line + ```
@@ -108,6 +109,13 @@ class ContentNormalizer:
         "heading_space": re.compile(r"^(#+)([^ \n#])", re.MULTILINE),
         # Table: | col1 | col2 -> | col1 | col2 |
         "table_pipe": re.compile(r"^(\|.*[^|\n])$", re.MULTILINE),
+        # Emphasis spacing: ** text ** -> **text**
+        # Matches emphasis blocks within a single line. We use a recursive approach
+        # in _fix_emphasis_spacing to handle nesting and spaces correctly.
+        # NOTE: We use [^\n] instead of . to prevent cross-line matching.
+        "emphasis_spacing": re.compile(
+            r"(?<!\*|_)(\*{1,3}|_)(?P<inner>[^\n]*?)(\1)(?!\*|_)"
+        ),
     }
 
     def __init__(self, config: Optional[NormalizerConfig] = None):
@@ -207,6 +215,13 @@ class ContentNormalizer:
                 if content != original:
                     self.applied_fixes.append("Cleanup XML Tags")
 
+            # 12. Emphasis spacing fix
+            if self.config.enable_emphasis_spacing_fix:
+                original = content
+                content = self._fix_emphasis_spacing(content)
+                if content != original:
+                    self.applied_fixes.append("Fix Emphasis Spacing")
+
             # 9. Custom cleaners
             for cleaner in self.config.custom_cleaners:
                 original = content
@@ -283,8 +298,6 @@ class ContentNormalizer:
 
     def _fix_code_blocks(self, content: str) -> str:
         """Fix code block formatting (prefixes, suffixes, indentation)"""
-        # Remove indentation before code blocks
-        content = self._PATTERNS["code_block_indent"].sub(r"\1", content)
         # Ensure newline before ```
         content = self._PATTERNS["code_block_prefix"].sub(r"\n\1", content)
         # Ensure newline after ```lang
@@ -443,6 +456,47 @@ class ContentNormalizer:
         """Remove leftover XML tags"""
         return self._PATTERNS["xml_artifacts"].sub("", content)
 
+    def _fix_emphasis_spacing(self, content: str) -> str:
+        """Fix spaces inside **emphasis** or _emphasis_
+        Example: ** text ** -> **text**, **text ** -> **text**, ** text** -> **text**
+        """
+
+        def replacer(match):
+            symbol = match.group(1)
+            inner = match.group("inner")
+
+            # Recursive step: Fix emphasis spacing INSIDE the current block first
+            # This ensures that ** _ italic _ ** becomes ** _italic_ ** before we strip outer spaces.
+            inner = self._PATTERNS["emphasis_spacing"].sub(replacer, inner)
+
+            # If no leading/trailing whitespace, nothing to fix at this level
+            stripped_inner = inner.strip()
+            if stripped_inner == inner:
+                return f"{symbol}{inner}{symbol}"
+
+            # Safeguard: If inner content is just whitespace, don't touch it
+            if not stripped_inner:
+                return match.group(0)
+
+            # Safeguard: If it looks like a math expression or list of variables (e.g. " * 3 * " or " _ b _ ")
+            # If the symbol is surrounded by spaces in the original text, it's likely an operator.
+            if inner.startswith(" ") and inner.endswith(" "):
+                # If it's single '*' or '_', and both sides have spaces, it's almost certainly an operator.
+                if symbol in ["*", "_"]:
+                    return match.group(0)
+
+            return f"{symbol}{stripped_inner}{symbol}"
+
+        parts = content.split("```")
+        for i in range(0, len(parts), 2):  # Even indices are markdown text
+            # We use a while loop to handle overlapping or multiple occurrences at the top level
+            while True:
+                new_part = self._PATTERNS["emphasis_spacing"].sub(replacer, parts[i])
+                if new_part == parts[i]:
+                    break
+                parts[i] = new_part
+        return "```".join(parts)
+
 
 class Filter:
     class Valves(BaseModel):
@@ -493,6 +547,10 @@ class Filter:
         )
         enable_xml_tag_cleanup: bool = Field(
             default=True, description="Cleanup leftover XML tags"
+        )
+        enable_emphasis_spacing_fix: bool = Field(
+            default=True,
+            description="Fix spaces inside **emphasis** (e.g. ** text ** -> **text**)",
         )
         show_status: bool = Field(
             default=True, description="Show status notification when fixes are applied"
@@ -637,6 +695,7 @@ class Filter:
                     enable_heading_fix=self.valves.enable_heading_fix,
                     enable_table_fix=self.valves.enable_table_fix,
                     enable_xml_tag_cleanup=self.valves.enable_xml_tag_cleanup,
+                    enable_emphasis_spacing_fix=self.valves.enable_emphasis_spacing_fix,
                 )
 
                 normalizer = ContentNormalizer(config)
