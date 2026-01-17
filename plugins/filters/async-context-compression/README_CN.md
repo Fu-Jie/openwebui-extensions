@@ -1,6 +1,6 @@
 # 异步上下文压缩过滤器
 
-**作者:** [Fu-Jie](https://github.com/Fu-Jie/awesome-openwebui) | **版本:** 1.1.3 | **许可证:** MIT
+**作者:** [Fu-Jie](https://github.com/Fu-Jie/awesome-openwebui) | **版本:** 1.1.3 | **项目:** [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui) | **许可证:** MIT
 
 > **重要提示**：为了确保所有过滤器的可维护性和易用性，每个过滤器都应附带清晰、完整的文档，以确保其功能、配置和使用方法得到充分说明。
 
@@ -112,9 +112,6 @@
 
 ---
 
-## 故障排除
-
-- **数据库表未创建**：确保 Open WebUI 已配置数据库，并查看日志获取错误信息。
-- **摘要未生成**：检查是否达到 `compression_threshold_tokens`，确认 `summary_model` 可用，并查看日志。
 - **初始系统提示丢失**：将 `keep_first` 设置为大于 0。
 - **压缩效果不明显**：提高 `compression_threshold_tokens`，或降低 `keep_first` / `keep_last` 以增强压缩力度。
+- **提交 Issue**: 如果遇到任何问题，请在 GitHub 上提交 Issue：[Awesome OpenWebUI Issues](https://github.com/Fu-Jie/awesome-openwebui/issues)

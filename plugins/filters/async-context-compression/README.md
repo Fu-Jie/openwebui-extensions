@@ -1,6 +1,6 @@
 # Async Context Compression Filter
 
-**Author:** [Fu-Jie](https://github.com/Fu-Jie/awesome-openwebui) | **Version:** 1.1.3 | **License:** MIT
+**Author:** [Fu-Jie](https://github.com/Fu-Jie/awesome-openwebui) | **Version:** 1.1.3 | **Project:** [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui) | **License:** MIT
 
 This filter reduces token consumption in long conversations through intelligent summarization and message compression while keeping conversations coherent.
 
@@ -69,9 +69,6 @@ It is recommended to keep this filter early in the chain so it runs before filte
 
 ---
 
-## Troubleshooting
-
-- **Database table not created**: Ensure Open WebUI is configured with a database and check Open WebUI logs for errors.
-- **Summary not generated**: Confirm `compression_threshold_tokens` was hit and `summary_model` is compatible. Review logs for details.
 - **Initial system prompt is lost**: Keep `keep_first` greater than 0 to protect the initial message.
 - **Compression effect is weak**: Raise `compression_threshold_tokens` or lower `keep_first` / `keep_last` to allow more aggressive compression.
+- **Submit an Issue**: If you encounter any problems, please submit an issue on GitHub: [Awesome OpenWebUI Issues](https://github.com/Fu-Jie/awesome-openwebui/issues)

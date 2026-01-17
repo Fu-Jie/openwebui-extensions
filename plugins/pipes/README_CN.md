@@ -63,7 +63,3 @@
 
 Fu-Jie
 GitHub: [Fu-Jie/awesome-openwebui](https://github.com/Fu-Jie/awesome-openwebui)
-
-## 许可证
-
-MIT License

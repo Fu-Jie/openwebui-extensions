@@ -1,6 +1,6 @@
 # 📝 导出为 Word (增强版)
 
-**Author:** [Fu-Jie](https://github.com/Fu-Jie/awesome-openwebui) | **Version:** 0.4.3 | **Project:** [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui)
+**Author:** [Fu-Jie](https://github.com/Fu-Jie/awesome-openwebui) | **Version:** 0.4.3 | **Project:** [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui) | **许可证:** MIT
 
 将对话导出为 Word (.docx)，支持**代码语法高亮**、**原生数学公式**、**Mermaid 图表**、**引用参考**和**增强表格格式**。
 
@@ -86,3 +86,10 @@
 - **字体与样式配置**: 支持自定义中英文字体、代码字体以及表格颜色。
 - **Mermaid 增强**: 混合 SVG+PNG 渲染，支持背景色配置。
 - **性能优化**: 导出大型文档时提供实时进度反馈。
+
+## 故障排除 (Troubleshooting) ❓
+
+- **插件不工作？**: 请检查是否在模型设置中启用了该过滤器/动作。
+- **调试日志**: 请查看浏览器控制台 (F12) 获取详细日志（如果可用）。
+- **错误信息**: 如果看到错误，请复制完整的错误信息并报告。
+- **提交 Issue**: 如果遇到任何问题，请在 GitHub 上提交 Issue：[Awesome OpenWebUI Issues](https://github.com/Fu-Jie/awesome-openwebui/issues)

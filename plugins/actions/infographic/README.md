@@ -1,6 +1,6 @@
 # 📊 Smart Infographic (AntV)
 
-**Author:** [Fu-Jie](https://github.com/Fu-Jie/awesome-openwebui) | **Version:** 1.4.9 | **Project:** [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui)
+**Author:** [Fu-Jie](https://github.com/Fu-Jie/awesome-openwebui) | **Version:** 1.4.9 | **Project:** [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui) | **License:** MIT
 
 An Open WebUI plugin powered by the AntV Infographic engine. It transforms long text into professional, beautiful infographics with a single click.
 
@@ -55,6 +55,14 @@ You can adjust the following parameters in the plugin settings to optimize the g
 | **Comparison** | `compare-binary-horizontal-underline-text-vs`, `compare-swot`, `quadrant-quarter-simple-card` | Pros/Cons, SWOT, Quadrants |
 | **Hierarchy** | `hierarchy-tree-tech-style-capsule-item`, `hierarchy-structure` | Org Charts, Structures |
 | **Charts** | `chart-column-simple`, `chart-bar-plain-text`, `chart-line-plain-text`, `chart-wordcloud` | Trends, Distributions, Metrics |
+
+## Troubleshooting ❓
+
+- **Plugin not working?**: Check if the filter/action is enabled in the model settings.
+- **Debug Logs**: Enable `SHOW_STATUS` in Valves to see progress updates.
+- **Error Messages**: If you see an error, please copy the full error message and report it.
+- **Submit an Issue**: If you encounter any problems, please submit an issue on GitHub: [Awesome OpenWebUI Issues](https://github.com/Fu-Jie/awesome-openwebui/issues)
+
 
 ## 📝 Syntax Example (For Advanced Users)
 

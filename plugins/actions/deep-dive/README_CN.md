@@ -1,6 +1,6 @@
 # 📖 精读
 
-**作者:** [Fu-Jie](https://github.com/Fu-Jie/awesome-openwebui) | **版本:** 1.0.0 | **项目:** [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui)
+**作者:** [Fu-Jie](https://github.com/Fu-Jie/awesome-openwebui) | **版本:** 1.0.0 | **项目:** [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui) | **许可证:** MIT
 
 全方位的思维透镜 —— 从背景全景到逻辑脉络，从深度洞察到行动路径。
 
@@ -81,3 +81,10 @@
 
 - `deep_dive.py` - 英文版 (Deep Dive)
 - `deep_dive_cn.py` - 中文版 (精读)
+
+## 故障排除 (Troubleshooting) ❓
+
+- **插件不工作？**: 请检查是否在模型设置中启用了该过滤器/动作。
+- **调试日志**: 在 Valves 中启用 `SHOW_STATUS` 以查看进度更新。
+- **错误信息**: 如果看到错误，请复制完整的错误信息并报告。
+- **提交 Issue**: 如果遇到任何问题，请在 GitHub 上提交 Issue：[Awesome OpenWebUI Issues](https://github.com/Fu-Jie/awesome-openwebui/issues)

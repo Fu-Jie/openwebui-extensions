@@ -230,7 +230,3 @@ except Exception as e:
 
 Fu-Jie
 GitHub: [Fu-Jie/awesome-openwebui](https://github.com/Fu-Jie/awesome-openwebui)
-
-## License
-
-MIT License
