@@ -3,7 +3,7 @@ title: Markdown Normalizer
 author: Fu-Jie
 author_url: https://github.com/Fu-Jie/awesome-openwebui
 funding_url: https://github.com/open-webui
-version: 1.1.2
+version: 1.2.0
 openwebui_id: baaa8732-9348-40b7-8359-7e009660e23c
 description: A content normalizer filter that fixes common Markdown formatting issues in LLM outputs, such as broken code blocks, LaTeX formulas, and list formatting.
 """
@@ -29,6 +29,7 @@ class NormalizerConfig:
         False  # Apply escape fix inside code blocks (default: False for safety)
     )
     enable_thought_tag_fix: bool = True  # Normalize thought tags
+    enable_details_tag_fix: bool = True  # Normalize <details> tags (like thought tags)
     enable_code_block_fix: bool = True  # Fix code block formatting
     enable_latex_fix: bool = True  # Fix LaTeX formula formatting
     enable_list_fix: bool = (
@@ -63,6 +64,12 @@ class ContentNormalizer:
             r"</(thought|think|thinking)>[ \t]*\n*", re.IGNORECASE
         ),
         "thought_start": re.compile(r"<(thought|think|thinking)>", re.IGNORECASE),
+        # Details tag: </details> followed by optional whitespace/newlines
+        "details_end": re.compile(r"</details>[ \t]*\n*", re.IGNORECASE),
+        # Self-closing details tag: <details ... /> followed by optional whitespace (but NOT already having newline)
+        "details_self_closing": re.compile(
+            r"(<details[^>]*/\s*>)(?!\n)", re.IGNORECASE
+        ),
         # LaTeX block: \[ ... \]
         "latex_bracket_block": re.compile(r"\\\[(.+?)\\\]", re.DOTALL),
         # LaTeX inline: \( ... \)
@@ -130,7 +137,14 @@ class ContentNormalizer:
                 if content != original:
                     self.applied_fixes.append("Normalize Thought Tags")
 
-            # 3. Code block formatting fix
+            # 3. Details tag normalization (must be before heading fix)
+            if self.config.enable_details_tag_fix:
+                original = content
+                content = self._fix_details_tags(content)
+                if content != original:
+                    self.applied_fixes.append("Normalize Details Tags")
+
+            # 4. Code block formatting fix
             if self.config.enable_code_block_fix:
                 original = content
                 content = self._fix_code_blocks(content)
@@ -248,6 +262,24 @@ class ContentNormalizer:
         content = self._PATTERNS["thought_start"].sub("<thought>", content)
         # 2. Standardize end tag and ensure newlines: </think> -> </thought>\n\n
         return self._PATTERNS["thought_end"].sub("</thought>\n\n", content)
+
+    def _fix_details_tags(self, content: str) -> str:
+        """Normalize <details> tags: ensure proper spacing after closing tags
+
+        Handles two cases:
+        1. </details> followed by content -> ensure double newline
+        2. <details .../> (self-closing) followed by content -> ensure newline
+
+        Note: Only applies outside of code blocks to avoid breaking code examples.
+        """
+        parts = content.split("```")
+        for i in range(0, len(parts), 2):  # Even indices are markdown text
+            # 1. Ensure double newline after </details>
+            parts[i] = self._PATTERNS["details_end"].sub("</details>\n\n", parts[i])
+            # 2. Ensure newline after self-closing <details ... />
+            parts[i] = self._PATTERNS["details_self_closing"].sub(r"\1\n", parts[i])
+
+        return "```".join(parts)
 
     def _fix_code_blocks(self, content: str) -> str:
         """Fix code block formatting (prefixes, suffixes, indentation)"""
@@ -428,6 +460,10 @@ class Filter:
         enable_thought_tag_fix: bool = Field(
             default=True, description="Normalize </thought> tags"
         )
+        enable_details_tag_fix: bool = Field(
+            default=True,
+            description="Normalize <details> tags (add blank line after </details> and handle self-closing tags)",
+        )
         enable_code_block_fix: bool = Field(
             default=True,
             description="Fix code block formatting (indentation, newlines)",
@@ -591,6 +627,7 @@ class Filter:
                     enable_escape_fix=self.valves.enable_escape_fix,
                     enable_escape_fix_in_code_blocks=self.valves.enable_escape_fix_in_code_blocks,
                     enable_thought_tag_fix=self.valves.enable_thought_tag_fix,
+                    enable_details_tag_fix=self.valves.enable_details_tag_fix,
                     enable_code_block_fix=self.valves.enable_code_block_fix,
                     enable_latex_fix=self.valves.enable_latex_fix,
                     enable_list_fix=self.valves.enable_list_fix,

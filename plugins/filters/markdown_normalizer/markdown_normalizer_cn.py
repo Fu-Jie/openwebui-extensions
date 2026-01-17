@@ -3,7 +3,7 @@ title: Markdown 格式修复器 (Markdown Normalizer)
 author: Fu-Jie
 author_url: https://github.com/Fu-Jie/awesome-openwebui
 funding_url: https://github.com/open-webui
-version: 1.1.2
+version: 1.2.0
 description: 内容规范化过滤器，修复 LLM 输出中常见的 Markdown 格式问题，如损坏的代码块、LaTeX 公式、Mermaid 图表和列表格式。
 """
 
@@ -25,6 +25,7 @@ class NormalizerConfig:
 
     enable_escape_fix: bool = True  # 修复过度的转义字符
     enable_thought_tag_fix: bool = True  # 规范化思维链标签
+    enable_details_tag_fix: bool = True  # 规范化 <details> 标签（类似思维链标签）
     enable_code_block_fix: bool = True  # 修复代码块格式
     enable_latex_fix: bool = True  # 修复 LaTeX 公式格式
     enable_list_fix: bool = False  # 修复列表项换行 (默认关闭，因为可能过于激进)
@@ -55,6 +56,12 @@ class ContentNormalizer:
             r"</(thought|think|thinking)>[ \t]*\n*", re.IGNORECASE
         ),
         "thought_start": re.compile(r"<(thought|think|thinking)>", re.IGNORECASE),
+        # Details tag: </details> followed by optional whitespace/newlines
+        "details_end": re.compile(r"</details>[ \t]*\n*", re.IGNORECASE),
+        # Self-closing details tag: <details ... /> followed by optional whitespace (but NOT already having newline)
+        "details_self_closing": re.compile(
+            r"(<details[^>]*/\s*>)(?!\n)", re.IGNORECASE
+        ),
         # LaTeX block: \[ ... \]
         "latex_bracket_block": re.compile(r"\\\[(.+?)\\\]", re.DOTALL),
         # LaTeX inline: \( ... \)
@@ -122,7 +129,14 @@ class ContentNormalizer:
                 if content != original:
                     self.applied_fixes.append("Normalize Thought Tags")
 
-            # 3. Code block formatting fix
+            # 3. Details tag normalization (must be before heading fix)
+            if self.config.enable_details_tag_fix:
+                original = content
+                content = self._fix_details_tags(content)
+                if content != original:
+                    self.applied_fixes.append("Normalize Details Tags")
+
+            # 4. Code block formatting fix
             if self.config.enable_code_block_fix:
                 original = content
                 content = self._fix_code_blocks(content)
@@ -222,6 +236,24 @@ class ContentNormalizer:
         content = self._PATTERNS["thought_start"].sub("<thought>", content)
         # 2. Standardize end tag and ensure newlines: </think> -> </thought>\n\n
         return self._PATTERNS["thought_end"].sub("</thought>\n\n", content)
+
+    def _fix_details_tags(self, content: str) -> str:
+        """规范化 <details> 标签：确保闭合标签后的正确间距
+
+        处理两种情况:
+        1. </details> 后跟内容 -> 确保有双换行
+        2. <details .../> (自闭合) 后跟内容 -> 确保有换行
+
+        注意：仅在代码块外部应用，以避免破坏代码示例。
+        """
+        parts = content.split("```")
+        for i in range(0, len(parts), 2):  # 偶数索引是 Markdown 文本
+            # 1. 确保 </details> 后有双换行
+            parts[i] = self._PATTERNS["details_end"].sub("</details>\n\n", parts[i])
+            # 2. 确保自闭合 <details ... /> 后有换行
+            parts[i] = self._PATTERNS["details_self_closing"].sub(r"\1\n", parts[i])
+
+        return "```".join(parts)
 
     def _fix_code_blocks(self, content: str) -> str:
         """Fix code block formatting (prefixes, suffixes, indentation)"""
@@ -403,6 +435,10 @@ class Filter:
         enable_thought_tag_fix: bool = Field(
             default=True, description="规范化思维链标签 (<think> -> <thought>)"
         )
+        enable_details_tag_fix: bool = Field(
+            default=True,
+            description="规范化 <details> 标签 (在 </details> 后添加空行，处理自闭合标签)",
+        )
         enable_code_block_fix: bool = Field(
             default=True,
             description="修复代码块格式 (缩进、换行)",
@@ -494,6 +530,7 @@ class Filter:
             fix_map = {
                 "Fix Escape Chars": "转义字符",
                 "Normalize Thought Tags": "思维标签",
+                "Normalize Details Tags": "Details标签",
                 "Fix Code Blocks": "代码块",
                 "Normalize LaTeX": "LaTeX公式",
                 "Fix List Format": "列表格式",
@@ -579,6 +616,7 @@ class Filter:
                 config = NormalizerConfig(
                     enable_escape_fix=self.valves.enable_escape_fix,
                     enable_thought_tag_fix=self.valves.enable_thought_tag_fix,
+                    enable_details_tag_fix=self.valves.enable_details_tag_fix,
                     enable_code_block_fix=self.valves.enable_code_block_fix,
                     enable_latex_fix=self.valves.enable_latex_fix,
                     enable_list_fix=self.valves.enable_list_fix,

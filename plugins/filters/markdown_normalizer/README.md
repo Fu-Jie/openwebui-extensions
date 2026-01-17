@@ -1,12 +1,12 @@
 # Markdown Normalizer Filter
 
-**Author:** [Fu-Jie](https://github.com/Fu-Jie/awesome-openwebui)
-**Version:** 1.1.2
+**Author:** [Fu-Jie](https://github.com/Fu-Jie/awesome-openwebui) | **Version:** 1.2.0 | **Project:** [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui) | **License:** MIT
 
 A content normalizer filter for Open WebUI that fixes common Markdown formatting issues in LLM outputs. It ensures that code blocks, LaTeX formulas, Mermaid diagrams, and other Markdown elements are rendered correctly.
 
 ## Features
 
+*   **Details Tag Normalization**: Ensures proper spacing for `<details>` tags (used for thought chains). Adds a blank line after `</details>` and ensures a newline after self-closing `<details />` tags to prevent rendering issues.
 *   **Mermaid Syntax Fix**: Automatically fixes common Mermaid syntax errors, such as unquoted node labels (including multi-line labels and citations) and unclosed subgraphs. **New in v1.1.2**: Comprehensive protection for edge labels (text on connecting lines) across all link types (solid, dotted, thick).
 *   **Frontend Console Debugging**: Supports printing structured debug logs directly to the browser console (F12) for easier troubleshooting.
 *   **Code Block Formatting**: Fixes broken code block prefixes, suffixes, and indentation.
@@ -32,6 +32,7 @@ A content normalizer filter for Open WebUI that fixes common Markdown formatting
 *   `priority`: Filter priority (default: 50).
 *   `enable_escape_fix`: Fix excessive escape characters.
 *   `enable_thought_tag_fix`: Normalize thought tags.
+*   `enable_details_tag_fix`: Normalize details tags (default: True).
 *   `enable_code_block_fix`: Fix code block formatting.
 *   `enable_latex_fix`: Normalize LaTeX formulas.
 *   `enable_list_fix`: Fix list item newlines (Experimental).
@@ -44,7 +45,17 @@ A content normalizer filter for Open WebUI that fixes common Markdown formatting
 *   `show_status`: Show status notification when fixes are applied.
 *   `show_debug_log`: Print debug logs to browser console.
 
+## Troubleshooting ❓
+
+- **Submit an Issue**: If you encounter any problems, please submit an issue on GitHub: [Awesome OpenWebUI Issues](https://github.com/Fu-Jie/awesome-openwebui/issues)
+
 ## Changelog
+
+### v1.2.0
+*   **Details Tag Support**: Added normalization for `<details>` tags.
+    *   Ensures a blank line is added after `</details>` closing tags to separate thought content from the main response.
+    *   Ensures a newline is added after self-closing `<details ... />` tags to prevent them from interfering with subsequent Markdown headings (e.g., fixing `<details/>#Heading`).
+    *   Includes safeguard to prevent modification of `<details>` tags inside code blocks.
 
 ### v1.1.2
 *   **Mermaid Edge Label Protection**: Implemented comprehensive protection for edge labels (text on connecting lines) to prevent them from being incorrectly modified. Now supports all Mermaid link types including solid (`--`), dotted (`-.`), and thick (`==`) lines with or without arrows.
@@ -56,6 +67,3 @@ A content normalizer filter for Open WebUI that fixes common Markdown formatting
 *   **Full-width Symbol Cleanup**: Fixed duplicate keys and incorrect quote mapping in `FULLWIDTH_MAP`.
 *   **Bug Fixes**: Fixed missing `Dict` import in Python files.
 
-## License
-
-MIT

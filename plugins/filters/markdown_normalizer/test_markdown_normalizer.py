@@ -14,6 +14,7 @@ class TestMarkdownNormalizer(unittest.TestCase):
         self.config = NormalizerConfig(
             enable_escape_fix=True,
             enable_thought_tag_fix=True,
+            enable_details_tag_fix=True,
             enable_code_block_fix=True,
             enable_latex_fix=True,
             enable_list_fix=True,
@@ -21,6 +22,7 @@ class TestMarkdownNormalizer(unittest.TestCase):
             enable_fullwidth_symbol_fix=True,
             enable_mermaid_fix=True,
             enable_xml_tag_cleanup=True,
+            enable_heading_fix=True,
         )
         self.normalizer = ContentNormalizer(self.config)
 
@@ -41,6 +43,32 @@ class TestMarkdownNormalizer(unittest.TestCase):
         self.assertEqual(
             self.normalizer.normalize(input_text_deepseek), expected_deepseek
         )
+
+    def test_details_tag_fix(self):
+        # Case 1: </details> followed by content without blank line
+        input_text = (
+            "<details><summary>Thought</summary>\n> Thinking\n</details>Next paragraph"
+        )
+        expected = "<details><summary>Thought</summary>\n> Thinking\n</details>\n\nNext paragraph"
+        self.assertEqual(self.normalizer.normalize(input_text), expected)
+
+        # Case 2: Self-closing <details /> followed by heading
+        input_text_self_closing = '<details id="__DETAIL_0__"/>#Heading'
+        result = self.normalizer.normalize(input_text_self_closing)
+        self.assertIn("# Heading", result)  # Heading should be fixed
+        self.assertIn(
+            '<details id="__DETAIL_0__"/>\n', result
+        )  # Should have newline after
+
+        # Case 3: </details> already has proper spacing (should not add extra)
+        input_already_good = "</details>\n\nNext"
+        self.assertEqual(
+            self.normalizer.normalize(input_already_good), input_already_good
+        )
+
+        # Case 4: Details tag inside code block (should NOT be modified)
+        input_code_block = "```html\n<details>\n</details>\n```"
+        self.assertEqual(self.normalizer.normalize(input_code_block), input_code_block)
 
     def test_code_block_fix(self):
         # Case 1: Indentation

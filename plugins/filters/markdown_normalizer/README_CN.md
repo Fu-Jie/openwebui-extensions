@@ -1,12 +1,12 @@
 # Markdown 格式化过滤器 (Markdown Normalizer)
 
-**作者:** [Fu-Jie](https://github.com/Fu-Jie/awesome-openwebui)
-**版本:** 1.1.2
+**作者:** [Fu-Jie](https://github.com/Fu-Jie/awesome-openwebui) | **版本:** 1.2.0 | **项目:** [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui) | **许可证:** MIT
 
 这是一个用于 Open WebUI 的内容格式化过滤器，旨在修复 LLM 输出中常见的 Markdown 格式问题。它能确保代码块、LaTeX 公式、Mermaid 图表和其他 Markdown 元素被正确渲染。
 
 ## 功能特性
 
+*   **Details 标签规范化**: 确保 `<details>` 标签（常用于思维链）有正确的间距。在 `</details>` 后添加空行，并在自闭合 `<details />` 标签后添加换行，防止渲染问题。
 *   **Mermaid 语法修复**: 自动修复常见的 Mermaid 语法错误，如未加引号的节点标签（支持多行标签和引用标记）和未闭合的子图 (Subgraph)。**v1.1.2 新增**: 全面保护各种类型的连线标签（实线、虚线、粗线），防止被误修改。
 *   **前端控制台调试**: 支持将结构化的调试日志直接打印到浏览器控制台 (F12)，方便排查问题。
 *   **代码块格式化**: 修复破损的代码块前缀、后缀和缩进问题。
@@ -32,6 +32,7 @@
 *   `priority`: 过滤器优先级 (默认: 50)。
 *   `enable_escape_fix`: 修复过度的转义字符。
 *   `enable_thought_tag_fix`: 规范化思维标签。
+*   `enable_details_tag_fix`: 规范化 Details 标签 (默认: True)。
 *   `enable_code_block_fix`: 修复代码块格式。
 *   `enable_latex_fix`: 规范化 LaTeX 公式。
 *   `enable_list_fix`: 修复列表项换行 (实验性)。
@@ -44,7 +45,17 @@
 *   `show_status`: 应用修复时显示状态通知。
 *   `show_debug_log`: 在浏览器控制台打印调试日志。
 
+## 故障排除 (Troubleshooting) ❓
+
+- **提交 Issue**: 如果遇到任何问题，请在 GitHub 上提交 Issue：[Awesome OpenWebUI Issues](https://github.com/Fu-Jie/awesome-openwebui/issues)
+
 ## 更新日志
+
+### v1.2.0
+*   **Details 标签支持**: 新增了对 `<details>` 标签的规范化支持。
+    *   确保在 `</details>` 闭合标签后添加空行，将思维内容与正文分隔开。
+    *   确保在自闭合 `<details ... />` 标签后添加换行，防止其干扰后续的 Markdown 标题（例如修复 `<details/>#标题`）。
+    *   包含保护机制，防止修改代码块内部的 `<details>` 标签。
 
 ### v1.1.2
 *   **Mermaid 连线标签保护**: 实现了全面的连线标签保护机制，防止连接线上的文字被误修改。现在支持所有 Mermaid 连线类型，包括实线 (`--`)、虚线 (`-.`) 和粗线 (`==`)，无论是否带有箭头。
@@ -56,6 +67,3 @@
 *   **全角符号清理**: 修复了 `FULLWIDTH_MAP` 中的重复键名和错误的引号映射。
 *   **Bug 修复**: 修复了 Python 文件中缺失的 `Dict` 类型导入。
 
-## 许可证
-
-MIT
