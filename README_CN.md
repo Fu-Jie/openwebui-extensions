@@ -7,28 +7,28 @@ OpenWebUI 增强功能集合。包含个人开发与收集的插件、提示词�
 <!-- STATS_START -->
 ## 📊 社区统计
 
-> 🕐 自动更新于 2026-01-18 22:07
+> 🕐 自动更新于 2026-01-18 23:07
 
 | 👤 作者 | 👥 粉丝 | ⭐ 积分 | 🏆 贡献 |
 |:---:|:---:|:---:|:---:|
-| [Fu-Jie](https://openwebui.com/u/Fu-Jie) | **128** | **118** | **25** |
+| [Fu-Jie](https://openwebui.com/u/Fu-Jie) | **129** | **118** | **25** |
 
 | 📝 发布 | ⬇️ 下载 | 👁️ 浏览 | 👍 点赞 | 💾 收藏 |
 |:---:|:---:|:---:|:---:|:---:|
-| **16** | **1745** | **20728** | **104** | **131** |
+| **16** | **1752** | **20784** | **104** | **131** |
 
 ### 🔥 热门插件 Top 6
 
-> 🕐 自动更新于 2026-01-18 22:07
+> 🕐 自动更新于 2026-01-18 23:07
 
 | 排名 | 插件 | 版本 | 下载 | 浏览 | 更新日期 |
 |:---:|------|:---:|:---:|:---:|:---:|
-| 🥇 | [Smart Mind Map](https://openwebui.com/posts/turn_any_text_into_beautiful_mind_maps_3094c59a) | 0.9.1 | 522 | 4744 | 2026-01-17 |
-| 🥈 | [📊 Smart Infographic (AntV)](https://openwebui.com/posts/smart_infographic_ad6f0c7f) | 1.4.9 | 247 | 2415 | 2026-01-18 |
+| 🥇 | [Smart Mind Map](https://openwebui.com/posts/turn_any_text_into_beautiful_mind_maps_3094c59a) | 0.9.1 | 524 | 4758 | 2026-01-17 |
+| 🥈 | [📊 Smart Infographic (AntV)](https://openwebui.com/posts/smart_infographic_ad6f0c7f) | 1.4.9 | 249 | 2425 | 2026-01-18 |
 | 🥉 | [Export to Excel](https://openwebui.com/posts/export_mulit_table_to_excel_244b8f9d) | 0.3.7 | 207 | 781 | 2026-01-07 |
-| 4️⃣ | [Async Context Compression](https://openwebui.com/posts/async_context_compression_b1655bc8) | 1.1.3 | 178 | 1947 | 2026-01-17 |
-| 5️⃣ | [Export to Word (Enhanced)](https://openwebui.com/posts/export_to_word_enhanced_formatting_fca6a315) | 0.4.3 | 153 | 1334 | 2026-01-17 |
-| 6️⃣ | [Flash Card](https://openwebui.com/posts/flash_card_65a2ea8f) | 0.2.4 | 135 | 2304 | 2026-01-17 |
+| 4️⃣ | [Async Context Compression](https://openwebui.com/posts/async_context_compression_b1655bc8) | 1.1.3 | 178 | 1951 | 2026-01-17 |
+| 5️⃣ | [Export to Word (Enhanced)](https://openwebui.com/posts/export_to_word_enhanced_formatting_fca6a315) | 0.4.3 | 154 | 1339 | 2026-01-17 |
+| 6️⃣ | [Flash Card](https://openwebui.com/posts/flash_card_65a2ea8f) | 0.2.4 | 135 | 2306 | 2026-01-17 |
 
 *完整统计请查看 [社区统计报告](./docs/community-stats.zh.md)*
 <!-- STATS_END -->
