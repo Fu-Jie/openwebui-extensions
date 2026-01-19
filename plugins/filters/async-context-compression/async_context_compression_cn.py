@@ -5,9 +5,19 @@ author: Fu-Jie
 author_url: https://github.com/Fu-Jie/awesome-openwebui
 funding_url: https://github.com/open-webui
 description: 通过智能摘要和消息压缩，降低长对话的 token 消耗，同时保持对话连贯性。
-version: 1.1.3
+version: 1.2.0
 openwebui_id: 5c0617cb-a9e4-4bd6-a440-d276534ebd18
 license: MIT
+
+═══════════════════════════════════════════════════════════════════════════════
+📌 1.2.0 版本更新
+═══════════════════════════════════════════════════════════════════════════════
+
+  ✅ 预检上下文检查：发送给模型前验证上下文是否适配。
+  ✅ 结构感知裁剪：折叠过长的 AI 响应，同时保留标题 (H1-H6)、开头和结尾。
+  ✅ 原生工具输出裁剪：使用函数调用时清理上下文，去除冗余输出。（注意：非原生工具调用输出不会完整注入上下文）
+  ✅ 上下文使用警告：当使用量超过 90% 时发出通知。
+  ✅ 详细 Token 日志：细粒度记录 System、Head、Summary 和 Tail 的 Token 消耗。
 
 ═══════════════════════════════════════════════════════════════════════════════
 📌 功能概述
@@ -248,9 +258,11 @@ import asyncio
 import json
 import hashlib
 import time
+import re
 
 # Open WebUI 内置导入
 from open_webui.utils.chat import generate_chat_completion
+from open_webui.models.models import Models
 from open_webui.models.users import Users
 from fastapi.requests import Request
 from open_webui.main import app as webui_app
@@ -352,6 +364,13 @@ class Filter:
         debug_mode: bool = Field(default=True, description="调试模式，打印详细日志")
         show_debug_log: bool = Field(
             default=False, description="在浏览器控制台打印调试日志 (F12)"
+        )
+        show_token_usage_status: bool = Field(
+            default=True, description="在对话结束时显示 Token 使用情况的状态通知"
+        )
+        enable_tool_output_trimming: bool = Field(
+            default=False,
+            description="启用原生工具输出裁剪 (仅适用于 native function calling)，裁剪过长的工具输出以节省 Token。",
         )
 
     def _save_summary(self, chat_id: str, summary: str, compressed_count: int):
@@ -614,21 +633,222 @@ class Filter:
     ) -> dict:
         """
         在发送到 LLM 之前执行
-        压缩策略：只负责注入已有的摘要，不进行 Token 计算
+        压缩策略：
+        1. 注入已有摘要
+        2. 预检 Token 预算
+        3. 如果超限，执行结构化裁剪（Structure-Aware Trimming）或丢弃旧消息
         """
         messages = body.get("messages", [])
+
+        # --- 原生工具输出裁剪 (Native Tool Output Trimming) ---
+        # 即使未启用压缩，也始终检查并裁剪过长的工具输出，以节省 Token
+        if self.valves.enable_tool_output_trimming:
+            trimmed_count = 0
+            for msg in messages:
+                content = msg.get("content", "")
+                if not isinstance(content, str):
+                    continue
+
+                role = msg.get("role")
+
+                # 仅处理带有原生工具输出的助手消息
+                if role == "assistant":
+                    # 检测助手内容中的工具输出标记
+                    if "tool_call_id:" in content or (
+                        content.startswith('"') and "\\&quot;" in content
+                    ):
+                        if self.valves.show_debug_log and __event_call__:
+                            await self._log(
+                                f"[Inlet] 🔍 检测到助手消息中的原生工具输出。",
+                                event_call=__event_call__,
+                            )
+
+                        # 提取最终答案（在最后一个工具调用元数据之后）
+                        # 模式：匹配转义的 JSON 字符串，如 ""&quot;...&quot;"" 后跟换行符
+                        # 我们寻找该模式的最后一次出现，并获取其后的所有内容
+
+                        # 1. 尝试匹配特定的 OpenWebUI 工具输出格式：""&quot;...&quot;""
+                        tool_output_pattern = r'""&quot;.*?&quot;""\s*'
+
+                        # 查找所有匹配项
+                        matches = list(
+                            re.finditer(tool_output_pattern, content, re.DOTALL)
+                        )
+
+                        if matches:
+                            # 获取最后一个匹配项的结束位置
+                            last_match_end = matches[-1].end()
+
+                            # 最后一个工具输出之后的所有内容即为最终答案
+                            final_answer = content[last_match_end:].strip()
+
+                            if final_answer:
+                                msg["content"] = (
+                                    f"... [Tool outputs trimmed]\n{final_answer}"
+                                )
+                                trimmed_count += 1
+                        else:
+                            # 回退：如果找不到新格式，尝试按 "Arguments:" 分割
+                            # (保留向后兼容性或适应不同模型行为)
+                            parts = re.split(r"(?:Arguments:\s*\{[^}]+\})\n+", content)
+                            if len(parts) > 1:
+                                final_answer = parts[-1].strip()
+                                if final_answer:
+                                    msg["content"] = (
+                                        f"... [Tool outputs trimmed]\n{final_answer}"
+                                    )
+                                    trimmed_count += 1
+
+            if trimmed_count > 0 and self.valves.show_debug_log and __event_call__:
+                await self._log(
+                    f"[Inlet] ✂️ 已裁剪 {trimmed_count} 条工具输出消息。",
+                    event_call=__event_call__,
+                )
+
         chat_ctx = self._get_chat_context(body, __metadata__)
         chat_id = chat_ctx["chat_id"]
+
+        # 提取系统提示词以进行准确的 Token 计算
+        # 1. 对于自定义模型：检查数据库 (Models.get_model_by_id)
+        # 2. 对于基础模型：检查消息中的 role='system'
+        system_prompt_content = None
+
+        # 尝试从数据库获取 (自定义模型)
+        try:
+            model_id = body.get("model")
+            if model_id:
+                if self.valves.show_debug_log and __event_call__:
+                    await self._log(
+                        f"[Inlet] 🔍 尝试从数据库查找模型: {model_id}",
+                        event_call=__event_call__,
+                    )
+
+                # 清理模型 ID
+                model_obj = Models.get_model_by_id(model_id)
+
+                if model_obj:
+                    if self.valves.show_debug_log and __event_call__:
+                        await self._log(
+                            f"[Inlet] ✅ 数据库中找到模型: {model_obj.name} (ID: {model_obj.id})",
+                            event_call=__event_call__,
+                        )
+
+                    if model_obj.params:
+                        try:
+                            params = model_obj.params
+                            # 处理 params 是 JSON 字符串的情况
+                            if isinstance(params, str):
+                                params = json.loads(params)
+
+                            # 处理字典或 Pydantic 对象
+                            if isinstance(params, dict):
+                                system_prompt_content = params.get("system")
+                            else:
+                                # 假设是 Pydantic 模型或对象
+                                system_prompt_content = getattr(params, "system", None)
+
+                            if system_prompt_content:
+                                if self.valves.show_debug_log and __event_call__:
+                                    await self._log(
+                                        f"[Inlet] 📝 在数据库参数中找到系统提示词 ({len(system_prompt_content)} 字符)",
+                                        event_call=__event_call__,
+                                    )
+                            else:
+                                if self.valves.show_debug_log and __event_call__:
+                                    await self._log(
+                                        f"[Inlet] ⚠️ 模型参数中缺少 'system' 键",
+                                        event_call=__event_call__,
+                                    )
+                        except Exception as e:
+                            if self.valves.show_debug_log and __event_call__:
+                                await self._log(
+                                    f"[Inlet] ❌ 解析模型参数失败: {e}",
+                                    type="error",
+                                    event_call=__event_call__,
+                                )
+
+                    else:
+                        if self.valves.show_debug_log and __event_call__:
+                            await self._log(
+                                f"[Inlet] ⚠️ 模型参数为空",
+                                event_call=__event_call__,
+                            )
+                else:
+                    if self.valves.show_debug_log and __event_call__:
+                        await self._log(
+                            f"[Inlet] ❌ 数据库中未找到模型",
+                            type="warning",
+                            event_call=__event_call__,
+                        )
+
+        except Exception as e:
+            if self.valves.show_debug_log and __event_call__:
+                await self._log(
+                    f"[Inlet] ❌ 从数据库获取系统提示词错误: {e}",
+                    type="error",
+                    event_call=__event_call__,
+                )
+            if self.valves.debug_mode:
+                print(f"[Inlet] 从数据库获取系统提示词错误: {e}")
+
+        # 回退：检查消息列表 (基础模型或已包含)
+        if not system_prompt_content:
+            for msg in messages:
+                if msg.get("role") == "system":
+                    system_prompt_content = msg.get("content", "")
+                    break
+
+        # 构建 system_prompt_msg 用于 Token 计算
+        system_prompt_msg = None
+        if system_prompt_content:
+            system_prompt_msg = {"role": "system", "content": system_prompt_content}
+            if self.valves.debug_mode:
+                print(
+                    f"[Inlet] 找到系统提示词 ({len(system_prompt_content)} 字符)。计入预算。"
+                )
+
+        # 记录消息统计信息 (移至此处以包含提取的系统提示词)
+        if self.valves.show_debug_log and __event_call__:
+            try:
+                msg_stats = {
+                    "user": 0,
+                    "assistant": 0,
+                    "system": 0,
+                    "total": len(messages),
+                }
+                for msg in messages:
+                    role = msg.get("role", "unknown")
+                    if role in msg_stats:
+                        msg_stats[role] += 1
+
+                # 如果系统提示词是从 DB/Model 提取的但不在消息中，则计数
+                if system_prompt_content:
+                    # 检查是否已计数 (即是否在消息中)
+                    is_in_messages = any(m.get("role") == "system" for m in messages)
+                    if not is_in_messages:
+                        msg_stats["system"] += 1
+                        msg_stats["total"] += 1
+
+                stats_str = f"Total: {msg_stats['total']} | User: {msg_stats['user']} | Assistant: {msg_stats['assistant']} | System: {msg_stats['system']}"
+                await self._log(
+                    f"[Inlet] 消息统计: {stats_str}", event_call=__event_call__
+                )
+            except Exception as e:
+                print(f"[Inlet] 记录消息统计错误: {e}")
+
+        if not chat_id:
+            await self._log(
+                "[Inlet] ❌ metadata 中缺少 chat_id，跳过压缩",
+                type="error",
+                event_call=__event_call__,
+            )
+            return body
 
         if self.valves.debug_mode or self.valves.show_debug_log:
             await self._log(
                 f"\n{'='*60}\n[Inlet] Chat ID: {chat_id}\n[Inlet] 收到 {len(messages)} 条消息",
                 event_call=__event_call__,
             )
-
-        # 记录原始消息的目标压缩进度，供 outlet 使用
-        # 目标是压缩到倒数第 keep_last 条之前
-        target_compressed_count = max(0, len(messages) - self.valves.keep_last)
 
         # 记录原始消息的目标压缩进度，供 outlet 使用
         # 目标是压缩到倒数第 keep_last 条之前
@@ -641,6 +861,14 @@ class Filter:
 
         # 加载摘要记录
         summary_record = await asyncio.to_thread(self._load_summary_record, chat_id)
+
+        # 计算 effective_keep_first 以确保所有系统消息都被保护
+        last_system_index = -1
+        for i, msg in enumerate(messages):
+            if msg.get("role") == "system":
+                last_system_index = i
+
+        effective_keep_first = max(self.valves.keep_first, last_system_index + 1)
 
         final_messages = []
 
@@ -655,8 +883,8 @@ class Filter:
 
             # 1. 头部消息 (Keep First)
             head_messages = []
-            if self.valves.keep_first > 0:
-                head_messages = messages[: self.valves.keep_first]
+            if effective_keep_first > 0:
+                head_messages = messages[:effective_keep_first]
 
             # 2. 摘要消息 (作为 User 消息插入)
             summary_content = (
@@ -669,28 +897,213 @@ class Filter:
 
             # 3. 尾部消息 (Tail) - 从上次压缩点开始的所有消息
             # 注意：这里必须确保不重复包含头部消息
-            start_index = max(compressed_count, self.valves.keep_first)
+            start_index = max(compressed_count, effective_keep_first)
             tail_messages = messages[start_index:]
 
-            final_messages = head_messages + [summary_msg] + tail_messages
+            if self.valves.show_debug_log and __event_call__:
+                tail_preview = [
+                    f"{i + start_index}: [{m.get('role')}] {m.get('content', '')[:30]}..."
+                    for i, m in enumerate(tail_messages)
+                ]
+                await self._log(
+                    f"[Inlet] 📜 尾部消息 (起始索引: {start_index}): {tail_preview}",
+                    event_call=__event_call__,
+                )
 
-            # 发送状态通知
+            # --- 预检检查与预算 (Preflight Check & Budgeting) ---
+
+            # 组装候选消息 (用于输出)
+            candidate_messages = head_messages + [summary_msg] + tail_messages
+
+            # 准备用于 Token 计算的消息 (如果缺少则包含系统提示词)
+            calc_messages = candidate_messages
+            if system_prompt_msg:
+                # 检查系统提示词是否已在 head_messages 中
+                is_in_head = any(m.get("role") == "system" for m in head_messages)
+                if not is_in_head:
+                    calc_messages = [system_prompt_msg] + candidate_messages
+
+            # 获取最大上下文限制
+            model = self._clean_model_id(body.get("model"))
+            thresholds = self._get_model_thresholds(model)
+            max_context_tokens = thresholds.get(
+                "max_context_tokens", self.valves.max_context_tokens
+            )
+
+            # 计算总 Token
+            total_tokens = await asyncio.to_thread(
+                self._calculate_messages_tokens, calc_messages
+            )
+
+            # 预检检查日志
+            await self._log(
+                f"[Inlet] 🔎 预检检查: {total_tokens}t / {max_context_tokens}t ({(total_tokens/max_context_tokens*100):.1f}%)",
+                event_call=__event_call__,
+            )
+
+            # 如果超出预算，缩减历史记录 (Keep Last)
+            if total_tokens > max_context_tokens:
+                await self._log(
+                    f"[Inlet] ⚠️ 候选提示词 ({total_tokens} Tokens) 超过上限 ({max_context_tokens})。正在缩减历史记录...",
+                    type="warning",
+                    event_call=__event_call__,
+                )
+
+                # 动态从 tail_messages 的开头移除消息
+                # 始终尝试保留至少最后一条消息 (通常是用户输入)
+                while total_tokens > max_context_tokens and len(tail_messages) > 1:
+                    # 策略 1: 结构化助手消息裁剪 (Structure-Aware Assistant Trimming)
+                    # 保留: 标题 (#), 第一行, 最后一行。折叠其余部分。
+                    target_msg = None
+                    target_idx = -1
+
+                    # 查找最旧的、较长且尚未裁剪的助手消息
+                    for i, msg in enumerate(tail_messages):
+                        # 跳过最后一条消息 (通常是用户输入，保护它)
+                        if i == len(tail_messages) - 1:
+                            break
+
+                        if msg.get("role") == "assistant":
+                            content = str(msg.get("content", ""))
+                            is_trimmed = msg.get("metadata", {}).get(
+                                "is_trimmed", False
+                            )
+                            # 仅针对相当长 (> 200 字符) 的消息
+                            if len(content) > 200 and not is_trimmed:
+                                target_msg = msg
+                                target_idx = i
+                                break
+
+                    # 如果找到合适的助手消息，应用结构化裁剪
+                    if target_msg:
+                        content = str(target_msg.get("content", ""))
+                        lines = content.split("\n")
+                        kept_lines = []
+
+                        # 逻辑: 保留标题, 第一行非空行, 最后一行非空行
+                        first_line_found = False
+                        last_line_idx = -1
+
+                        # 查找最后一行非空行的索引
+                        for idx in range(len(lines) - 1, -1, -1):
+                            if lines[idx].strip():
+                                last_line_idx = idx
+                                break
+
+                        for idx, line in enumerate(lines):
+                            stripped = line.strip()
+                            if not stripped:
+                                continue
+
+                            # 保留标题 (H1-H6, 需要 # 后有空格)
+                            if re.match(r"^#{1,6}\s+", stripped):
+                                kept_lines.append(line)
+                                continue
+
+                            # 保留第一行非空行
+                            if not first_line_found:
+                                kept_lines.append(line)
+                                first_line_found = True
+                                # 如果后面还有内容，添加占位符
+                                if idx < last_line_idx:
+                                    kept_lines.append("\n... [Content collapsed] ...\n")
+                                continue
+
+                            # 保留最后一行非空行
+                            if idx == last_line_idx:
+                                kept_lines.append(line)
+                                continue
+
+                        # 更新消息内容
+                        new_content = "\n".join(kept_lines)
+
+                        # 安全检查: 如果裁剪没有节省太多 (例如主要是标题)，则强制丢弃
+                        if len(new_content) > len(content) * 0.8:
+                            # 如果结构保留过于冗长，回退到丢弃
+                            pass
+                        else:
+                            target_msg["content"] = new_content
+                            if "metadata" not in target_msg:
+                                target_msg["metadata"] = {}
+                            target_msg["metadata"]["is_trimmed"] = True
+
+                            # 计算 Token 减少量
+                            old_tokens = self._count_tokens(content)
+                            new_tokens = self._count_tokens(target_msg["content"])
+                            diff = old_tokens - new_tokens
+                            total_tokens -= diff
+
+                            if self.valves.show_debug_log and __event_call__:
+                                await self._log(
+                                    f"[Inlet] 📉 结构化裁剪助手消息。节省: {diff} tokens。",
+                                    event_call=__event_call__,
+                                )
+                            continue
+
+                    # 策略 2: 回退 - 完全丢弃最旧的消息 (FIFO)
+                    dropped = tail_messages.pop(0)
+                    dropped_tokens = self._count_tokens(str(dropped.get("content", "")))
+                    total_tokens -= dropped_tokens
+
+                    if self.valves.show_debug_log and __event_call__:
+                        await self._log(
+                            f"[Inlet] 🗑️ 从历史记录中丢弃消息以适应上下文。角色: {dropped.get('role')}, Tokens: {dropped_tokens}",
+                            event_call=__event_call__,
+                        )
+
+                # 重新组装
+                candidate_messages = head_messages + [summary_msg] + tail_messages
+
+                await self._log(
+                    f"[Inlet] ✂️ 历史记录已缩减。新总数: {total_tokens} Tokens (尾部大小: {len(tail_messages)})",
+                    event_call=__event_call__,
+                )
+
+            final_messages = candidate_messages
+
+            # 计算详细 Token 统计以用于日志
+            system_tokens = (
+                self._count_tokens(system_prompt_msg.get("content", ""))
+                if system_prompt_msg
+                else 0
+            )
+            head_tokens = self._calculate_messages_tokens(head_messages)
+            summary_tokens = self._count_tokens(summary_content)
+            tail_tokens = self._calculate_messages_tokens(tail_messages)
+
+            system_info = (
+                f"System({system_tokens}t)" if system_prompt_msg else "System(0t)"
+            )
+
+            total_section_tokens = (
+                system_tokens + head_tokens + summary_tokens + tail_tokens
+            )
+
+            await self._log(
+                f"[Inlet] 应用摘要: {system_info} + Head({len(head_messages)} 条, {head_tokens}t) + Summary({summary_tokens}t) + Tail({len(tail_messages)} 条, {tail_tokens}t) = Total({total_section_tokens}t)",
+                type="success",
+                event_call=__event_call__,
+            )
+
+            # 准备状态消息 (上下文使用量格式)
+            if max_context_tokens > 0:
+                usage_ratio = total_section_tokens / max_context_tokens
+                status_msg = f"上下文使用量 (预估): {total_section_tokens} / {max_context_tokens} Tokens ({usage_ratio*100:.1f}%)"
+                if usage_ratio > 0.9:
+                    status_msg += " | ⚠️ 高负载"
+            else:
+                status_msg = f"已加载历史摘要 (隐藏 {compressed_count} 条历史消息)"
+
             if __event_emitter__:
                 await __event_emitter__(
                     {
                         "type": "status",
                         "data": {
-                            "description": f"已加载历史摘要 (隐藏 {compressed_count} 条历史消息)",
+                            "description": status_msg,
                             "done": True,
                         },
                     }
                 )
-
-            await self._log(
-                f"[Inlet] 应用摘要: Head({len(head_messages)}) + Summary + Tail({len(tail_messages)})",
-                type="success",
-                event_call=__event_call__,
-            )
 
             # Emit debug log to frontend (Keep the structured log as well)
             await self._emit_debug_log(
@@ -704,7 +1117,72 @@ class Filter:
             )
         else:
             # 没有摘要，使用原始消息
+            # 但仍然需要检查预算！
             final_messages = messages
+
+            # 包含系统提示词进行计算
+            calc_messages = final_messages
+            if system_prompt_msg:
+                is_in_messages = any(m.get("role") == "system" for m in final_messages)
+                if not is_in_messages:
+                    calc_messages = [system_prompt_msg] + final_messages
+
+            # 获取最大上下文限制
+            model = self._clean_model_id(body.get("model"))
+            thresholds = self._get_model_thresholds(model)
+            max_context_tokens = thresholds.get(
+                "max_context_tokens", self.valves.max_context_tokens
+            )
+
+            total_tokens = await asyncio.to_thread(
+                self._calculate_messages_tokens, calc_messages
+            )
+
+            if total_tokens > max_context_tokens:
+                await self._log(
+                    f"[Inlet] ⚠️ 原始消息 ({total_tokens} Tokens) 超过上限 ({max_context_tokens})。正在缩减历史记录...",
+                    type="warning",
+                    event_call=__event_call__,
+                )
+
+                # 动态从开头移除消息
+                # 我们将遵守 effective_keep_first 以保护系统提示词
+
+                start_trim_index = effective_keep_first
+
+                while (
+                    total_tokens > max_context_tokens
+                    and len(final_messages)
+                    > start_trim_index + 1  # 保留 keep_first 之后至少 1 条消息
+                ):
+                    dropped = final_messages.pop(start_trim_index)
+                    total_tokens -= self._count_tokens(str(dropped.get("content", "")))
+
+                await self._log(
+                    f"[Inlet] ✂️ 消息已缩减。新总数: {total_tokens} Tokens",
+                    event_call=__event_call__,
+                )
+
+            # 发送状态通知 (上下文使用量格式)
+            if __event_emitter__:
+                status_msg = (
+                    f"上下文使用量 (预估): {total_tokens} / {max_context_tokens} Tokens"
+                )
+                if max_context_tokens > 0:
+                    usage_ratio = total_tokens / max_context_tokens
+                    status_msg += f" ({usage_ratio*100:.1f}%)"
+                    if usage_ratio > 0.9:
+                        status_msg += " | ⚠️ 高负载"
+
+                await __event_emitter__(
+                    {
+                        "type": "status",
+                        "data": {
+                            "description": status_msg,
+                            "done": True,
+                        },
+                    }
+                )
 
         body["messages"] = final_messages
 
@@ -882,11 +1360,23 @@ class Filter:
                 return
 
             middle_messages = messages[start_index:end_index]
+            tail_preview_msgs = messages[end_index:]
 
-            await self._log(
-                f"[🤖 异步摘要任务] 待处理中间消息: {len(middle_messages)} 条",
-                event_call=__event_call__,
-            )
+            if self.valves.show_debug_log and __event_call__:
+                middle_preview = [
+                    f"{i + start_index}: [{m.get('role')}] {m.get('content', '')[:20]}..."
+                    for i, m in enumerate(middle_messages[:3])
+                ]
+                tail_preview = [
+                    f"{i + end_index}: [{m.get('role')}] {m.get('content', '')[:20]}..."
+                    for i, m in enumerate(tail_preview_msgs)
+                ]
+                await self._log(
+                    f"[🤖 异步摘要任务] 📊 边界检查:\n"
+                    f"  - 中间 (压缩): {len(middle_messages)} 条 (索引 {start_index}-{end_index-1}) -> 预览: {middle_preview}\n"
+                    f"  - 尾部 (保留): {len(tail_preview_msgs)} 条 (索引 {end_index}-End) -> 预览: {tail_preview}",
+                    event_call=__event_call__,
+                )
 
             # 3. 检查 Token 上限并截断 (Max Context Truncation)
             # [优化] 使用摘要模型(如果有)的阈值来决定能处理多少中间消息
@@ -1019,6 +1509,109 @@ class Filter:
                 f"[🤖 异步摘要任务] 进度更新: 已压缩至原始消息 {target_compressed_count}",
                 event_call=__event_call__,
             )
+
+            # --- Token 使用情况状态通知 ---
+            if self.valves.show_token_usage_status and __event_emitter__:
+                try:
+                    # 1. 获取系统提示词 (DB 回退)
+                    system_prompt_msg = None
+                    model_id = body.get("model")
+                    if model_id:
+                        try:
+                            model_obj = Models.get_model_by_id(model_id)
+                            if model_obj and model_obj.params:
+                                params = model_obj.params
+                                if isinstance(params, str):
+                                    params = json.loads(params)
+                                if isinstance(params, dict):
+                                    sys_content = params.get("system")
+                                else:
+                                    sys_content = getattr(params, "system", None)
+
+                                if sys_content:
+                                    system_prompt_msg = {
+                                        "role": "system",
+                                        "content": sys_content,
+                                    }
+                        except Exception:
+                            pass  # 忽略 DB 错误，尽力而为
+
+                    # 2. 计算 Effective Keep First
+                    last_system_index = -1
+                    for i, msg in enumerate(messages):
+                        if msg.get("role") == "system":
+                            last_system_index = i
+                    effective_keep_first = max(
+                        self.valves.keep_first, last_system_index + 1
+                    )
+
+                    # 3. 构建下一个上下文 (Next Context)
+                    # Head
+                    head_msgs = (
+                        messages[:effective_keep_first]
+                        if effective_keep_first > 0
+                        else []
+                    )
+
+                    # Summary
+                    summary_content = (
+                        f"【系统提示：以下是历史对话的摘要，仅供参考上下文，请勿对摘要内容进行回复，直接回答后续的最新问题】\n\n"
+                        f"{new_summary}\n\n"
+                        f"---\n"
+                        f"以下是最近的对话："
+                    )
+                    summary_msg = {"role": "assistant", "content": summary_content}
+
+                    # Tail (使用 target_compressed_count，这是我们刚刚压缩到的位置)
+                    # 注意：target_compressed_count 是要被摘要覆盖的消息数（不包括 keep_last）
+                    # 所以 tail 从 max(target_compressed_count, effective_keep_first) 开始
+                    start_index = max(target_compressed_count, effective_keep_first)
+                    tail_msgs = messages[start_index:]
+
+                    # 组装
+                    next_context = head_msgs + [summary_msg] + tail_msgs
+
+                    # 如果需要，注入系统提示词
+                    if system_prompt_msg:
+                        is_in_head = any(m.get("role") == "system" for m in head_msgs)
+                        if not is_in_head:
+                            next_context = [system_prompt_msg] + next_context
+
+                    # 4. 计算 Token
+                    token_count = self._calculate_messages_tokens(next_context)
+
+                    # 5. 获取阈值并计算比例
+                    model = self._clean_model_id(body.get("model"))
+                    thresholds = self._get_model_thresholds(model)
+                    max_context_tokens = thresholds.get(
+                        "max_context_tokens", self.valves.max_context_tokens
+                    )
+
+                    # 6. 发送状态
+                    status_msg = (
+                        f"上下文摘要已更新: {token_count} / {max_context_tokens} Tokens"
+                    )
+                    if max_context_tokens > 0:
+                        ratio = (token_count / max_context_tokens) * 100
+                        status_msg += f" ({ratio:.1f}%)"
+                        if ratio > 90.0:
+                            status_msg += " | ⚠️ 高负载"
+
+                    await __event_emitter__(
+                        {
+                            "type": "status",
+                            "data": {
+                                "description": status_msg,
+                                "done": True,
+                            },
+                        }
+                    )
+                except Exception as e:
+                    await self._log(
+                        f"[Status] 计算 Token 错误: {e}",
+                        type="error",
+                        event_call=__event_call__,
+                    )
 
         except Exception as e:
             await self._log(

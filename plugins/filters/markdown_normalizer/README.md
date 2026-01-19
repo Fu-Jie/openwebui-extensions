@@ -1,6 +1,6 @@
 # Markdown Normalizer Filter
 
-**Author:** [Fu-Jie](https://github.com/Fu-Jie/awesome-openwebui) | **Version:** 1.2.2 | **Project:** [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui) | **License:** MIT
+**Author:** [Fu-Jie](https://github.com/Fu-Jie/awesome-openwebui) | **Version:** 1.2.4 | **Project:** [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui) | **License:** MIT
 
 A content normalizer filter for Open WebUI that fixes common Markdown formatting issues in LLM outputs. It ensures that code blocks, LaTeX formulas, Mermaid diagrams, and other Markdown elements are rendered correctly.
 
@@ -43,7 +43,7 @@ A content normalizer filter for Open WebUI that fixes common Markdown formatting
 * `enable_heading_fix`: Fix missing space in headings.
 * `enable_table_fix`: Fix missing closing pipe in tables.
 * `enable_xml_tag_cleanup`: Cleanup leftover XML tags.
-* `enable_emphasis_spacing_fix`: Fix extra spaces in emphasis (default: True).
+* `enable_emphasis_spacing_fix`: Fix extra spaces in emphasis (default: False).
 * `show_status`: Show status notification when fixes are applied.
 * `show_debug_log`: Print debug logs to browser console.
 
@@ -52,6 +52,10 @@ A content normalizer filter for Open WebUI that fixes common Markdown formatting
 * **Submit an Issue**: If you encounter any problems, please submit an issue on GitHub: [Awesome OpenWebUI Issues](https://github.com/Fu-Jie/awesome-openwebui/issues)
 
 ## Changelog
+
+### v1.2.4
+
+* **Documentation Updates**: Synchronized version numbers across all documentation and code files.
 
 ### v1.2.3
 

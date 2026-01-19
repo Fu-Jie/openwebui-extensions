@@ -3,7 +3,7 @@ title: Markdown 格式修复器 (Markdown Normalizer)
 author: Fu-Jie
 author_url: https://github.com/Fu-Jie/awesome-openwebui
 funding_url: https://github.com/open-webui
-version: 1.2.3
+version: 1.2.4
 description: 内容规范化过滤器，修复 LLM 输出中常见的 Markdown 格式问题，如损坏的代码块、LaTeX 公式、Mermaid 图表和列表格式。
 """
 
@@ -24,6 +24,9 @@ class NormalizerConfig:
     """配置类，用于启用/禁用特定的规范化规则"""
 
     enable_escape_fix: bool = True  # 修复过度的转义字符
+    enable_escape_fix_in_code_blocks: bool = (
+        False  # 在代码块内部应用转义修复 (默认：关闭，以确保安全)
+    )
     enable_thought_tag_fix: bool = True  # 规范化思维链标签
     enable_details_tag_fix: bool = True  # 规范化 <details> 标签（类似思维链标签）
     enable_code_block_fix: bool = True  # 修复代码块格式
@@ -35,7 +38,7 @@ class NormalizerConfig:
     enable_heading_fix: bool = True  # 修复标题中缺失的空格 (#Header -> # Header)
     enable_table_fix: bool = True  # 修复表格中缺失的闭合管道符
     enable_xml_tag_cleanup: bool = True  # 清理残留的 XML 标签
-    enable_emphasis_spacing_fix: bool = True  # 修复 **强调内容** 中的多余空格
+    enable_emphasis_spacing_fix: bool = False  # 修复 **强调内容** 中的多余空格
 
     # 自定义清理函数 (用于高级扩展)
     custom_cleaners: List[Callable[[str], str]] = field(default_factory=list)
@@ -239,12 +242,27 @@ class ContentNormalizer:
             return content
 
     def _fix_escape_characters(self, content: str) -> str:
-        """Fix excessive escape characters"""
-        content = content.replace("\\r\\n", "\n")
-        content = content.replace("\\n", "\n")
-        content = content.replace("\\t", "\t")
-        content = content.replace("\\\\", "\\")
-        return content
+        """修复过度的转义字符
+
+        如果 enable_escape_fix_in_code_blocks 为 False (默认)，此方法将仅修复代码块外部的转义字符，
+        以避免破坏有效的代码示例 (例如，带有 \\n 的 JSON 字符串、正则表达式模式等)。
+        """
+        if self.config.enable_escape_fix_in_code_blocks:
+            # 全局应用 (原始行为)
+            content = content.replace("\\r\\n", "\n")
+            content = content.replace("\\n", "\n")
+            content = content.replace("\\t", "\t")
+            content = content.replace("\\\\", "\\")
+            return content
+        else:
+            # 仅在代码块外部应用 (安全模式)
+            parts = content.split("```")
+            for i in range(0, len(parts), 2):  # 偶数索引是 Markdown 文本 (非代码)
+                parts[i] = parts[i].replace("\\r\\n", "\n")
+                parts[i] = parts[i].replace("\\n", "\n")
+                parts[i] = parts[i].replace("\\t", "\t")
+                parts[i] = parts[i].replace("\\\\", "\\")
+            return "```".join(parts)
 
     def _fix_thought_tags(self, content: str) -> str:
         """Normalize thought tags: unify naming and fix spacing"""
@@ -501,6 +519,10 @@ class Filter:
         enable_escape_fix: bool = Field(
             default=True, description="修复过度的转义字符 (\\n, \\t 等)"
         )
+        enable_escape_fix_in_code_blocks: bool = Field(
+            default=False,
+            description="在代码块内部应用转义修复 (⚠️ 警告：可能会破坏有效的代码，如 JSON 字符串或正则模式。默认：关闭，以确保安全)",
+        )
         enable_thought_tag_fix: bool = Field(
             default=True, description="规范化思维链标签 (<think> -> <thought>)"
         )
@@ -539,7 +561,7 @@ class Filter:
             default=True, description="清理残留的 XML 标签"
         )
         enable_emphasis_spacing_fix: bool = Field(
-            default=True,
+            default=False,
             description="修复强调语法中的多余空格 (例如 ** 文本 ** -> **文本**)",
         )
         show_status: bool = Field(default=True, description="应用修复时显示状态通知")
@@ -682,13 +704,23 @@ class Filter:
             content = last.get("content", "") or ""
 
             if last.get("role") == "assistant" and isinstance(content, str):
-                # Skip if content looks like HTML to avoid breaking it
+                # 如果内容看起来像 HTML，则跳过以避免破坏它
                 if self._contains_html(content):
                     return body
 
-                # Configure normalizer based on valves
+                # 如果内容包含工具输出标记 (原生函数调用)，则跳过
+                # 模式：""&quot;...&quot;"" 或 tool_call_id 或 <details type="tool_calls"...>
+                if (
+                    '""&quot;' in content
+                    or "tool_call_id" in content
+                    or '<details type="tool_calls"' in content
+                ):
+                    return body
+
+                # 根据 Valves 配置 Normalizer
                 config = NormalizerConfig(
                     enable_escape_fix=self.valves.enable_escape_fix,
+                    enable_escape_fix_in_code_blocks=self.valves.enable_escape_fix_in_code_blocks,
                     enable_thought_tag_fix=self.valves.enable_thought_tag_fix,
                     enable_details_tag_fix=self.valves.enable_details_tag_fix,
                     enable_code_block_fix=self.valves.enable_code_block_fix,

@@ -51,6 +51,10 @@ A content normalizer filter for Open WebUI that fixes common Markdown formatting
 
 ## Changelog
 
+### v1.2.4
+
+* **Documentation Updates**: Synchronized version numbers across all documentation and code files.
+
 ### v1.2.3
 
 * **List Marker Protection Enhancement**: Fixed a bug where list markers (`*`) followed by plain text and emphasis were having their spaces incorrectly stripped (e.g., `*   U16 forward` became `*U16 forward`).

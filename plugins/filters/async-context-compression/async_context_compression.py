@@ -5,9 +5,19 @@ author: Fu-Jie
 author_url: https://github.com/Fu-Jie/awesome-openwebui
 funding_url: https://github.com/open-webui
 description: Reduces token consumption in long conversations while maintaining coherence through intelligent summarization and message compression.
-version: 1.1.3
+version: 1.2.0
 openwebui_id: b1655bc8-6de9-4cad-8cb5-a6f7829a02ce
 license: MIT
+
+═══════════════════════════════════════════════════════════════════════════════
+📌 What's new in 1.2.0
+═══════════════════════════════════════════════════════════════════════════════
+
+  ✅ Preflight Context Check: Validates context fit before sending to model.
+  ✅ Structure-Aware Trimming: Collapses long AI responses while keeping H1-H6, intro, and conclusion.
+  ✅ Native Tool Output Trimming: Cleaner context when using function calling. (Note: Non-native tool outputs are not fully injected into context)
+  ✅ Context Usage Warning: Notification when usage exceeds 90%.
+  ✅ Detailed Token Logging: Granular breakdown of System, Head, Summary, and Tail tokens.
 
 ═══════════════════════════════════════════════════════════════════════════════
 📌 Overview
@@ -21,6 +31,8 @@ Core Features:
   ✅ Persistent storage with database support (PostgreSQL and SQLite)
   ✅ Flexible retention policy (configurable to keep first and last N messages)
   ✅ Smart summary injection to maintain context
+  ✅ Structure-aware trimming to preserve document skeleton
+  ✅ Native tool output trimming for function calling support
 
 ═══════════════════════════════════════════════════════════════════════════════
 🔄 Workflow
@@ -109,6 +121,10 @@ model_thresholds
   Default: {}
   Description: Threshold override configuration for specific models.
   Example: {"gpt-4": {"compression_threshold_tokens": 8000, "max_context_tokens": 32000}}
+
+enable_tool_output_trimming
+  Default: false
+  Description: When enabled and `function_calling: "native"` is active, trims verbose tool outputs to extract only the final answer.
 
 keep_first
   Default: 1
@@ -245,6 +261,7 @@ Solution:
 
 from pydantic import BaseModel, Field, model_validator
 from typing import Optional, Dict, Any, List, Union, Callable, Awaitable
+import re
 import asyncio
 import json
 import hashlib
@@ -254,6 +271,7 @@ import contextlib
 # Open WebUI built-in imports
 from open_webui.utils.chat import generate_chat_completion
 from open_webui.models.users import Users
+from open_webui.models.models import Models
 from fastapi.requests import Request
 from open_webui.main import app as webui_app
 
@@ -370,10 +388,6 @@ class Filter:
         self.valves = self.Valves()
         self._owui_db = owui_db
         self._db_engine = owui_engine
-        self._db_engine = owui_engine
-        self._fallback_session_factory = (
-            sessionmaker(bind=self._db_engine) if self._db_engine else None
-        )
         self._fallback_session_factory = (
             sessionmaker(bind=self._db_engine) if self._db_engine else None
         )
@@ -494,7 +508,14 @@ class Filter:
             default=True, description="Enable detailed logging for debugging."
         )
         show_debug_log: bool = Field(
-            default=False, description="Print debug logs to browser console (F12)"
+            default=False, description="Show debug logs in the frontend console"
+        )
+        show_token_usage_status: bool = Field(
+            default=True, description="Show token usage status notification"
+        )
+        enable_tool_output_trimming: bool = Field(
+            default=False,
+            description="Enable trimming of large tool outputs (only works with native function calling).",
         )
 
     def _save_summary(self, chat_id: str, summary: str, compressed_count: int):
@@ -758,6 +779,8 @@ class Filter:
         body: dict,
         __user__: Optional[dict] = None,
         __metadata__: dict = None,
+        __request__: Request = None,
+        __model__: dict = None,
         __event_emitter__: Callable[[Any], Awaitable[None]] = None,
         __event_call__: Callable[[Any], Awaitable[None]] = None,
     ) -> dict:
@@ -765,9 +788,210 @@ class Filter:
         Executed before sending to the LLM.
         Compression Strategy: Only responsible for injecting existing summaries, no Token calculation.
         """
+
         messages = body.get("messages", [])
+
+        # --- Native Tool Output Trimming (Opt-in, only for native function calling) ---
+        metadata = body.get("metadata", {})
+        is_native_func_calling = metadata.get("function_calling") == "native"
+
+        if self.valves.enable_tool_output_trimming and is_native_func_calling:
+            trimmed_count = 0
+
+            for msg in messages:
+                content = msg.get("content", "")
+                if not isinstance(content, str):
+                    continue
+
+                role = msg.get("role")
+
+                # Only process assistant messages with native tool outputs
+                if role == "assistant":
+                    # Detect tool output markers in assistant content
+                    if "tool_call_id:" in content or (
+                        content.startswith('"') and "\\&quot;" in content
+                    ):
+                        # Always trim tool outputs when enabled
+
+                        if self.valves.show_debug_log and __event_call__:
+                            await self._log(
+                                f"[Inlet] 🔍 Native tool output detected in assistant message.",
+                                event_call=__event_call__,
+                            )
+
+                        # Extract the final answer (after last tool call metadata)
+                        # Pattern: Matches escaped JSON strings like ""&quot;...&quot;"" followed by newlines
+                        # We look for the last occurrence of such a pattern and take everything after it
+
+                        # 1. Try matching the specific OpenWebUI tool output format: ""&quot;...&quot;""
+                        # This regex finds the last end-quote of a tool output block
+                        tool_output_pattern = r'""&quot;.*?&quot;""\s*'
+
+                        # Find all matches
+                        matches = list(
+                            re.finditer(tool_output_pattern, content, re.DOTALL)
+                        )
+
+                        if matches:
+                            # Get the end position of the last match
+                            last_match_end = matches[-1].end()
+
+                            # Everything after the last tool output is the final answer
+                            final_answer = content[last_match_end:].strip()
+
+                            if final_answer:
+                                msg["content"] = (
+                                    f"... [Tool outputs trimmed]\n{final_answer}"
+                                )
+                                trimmed_count += 1
+                        else:
+                            # Fallback: Try splitting on "Arguments:" if the new format isn't found
+                            # (Preserving backward compatibility or different model behaviors)
+                            parts = re.split(r"(?:Arguments:\s*\{[^}]+\})\n+", content)
+                            if len(parts) > 1:
+                                final_answer = parts[-1].strip()
+                                if final_answer:
+                                    msg["content"] = (
+                                        f"... [Tool outputs trimmed]\n{final_answer}"
+                                    )
+                                    trimmed_count += 1
+
+            if trimmed_count > 0 and self.valves.show_debug_log and __event_call__:
+                await self._log(
+                    f"[Inlet] ✂️ Trimmed {trimmed_count} tool output message(s).",
+                    event_call=__event_call__,
+                )
+
         chat_ctx = self._get_chat_context(body, __metadata__)
         chat_id = chat_ctx["chat_id"]
+
+        # Extract system prompt for accurate token calculation
+        # 1. For custom models: check DB (Models.get_model_by_id)
+        # 2. For base models: check messages for role='system'
+        system_prompt_content = None
+
+        # Try to get from DB (custom model)
+        try:
+            model_id = body.get("model")
+            if model_id:
+                if self.valves.show_debug_log and __event_call__:
+                    await self._log(
+                        f"[Inlet] 🔍 Attempting DB lookup for model: {model_id}",
+                        event_call=__event_call__,
+                    )
+
+                # Clean model ID if needed (though get_model_by_id usually expects the full ID)
+                model_obj = Models.get_model_by_id(model_id)
+
+                if model_obj:
+                    if self.valves.show_debug_log and __event_call__:
+                        await self._log(
+                            f"[Inlet] ✅ Model found in DB: {model_obj.name} (ID: {model_obj.id})",
+                            event_call=__event_call__,
+                        )
+
+                    if model_obj.params:
+                        try:
+                            params = model_obj.params
+                            # Handle case where params is a JSON string
+                            if isinstance(params, str):
+                                params = json.loads(params)
+
+                            # Handle dict or Pydantic object
+                            if isinstance(params, dict):
+                                system_prompt_content = params.get("system")
+                            else:
+                                # Assume Pydantic model or object
+                                system_prompt_content = getattr(params, "system", None)
+
+                            if system_prompt_content:
+                                if self.valves.show_debug_log and __event_call__:
+                                    await self._log(
+                                        f"[Inlet] 📝 System prompt found in DB params ({len(system_prompt_content)} chars)",
+                                        event_call=__event_call__,
+                                    )
+                            else:
+                                if self.valves.show_debug_log and __event_call__:
+                                    await self._log(
+                                        f"[Inlet] ⚠️ 'system' key missing in model params",
+                                        event_call=__event_call__,
+                                    )
+                        except Exception as e:
+                            if self.valves.show_debug_log and __event_call__:
+                                await self._log(
+                                    f"[Inlet] ❌ Failed to parse model params: {e}",
+                                    type="error",
+                                    event_call=__event_call__,
+                                )
+
+                    else:
+                        if self.valves.show_debug_log and __event_call__:
+                            await self._log(
+                                f"[Inlet] ⚠️ Model params are empty",
+                                event_call=__event_call__,
+                            )
+                else:
+                    if self.valves.show_debug_log and __event_call__:
+                        await self._log(
+                            f"[Inlet] ❌ Model NOT found in DB",
+                            type="warning",
+                            event_call=__event_call__,
+                        )
+
+        except Exception as e:
+            if self.valves.show_debug_log and __event_call__:
+                await self._log(
+                    f"[Inlet] ❌ Error fetching system prompt from DB: {e}",
+                    type="error",
+                    event_call=__event_call__,
+                )
+            if self.valves.debug_mode:
+                print(f"[Inlet] Error fetching system prompt from DB: {e}")
+
+        # Fall back to checking messages (base model or already included)
+        if not system_prompt_content:
+            for msg in messages:
+                if msg.get("role") == "system":
+                    system_prompt_content = msg.get("content", "")
+                    break
+
+        # Build system_prompt_msg for token calculation
+        system_prompt_msg = None
+        if system_prompt_content:
+            system_prompt_msg = {"role": "system", "content": system_prompt_content}
+            if self.valves.debug_mode:
+                print(
+                    f"[Inlet] Found system prompt ({len(system_prompt_content)} chars). Including in budget."
+                )
+
+        # Log message statistics (Moved here to include extracted system prompt)
+        if self.valves.show_debug_log and __event_call__:
+            try:
+                msg_stats = {
+                    "user": 0,
+                    "assistant": 0,
+                    "system": 0,
+                    "total": len(messages),
+                }
+                for msg in messages:
+                    role = msg.get("role", "unknown")
+                    if role in msg_stats:
+                        msg_stats[role] += 1
+
+                # If system prompt was extracted from DB/Model but not in messages, count it
+                if system_prompt_content:
+                    # Check if it's already counted (i.e., was in messages)
+                    is_in_messages = any(m.get("role") == "system" for m in messages)
+                    if not is_in_messages:
+                        msg_stats["system"] += 1
+                        msg_stats["total"] += 1
+
+                stats_str = f"Total: {msg_stats['total']} | User: {msg_stats['user']} | Assistant: {msg_stats['assistant']} | System: {msg_stats['system']}"
+                await self._log(
+                    f"[Inlet] Message Stats: {stats_str}", event_call=__event_call__
+                )
+            except Exception as e:
+                print(f"[Inlet] Error logging message stats: {e}")
 
         if not chat_id:
             await self._log(
@@ -787,10 +1011,6 @@ class Filter:
         # Target is to compress up to the (total - keep_last) message
         target_compressed_count = max(0, len(messages) - self.valves.keep_last)
 
-        # Record the target compression progress for the original messages, for use in outlet
-        # Target is to compress up to the (total - keep_last) message
-        target_compressed_count = max(0, len(messages) - self.valves.keep_last)
-
         await self._log(
             f"[Inlet] Recorded target compression progress: {target_compressed_count}",
             event_call=__event_call__,
@@ -798,6 +1018,14 @@ class Filter:
 
         # Load summary record
         summary_record = await asyncio.to_thread(self._load_summary_record, chat_id)
+
+        # Calculate effective_keep_first to ensure all system messages are protected
+        last_system_index = -1
+        for i, msg in enumerate(messages):
+            if msg.get("role") == "system":
+                last_system_index = i
+
+        effective_keep_first = max(self.valves.keep_first, last_system_index + 1)
 
         final_messages = []
 
@@ -812,8 +1040,8 @@ class Filter:
 
             # 1. Head messages (Keep First)
             head_messages = []
-            if self.valves.keep_first > 0:
-                head_messages = messages[: self.valves.keep_first]
+            if effective_keep_first > 0:
+                head_messages = messages[:effective_keep_first]
 
             # 2. Summary message (Inserted as User message)
             summary_content = (
@@ -826,28 +1054,214 @@ class Filter:
 
             # 3. Tail messages (Tail) - All messages starting from the last compression point
             # Note: Must ensure head messages are not duplicated
-            start_index = max(compressed_count, self.valves.keep_first)
+            start_index = max(compressed_count, effective_keep_first)
             tail_messages = messages[start_index:]
 
-            final_messages = head_messages + [summary_msg] + tail_messages
+            if self.valves.show_debug_log and __event_call__:
+                tail_preview = [
+                    f"{i + start_index}: [{m.get('role')}] {m.get('content', '')[:30]}..."
+                    for i, m in enumerate(tail_messages)
+                ]
+                await self._log(
+                    f"[Inlet] 📜 Tail Messages (Start Index: {start_index}): {tail_preview}",
+                    event_call=__event_call__,
+                )
 
-            # Send status notification
+            # --- Preflight Check & Budgeting (Simplified) ---
+
+            # Assemble candidate messages (for output)
+            candidate_messages = head_messages + [summary_msg] + tail_messages
+
+            # Prepare messages for token calculation (include system prompt if missing)
+            calc_messages = candidate_messages
+            if system_prompt_msg:
+                # Check if system prompt is already in head_messages
+                is_in_head = any(m.get("role") == "system" for m in head_messages)
+                if not is_in_head:
+                    calc_messages = [system_prompt_msg] + candidate_messages
+
+            # Get max context limit
+            model = self._clean_model_id(body.get("model"))
+            thresholds = self._get_model_thresholds(model)
+            max_context_tokens = thresholds.get(
+                "max_context_tokens", self.valves.max_context_tokens
+            )
+
+            # Calculate total tokens
+            total_tokens = await asyncio.to_thread(
+                self._calculate_messages_tokens, calc_messages
+            )
+
+            # Preflight Check Log
+            await self._log(
+                f"[Inlet] 🔎 Preflight Check: {total_tokens}t / {max_context_tokens}t ({(total_tokens/max_context_tokens*100):.1f}%)",
+                event_call=__event_call__,
+            )
+
+            # If over budget, reduce history (Keep Last)
+            if total_tokens > max_context_tokens:
+                await self._log(
+                    f"[Inlet] ⚠️ Candidate prompt ({total_tokens} Tokens) exceeds limit ({max_context_tokens}). Reducing history...",
+                    type="warning",
+                    event_call=__event_call__,
+                )
+
+                # Dynamically remove messages from the start of tail_messages
+                # Always try to keep at least the last message (usually user input)
+                while total_tokens > max_context_tokens and len(tail_messages) > 1:
+                    # Strategy 1: Structure-Aware Assistant Trimming
+                    # Retain: Headers (#), First Line, Last Line. Collapse the rest.
+                    target_msg = None
+                    target_idx = -1
+
+                    # Find the oldest assistant message that is long and not yet trimmed
+                    for i, msg in enumerate(tail_messages):
+                        # Skip the last message (usually user input, protect it)
+                        if i == len(tail_messages) - 1:
+                            break
+
+                        if msg.get("role") == "assistant":
+                            content = str(msg.get("content", ""))
+                            is_trimmed = msg.get("metadata", {}).get(
+                                "is_trimmed", False
+                            )
+                            # Only target messages that are reasonably long (> 200 chars)
+                            if len(content) > 200 and not is_trimmed:
+                                target_msg = msg
+                                target_idx = i
+                                break
+
+                    # If found a suitable assistant message, apply structure-aware trimming
+                    if target_msg:
+                        content = str(target_msg.get("content", ""))
+                        lines = content.split("\n")
+                        kept_lines = []
+
+                        # Logic: Keep headers, first non-empty line, last non-empty line
+                        first_line_found = False
+                        last_line_idx = -1
+
+                        # Find last non-empty line index
+                        for idx in range(len(lines) - 1, -1, -1):
+                            if lines[idx].strip():
+                                last_line_idx = idx
+                                break
+
+                        for idx, line in enumerate(lines):
+                            stripped = line.strip()
+                            if not stripped:
+                                continue
+
+                            # Keep headers (H1-H6, requires space after #)
+                            if re.match(r"^#{1,6}\s+", stripped):
+                                kept_lines.append(line)
+                                continue
+
+                            # Keep first non-empty line
+                            if not first_line_found:
+                                kept_lines.append(line)
+                                first_line_found = True
+                                # Add placeholder if there's more content coming
+                                if idx < last_line_idx:
+                                    kept_lines.append("\n... [Content collapsed] ...\n")
+                                continue
+
+                            # Keep last non-empty line
+                            if idx == last_line_idx:
+                                kept_lines.append(line)
+                                continue
+
+                        # Update message content
+                        new_content = "\n".join(kept_lines)
+
+                        # Safety check: If trimming didn't save much (e.g. mostly headers), force drop
+                        if len(new_content) > len(content) * 0.8:
+                            # Fallback to drop if structure preservation is too verbose
+                            pass
+                        else:
+                            target_msg["content"] = new_content
+                            if "metadata" not in target_msg:
+                                target_msg["metadata"] = {}
+                            target_msg["metadata"]["is_trimmed"] = True
+
+                            # Calculate token reduction
+                            old_tokens = self._count_tokens(content)
+                            new_tokens = self._count_tokens(target_msg["content"])
+                            diff = old_tokens - new_tokens
+                            total_tokens -= diff
+
+                            if self.valves.show_debug_log and __event_call__:
+                                await self._log(
+                                    f"[Inlet] 📉 Structure-trimmed Assistant message. Saved: {diff} tokens.",
+                                    event_call=__event_call__,
+                                )
+                            continue
+
+                    # Strategy 2: Fallback - Drop Oldest Message Entirely (FIFO)
+                    # (User requested to remove progressive trimming for other cases)
+                    dropped = tail_messages.pop(0)
+                    dropped_tokens = self._count_tokens(str(dropped.get("content", "")))
+                    total_tokens -= dropped_tokens
+
+                    if self.valves.show_debug_log and __event_call__:
+                        await self._log(
+                            f"[Inlet] 🗑️ Dropped message from history to fit context. Role: {dropped.get('role')}, Tokens: {dropped_tokens}",
+                            event_call=__event_call__,
+                        )
+
+                # Re-assemble
+                candidate_messages = head_messages + [summary_msg] + tail_messages
+
+                await self._log(
+                    f"[Inlet] ✂️ History reduced. New total: {total_tokens} Tokens (Tail size: {len(tail_messages)})",
+                    event_call=__event_call__,
+                )
+
+            final_messages = candidate_messages
+
+            # Calculate detailed token stats for logging
+            system_tokens = (
+                self._count_tokens(system_prompt_msg.get("content", ""))
+                if system_prompt_msg
+                else 0
+            )
+            head_tokens = self._calculate_messages_tokens(head_messages)
+            summary_tokens = self._count_tokens(summary_content)
+            tail_tokens = self._calculate_messages_tokens(tail_messages)
+
+            system_info = (
+                f"System({system_tokens}t)" if system_prompt_msg else "System(0t)"
+            )
+
+            total_section_tokens = (
+                system_tokens + head_tokens + summary_tokens + tail_tokens
+            )
+
+            await self._log(
+                f"[Inlet] Applied summary: {system_info} + Head({len(head_messages)} msg, {head_tokens}t) + Summary({summary_tokens}t) + Tail({len(tail_messages)} msg, {tail_tokens}t) = Total({total_section_tokens}t)",
+                type="success",
+                event_call=__event_call__,
+            )
+
+            # Prepare status message (Context Usage format)
+            if max_context_tokens > 0:
+                usage_ratio = total_section_tokens / max_context_tokens
+                status_msg = f"Context Usage (Estimated): {total_section_tokens} / {max_context_tokens} Tokens ({usage_ratio*100:.1f}%)"
+                if usage_ratio > 0.9:
+                    status_msg += " | ⚠️ High Usage"
+            else:
+                status_msg = f"Loaded historical summary (Hidden {compressed_count} historical messages)"
+
             if __event_emitter__:
                 await __event_emitter__(
                     {
                         "type": "status",
                         "data": {
-                            "description": f"Loaded historical summary (Hidden {compressed_count} historical messages)",
+                            "description": status_msg,
                             "done": True,
                         },
                     }
                 )
-
-            await self._log(
-                f"[Inlet] Applied summary: Head({len(head_messages)}) + Summary + Tail({len(tail_messages)})",
-                type="success",
-                event_call=__event_call__,
-            )
 
             # Emit debug log to frontend (Keep the structured log as well)
             await self._emit_debug_log(
@@ -861,7 +1275,70 @@ class Filter:
             )
         else:
             # No summary, use original messages
+            # But still need to check budget!
             final_messages = messages
+
+            # Include system prompt in calculation
+            calc_messages = final_messages
+            if system_prompt_msg:
+                is_in_messages = any(m.get("role") == "system" for m in final_messages)
+                if not is_in_messages:
+                    calc_messages = [system_prompt_msg] + final_messages
+
+            # Get max context limit
+            model = self._clean_model_id(body.get("model"))
+            thresholds = self._get_model_thresholds(model)
+            max_context_tokens = thresholds.get(
+                "max_context_tokens", self.valves.max_context_tokens
+            )
+
+            total_tokens = await asyncio.to_thread(
+                self._calculate_messages_tokens, calc_messages
+            )
+
+            if total_tokens > max_context_tokens:
+                await self._log(
+                    f"[Inlet] ⚠️ Original messages ({total_tokens} Tokens) exceed limit ({max_context_tokens}). Reducing history...",
+                    type="warning",
+                    event_call=__event_call__,
+                )
+
+                # Dynamically remove messages from the start
+                # We'll respect effective_keep_first to protect system prompts
+
+                start_trim_index = effective_keep_first
+
+                while (
+                    total_tokens > max_context_tokens
+                    and len(final_messages)
+                    > start_trim_index + 1  # Keep at least 1 message after keep_first
+                ):
+                    dropped = final_messages.pop(start_trim_index)
+                    total_tokens -= self._count_tokens(str(dropped.get("content", "")))
+
+                await self._log(
+                    f"[Inlet] ✂️ Messages reduced. New total: {total_tokens} Tokens",
+                    event_call=__event_call__,
+                )
+
+            # Send status notification (Context Usage format)
+            if __event_emitter__:
+                status_msg = f"Context Usage (Estimated): {total_tokens} / {max_context_tokens} Tokens"
+                if max_context_tokens > 0:
+                    usage_ratio = total_tokens / max_context_tokens
+                    status_msg += f" ({usage_ratio*100:.1f}%)"
+                    if usage_ratio > 0.9:
+                        status_msg += " | ⚠️ High Usage"
+
+                await __event_emitter__(
+                    {
+                        "type": "status",
+                        "data": {
+                            "description": status_msg,
+                            "done": True,
+                        },
+                    }
+                )
 
         body["messages"] = final_messages
 
@@ -1048,11 +1525,23 @@ class Filter:
                 return
 
             middle_messages = messages[start_index:end_index]
+            tail_preview_msgs = messages[end_index:]
 
-            await self._log(
-                f"[🤖 Async Summary Task] Middle messages to process: {len(middle_messages)}",
-                event_call=__event_call__,
-            )
+            if self.valves.show_debug_log and __event_call__:
+                middle_preview = [
+                    f"{i + start_index}: [{m.get('role')}] {m.get('content', '')[:20]}..."
+                    for i, m in enumerate(middle_messages[:3])
+                ]
+                tail_preview = [
+                    f"{i + end_index}: [{m.get('role')}] {m.get('content', '')[:20]}..."
+                    for i, m in enumerate(tail_preview_msgs)
+                ]
+                await self._log(
+                    f"[🤖 Async Summary Task] 📊 Boundary Check:\n"
+                    f"  - Middle (Compressing): {len(middle_messages)} msgs (Indices {start_index}-{end_index-1}) -> Preview: {middle_preview}\n"
+                    f"  - Tail (Keeping): {len(tail_preview_msgs)} msgs (Indices {end_index}-End) -> Preview: {tail_preview}",
+                    event_call=__event_call__,
+                )
 
             # 3. Check Token limit and truncate (Max Context Truncation)
             # [Optimization] Use the summary model's (if any) threshold to decide how many middle messages can be processed
@@ -1185,6 +1674,109 @@ class Filter:
                 f"[🤖 Async Summary Task] Progress update: Compressed up to original message {target_compressed_count}",
                 event_call=__event_call__,
             )
+
+            # --- Token Usage Status Notification ---
+            if self.valves.show_token_usage_status and __event_emitter__:
+                try:
+                    # 1. Fetch System Prompt (DB fallback)
+                    system_prompt_msg = None
+                    model_id = body.get("model")
+                    if model_id:
+                        try:
+                            model_obj = Models.get_model_by_id(model_id)
+                            if model_obj and model_obj.params:
+                                params = model_obj.params
+                                if isinstance(params, str):
+                                    params = json.loads(params)
+                                if isinstance(params, dict):
+                                    sys_content = params.get("system")
+                                else:
+                                    sys_content = getattr(params, "system", None)
+
+                                if sys_content:
+                                    system_prompt_msg = {
+                                        "role": "system",
+                                        "content": sys_content,
+                                    }
+                        except Exception:
+                            pass  # Ignore DB errors here, best effort
+
+                    # 2. Calculate Effective Keep First
+                    last_system_index = -1
+                    for i, msg in enumerate(messages):
+                        if msg.get("role") == "system":
+                            last_system_index = i
+                    effective_keep_first = max(
+                        self.valves.keep_first, last_system_index + 1
+                    )
+
+                    # 3. Construct Next Context
+                    # Head
+                    head_msgs = (
+                        messages[:effective_keep_first]
+                        if effective_keep_first > 0
+                        else []
+                    )
+
+                    # Summary
+                    summary_content = (
+                        f"【System Prompt: The following is a summary of the historical conversation, provided for context only. Do not reply to the summary content itself; answer the subsequent latest questions directly.】\n\n"
+                        f"{new_summary}\n\n"
+                        f"---\n"
+                        f"Below is the recent conversation:"
+                    )
+                    summary_msg = {"role": "assistant", "content": summary_content}
+
+                    # Tail (using target_compressed_count which is what we just compressed up to)
+                    # Note: target_compressed_count is the index *after* the last compressed message?
+                    # In _generate_summary_async, target_compressed_count is passed in.
+                    # It represents the number of messages to be covered by summary (excluding keep_last).
+                    # So tail starts at max(target_compressed_count, effective_keep_first).
+                    start_index = max(target_compressed_count, effective_keep_first)
+                    tail_msgs = messages[start_index:]
+
+                    # Assemble
+                    next_context = head_msgs + [summary_msg] + tail_msgs
+
+                    # Inject system prompt if needed
+                    if system_prompt_msg:
+                        is_in_head = any(m.get("role") == "system" for m in head_msgs)
+                        if not is_in_head:
+                            next_context = [system_prompt_msg] + next_context
+
+                    # 4. Calculate Tokens
+                    token_count = self._calculate_messages_tokens(next_context)
+
+                    # 5. Get Thresholds & Calculate Ratio
+                    model = self._clean_model_id(body.get("model"))
+                    thresholds = self._get_model_thresholds(model)
+                    max_context_tokens = thresholds.get(
+                        "max_context_tokens", self.valves.max_context_tokens
+                    )
+
+                    # 6. Emit Status
+                    status_msg = f"Context Summary Updated: {token_count} / {max_context_tokens} Tokens"
+                    if max_context_tokens > 0:
+                        ratio = (token_count / max_context_tokens) * 100
+                        status_msg += f" ({ratio:.1f}%)"
+                        if ratio > 90.0:
+                            status_msg += " | ⚠️ High Usage"
+
+                    await __event_emitter__(
+                        {
+                            "type": "status",
+                            "data": {
+                                "description": status_msg,
+                                "done": True,
+                            },
+                        }
+                    )
+                except Exception as e:
+                    await self._log(
+                        f"[Status] Error calculating tokens: {e}",
+                        type="error",
+                        event_call=__event_call__,
+                    )
 
         except Exception as e:
             await self._log(

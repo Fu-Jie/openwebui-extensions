@@ -1,7 +1,7 @@
 # Async Context Compression
 
 <span class="category-badge filter">Filter</span>
-<span class="version-badge">v1.1.3</span>
+<span class="version-badge">v1.2.0</span>
 
 Reduces token consumption in long conversations through intelligent summarization while maintaining conversational coherence.
 
@@ -34,6 +34,10 @@ This is especially useful for:
 - :material-check-all: **Open WebUI v0.7.x Compatibility**: Dynamic DB session handling
 - :material-account-convert: **Improved Compatibility**: Summary role changed to `assistant`
 - :material-shield-check: **Enhanced Stability**: Resolved race conditions in state management
+- :material-ruler: **Preflight Context Check**: Validates context fit before sending
+- :material-format-align-justify: **Structure-Aware Trimming**: Preserves document structure
+- :material-content-cut: **Native Tool Output Trimming**: Trims verbose tool outputs (Note: Non-native tool outputs are not fully injected into context)
+- :material-chart-bar: **Detailed Token Logging**: Granular token breakdown
 
 ---
 
@@ -64,10 +68,13 @@ graph TD
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `token_threshold` | integer | `4000` | Trigger compression above this token count |
-| `preserve_recent` | integer | `5` | Number of recent messages to keep uncompressed |
-| `summary_model` | string | `"auto"` | Model to use for summarization |
-| `compression_ratio` | float | `0.3` | Target compression ratio |
+| `compression_threshold_tokens` | integer | `64000` | Trigger compression above this token count |
+| `max_context_tokens` | integer | `128000` | Hard limit for context |
+| `keep_first` | integer | `1` | Always keep the first N messages |
+| `keep_last` | integer | `6` | Always keep the last N messages |
+| `summary_model` | string | `None` | Model to use for summarization |
+| `max_summary_tokens` | integer | `16384` | Maximum tokens for the summary |
+| `enable_tool_output_trimming` | boolean | `false` | Enable trimming of large tool outputs |
 
 ---
 

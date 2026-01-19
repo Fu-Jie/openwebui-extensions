@@ -3,7 +3,7 @@ title: Markdown Normalizer
 author: Fu-Jie
 author_url: https://github.com/Fu-Jie/awesome-openwebui
 funding_url: https://github.com/open-webui
-version: 1.2.3
+version: 1.2.4
 openwebui_id: baaa8732-9348-40b7-8359-7e009660e23c
 description: A content normalizer filter that fixes common Markdown formatting issues in LLM outputs, such as broken code blocks, LaTeX formulas, and list formatting.
 """
@@ -43,7 +43,7 @@ class NormalizerConfig:
     )
     enable_table_fix: bool = True  # Fix missing closing pipe in tables
     enable_xml_tag_cleanup: bool = True  # Cleanup leftover XML tags
-    enable_emphasis_spacing_fix: bool = True  # Fix spaces inside **emphasis**
+    enable_emphasis_spacing_fix: bool = False  # Fix spaces inside **emphasis**
 
     # Custom cleaner functions (for advanced extension)
     custom_cleaners: List[Callable[[str], str]] = field(default_factory=list)
@@ -564,7 +564,7 @@ class Filter:
             default=True, description="Cleanup leftover XML tags"
         )
         enable_emphasis_spacing_fix: bool = Field(
-            default=True,
+            default=False,
             description="Fix spaces inside **emphasis** (e.g. ** text ** -> **text**)",
         )
         show_status: bool = Field(
@@ -693,6 +693,15 @@ class Filter:
             if last.get("role") == "assistant" and isinstance(content, str):
                 # Skip if content looks like HTML to avoid breaking it
                 if self._contains_html(content):
+                    return body
+
+                # Skip if content contains tool output markers (native function calling)
+                # Pattern: ""&quot;...&quot;"" or tool_call_id or <details type="tool_calls"...>
+                if (
+                    '""&quot;' in content
+                    or "tool_call_id" in content
+                    or '<details type="tool_calls"' in content
+                ):
                     return body
 
                 # Configure normalizer based on valves

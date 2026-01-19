@@ -1,8 +1,18 @@
 # Async Context Compression Filter
 
-**Author:** [Fu-Jie](https://github.com/Fu-Jie/awesome-openwebui) | **Version:** 1.1.3 | **Project:** [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui) | **License:** MIT
+**Author:** [Fu-Jie](https://github.com/Fu-Jie/awesome-openwebui) | **Version:** 1.2.0 | **Project:** [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui) | **License:** MIT
 
 This filter reduces token consumption in long conversations through intelligent summarization and message compression while keeping conversations coherent.
+
+## What's new in 1.2.0
+
+- **Preflight Context Check**: Before sending to the model, validates that total tokens fit within the context window. Automatically trims or drops oldest messages if exceeded.
+- **Structure-Aware Assistant Trimming**: When context exceeds the limit, long AI responses are intelligently collapsed while preserving their structure (headers H1-H6, first line, last line).
+- **Native Tool Output Trimming**: Detects and trims native tool outputs (`function_calling: "native"`), extracting only the final answer. Enable via `enable_tool_output_trimming`. **Note**: Non-native tool outputs are not fully injected into context.
+- **Consolidated Status Notifications**: Unified "Context Usage" and "Context Summary Updated" notifications with appended warnings (e.g., `| ⚠️ High Usage`) for clearer feedback.
+- **Context Usage Warning**: Emits a warning notification when context usage exceeds 90%.
+- **Enhanced Header Detection**: Optimized regex (`^#{1,6}\s+`) to avoid false positives like `#hashtag`.
+- **Detailed Token Logging**: Logs now show token breakdown for System, Head, Summary, and Tail sections with total.
 
 ## What's new in 1.1.3
 - **Improved Compatibility**: Changed summary injection role from `user` to `assistant` for better compatibility across different LLMs.
@@ -31,6 +41,10 @@ This filter reduces token consumption in long conversations through intelligent 
 - ✅ Persistent storage via Open WebUI's shared database connection (PostgreSQL, SQLite, etc.).
 - ✅ Flexible retention policy to keep the first and last N messages.
 - ✅ Smart injection of historical summaries back into the context.
+- ✅ Structure-aware trimming that preserves document structure (headers, intro, conclusion).
+- ✅ Native tool output trimming for cleaner context when using function calling.
+- ✅ Real-time context usage monitoring with warning notifications (>90%).
+- ✅ Detailed token logging for precise debugging and optimization.
 
 ---
 
@@ -64,6 +78,7 @@ It is recommended to keep this filter early in the chain so it runs before filte
 | `max_summary_tokens`           | `4000`   | Maximum tokens for the generated summary.                                                                                                                             |
 | `summary_temperature`          | `0.3`    | Randomness for summary generation. Lower is more deterministic.                                                                                                       |
 | `model_thresholds`             | `{}`     | Per-model overrides for `compression_threshold_tokens` and `max_context_tokens` (useful for mixed models).                                                            |
+| `enable_tool_output_trimming`  | `false`  | When enabled and `function_calling: "native"` is active, trims verbose tool outputs to extract only the final answer.                                                 |
 | `debug_mode`                   | `true`   | Log verbose debug info. Set to `false` in production.                                                                                                                 |
 | `show_debug_log`               | `false`  | Print debug logs to browser console (F12). Useful for frontend debugging.                                                                                             |
 

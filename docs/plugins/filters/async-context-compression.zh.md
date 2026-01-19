@@ -1,7 +1,7 @@
 # Async Context Compression（异步上下文压缩）
 
 <span class="category-badge filter">Filter</span>
-<span class="version-badge">v1.1.3</span>
+<span class="version-badge">v1.2.0</span>
 
 通过智能摘要减少长对话的 token 消耗，同时保持对话连贯。
 
@@ -34,6 +34,10 @@ Async Context Compression 过滤器通过以下方式帮助管理长对话的 to
 - :material-check-all: **Open WebUI v0.7.x 兼容性**：动态数据库会话处理
 - :material-account-convert: **兼容性提升**：摘要角色改为 `assistant`
 - :material-shield-check: **稳定性增强**：解决状态管理竞态条件
+- :material-ruler: **预检上下文检查**：发送前验证上下文是否超限
+- :material-format-align-justify: **结构感知裁剪**：保留文档结构的智能裁剪
+- :material-content-cut: **原生工具输出裁剪**：自动裁剪冗长的工具输出（注意：非原生工具调用输出不会完整注入上下文）
+- :material-chart-bar: **详细 Token 日志**：提供细粒度的 Token 统计
 
 ---
 
@@ -64,10 +68,13 @@ graph TD
 
 | 选项 | 类型 | 默认值 | 说明 |
 |--------|------|---------|-------------|
-| `token_threshold` | integer | `4000` | 超过该 token 数触发压缩 |
-| `preserve_recent` | integer | `5` | 保留不压缩的最近消息数量 |
-| `summary_model` | string | `"auto"` | 用于摘要的模型 |
-| `compression_ratio` | float | `0.3` | 目标压缩比例 |
+| `compression_threshold_tokens` | integer | `64000` | 超过该 token 数触发压缩 |
+| `max_context_tokens` | integer | `128000` | 上下文硬性上限 |
+| `keep_first` | integer | `1` | 始终保留的前 N 条消息 |
+| `keep_last` | integer | `6` | 始终保留的后 N 条消息 |
+| `summary_model` | string | `None` | 用于摘要的模型 |
+| `max_summary_tokens` | integer | `16384` | 摘要的最大 token 数 |
+| `enable_tool_output_trimming` | boolean | `false` | 启用长工具输出裁剪 |
 
 ---
 
