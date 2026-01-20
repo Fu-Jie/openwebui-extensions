@@ -2,12 +2,10 @@
 
 **作者:** [Fu-Jie](https://github.com/Fu-Jie/awesome-openwebui) | **版本:** 0.1.0 | **项目:** [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui) | **许可证:** MIT
 
-[English](./README.md) | 中文
-
 ---
 
 ### 📌 0.1.0 版本特性
-- **首个版本发布**：从 `folder-rule-collector` 重构而来，专注于自动化的“项目规则”管理。
+- **首个版本发布**：专注于自动化的“项目规则”管理。
 - **文件夹级持久化**：自动将提取的规则回写到文件夹系统提示词中。
 - **性能优化**：采用异步处理机制，并支持 `PRIORITY` 配置，确保与其他过滤器（如上下文压缩）完美协作。
 

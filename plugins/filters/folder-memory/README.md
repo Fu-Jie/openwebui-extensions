@@ -2,11 +2,16 @@
 
 **Author:** [Fu-Jie](https://github.com/Fu-Jie/awesome-openwebui) | **Version:** 0.1.0 | **Project:** [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui) | **License:** MIT
 
-English | [中文](./README_CN.md)
+---
 
-**Folder Memory** (formerly Folder Rule Collector) is an intelligent context filter plugin for OpenWebUI. It automatically extracts consistent "Project Rules" from ongoing conversations within a folder and injects them back into the folder's system prompt.
+### 📌 What's new in 0.1.0
+- **Initial Release**: Automated "Project Rules" management for OpenWebUI folders.
+- **Folder-Level Persistence**: Automatically updates folder system prompts with extracted rules.
+- **Optimized Performance**: Runs asynchronously and supports `PRIORITY` configuration for seamless integration with other filters.
 
-This ensures that all future conversations within that folder share the same evolved context and rules, without manual updates.
+---
+
+**Folder Memory** is an intelligent context filter plugin for OpenWebUI. It automatically extracts consistent "Project Rules" from ongoing conversations within a folder and injects them back into the folder's system prompt.
 
 ## ✨ Features
 

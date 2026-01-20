@@ -5,7 +5,7 @@
 ---
 
 ### 📌 What's new in 0.1.0
-- **Initial Release**: Refactored from `folder-rule-collector` to focus on automated "Project Rules" management.
+- **Initial Release**: Automated "Project Rules" management for OpenWebUI folders.
 - **Folder-Level Persistence**: Automatically updates folder system prompts with extracted rules.
 - **Optimized Performance**: Runs asynchronously and supports `PRIORITY` configuration for seamless integration with other filters.
 
