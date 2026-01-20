@@ -217,6 +217,23 @@ def format_markdown_table(plugins: list[dict]) -> str:
     return "\n".join(lines)
 
 
+def _get_readme_url(file_path: str) -> str:
+    """
+    Generate GitHub README URL from plugin file path.
+    从插件文件路径生成 GitHub README 链接。
+    """
+    if not file_path:
+        return ""
+    # Extract plugin directory (e.g., plugins/filters/folder-memory/folder_memory.py -> plugins/filters/folder-memory)
+    from pathlib import Path
+
+    plugin_dir = Path(file_path).parent
+    # Convert to GitHub URL
+    return (
+        f"https://github.com/Fu-Jie/awesome-openwebui/blob/main/{plugin_dir}/README.md"
+    )
+
+
 def format_release_notes(
     comparison: dict[str, list], ignore_removed: bool = False
 ) -> str:
@@ -229,9 +246,12 @@ def format_release_notes(
     if comparison["added"]:
         lines.append("### 新增插件 / New Plugins")
         for plugin in comparison["added"]:
+            readme_url = _get_readme_url(plugin.get("file_path", ""))
             lines.append(f"- **{plugin['title']}** v{plugin['version']}")
             if plugin.get("description"):
                 lines.append(f"  - {plugin['description']}")
+            if readme_url:
+                lines.append(f"  - 📖 [README / 文档]({readme_url})")
         lines.append("")
 
     if comparison["updated"]:
@@ -258,7 +278,10 @@ def format_release_notes(
             )
             prev_ver = prev_manifest.get("version") or prev.get("version")
 
+            readme_url = _get_readme_url(curr.get("file_path", ""))
             lines.append(f"- **{curr_title}**: v{prev_ver} → v{curr_ver}")
+            if readme_url:
+                lines.append(f"  - 📖 [README / 文档]({readme_url})")
         lines.append("")
 
     if comparison["removed"] and not ignore_removed:

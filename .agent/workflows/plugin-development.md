@@ -90,6 +90,9 @@ Reference: `.github/workflows/release.yml`
     - Action: Automatically updates the plugin code and metadata on OpenWebUI.com using `scripts/publish_plugin.py`.
     - **Auto-Sync**: If a local plugin has no ID but matches an existing published plugin by **Title**, the script will automatically fetch the ID, update the local file, and proceed with the update.
     - Requirement: `OPENWEBUI_API_KEY` secret must be set.
+    - **README Link**: When announcing a release, always include the GitHub README URL for the plugin:
+      - Format: `https://github.com/Fu-Jie/awesome-openwebui/blob/main/plugins/{type}/{name}/README.md`
+      - Example: `https://github.com/Fu-Jie/awesome-openwebui/blob/main/plugins/filters/folder-memory/README.md`
 
 ### Pull Request Check
 - Workflow: `.github/workflows/plugin-version-check.yml`

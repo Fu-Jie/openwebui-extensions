@@ -20,6 +20,10 @@
 - **Async Processing**: Runs in the background without blocking the user's chat experience.
 - **ORM Integration**: Directly updates folder data using OpenWebUI's internal models for reliability.
 
+## ⚠️ Prerequisites
+
+- **Conversations must occur inside a folder.** This plugin only triggers when a chat belongs to a folder (i.e., you need to create a folder in OpenWebUI and start a conversation within it).
+
 ## 📦 Installation
 
 1. Copy `folder_memory.py` to your OpenWebUI `plugins/filters/` directory (or upload via Admin UI).
