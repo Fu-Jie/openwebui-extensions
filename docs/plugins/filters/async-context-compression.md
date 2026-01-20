@@ -1,7 +1,7 @@
 # Async Context Compression
 
 <span class="category-badge filter">Filter</span>
-<span class="version-badge">v1.2.0</span>
+<span class="version-badge">v1.2.1</span>
 
 Reduces token consumption in long conversations through intelligent summarization while maintaining conversational coherence.
 
@@ -38,6 +38,8 @@ This is especially useful for:
 - :material-format-align-justify: **Structure-Aware Trimming**: Preserves document structure
 - :material-content-cut: **Native Tool Output Trimming**: Trims verbose tool outputs (Note: Non-native tool outputs are not fully injected into context)
 - :material-chart-bar: **Detailed Token Logging**: Granular token breakdown
+- :material-account-search: **Smart Model Matching**: Inherit config from base models
+- :material-image-off: **Multimodal Support**: Images are preserved but tokens are **NOT** calculated
 
 ---
 
@@ -73,6 +75,7 @@ graph TD
 | `keep_first` | integer | `1` | Always keep the first N messages |
 | `keep_last` | integer | `6` | Always keep the last N messages |
 | `summary_model` | string | `None` | Model to use for summarization |
+| `summary_model_max_context` | integer | `0` | Max context tokens for summary model |
 | `max_summary_tokens` | integer | `16384` | Maximum tokens for the summary |
 | `enable_tool_output_trimming` | boolean | `false` | Enable trimming of large tool outputs |
 

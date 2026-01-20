@@ -1,8 +1,14 @@
 # Async Context Compression Filter
 
-**Author:** [Fu-Jie](https://github.com/Fu-Jie/awesome-openwebui) | **Version:** 1.2.0 | **Project:** [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui) | **License:** MIT
+**Author:** [Fu-Jie](https://github.com/Fu-Jie/awesome-openwebui) | **Version:** 1.2.1 | **Project:** [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui) | **License:** MIT
 
 This filter reduces token consumption in long conversations through intelligent summarization and message compression while keeping conversations coherent.
+
+## What's new in 1.2.1
+
+- **Smart Configuration**: Automatically detects base model settings for custom models and adds `summary_model_max_context` for independent summary limits.
+- **Performance & Refactoring**: Optimized threshold parsing with caching, removed redundant code, and improved LLM response handling (JSONResponse support).
+- **Bug Fixes & Modernization**: Fixed `datetime` deprecation warnings, corrected type annotations, and replaced print statements with proper logging.
 
 ## What's new in 1.2.0
 
@@ -19,18 +25,6 @@ This filter reduces token consumption in long conversations through intelligent 
 - **Enhanced Stability**: Fixed a race condition in state management that could cause "inlet state not found" warnings in high-concurrency scenarios.
 - **Bug Fixes**: Corrected default model handling to prevent misleading logs when no model is specified.
 
-## What's new in 1.1.2
-
-- **Open WebUI v0.7.x Compatibility**: Resolved a critical database session binding error affecting Open WebUI v0.7.x users. The plugin now dynamically discovers the database engine and session context, ensuring compatibility across versions.
-- **Enhanced Error Reporting**: Errors during background summary generation are now reported via both the status bar and browser console.
-- **Robust Model Handling**: Improved handling of missing or invalid model IDs to prevent crashes.
-
-## What's new in 1.1.1
-
-- **Frontend Debugging**: Added `show_debug_log` option to print debug info to the browser console (F12).
-- **Optimized Compression**: Improved token calculation logic to prevent aggressive truncation of history, ensuring more context is retained.
-
-
 
 ---
 
@@ -45,6 +39,8 @@ This filter reduces token consumption in long conversations through intelligent 
 - ✅ Native tool output trimming for cleaner context when using function calling.
 - ✅ Real-time context usage monitoring with warning notifications (>90%).
 - ✅ Detailed token logging for precise debugging and optimization.
+- ✅ **Smart Model Matching**: Automatically inherits configuration from base models for custom presets.
+- ⚠ **Multimodal Support**: Images are preserved but their tokens are **NOT** calculated. Please adjust thresholds accordingly.
 
 ---
 
@@ -75,7 +71,8 @@ It is recommended to keep this filter early in the chain so it runs before filte
 | `keep_first`                   | `1`      | Always keep the first N messages (protects system prompts).                                                                                                           |
 | `keep_last`                    | `6`      | Always keep the last N messages to preserve recent context.                                                                                                           |
 | `summary_model`                | `None`   | Model for summaries. Strongly recommended to set a fast, economical model (e.g., `gemini-2.5-flash`, `deepseek-v3`). Falls back to the current chat model when empty. |
-| `max_summary_tokens`           | `4000`   | Maximum tokens for the generated summary.                                                                                                                             |
+| `summary_model_max_context`    | `0`      | Max context tokens for the summary model. If 0, falls back to `model_thresholds` or global `max_context_tokens`.                                                      |
+| `max_summary_tokens`           | `16384`  | Maximum tokens for the generated summary.                                                                                                                             |
 | `summary_temperature`          | `0.3`    | Randomness for summary generation. Lower is more deterministic.                                                                                                       |
 | `model_thresholds`             | `{}`     | Per-model overrides for `compression_threshold_tokens` and `max_context_tokens` (useful for mixed models).                                                            |
 | `enable_tool_output_trimming`  | `false`  | When enabled and `function_calling: "native"` is active, trims verbose tool outputs to extract only the final answer.                                                 |

@@ -1,7 +1,7 @@
 # Async Context Compression（异步上下文压缩）
 
 <span class="category-badge filter">Filter</span>
-<span class="version-badge">v1.2.0</span>
+<span class="version-badge">v1.2.1</span>
 
 通过智能摘要减少长对话的 token 消耗，同时保持对话连贯。
 
@@ -38,6 +38,8 @@ Async Context Compression 过滤器通过以下方式帮助管理长对话的 to
 - :material-format-align-justify: **结构感知裁剪**：保留文档结构的智能裁剪
 - :material-content-cut: **原生工具输出裁剪**：自动裁剪冗长的工具输出（注意：非原生工具调用输出不会完整注入上下文）
 - :material-chart-bar: **详细 Token 日志**：提供细粒度的 Token 统计
+- :material-account-search: **智能模型匹配**：自定义模型自动继承基础模型配置
+- :material-image-off: **多模态支持**：图片内容保留但 Token **不参与计算**
 
 ---
 
@@ -73,6 +75,7 @@ graph TD
 | `keep_first` | integer | `1` | 始终保留的前 N 条消息 |
 | `keep_last` | integer | `6` | 始终保留的后 N 条消息 |
 | `summary_model` | string | `None` | 用于摘要的模型 |
+| `summary_model_max_context` | integer | `0` | 摘要模型的最大上下文 Token 数 |
 | `max_summary_tokens` | integer | `16384` | 摘要的最大 token 数 |
 | `enable_tool_output_trimming` | boolean | `false` | 启用长工具输出裁剪 |
 

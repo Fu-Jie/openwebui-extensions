@@ -5,19 +5,17 @@ author: Fu-Jie
 author_url: https://github.com/Fu-Jie/awesome-openwebui
 funding_url: https://github.com/open-webui
 description: 通过智能摘要和消息压缩，降低长对话的 token 消耗，同时保持对话连贯性。
-version: 1.2.0
+version: 1.2.1
 openwebui_id: 5c0617cb-a9e4-4bd6-a440-d276534ebd18
 license: MIT
 
 ═══════════════════════════════════════════════════════════════════════════════
-📌 1.2.0 版本更新
+📌 1.2.1 版本更新
 ═══════════════════════════════════════════════════════════════════════════════
 
-  ✅ 预检上下文检查：发送给模型前验证上下文是否适配。
-  ✅ 结构感知裁剪：折叠过长的 AI 响应，同时保留标题 (H1-H6)、开头和结尾。
-  ✅ 原生工具输出裁剪：使用函数调用时清理上下文，去除冗余输出。（注意：非原生工具调用输出不会完整注入上下文）
-  ✅ 上下文使用警告：当使用量超过 90% 时发出通知。
-  ✅ 详细 Token 日志：细粒度记录 System、Head、Summary 和 Tail 的 Token 消耗。
+  ✅ 智能配置增强：自动检测自定义模型的基础模型配置，并新增 `summary_model_max_context` 参数以独立控制摘要模型的上下文限制。
+  ✅ 性能优化与重构：重构了阈值解析逻辑并增加缓存，移除了冗余的处理代码，并增强了 LLM 响应处理（支持 JSONResponse）。
+  ✅ 稳定性改进：修复了 `datetime` 弃用警告，修正了类型注解，并将 print 语句替换为标准日志记录。
 
 ═══════════════════════════════════════════════════════════════════════════════
 📌 功能概述
@@ -258,8 +256,19 @@ import re
 import asyncio
 import json
 import hashlib
-import time
 import contextlib
+import logging
+
+# 配置日志记录
+logger = logging.getLogger(__name__)
+if not logger.handlers:
+    handler = logging.StreamHandler()
+    formatter = logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    )
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+logger.setLevel(logging.INFO)
 
 # Open WebUI 内置导入
 from open_webui.utils.chat import generate_chat_completion
@@ -284,7 +293,7 @@ except ImportError:
 from sqlalchemy import Column, String, Text, DateTime, Integer, inspect
 from sqlalchemy.orm import declarative_base, sessionmaker
 from sqlalchemy.engine import Engine
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 def _discover_owui_engine(db_module: Any) -> Optional[Engine]:
@@ -372,8 +381,12 @@ class ChatSummary(owui_Base):
     chat_id = Column(String(255), unique=True, nullable=False, index=True)
     summary = Column(Text, nullable=False)
     compressed_message_count = Column(Integer, default=0)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
 
 
 class Filter:
@@ -384,6 +397,7 @@ class Filter:
         self._fallback_session_factory = (
             sessionmaker(bind=self._db_engine) if self._db_engine else None
         )
+        self._threshold_cache = {}
         self._init_database()
 
     @contextlib.contextmanager
@@ -469,10 +483,22 @@ class Filter:
             ge=0,
             description="上下文的硬性上限。超过此值将强制移除最早的消息 (全局默认值)",
         )
-        model_thresholds: dict = Field(
+        model_thresholds: Union[str, dict] = Field(
             default={},
-            description="针对特定模型的阈值覆盖配置。仅包含需要特殊配置的模型。",
+            description="针对特定模型的阈值覆盖配置。可以是 JSON 字符串或字典。",
         )
+
+        @model_validator(mode="before")
+        @classmethod
+        def parse_model_thresholds(cls, data: Any) -> Any:
+            if isinstance(data, dict):
+                thresholds = data.get("model_thresholds")
+                if isinstance(thresholds, str) and thresholds.strip():
+                    try:
+                        data["model_thresholds"] = json.loads(thresholds)
+                    except Exception as e:
+                        logger.error(f"Failed to parse model_thresholds JSON: {e}")
+            return data
 
         keep_first: int = Field(
             default=1, ge=0, description="始终保留最初的 N 条消息。设置为 0 则不保留。"
@@ -480,9 +506,14 @@ class Filter:
         keep_last: int = Field(
             default=6, ge=0, description="始终保留最近的 N 条完整消息。"
         )
-        summary_model: str = Field(
+        summary_model: Optional[str] = Field(
             default=None,
             description="用于生成摘要的模型 ID。留空则使用当前对话的模型。用于匹配 model_thresholds 中的配置。",
+        )
+        summary_model_max_context: int = Field(
+            default=0,
+            ge=0,
+            description="摘要模型的最大上下文 Token 数。如果为 0，则回退到 model_thresholds 或全局 max_context_tokens。",
         )
         max_summary_tokens: int = Field(
             default=16384, ge=1, description="摘要的最大 token 数"
@@ -513,7 +544,7 @@ class Filter:
                     # [优化] 乐观锁检查：只有进度向前推进时才更新
                     if compressed_count <= existing.compressed_message_count:
                         if self.valves.debug_mode:
-                            print(
+                            logger.debug(
                                 f"[存储] 跳过更新：新进度 ({compressed_count}) 不大于现有进度 ({existing.compressed_message_count})"
                             )
                         return
@@ -521,7 +552,7 @@ class Filter:
                     # 更新现有记录
                     existing.summary = summary
                     existing.compressed_message_count = compressed_count
-                    existing.updated_at = datetime.utcnow()
+                    existing.updated_at = datetime.now(timezone.utc)
                 else:
                     # 创建新记录
                     new_summary = ChatSummary(
@@ -535,10 +566,10 @@ class Filter:
 
                 if self.valves.debug_mode:
                     action = "更新" if existing else "创建"
-                    print(f"[存储] 摘要已{action}到数据库 (Chat ID: {chat_id})")
+                    logger.info(f"[存储] 摘要已{action}到数据库 (Chat ID: {chat_id})")
 
         except Exception as e:
-            print(f"[存储] ❌ 数据库保存失败: {str(e)}")
+            logger.error(f"[存储] ❌ 数据库保存失败: {str(e)}")
 
     def _load_summary_record(self, chat_id: str) -> Optional[ChatSummary]:
         """从数据库加载摘要记录对象"""
@@ -550,7 +581,7 @@ class Filter:
                     session.expunge(record)
                     return record
         except Exception as e:
-            print(f"[加载] ❌ 数据库读取失败: {str(e)}")
+            logger.error(f"[加载] ❌ 数据库读取失败: {str(e)}")
         return None
 
     def _load_summary(self, chat_id: str, body: dict) -> Optional[str]:
@@ -558,8 +589,8 @@ class Filter:
         record = self._load_summary_record(chat_id)
         if record:
             if self.valves.debug_mode:
-                print(f"[加载] 从数据库加载摘要 (Chat ID: {chat_id})")
-                print(
+                logger.debug(f"[加载] 从数据库加载摘要 (Chat ID: {chat_id})")
+                logger.debug(
                     f"[加载] 更新时间: {record.updated_at}, 已压缩消息数: {record.compressed_message_count}"
                 )
             return record.summary
@@ -602,23 +633,68 @@ class Filter:
         """获取特定模型的阈值配置
 
         优先级：
-        1. 如果 model_thresholds 中存在该模型ID的配置，使用该配置
-        2. 否则使用全局参数 compression_threshold_tokens 和 max_context_tokens
+        1. 缓存匹配
+        2. model_thresholds 直接匹配
+        3. 基础模型 (base_model_id) 匹配
+        4. 全局默认配置
         """
-        # 尝试从模型特定配置中匹配
-        if model_id in self.valves.model_thresholds:
+        if not model_id:
+            return {
+                "compression_threshold_tokens": self.valves.compression_threshold_tokens,
+                "max_context_tokens": self.valves.max_context_tokens,
+            }
+
+        # 1. 检查缓存
+        if model_id in self._threshold_cache:
+            return self._threshold_cache[model_id]
+
+        # 获取解析后的阈值配置
+        parsed = self.valves.model_thresholds
+        if isinstance(parsed, str):
+            try:
+                parsed = json.loads(parsed)
+            except Exception:
+                parsed = {}
+
+        # 2. 尝试直接匹配
+        if model_id in parsed:
+            res = parsed[model_id]
+            self._threshold_cache[model_id] = res
             if self.valves.debug_mode:
-                print(f"[配置] 使用模型特定配置: {model_id}")
-            return self.valves.model_thresholds[model_id]
+                logger.debug(f"[配置] 模型 {model_id} 命中直接配置")
+            return res
 
-        # 使用全局默认配置
-        if self.valves.debug_mode:
-            print(f"[配置] 模型 {model_id} 未在 model_thresholds 中，使用全局参数")
+        # 3. 尝试匹配基础模型 (base_model_id)
+        try:
+            model_obj = Models.get_model_by_id(model_id)
+            if model_obj:
+                # 某些模型可能有多个基础模型 ID
+                base_ids = []
+                if hasattr(model_obj, "base_model_id") and model_obj.base_model_id:
+                    base_ids.append(model_obj.base_model_id)
+                if hasattr(model_obj, "base_model_ids") and model_obj.base_model_ids:
+                    if isinstance(model_obj.base_model_ids, list):
+                        base_ids.extend(model_obj.base_model_ids)
 
-        return {
+                for b_id in base_ids:
+                    if b_id in parsed:
+                        res = parsed[b_id]
+                        self._threshold_cache[model_id] = res
+                        if self.valves.debug_mode:
+                            logger.info(
+                                f"[配置] 模型 {model_id} 匹配到基础模型 {b_id} 的配置"
+                            )
+                        return res
+        except Exception as e:
+            logger.error(f"[配置] 查找基础模型失败: {e}")
+
+        # 4. 使用全局默认配置
+        res = {
             "compression_threshold_tokens": self.valves.compression_threshold_tokens,
             "max_context_tokens": self.valves.max_context_tokens,
         }
+        self._threshold_cache[model_id] = res
+        return res
 
     def _get_chat_context(
         self, body: dict, __metadata__: Optional[dict] = None
@@ -750,7 +826,7 @@ class Filter:
                 """
                 await event_call({"type": "execute", "data": {"code": js_code}})
             except Exception as e:
-                print(f"发送前端日志失败: {e}")
+                logger.error(f"发送前端日志失败: {e}")
 
     async def inlet(
         self,
@@ -922,7 +998,7 @@ class Filter:
                     event_call=__event_call__,
                 )
             if self.valves.debug_mode:
-                print(f"[Inlet] 从数据库获取系统提示词错误: {e}")
+                logger.error(f"[Inlet] 从数据库获取系统提示词错误: {e}")
 
         # 回退：检查消息列表 (基础模型或已包含)
         if not system_prompt_content:
@@ -936,7 +1012,7 @@ class Filter:
         if system_prompt_content:
             system_prompt_msg = {"role": "system", "content": system_prompt_content}
             if self.valves.debug_mode:
-                print(
+                logger.debug(
                     f"[Inlet] 找到系统提示词 ({len(system_prompt_content)} 字符)。计入预算。"
                 )
 
@@ -967,7 +1043,7 @@ class Filter:
                     f"[Inlet] 消息统计: {stats_str}", event_call=__event_call__
                 )
             except Exception as e:
-                print(f"[Inlet] 记录消息统计错误: {e}")
+                logger.error(f"[Inlet] 记录消息统计错误: {e}")
 
         if not chat_id:
             await self._log(
@@ -1058,7 +1134,7 @@ class Filter:
 
             # 获取最大上下文限制
             model = self._clean_model_id(body.get("model"))
-            thresholds = self._get_model_thresholds(model)
+            thresholds = self._get_model_thresholds(model) or {}
             max_context_tokens = thresholds.get(
                 "max_context_tokens", self.valves.max_context_tokens
             )
@@ -1262,7 +1338,7 @@ class Filter:
 
             # 获取最大上下文限制
             model = self._clean_model_id(body.get("model"))
-            thresholds = self._get_model_thresholds(model)
+            thresholds = self._get_model_thresholds(model) or {}
             max_context_tokens = thresholds.get(
                 "max_context_tokens", self.valves.max_context_tokens
             )
@@ -1289,7 +1365,8 @@ class Filter:
                     > start_trim_index + 1  # 保留 keep_first 之后至少 1 条消息
                 ):
                     dropped = final_messages.pop(start_trim_index)
-                    total_tokens -= self._count_tokens(str(dropped.get("content", "")))
+                    dropped_tokens = self._count_tokens(str(dropped.get("content", "")))
+                    total_tokens -= dropped_tokens
 
                 await self._log(
                     f"[Inlet] ✂️ 消息已缩减。新总数: {total_tokens} Tokens",
@@ -1348,17 +1425,10 @@ class Filter:
             )
             return body
         model = body.get("model") or ""
+        messages = body.get("messages", [])
 
         # 直接计算目标压缩进度
-        # 假设 outlet 中的 body['messages'] 包含完整历史（包括新响应）
-        messages = body.get("messages", [])
         target_compressed_count = max(0, len(messages) - self.valves.keep_last)
-
-        if self.valves.debug_mode or self.valves.show_debug_log:
-            await self._log(
-                f"\n{'='*60}\n[Outlet] Chat ID: {chat_id}\n[Outlet] 响应完成\n[Outlet] 计算目标压缩进度: {target_compressed_count} (消息数: {len(messages)})",
-                event_call=__event_call__,
-            )
 
         # 在后台异步处理 Token 计算和摘要生成（不等待完成，不影响输出）
         asyncio.create_task(
@@ -1371,11 +1441,6 @@ class Filter:
                 __event_emitter__,
                 __event_call__,
             )
-        )
-
-        await self._log(
-            f"[Outlet] 后台处理已启动\n{'='*60}\n",
-            event_call=__event_call__,
         )
 
         return body
@@ -1397,7 +1462,7 @@ class Filter:
             messages = body.get("messages", [])
 
             # 获取当前模型的阈值配置
-            thresholds = self._get_model_thresholds(model)
+            thresholds = self._get_model_thresholds(model) or {}
             compression_threshold_tokens = thresholds.get(
                 "compression_threshold_tokens", self.valves.compression_threshold_tokens
             )
@@ -1533,11 +1598,14 @@ class Filter:
                 )
                 return
 
-            thresholds = self._get_model_thresholds(summary_model_id)
-            # 注意：这里使用的是摘要模型的最大上下文限制
-            max_context_tokens = thresholds.get(
-                "max_context_tokens", self.valves.max_context_tokens
-            )
+            thresholds = self._get_model_thresholds(summary_model_id) or {}
+            # Priority: 1. summary_model_max_context (if > 0) -> 2. model_thresholds -> 3. global max_context_tokens
+            if self.valves.summary_model_max_context > 0:
+                max_context_tokens = self.valves.summary_model_max_context
+            else:
+                max_context_tokens = thresholds.get(
+                    "max_context_tokens", self.valves.max_context_tokens
+                )
 
             await self._log(
                 f"[🤖 异步摘要任务] 使用模型 {summary_model_id} 的上限: {max_context_tokens} Tokens",
@@ -1722,10 +1790,14 @@ class Filter:
 
                     # 5. 获取阈值并计算比例
                     model = self._clean_model_id(body.get("model"))
-                    thresholds = self._get_model_thresholds(model)
-                    max_context_tokens = thresholds.get(
-                        "max_context_tokens", self.valves.max_context_tokens
-                    )
+                    thresholds = self._get_model_thresholds(model) or {}
+                    # Priority: 1. summary_model_max_context (if > 0) -> 2. model_thresholds -> 3. global max_context_tokens
+                    if self.valves.summary_model_max_context > 0:
+                        max_context_tokens = self.valves.summary_model_max_context
+                    else:
+                        max_context_tokens = thresholds.get(
+                            "max_context_tokens", self.valves.max_context_tokens
+                        )
 
                     # 6. 发送状态
                     status_msg = (
@@ -1771,9 +1843,7 @@ class Filter:
                     }
                 )
 
-            import traceback
-
-            traceback.print_exc()
+            logger.exception("[🤖 异步摘要任务] ❌ 发生异常")
 
     def _format_messages_for_summary(self, messages: list) -> str:
         """Formats messages for summarization."""
@@ -1793,9 +1863,8 @@ class Filter:
             # Handle role name
             role_name = {"user": "User", "assistant": "Assistant"}.get(role, role)
 
-            # Limit length of each message to avoid excessive length
-            if len(content) > 500:
-                content = content[:500] + "..."
+            # User requested to remove truncation to allow full context for summary
+            # unless it exceeds model limits (which is handled by the LLM call itself or max_tokens)
 
             formatted.append(f"[{i}] {role_name}: {content}")
 
@@ -1902,8 +1971,25 @@ class Filter:
             # 调用 generate_chat_completion
             response = await generate_chat_completion(request, payload, user)
 
-            if not response or "choices" not in response or not response["choices"]:
-                raise ValueError("LLM 响应格式不正确或为空")
+            # Handle JSONResponse (some backends return JSONResponse instead of dict)
+            if hasattr(response, "body"):
+                # It's a Response object, extract the body
+                import json as json_module
+
+                try:
+                    response = json_module.loads(response.body.decode("utf-8"))
+                except Exception:
+                    raise ValueError(f"Failed to parse JSONResponse body: {response}")
+
+            if (
+                not response
+                or not isinstance(response, dict)
+                or "choices" not in response
+                or not response["choices"]
+            ):
+                raise ValueError(
+                    f"LLM response format incorrect or empty: {type(response).__name__}"
+                )
 
             summary = response["choices"][0]["message"]["content"].strip()
 

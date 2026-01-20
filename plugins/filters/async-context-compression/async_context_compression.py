@@ -5,19 +5,17 @@ author: Fu-Jie
 author_url: https://github.com/Fu-Jie/awesome-openwebui
 funding_url: https://github.com/open-webui
 description: Reduces token consumption in long conversations while maintaining coherence through intelligent summarization and message compression.
-version: 1.2.0
+version: 1.2.1
 openwebui_id: b1655bc8-6de9-4cad-8cb5-a6f7829a02ce
 license: MIT
 
 ═══════════════════════════════════════════════════════════════════════════════
-📌 What's new in 1.2.0
+📌 What's new in 1.2.1
 ═══════════════════════════════════════════════════════════════════════════════
 
-  ✅ Preflight Context Check: Validates context fit before sending to model.
-  ✅ Structure-Aware Trimming: Collapses long AI responses while keeping H1-H6, intro, and conclusion.
-  ✅ Native Tool Output Trimming: Cleaner context when using function calling. (Note: Non-native tool outputs are not fully injected into context)
-  ✅ Context Usage Warning: Notification when usage exceeds 90%.
-  ✅ Detailed Token Logging: Granular breakdown of System, Head, Summary, and Tail tokens.
+  ✅ Smart Configuration: Automatically detects base model settings for custom models and adds `summary_model_max_context` for independent summary limits.
+  ✅ Performance & Refactoring: Optimized threshold parsing with caching and removed redundant code for better efficiency.
+  ✅ Bug Fixes & Modernization: Fixed `datetime` deprecation warnings and corrected type annotations.
 
 ═══════════════════════════════════════════════════════════════════════════════
 📌 Overview
@@ -229,6 +227,8 @@ Statistics:
    ✓ This filter supports multimodal messages containing images.
    ✓ The summary is generated only from the text content.
    ✓ Non-text parts (like images) are preserved in their original messages during compression.
+   ⚠ Image tokens are NOT calculated. Different models have vastly different image token costs
+     (GPT-4o: 85-1105, Claude: ~1300, Gemini: ~258 per image). Plan your thresholds accordingly.
 
 ═══════════════════════════════════════════════════════════════════════════════
 🐛 Troubleshooting
@@ -259,7 +259,7 @@ Solution:
 
 """
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any, List, Union, Callable, Awaitable
 import re
 import asyncio
@@ -267,6 +267,10 @@ import json
 import hashlib
 import time
 import contextlib
+import logging
+
+# Setup logger
+logger = logging.getLogger(__name__)
 
 # Open WebUI built-in imports
 from open_webui.utils.chat import generate_chat_completion
@@ -291,7 +295,7 @@ except ImportError:
 from sqlalchemy import Column, String, Text, DateTime, Integer, inspect
 from sqlalchemy.orm import declarative_base, sessionmaker
 from sqlalchemy.engine import Engine
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 def _discover_owui_engine(db_module: Any) -> Optional[Engine]:
@@ -312,7 +316,7 @@ def _discover_owui_engine(db_module: Any) -> Optional[Engine]:
                         session, "engine", None
                     )
         except Exception as exc:
-            print(f"[DB Discover] get_db_context failed: {exc}")
+            logger.error(f"[DB Discover] get_db_context failed: {exc}")
 
     for attr in ("engine", "ENGINE", "bind", "BIND"):
         candidate = getattr(db_module, attr, None)
@@ -334,7 +338,7 @@ def _discover_owui_schema(db_module: Any) -> Optional[str]:
         if isinstance(candidate, str) and candidate.strip():
             return candidate.strip()
     except Exception as exc:
-        print(f"[DB Discover] Base metadata schema lookup failed: {exc}")
+        logger.error(f"[DB Discover] Base metadata schema lookup failed: {exc}")
 
     try:
         metadata_obj = getattr(db_module, "metadata_obj", None)
@@ -344,7 +348,7 @@ def _discover_owui_schema(db_module: Any) -> Optional[str]:
         if isinstance(candidate, str) and candidate.strip():
             return candidate.strip()
     except Exception as exc:
-        print(f"[DB Discover] metadata_obj schema lookup failed: {exc}")
+        logger.error(f"[DB Discover] metadata_obj schema lookup failed: {exc}")
 
     try:
         from open_webui import env as owui_env
@@ -353,7 +357,7 @@ def _discover_owui_schema(db_module: Any) -> Optional[str]:
         if isinstance(candidate, str) and candidate.strip():
             return candidate.strip()
     except Exception as exc:
-        print(f"[DB Discover] env schema lookup failed: {exc}")
+        logger.error(f"[DB Discover] env schema lookup failed: {exc}")
 
     return None
 
@@ -379,8 +383,21 @@ class ChatSummary(owui_Base):
     chat_id = Column(String(255), unique=True, nullable=False, index=True)
     summary = Column(Text, nullable=False)
     compressed_message_count = Column(Integer, default=0)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
+
+
+# Global cache for tiktoken encoding
+TIKTOKEN_ENCODING = None
+if tiktoken:
+    try:
+        TIKTOKEN_ENCODING = tiktoken.get_encoding("o200k_base")
+    except Exception as e:
+        logger.error(f"[Init] Failed to load tiktoken encoding: {e}")
 
 
 class Filter:
@@ -391,7 +408,47 @@ class Filter:
         self._fallback_session_factory = (
             sessionmaker(bind=self._db_engine) if self._db_engine else None
         )
+        self._model_thresholds_cache: Optional[Dict[str, Any]] = None
         self._init_database()
+
+    def _parse_model_thresholds(self) -> Dict[str, Any]:
+        """Parse model_thresholds string into a dictionary.
+
+        Format: model_id:compression_threshold:max_context, model_id2:threshold2:max2
+        Example: gpt-4:8000:32000, claude-3:100000:200000
+
+        Returns cached result if already parsed.
+        """
+        if self._model_thresholds_cache is not None:
+            return self._model_thresholds_cache
+
+        self._model_thresholds_cache = {}
+        raw_config = self.valves.model_thresholds
+        if not raw_config:
+            return self._model_thresholds_cache
+
+        for entry in raw_config.split(","):
+            entry = entry.strip()
+            if not entry:
+                continue
+
+            parts = entry.split(":")
+            if len(parts) != 3:
+                continue
+
+            try:
+                model_id = parts[0].strip()
+                compression_threshold = int(parts[1].strip())
+                max_context = int(parts[2].strip())
+
+                self._model_thresholds_cache[model_id] = {
+                    "compression_threshold_tokens": compression_threshold,
+                    "max_context_tokens": max_context,
+                }
+            except ValueError:
+                continue
+
+        return self._model_thresholds_cache
 
     @contextlib.contextmanager
     def _db_session(self):
@@ -435,7 +492,7 @@ class Filter:
             try:
                 session.close()
             except Exception as exc:  # pragma: no cover - best-effort cleanup
-                print(f"[Database] ⚠️ Failed to close fallback session: {exc}")
+                logger.warning(f"[Database] ⚠️ Failed to close fallback session: {exc}")
 
     def _init_database(self):
         """Initializes the database table using Open WebUI's shared connection."""
@@ -447,19 +504,26 @@ class Filter:
 
             # Check if table exists using SQLAlchemy inspect
             inspector = inspect(self._db_engine)
-            if not inspector.has_table("chat_summary"):
+            # Support schema if configured
+            has_table = (
+                inspector.has_table("chat_summary", schema=owui_schema)
+                if owui_schema
+                else inspector.has_table("chat_summary")
+            )
+
+            if not has_table:
                 # Create the chat_summary table if it doesn't exist
                 ChatSummary.__table__.create(bind=self._db_engine, checkfirst=True)
-                print(
+                logger.info(
                     "[Database] ✅ Successfully created chat_summary table using Open WebUI's shared database connection."
                 )
             else:
-                print(
+                logger.info(
                     "[Database] ✅ Using Open WebUI's shared database connection. chat_summary table already exists."
                 )
 
         except Exception as e:
-            print(f"[Database] ❌ Initialization failed: {str(e)}")
+            logger.error(f"[Database] ❌ Initialization failed: {str(e)}")
 
     class Valves(BaseModel):
         priority: int = Field(
@@ -476,9 +540,9 @@ class Filter:
             ge=0,
             description="Hard limit for context. Exceeding this value will force removal of earliest messages (Global Default)",
         )
-        model_thresholds: dict = Field(
-            default={},
-            description="Threshold override configuration for specific models. Only includes models requiring special configuration.",
+        model_thresholds: str = Field(
+            default="",
+            description="Per-model threshold overrides. Format: model_id:compression_threshold:max_context (comma-separated). Example: gpt-4:8000:32000, claude-3:100000:200000",
         )
 
         keep_first: int = Field(
@@ -489,9 +553,14 @@ class Filter:
         keep_last: int = Field(
             default=6, ge=0, description="Always keep the last N full messages."
         )
-        summary_model: str = Field(
+        summary_model: Optional[str] = Field(
             default=None,
             description="The model ID used to generate the summary. If empty, uses the current conversation's model. Used to match configurations in model_thresholds.",
+        )
+        summary_model_max_context: int = Field(
+            default=0,
+            ge=0,
+            description="Max context tokens for the summary model. If 0, falls back to model_thresholds or global max_context_tokens. Example: gemini-flash=1000000, gpt-4o-mini=128000.",
         )
         max_summary_tokens: int = Field(
             default=16384,
@@ -529,7 +598,7 @@ class Filter:
                     # [Optimization] Optimistic lock check: update only if progress moves forward
                     if compressed_count <= existing.compressed_message_count:
                         if self.valves.debug_mode:
-                            print(
+                            logger.info(
                                 f"[Storage] Skipping update: New progress ({compressed_count}) is not greater than existing progress ({existing.compressed_message_count})"
                             )
                         return
@@ -537,7 +606,7 @@ class Filter:
                     # Update existing record
                     existing.summary = summary
                     existing.compressed_message_count = compressed_count
-                    existing.updated_at = datetime.utcnow()
+                    existing.updated_at = datetime.now(timezone.utc)
                 else:
                     # Create new record
                     new_summary = ChatSummary(
@@ -551,12 +620,12 @@ class Filter:
 
                 if self.valves.debug_mode:
                     action = "Updated" if existing else "Created"
-                    print(
+                    logger.info(
                         f"[Storage] Summary has been {action.lower()} in the database (Chat ID: {chat_id})"
                     )
 
         except Exception as e:
-            print(f"[Storage] ❌ Database save failed: {str(e)}")
+            logger.error(f"[Storage] ❌ Database save failed: {str(e)}")
 
     def _load_summary_record(self, chat_id: str) -> Optional[ChatSummary]:
         """Loads the summary record object from the database."""
@@ -568,7 +637,7 @@ class Filter:
                     session.expunge(record)
                     return record
         except Exception as e:
-            print(f"[Load] ❌ Database read failed: {str(e)}")
+            logger.error(f"[Load] ❌ Database read failed: {str(e)}")
         return None
 
     def _load_summary(self, chat_id: str, body: dict) -> Optional[str]:
@@ -576,8 +645,8 @@ class Filter:
         record = self._load_summary_record(chat_id)
         if record:
             if self.valves.debug_mode:
-                print(f"[Load] Loaded summary from database (Chat ID: {chat_id})")
-                print(
+                logger.info(f"[Load] Loaded summary from database (Chat ID: {chat_id})")
+                logger.info(
                     f"[Load] Last updated: {record.updated_at}, Compressed message count: {record.compressed_message_count}"
                 )
             return record.summary
@@ -588,14 +657,12 @@ class Filter:
         if not text:
             return 0
 
-        if tiktoken:
+        if TIKTOKEN_ENCODING:
             try:
-                # Uniformly use o200k_base encoding (adapted for latest models)
-                encoding = tiktoken.get_encoding("o200k_base")
-                return len(encoding.encode(text))
+                return len(TIKTOKEN_ENCODING.encode(text))
             except Exception as e:
                 if self.valves.debug_mode:
-                    print(
+                    logger.warning(
                         f"[Token Count] tiktoken error: {e}, falling back to character estimation"
                     )
 
@@ -604,6 +671,7 @@ class Filter:
 
     def _calculate_messages_tokens(self, messages: List[Dict]) -> int:
         """Calculates the total tokens for a list of messages."""
+        start_time = time.time()
         total_tokens = 0
         for msg in messages:
             content = msg.get("content", "")
@@ -616,6 +684,13 @@ class Filter:
                 total_tokens += self._count_tokens(text_content)
             else:
                 total_tokens += self._count_tokens(str(content))
+
+        duration = (time.time() - start_time) * 1000
+        if self.valves.debug_mode:
+            logger.info(
+                f"[Token Calc] Calculated {total_tokens} tokens for {len(messages)} messages in {duration:.2f}ms"
+            )
+
         return total_tokens
 
     def _get_model_thresholds(self, model_id: str) -> Dict[str, int]:
@@ -623,17 +698,48 @@ class Filter:
 
         Priority:
         1. If configuration exists for the model ID in model_thresholds, use it.
-        2. Otherwise, use global parameters compression_threshold_tokens and max_context_tokens.
+        2. If model is a custom model, try to match its base_model_id.
+        3. Otherwise, use global parameters compression_threshold_tokens and max_context_tokens.
         """
-        # Try to match from model-specific configuration
-        if model_id in self.valves.model_thresholds:
-            if self.valves.debug_mode:
-                print(f"[Config] Using model-specific configuration: {model_id}")
-            return self.valves.model_thresholds[model_id]
+        parsed = self._parse_model_thresholds()
 
-        # Use global default configuration
+        # 1. Direct match with model_id
+        if model_id in parsed:
+            if self.valves.debug_mode:
+                logger.info(f"[Config] Using model-specific configuration: {model_id}")
+            return parsed[model_id]
+
+        # 2. Try to find base_model_id for custom models
+        try:
+            model_obj = Models.get_model_by_id(model_id)
+            if model_obj:
+                # Check for base_model_id (custom model)
+                base_model_id = getattr(model_obj, "base_model_id", None)
+                if not base_model_id:
+                    # Try base_model_ids (array) - take first one
+                    base_model_ids = getattr(model_obj, "base_model_ids", None)
+                    if (
+                        base_model_ids
+                        and isinstance(base_model_ids, list)
+                        and len(base_model_ids) > 0
+                    ):
+                        base_model_id = base_model_ids[0]
+
+                if base_model_id and base_model_id in parsed:
+                    if self.valves.debug_mode:
+                        logger.info(
+                            f"[Config] Custom model '{model_id}' -> base_model '{base_model_id}': using base model configuration"
+                        )
+                    return parsed[base_model_id]
+        except Exception as e:
+            if self.valves.debug_mode:
+                logger.warning(
+                    f"[Config] Failed to lookup base_model for '{model_id}': {e}"
+                )
+
+        # 3. Use global default configuration
         if self.valves.debug_mode:
-            print(
+            logger.info(
                 f"[Config] Model {model_id} not in model_thresholds, using global parameters"
             )
 
@@ -731,13 +837,13 @@ class Filter:
                 }
             )
         except Exception as e:
-            print(f"Error emitting debug log: {e}")
+            logger.error(f"Error emitting debug log: {e}")
 
     async def _log(self, message: str, type: str = "info", event_call=None):
         """Unified logging to both backend (print) and frontend (console.log)"""
         # Backend logging
         if self.valves.debug_mode:
-            print(message)
+            logger.info(message)
 
         # Frontend logging
         if self.valves.show_debug_log and event_call:
@@ -770,9 +876,17 @@ class Filter:
                 js_code = f"""
                     console.log("%c[Compression] {safe_message}", "{css}");
                 """
-                await event_call({"type": "execute", "data": {"code": js_code}})
+                # Add timeout to prevent blocking if frontend connection is broken
+                await asyncio.wait_for(
+                    event_call({"type": "execute", "data": {"code": js_code}}),
+                    timeout=2.0,
+                )
+            except asyncio.TimeoutError:
+                logger.warning(
+                    f"Failed to emit log to frontend: Timeout (connection may be broken)"
+                )
             except Exception as e:
-                print(f"Failed to emit log to frontend: {e}")
+                logger.error(f"Failed to emit log to frontend: {type(e).__name__}: {e}")
 
     async def inlet(
         self,
@@ -819,42 +933,57 @@ class Filter:
                                 event_call=__event_call__,
                             )
 
-                        # Extract the final answer (after last tool call metadata)
-                        # Pattern: Matches escaped JSON strings like ""&quot;...&quot;"" followed by newlines
-                        # We look for the last occurrence of such a pattern and take everything after it
-
-                        # 1. Try matching the specific OpenWebUI tool output format: ""&quot;...&quot;""
-                        # This regex finds the last end-quote of a tool output block
-                        tool_output_pattern = r'""&quot;.*?&quot;""\s*'
-
-                        # Find all matches
-                        matches = list(
-                            re.finditer(tool_output_pattern, content, re.DOTALL)
+                        # Strategy 1: Tool Output / Code Block Trimming
+                        # Detect if message contains large tool outputs or code blocks
+                        # Improved regex to be less brittle
+                        is_tool_output = (
+                            "&quot;" in content
+                            or "Arguments:" in content
+                            or "```" in content
+                            or "<tool_code>" in content
                         )
 
-                        if matches:
-                            # Get the end position of the last match
-                            last_match_end = matches[-1].end()
+                        if is_tool_output:
+                            # Regex to find the last occurrence of a tool output block or code block
+                            # This pattern looks for:
+                            # 1. OpenWebUI's escaped JSON format: ""&quot;...&quot;""
+                            # 2. "Arguments: {...}" pattern
+                            # 3. Generic code blocks: ```...```
+                            # 4. <tool_code>...</tool_code>
+                            # It captures the content *after* the last such block.
+                            tool_output_pattern = r'(?:""&quot;.*?&quot;""|Arguments:\s*\{[^}]+\}|```.*?```|<tool_code>.*?</tool_code>)\s*'
 
-                            # Everything after the last tool output is the final answer
-                            final_answer = content[last_match_end:].strip()
+                            # Find all matches
+                            matches = list(
+                                re.finditer(tool_output_pattern, content, re.DOTALL)
+                            )
 
-                            if final_answer:
-                                msg["content"] = (
-                                    f"... [Tool outputs trimmed]\n{final_answer}"
-                                )
-                                trimmed_count += 1
-                        else:
-                            # Fallback: Try splitting on "Arguments:" if the new format isn't found
-                            # (Preserving backward compatibility or different model behaviors)
-                            parts = re.split(r"(?:Arguments:\s*\{[^}]+\})\n+", content)
-                            if len(parts) > 1:
-                                final_answer = parts[-1].strip()
+                            if matches:
+                                # Get the end position of the last match
+                                last_match_end = matches[-1].end()
+
+                                # Everything after the last tool output is the final answer
+                                final_answer = content[last_match_end:].strip()
+
                                 if final_answer:
                                     msg["content"] = (
                                         f"... [Tool outputs trimmed]\n{final_answer}"
                                     )
                                     trimmed_count += 1
+                            else:
+                                # Fallback: If no specific pattern matched, but it was identified as tool output,
+                                # try a simpler split or just mark as trimmed if no final answer can be extracted.
+                                # (Preserving backward compatibility or different model behaviors)
+                                parts = re.split(
+                                    r"(?:Arguments:\s*\{[^}]+\})\n+", content
+                                )
+                                if len(parts) > 1:
+                                    final_answer = parts[-1].strip()
+                                    if final_answer:
+                                        msg["content"] = (
+                                            f"... [Tool outputs trimmed]\n{final_answer}"
+                                        )
+                                        trimmed_count += 1
 
             if trimmed_count > 0 and self.valves.show_debug_log and __event_call__:
                 await self._log(
@@ -881,7 +1010,8 @@ class Filter:
                     )
 
                 # Clean model ID if needed (though get_model_by_id usually expects the full ID)
-                model_obj = Models.get_model_by_id(model_id)
+                # Run in thread to avoid blocking event loop on slow DB queries
+                model_obj = await asyncio.to_thread(Models.get_model_by_id, model_id)
 
                 if model_obj:
                     if self.valves.show_debug_log and __event_call__:
@@ -933,8 +1063,7 @@ class Filter:
                 else:
                     if self.valves.show_debug_log and __event_call__:
                         await self._log(
-                            f"[Inlet] ❌ Model NOT found in DB",
-                            type="warning",
+                            f"[Inlet] ℹ️ Not a custom model, skipping custom system prompt check",
                             event_call=__event_call__,
                         )
 
@@ -946,7 +1075,7 @@ class Filter:
                     event_call=__event_call__,
                 )
             if self.valves.debug_mode:
-                print(f"[Inlet] Error fetching system prompt from DB: {e}")
+                logger.error(f"[Inlet] Error fetching system prompt from DB: {e}")
 
         # Fall back to checking messages (base model or already included)
         if not system_prompt_content:
@@ -960,7 +1089,7 @@ class Filter:
         if system_prompt_content:
             system_prompt_msg = {"role": "system", "content": system_prompt_content}
             if self.valves.debug_mode:
-                print(
+                logger.info(
                     f"[Inlet] Found system prompt ({len(system_prompt_content)} chars). Including in budget."
                 )
 
@@ -991,7 +1120,7 @@ class Filter:
                     f"[Inlet] Message Stats: {stats_str}", event_call=__event_call__
                 )
             except Exception as e:
-                print(f"[Inlet] Error logging message stats: {e}")
+                logger.error(f"[Inlet] Error logging message stats: {e}")
 
         if not chat_id:
             await self._log(
@@ -1006,6 +1135,33 @@ class Filter:
                 f"\n{'='*60}\n[Inlet] Chat ID: {chat_id}\n[Inlet] Received {len(messages)} messages",
                 event_call=__event_call__,
             )
+
+            # Log custom model configurations
+            raw_config = self.valves.model_thresholds
+            parsed_configs = self._parse_model_thresholds()
+
+            if raw_config:
+                config_list = [
+                    f"{model}: {cfg['compression_threshold_tokens']}t/{cfg['max_context_tokens']}t"
+                    for model, cfg in parsed_configs.items()
+                ]
+
+                if config_list:
+                    await self._log(
+                        f"[Inlet] 📋 Model Configs (Raw: '{raw_config}'): {', '.join(config_list)}",
+                        event_call=__event_call__,
+                    )
+                else:
+                    await self._log(
+                        f"[Inlet] ⚠️ Invalid Model Configs (Raw: '{raw_config}'): No valid configs parsed. Expected format: 'model_id:threshold:max_context'",
+                        type="warning",
+                        event_call=__event_call__,
+                    )
+            else:
+                await self._log(
+                    f"[Inlet] 📋 Model Configs: No custom configuration (Global defaults only)",
+                    event_call=__event_call__,
+                )
 
         # Record the target compression progress for the original messages, for use in outlet
         # Target is to compress up to the (total - keep_last) message
@@ -1043,9 +1199,9 @@ class Filter:
             if effective_keep_first > 0:
                 head_messages = messages[:effective_keep_first]
 
-            # 2. Summary message (Inserted as User message)
+            # 2. Summary message (Inserted as Assistant message)
             summary_content = (
-                f"【System Prompt: The following is a summary of the historical conversation, provided for context only. Do not reply to the summary content itself; answer the subsequent latest questions directly.】\n\n"
+                f"【Previous Summary: The following is a summary of the historical conversation, provided for context only. Do not reply to the summary content itself; answer the subsequent latest questions directly.】\n\n"
                 f"{summary_record.summary}\n\n"
                 f"---\n"
                 f"Below is the recent conversation:"
@@ -1287,7 +1443,7 @@ class Filter:
 
             # Get max context limit
             model = self._clean_model_id(body.get("model"))
-            thresholds = self._get_model_thresholds(model)
+            thresholds = self._get_model_thresholds(model) or {}
             max_context_tokens = thresholds.get(
                 "max_context_tokens", self.valves.max_context_tokens
             )
@@ -1314,7 +1470,8 @@ class Filter:
                     > start_trim_index + 1  # Keep at least 1 message after keep_first
                 ):
                     dropped = final_messages.pop(start_trim_index)
-                    total_tokens -= self._count_tokens(str(dropped.get("content", "")))
+                    dropped_tokens = self._count_tokens(str(dropped.get("content", "")))
+                    total_tokens -= dropped_tokens
 
                 await self._log(
                     f"[Inlet] ✂️ Messages reduced. New total: {total_tokens} Tokens",
@@ -1371,17 +1528,10 @@ class Filter:
             )
             return body
         model = body.get("model") or ""
+        messages = body.get("messages", [])
 
         # Calculate target compression progress directly
-        # Assuming body['messages'] in outlet contains the full history (including new response)
-        messages = body.get("messages", [])
         target_compressed_count = max(0, len(messages) - self.valves.keep_last)
-
-        if self.valves.debug_mode or self.valves.show_debug_log:
-            await self._log(
-                f"\n{'='*60}\n[Outlet] Chat ID: {chat_id}\n[Outlet] Response complete\n[Outlet] Calculated target compression progress: {target_compressed_count} (Messages: {len(messages)})",
-                event_call=__event_call__,
-            )
 
         # Process Token calculation and summary generation asynchronously in the background (do not wait for completion, do not affect output)
         asyncio.create_task(
@@ -1394,11 +1544,6 @@ class Filter:
                 __event_emitter__,
                 __event_call__,
             )
-        )
-
-        await self._log(
-            f"[Outlet] Background processing started\n{'='*60}\n",
-            event_call=__event_call__,
         )
 
         return body
@@ -1416,11 +1561,25 @@ class Filter:
         """
         Background processing: Calculates Token count and generates summary (does not block response).
         """
+
         try:
             messages = body.get("messages", [])
 
+            # Clean model ID
+            model = self._clean_model_id(model)
+
+            if self.valves.debug_mode or self.valves.show_debug_log:
+                await self._log(
+                    f"\n{'='*60}\n[Outlet] Chat ID: {chat_id}\n[Outlet] Response complete\n[Outlet] Calculated target compression progress: {target_compressed_count} (Messages: {len(messages)})",
+                    event_call=__event_call__,
+                )
+                await self._log(
+                    f"[Outlet] Background processing started\n{'='*60}\n",
+                    event_call=__event_call__,
+                )
+
             # Get threshold configuration for current model
-            thresholds = self._get_model_thresholds(model)
+            thresholds = self._get_model_thresholds(model) or {}
             compression_threshold_tokens = thresholds.get(
                 "compression_threshold_tokens", self.valves.compression_threshold_tokens
             )
@@ -1439,6 +1598,28 @@ class Filter:
                 f"[🔍 Background Calculation] Token count: {current_tokens}",
                 event_call=__event_call__,
             )
+
+            # Send status notification (Context Usage format)
+            if __event_emitter__ and self.valves.show_token_usage_status:
+                max_context_tokens = thresholds.get(
+                    "max_context_tokens", self.valves.max_context_tokens
+                )
+                status_msg = f"Context Usage (Estimated): {current_tokens} / {max_context_tokens} Tokens"
+                if max_context_tokens > 0:
+                    usage_ratio = current_tokens / max_context_tokens
+                    status_msg += f" ({usage_ratio*100:.1f}%)"
+                    if usage_ratio > 0.9:
+                        status_msg += " | ⚠️ High Usage"
+
+                await __event_emitter__(
+                    {
+                        "type": "status",
+                        "data": {
+                            "description": status_msg,
+                            "done": True,
+                        },
+                    }
+                )
 
             # Check if compression is needed
             if current_tokens >= compression_threshold_tokens:
@@ -1559,10 +1740,13 @@ class Filter:
                 return
 
             thresholds = self._get_model_thresholds(summary_model_id)
-            # Note: Using the summary model's max context limit here
-            max_context_tokens = thresholds.get(
-                "max_context_tokens", self.valves.max_context_tokens
-            )
+            # Priority: 1. summary_model_max_context (if > 0) -> 2. model_thresholds -> 3. global max_context_tokens
+            if self.valves.summary_model_max_context > 0:
+                max_context_tokens = self.valves.summary_model_max_context
+            else:
+                max_context_tokens = thresholds.get(
+                    "max_context_tokens", self.valves.max_context_tokens
+                )
 
             await self._log(
                 f"[🤖 Async Summary Task] Using max limit for model {summary_model_id}: {max_context_tokens} Tokens",
@@ -1753,7 +1937,6 @@ class Filter:
                     max_context_tokens = thresholds.get(
                         "max_context_tokens", self.valves.max_context_tokens
                     )
-
                     # 6. Emit Status
                     status_msg = f"Context Summary Updated: {token_count} / {max_context_tokens} Tokens"
                     if max_context_tokens > 0:
@@ -1798,7 +1981,7 @@ class Filter:
 
             import traceback
 
-            traceback.print_exc()
+            logger.exception("[🤖 Async Summary Task] Unhandled exception")
 
     def _format_messages_for_summary(self, messages: list) -> str:
         """Formats messages for summarization."""
@@ -1818,9 +2001,8 @@ class Filter:
             # Handle role name
             role_name = {"user": "User", "assistant": "Assistant"}.get(role, role)
 
-            # Limit length of each message to avoid excessive length
-            if len(content) > 500:
-                content = content[:500] + "..."
+            # User requested to remove truncation to allow full context for summary
+            # unless it exceeds model limits (which is handled by the LLM call itself or max_tokens)
 
             formatted.append(f"[{i}] {role_name}: {content}")
 
@@ -1927,8 +2109,25 @@ Based on the content above, generate the summary:
             # Call generate_chat_completion
             response = await generate_chat_completion(request, payload, user)
 
-            if not response or "choices" not in response or not response["choices"]:
-                raise ValueError("LLM response format incorrect or empty")
+            # Handle JSONResponse (some backends return JSONResponse instead of dict)
+            if hasattr(response, "body"):
+                # It's a Response object, extract the body
+                import json as json_module
+
+                try:
+                    response = json_module.loads(response.body.decode("utf-8"))
+                except Exception:
+                    raise ValueError(f"Failed to parse JSONResponse body: {response}")
+
+            if (
+                not response
+                or not isinstance(response, dict)
+                or "choices" not in response
+                or not response["choices"]
+            ):
+                raise ValueError(
+                    f"LLM response format incorrect or empty: {type(response).__name__}"
+                )
 
             summary = response["choices"][0]["message"]["content"].strip()
 
