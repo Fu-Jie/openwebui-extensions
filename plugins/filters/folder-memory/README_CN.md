@@ -1,5 +1,7 @@
 # 文件夹记忆 (Folder Memory)
 
+**作者:** [Fu-Jie](https://github.com/Fu-Jie/awesome-openwebui) | **版本:** 0.1.0 | **项目:** [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui) | **许可证:** MIT
+
 [English](./README.md) | 中文
 
 ---
