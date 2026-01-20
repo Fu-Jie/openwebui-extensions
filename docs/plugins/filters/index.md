@@ -36,7 +36,15 @@ Filters act as middleware in the message pipeline:
 
     [:octicons-arrow-right-24: Documentation](context-enhancement.md)
 
+-   :material-folder-refresh:{ .lg .middle } **Folder Memory**
 
+    ---
+
+    Automatically extracts consistent "Project Rules" from ongoing conversations within a folder and injects them back into the folder's system prompt.
+
+    **Version:** 0.1.0
+
+    [:octicons-arrow-right-24: Documentation](folder-memory.md)
 
 -   :material-format-paint:{ .lg .middle } **Markdown Normalizer**
 

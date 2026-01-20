@@ -53,6 +53,7 @@ Located in the `plugins/` directory, containing Python-based enhancements:
 #### Filters
 - **Async Context Compression** (`async-context-compression`): Optimizes token usage via context compression.
 - **Context Enhancement** (`context_enhancement_filter`): Enhances chat context.
+- **Folder Memory** (`folder-memory`): Automatically extracts project rules from conversations and injects them into the folder's system prompt.
 - **Markdown Normalizer** (`markdown_normalizer`): Fixes common Markdown formatting issues in LLM outputs.
 
 #### Pipelines

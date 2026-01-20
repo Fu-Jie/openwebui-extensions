@@ -822,6 +822,22 @@ Filter 实例是**单例 (Singleton)**。
 
 #### Commit Message 规范
 使用 Conventional Commits 格式 (`feat`, `fix`, `docs`, etc.)。
+**必须**在提交标题与正文中清晰描述变更内容，确保在 Release 页面可读且可追踪。
+
+要求：
+- 标题必须包含“做了什么”与影响范围（避免含糊词）。
+- 正文必须列出关键变更点（1-3 条），与实际改动一一对应。
+- 若影响用户或插件行为，必须在正文标明影响与迁移说明。
+
+推荐格式：
+- `feat(actions): add export settings panel`
+- `fix(filters): handle empty metadata to avoid crash`
+- `docs(plugins): update bilingual README structure`
+
+正文示例：
+- Add valves for export format selection
+- Update README/README_CN to include What's New section
+- Migration: default TITLE_SOURCE changed to chat_title
 
 ### 4. 🤖 Git Operations (Agent Rules)
 

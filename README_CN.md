@@ -50,6 +50,7 @@ OpenWebUI 增强功能集合。包含个人开发与收集的插件、提示词�
 #### Filters (消息处理)
 - **Async Context Compression** (`async-context-compression`): 异步上下文压缩，优化 Token 使用。
 - **Context Enhancement** (`context_enhancement_filter`): 上下文增强过滤器。
+- **Folder Memory** (`folder-memory`): 自动从对话中提取项目规则并注入到文件夹系统提示词中。
 - **Gemini Manifold Companion** (`gemini_manifold_companion`): Gemini Manifold 配套增强。
 - **Gemini Multimodal Filter** (`web_gemini_multimodel_filter`): 为任意模型提供多模态能力（PDF、Office、视频等），支持智能路由和字幕精修。
 - **Markdown Normalizer** (`markdown_normalizer`): 修复 LLM 输出中常见的 Markdown 格式问题。

@@ -36,7 +36,15 @@ Filter 充当消息管线中的中间件：
 
     [:octicons-arrow-right-24: 查看文档](context-enhancement.md)
 
+-   :material-folder-refresh:{ .lg .middle } **Folder Memory**
 
+    ---
+
+    自动从文件夹内的对话中提取一致性的“项目规则”，并将其回写到文件夹的系统提示词中。
+
+    **版本：** 0.1.0
+
+    [:octicons-arrow-right-24: 查看文档](folder-memory.zh.md)
 
 -   :material-format-paint:{ .lg .middle } **Markdown Normalizer**
 
