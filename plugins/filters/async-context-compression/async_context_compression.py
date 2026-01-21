@@ -5,7 +5,7 @@ author: Fu-Jie
 author_url: https://github.com/Fu-Jie/awesome-openwebui
 funding_url: https://github.com/open-webui
 description: Reduces token consumption in long conversations while maintaining coherence through intelligent summarization and message compression.
-version: 1.2.1
+version: 1.2.2
 openwebui_id: b1655bc8-6de9-4cad-8cb5-a6f7829a02ce
 license: MIT
 
@@ -839,7 +839,7 @@ class Filter:
         except Exception as e:
             logger.error(f"Error emitting debug log: {e}")
 
-    async def _log(self, message: str, type: str = "info", event_call=None):
+    async def _log(self, message: str, log_type: str = "info", event_call=None):
         """Unified logging to both backend (print) and frontend (console.log)"""
         # Backend logging
         if self.valves.debug_mode:
@@ -849,11 +849,11 @@ class Filter:
         if self.valves.show_debug_log and event_call:
             try:
                 css = "color: #3b82f6;"  # Blue default
-                if type == "error":
+                if log_type == "error":
                     css = "color: #ef4444; font-weight: bold;"  # Red
-                elif type == "warning":
+                elif log_type == "warning":
                     css = "color: #f59e0b;"  # Orange
-                elif type == "success":
+                elif log_type == "success":
                     css = "color: #10b981; font-weight: bold;"  # Green
 
                 # Clean message for frontend: remove separators and extra newlines
@@ -1000,6 +1000,7 @@ class Filter:
         system_prompt_content = None
 
         # Try to get from DB (custom model)
+        # Try to get from DB (custom model)
         try:
             model_id = body.get("model")
             if model_id:
@@ -1026,12 +1027,17 @@ class Filter:
                             # Handle case where params is a JSON string
                             if isinstance(params, str):
                                 params = json.loads(params)
+                            # Convert Pydantic model to dict if needed
+                            elif hasattr(params, "model_dump"):
+                                params = params.model_dump()
+                            elif hasattr(params, "dict"):
+                                params = params.dict()
 
-                            # Handle dict or Pydantic object
+                            # Now params should be a dict
                             if isinstance(params, dict):
                                 system_prompt_content = params.get("system")
                             else:
-                                # Assume Pydantic model or object
+                                # Fallback: try getattr
                                 system_prompt_content = getattr(params, "system", None)
 
                             if system_prompt_content:
@@ -1050,7 +1056,7 @@ class Filter:
                             if self.valves.show_debug_log and __event_call__:
                                 await self._log(
                                     f"[Inlet] ❌ Failed to parse model params: {e}",
-                                    type="error",
+                                    log_type="error",
                                     event_call=__event_call__,
                                 )
 
@@ -1071,7 +1077,7 @@ class Filter:
             if self.valves.show_debug_log and __event_call__:
                 await self._log(
                     f"[Inlet] ❌ Error fetching system prompt from DB: {e}",
-                    type="error",
+                    log_type="error",
                     event_call=__event_call__,
                 )
             if self.valves.debug_mode:
@@ -1125,7 +1131,7 @@ class Filter:
         if not chat_id:
             await self._log(
                 "[Inlet] ❌ Missing chat_id in metadata, skipping compression",
-                type="error",
+                log_type="error",
                 event_call=__event_call__,
             )
             return body
@@ -1154,7 +1160,7 @@ class Filter:
                 else:
                     await self._log(
                         f"[Inlet] ⚠️ Invalid Model Configs (Raw: '{raw_config}'): No valid configs parsed. Expected format: 'model_id:threshold:max_context'",
-                        type="warning",
+                        log_type="warning",
                         event_call=__event_call__,
                     )
             else:
@@ -1258,7 +1264,7 @@ class Filter:
             if total_tokens > max_context_tokens:
                 await self._log(
                     f"[Inlet] ⚠️ Candidate prompt ({total_tokens} Tokens) exceeds limit ({max_context_tokens}). Reducing history...",
-                    type="warning",
+                    log_type="warning",
                     event_call=__event_call__,
                 )
 
@@ -1395,7 +1401,7 @@ class Filter:
 
             await self._log(
                 f"[Inlet] Applied summary: {system_info} + Head({len(head_messages)} msg, {head_tokens}t) + Summary({summary_tokens}t) + Tail({len(tail_messages)} msg, {tail_tokens}t) = Total({total_section_tokens}t)",
-                type="success",
+                log_type="success",
                 event_call=__event_call__,
             )
 
@@ -1455,7 +1461,7 @@ class Filter:
             if total_tokens > max_context_tokens:
                 await self._log(
                     f"[Inlet] ⚠️ Original messages ({total_tokens} Tokens) exceed limit ({max_context_tokens}). Reducing history...",
-                    type="warning",
+                    log_type="warning",
                     event_call=__event_call__,
                 )
 
@@ -1523,7 +1529,7 @@ class Filter:
         if not chat_id:
             await self._log(
                 "[Outlet] ❌ Missing chat_id in metadata, skipping compression",
-                type="error",
+                log_type="error",
                 event_call=__event_call__,
             )
             return body
@@ -1625,7 +1631,7 @@ class Filter:
             if current_tokens >= compression_threshold_tokens:
                 await self._log(
                     f"[🔍 Background Calculation] ⚡ Compression threshold triggered (Token: {current_tokens} >= {compression_threshold_tokens})",
-                    type="warning",
+                    log_type="warning",
                     event_call=__event_call__,
                 )
 
@@ -1648,7 +1654,7 @@ class Filter:
         except Exception as e:
             await self._log(
                 f"[🔍 Background Calculation] ❌ Error: {str(e)}",
-                type="error",
+                log_type="error",
                 event_call=__event_call__,
             )
 
@@ -1687,7 +1693,7 @@ class Filter:
                 target_compressed_count = max(0, len(messages) - self.valves.keep_last)
                 await self._log(
                     f"[🤖 Async Summary Task] ⚠️ target_compressed_count is None, estimating: {target_compressed_count}",
-                    type="warning",
+                    log_type="warning",
                     event_call=__event_call__,
                 )
 
@@ -1734,7 +1740,7 @@ class Filter:
             if not summary_model_id:
                 await self._log(
                     "[🤖 Async Summary Task] ⚠️ Summary model does not exist, skipping compression",
-                    type="warning",
+                    log_type="warning",
                     event_call=__event_call__,
                 )
                 return
@@ -1765,7 +1771,7 @@ class Filter:
                 excess_tokens = estimated_input_tokens - max_context_tokens
                 await self._log(
                     f"[🤖 Async Summary Task] ⚠️ Middle messages ({middle_tokens} Tokens) + Buffer exceed summary model limit ({max_context_tokens}), need to remove approx {excess_tokens} Tokens",
-                    type="warning",
+                    log_type="warning",
                     event_call=__event_call__,
                 )
 
@@ -1822,7 +1828,7 @@ class Filter:
             if not new_summary:
                 await self._log(
                     "[🤖 Async Summary Task] ⚠️ Summary generation returned empty result, skipping save",
-                    type="warning",
+                    log_type="warning",
                     event_call=__event_call__,
                 )
                 return
@@ -1851,7 +1857,7 @@ class Filter:
 
             await self._log(
                 f"[🤖 Async Summary Task] ✅ Complete! New summary length: {len(new_summary)} characters",
-                type="success",
+                log_type="success",
                 event_call=__event_call__,
             )
             await self._log(
@@ -1957,14 +1963,14 @@ class Filter:
                 except Exception as e:
                     await self._log(
                         f"[Status] Error calculating tokens: {e}",
-                        type="error",
+                        log_type="error",
                         event_call=__event_call__,
                     )
 
         except Exception as e:
             await self._log(
                 f"[🤖 Async Summary Task] ❌ Error: {str(e)}",
-                type="error",
+                log_type="error",
                 event_call=__event_call__,
             )
 
@@ -2066,7 +2072,7 @@ Based on the content above, generate the summary:
         if not model:
             await self._log(
                 "[🤖 LLM Call] ⚠️ Summary model does not exist, skipping summary generation",
-                type="warning",
+                log_type="warning",
                 event_call=__event_call__,
             )
             return ""
@@ -2133,7 +2139,7 @@ Based on the content above, generate the summary:
 
             await self._log(
                 f"[🤖 LLM Call] ✅ Successfully received summary",
-                type="success",
+                log_type="success",
                 event_call=__event_call__,
             )
 
@@ -2154,7 +2160,7 @@ Based on the content above, generate the summary:
 
             await self._log(
                 f"[🤖 LLM Call] ❌ {error_message}",
-                type="error",
+                log_type="error",
                 event_call=__event_call__,
             )
 

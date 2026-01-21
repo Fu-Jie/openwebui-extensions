@@ -1,7 +1,7 @@
 # Async Context Compression
 
 <span class="category-badge filter">Filter</span>
-<span class="version-badge">v1.2.1</span>
+<span class="version-badge">v1.2.2</span>
 
 Reduces token consumption in long conversations through intelligent summarization while maintaining conversational coherence.
 

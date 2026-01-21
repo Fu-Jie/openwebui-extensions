@@ -5,7 +5,7 @@ author: Fu-Jie
 author_url: https://github.com/Fu-Jie/awesome-openwebui
 funding_url: https://github.com/open-webui
 description: 通过智能摘要和消息压缩，降低长对话的 token 消耗，同时保持对话连贯性。
-version: 1.2.1
+version: 1.2.2
 openwebui_id: 5c0617cb-a9e4-4bd6-a440-d276534ebd18
 license: MIT
 
@@ -787,7 +787,7 @@ class Filter:
         except Exception as e:
             print(f"Error emitting debug log: {e}")
 
-    async def _log(self, message: str, type: str = "info", event_call=None):
+    async def _log(self, message: str, log_type: str = "info", event_call=None):
         """统一日志输出到后端 (print) 和前端 (console.log)"""
         # 后端日志
         if self.valves.debug_mode:
@@ -797,11 +797,11 @@ class Filter:
         if self.valves.show_debug_log and event_call:
             try:
                 css = "color: #3b82f6;"  # 默认蓝色
-                if type == "error":
+                if log_type == "error":
                     css = "color: #ef4444; font-weight: bold;"  # 红色
-                elif type == "warning":
+                elif log_type == "warning":
                     css = "color: #f59e0b;"  # 橙色
-                elif type == "success":
+                elif log_type == "success":
                     css = "color: #10b981; font-weight: bold;"  # 绿色
 
                 # 清理前端消息：移除分隔符和多余换行
@@ -948,12 +948,17 @@ class Filter:
                             # 处理 params 是 JSON 字符串的情况
                             if isinstance(params, str):
                                 params = json.loads(params)
+                            # 转换 Pydantic 模型为字典
+                            elif hasattr(params, "model_dump"):
+                                params = params.model_dump()
+                            elif hasattr(params, "dict"):
+                                params = params.dict()
 
-                            # 处理字典或 Pydantic 对象
+                            # 处理字典
                             if isinstance(params, dict):
                                 system_prompt_content = params.get("system")
                             else:
-                                # 假设是 Pydantic 模型或对象
+                                # 回退：尝试 getattr
                                 system_prompt_content = getattr(params, "system", None)
 
                             if system_prompt_content:
@@ -972,7 +977,7 @@ class Filter:
                             if self.valves.show_debug_log and __event_call__:
                                 await self._log(
                                     f"[Inlet] ❌ 解析模型参数失败: {e}",
-                                    type="error",
+                                    log_type="error",
                                     event_call=__event_call__,
                                 )
 
@@ -986,7 +991,7 @@ class Filter:
                     if self.valves.show_debug_log and __event_call__:
                         await self._log(
                             f"[Inlet] ❌ 数据库中未找到模型",
-                            type="warning",
+                            log_type="warning",
                             event_call=__event_call__,
                         )
 
@@ -994,7 +999,7 @@ class Filter:
             if self.valves.show_debug_log and __event_call__:
                 await self._log(
                     f"[Inlet] ❌ 从数据库获取系统提示词错误: {e}",
-                    type="error",
+                    log_type="error",
                     event_call=__event_call__,
                 )
             if self.valves.debug_mode:
@@ -1048,7 +1053,7 @@ class Filter:
         if not chat_id:
             await self._log(
                 "[Inlet] ❌ metadata 中缺少 chat_id，跳过压缩",
-                type="error",
+                log_type="error",
                 event_call=__event_call__,
             )
             return body
@@ -1154,7 +1159,7 @@ class Filter:
             if total_tokens > max_context_tokens:
                 await self._log(
                     f"[Inlet] ⚠️ 候选提示词 ({total_tokens} Tokens) 超过上限 ({max_context_tokens})。正在缩减历史记录...",
-                    type="warning",
+                    log_type="warning",
                     event_call=__event_call__,
                 )
 
@@ -1290,7 +1295,7 @@ class Filter:
 
             await self._log(
                 f"[Inlet] 应用摘要: {system_info} + Head({len(head_messages)} 条, {head_tokens}t) + Summary({summary_tokens}t) + Tail({len(tail_messages)} 条, {tail_tokens}t) = Total({total_section_tokens}t)",
-                type="success",
+                log_type="success",
                 event_call=__event_call__,
             )
 
@@ -1350,7 +1355,7 @@ class Filter:
             if total_tokens > max_context_tokens:
                 await self._log(
                     f"[Inlet] ⚠️ 原始消息 ({total_tokens} Tokens) 超过上限 ({max_context_tokens})。正在缩减历史记录...",
-                    type="warning",
+                    log_type="warning",
                     event_call=__event_call__,
                 )
 
@@ -1420,7 +1425,7 @@ class Filter:
         if not chat_id:
             await self._log(
                 "[Outlet] ❌ metadata 中缺少 chat_id，跳过压缩",
-                type="error",
+                log_type="error",
                 event_call=__event_call__,
             )
             return body
@@ -1486,7 +1491,7 @@ class Filter:
             if current_tokens >= compression_threshold_tokens:
                 await self._log(
                     f"[🔍 后台计算] ⚡ 触发压缩阈值 (Token: {current_tokens} >= {compression_threshold_tokens})",
-                    type="warning",
+                    log_type="warning",
                     event_call=__event_call__,
                 )
 
@@ -1509,7 +1514,7 @@ class Filter:
         except Exception as e:
             await self._log(
                 f"[🔍 后台计算] ❌ 错误: {str(e)}",
-                type="error",
+                log_type="error",
                 event_call=__event_call__,
             )
 
@@ -1546,7 +1551,7 @@ class Filter:
                 target_compressed_count = max(0, len(messages) - self.valves.keep_last)
                 await self._log(
                     f"[🤖 异步摘要任务] ⚠️ target_compressed_count 为 None，进行估算: {target_compressed_count}",
-                    type="warning",
+                    log_type="warning",
                     event_call=__event_call__,
                 )
 
@@ -1593,7 +1598,7 @@ class Filter:
             if not summary_model_id:
                 await self._log(
                     "[🤖 异步摘要任务] ⚠️ 摘要模型不存在，跳过压缩",
-                    type="warning",
+                    log_type="warning",
                     event_call=__event_call__,
                 )
                 return
@@ -1624,7 +1629,7 @@ class Filter:
                 excess_tokens = estimated_input_tokens - max_context_tokens
                 await self._log(
                     f"[🤖 异步摘要任务] ⚠️ 中间消息 ({middle_tokens} Tokens) + 缓冲超过摘要模型上限 ({max_context_tokens})，需要移除约 {excess_tokens} Token",
-                    type="warning",
+                    log_type="warning",
                     event_call=__event_call__,
                 )
 
@@ -1681,7 +1686,7 @@ class Filter:
             if not new_summary:
                 await self._log(
                     "[🤖 异步摘要任务] ⚠️ 摘要生成返回空结果，跳过保存",
-                    type="warning",
+                    log_type="warning",
                     event_call=__event_call__,
                 )
                 return
@@ -1710,7 +1715,7 @@ class Filter:
 
             await self._log(
                 f"[🤖 异步摘要任务] ✅ 完成！新摘要长度: {len(new_summary)} 字符",
-                type="success",
+                log_type="success",
                 event_call=__event_call__,
             )
             await self._log(
@@ -1821,14 +1826,14 @@ class Filter:
                 except Exception as e:
                     await self._log(
                         f"[Status] 计算 Token 错误: {e}",
-                        type="error",
+                        log_type="error",
                         event_call=__event_call__,
                     )
 
         except Exception as e:
             await self._log(
                 f"[🤖 异步摘要任务] ❌ 错误: {str(e)}",
-                type="error",
+                log_type="error",
                 event_call=__event_call__,
             )
 
@@ -1928,7 +1933,7 @@ class Filter:
         if not model:
             await self._log(
                 "[🤖 LLM 调用] ⚠️ 摘要模型不存在，跳过摘要生成",
-                type="warning",
+                log_type="warning",
                 event_call=__event_call__,
             )
             return ""
@@ -1995,7 +2000,7 @@ class Filter:
 
             await self._log(
                 f"[🤖 LLM 调用] ✅ 成功接收摘要",
-                type="success",
+                log_type="success",
                 event_call=__event_call__,
             )
 
@@ -2016,7 +2021,7 @@ class Filter:
 
             await self._log(
                 f"[🤖 LLM 调用] ❌ {error_message}",
-                type="error",
+                log_type="error",
                 event_call=__event_call__,
             )
 
