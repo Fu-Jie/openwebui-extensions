@@ -15,7 +15,7 @@ Pipes 可以用于：
 
 ## 可用的 Pipe 插件
 
-
+- [GitHub Copilot SDK](github-copilot-sdk.zh.md) (v0.1.1) - GitHub Copilot SDK 官方集成。支持动态模型、多轮对话、流式输出、图片输入及无限会话。
 
 ---
 

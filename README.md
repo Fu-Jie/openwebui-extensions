@@ -43,6 +43,7 @@ A collection of enhancements, plugins, and prompts for [OpenWebUI](https://githu
 Located in the `plugins/` directory, containing Python-based enhancements:
 
 #### Actions
+
 - **Smart Mind Map** (`smart-mind-map`): Generates interactive mind maps from text.
 - **Smart Infographic** (`infographic`): Transforms text into professional infographics using AntV.
 - **Flash Card** (`flash-card`): Quickly generates beautiful flashcards for learning.
@@ -51,12 +52,18 @@ Located in the `plugins/` directory, containing Python-based enhancements:
 - **Export to Word** (`export_to_docx`): Exports chat history to Word documents.
 
 #### Filters
+
 - **Async Context Compression** (`async-context-compression`): Optimizes token usage via context compression.
 - **Context Enhancement** (`context_enhancement_filter`): Enhances chat context.
 - **Folder Memory** (`folder-memory`): Automatically extracts project rules from conversations and injects them into the folder's system prompt.
 - **Markdown Normalizer** (`markdown_normalizer`): Fixes common Markdown formatting issues in LLM outputs.
 
+#### Pipes
+
+- **GitHub Copilot SDK** (`github-copilot-sdk`): Official GitHub Copilot SDK integration. Supports dynamic models, multi-turn conversation, streaming, multimodal input, and infinite sessions.
+
 #### Pipelines
+
 - **MoE Prompt Refiner** (`moe_prompt_refiner`): Refines prompts for Mixture of Experts (MoE) summary requests to generate high-quality comprehensive reports.
 
 ### 🎯 Prompts
@@ -101,6 +108,7 @@ This project is a collection of resources and does not require a Python environm
 ### Contributing
 
 If you have great prompts or plugins to share:
+
 1. Fork this repository.
 2. Add your files to the appropriate `prompts/` or `plugins/` directory.
 3. Submit a Pull Request.

@@ -40,6 +40,7 @@ OpenWebUI 增强功能集合。包含个人开发与收集的插件、提示词�
 位于 `plugins/` 目录，包含各类 Python 编写的功能增强插件：
 
 #### Actions (交互增强)
+
 - **Smart Mind Map** (`smart-mind-map`): 智能分析文本并生成交互式思维导图。
 - **Smart Infographic** (`infographic`): 基于 AntV 的智能信息图生成工具。
 - **Flash Card** (`flash-card`): 快速生成精美的学习记忆卡片。
@@ -48,6 +49,7 @@ OpenWebUI 增强功能集合。包含个人开发与收集的插件、提示词�
 - **Export to Word** (`export_to_docx`): 将对话内容导出为 Word 文档。
 
 #### Filters (消息处理)
+
 - **Async Context Compression** (`async-context-compression`): 异步上下文压缩，优化 Token 使用。
 - **Context Enhancement** (`context_enhancement_filter`): 上下文增强过滤器。
 - **Folder Memory** (`folder-memory`): 自动从对话中提取项目规则并注入到文件夹系统提示词中。
@@ -57,9 +59,12 @@ OpenWebUI 增强功能集合。包含个人开发与收集的插件、提示词�
 - **Multi-Model Context Merger** (`multi_model_context_merger`): 自动合并并注入多模型回答的上下文。
 
 #### Pipes (模型管道)
+
+- **GitHub Copilot SDK** (`github-copilot-sdk`): GitHub Copilot SDK 官方集成。支持动态模型、多轮对话、流式输出、图片输入及无限会话。
 - **Gemini Manifold** (`gemini_mainfold`): 集成 Gemini 模型的管道。
 
 #### Pipelines (工作流管道)
+
 - **MoE Prompt Refiner** (`moe_prompt_refiner`): 优化多模型 (MoE) 汇总请求的提示词，生成高质量的综合报告。
 
 ### 🎯 提示词 (Prompts)
@@ -107,6 +112,7 @@ OpenWebUI 增强功能集合。包含个人开发与收集的插件、提示词�
 ### 贡献代码
 
 如果你有优质的提示词或插件想要分享：
+
 1. Fork 本仓库。
 2. 将你的文件添加到对应的 `prompts/` 或 `plugins/` 目录。
 3. 提交 Pull Request。
