@@ -1,5 +1,5 @@
 """
-title: GitHub Copilot 官方 SDK 管道 (动态模型版)
+title: GitHub Copilot Official SDK Pipe
 author: Fu-Jie
 author_url: https://github.com/Fu-Jie/awesome-openwebui
 funding_url: https://github.com/open-webui

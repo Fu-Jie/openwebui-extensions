@@ -21,6 +21,7 @@
 * **🛠️ 零配置安装**：自动检测并下载 GitHub Copilot CLI，开箱即用。
 * **🔑 安全认证**：支持 Fine-grained Personal Access Tokens，权限最小化。
 * **🐛 调试模式**：内置详细的日志输出，方便排查连接问题。
+* **⚠️ 仅支持单节点**：由于会话状态存储在本地，本插件目前仅支持 OpenWebUI 单节点部署，或开启了会话粘性 (Sticky Session) 的多节点集群。
 
 ## 📦 安装与使用
 
@@ -56,10 +57,10 @@
 
 1. 访问 [GitHub Token Settings](https://github.com/settings/tokens?type=beta)。
 2. 点击 **Generate new token**。
-3. **Repository access**: 选择 `All repositories` 或 `Public Repositories`。
+3. **Repository access**: 选择 **Public repositories** (必须选择此项才能看到 Copilot 权限)。
 4. **Permissions**:
     * 点击 **Account permissions**。
-    * 找到 **Copilot Requests**，选择 **Read and write** (或 Access)。
+    * 找到 **Copilot Requests** (默认即为 **Read-only**，无需手动修改)。
 5. 生成并复制 Token。
 
 ## 📋 依赖说明
@@ -73,7 +74,6 @@
 
 * **一直显示 "Waiting..."**：
   * 检查 `GH_TOKEN` 是否正确且拥有 `Copilot Requests` 权限。
-  * 尝试将 `MODEL_ID` 改为 `gpt-4o` 或 `copilot-chat`。
 * **图片无法识别**：
   * 确保 `MODEL_ID` 是支持多模态的模型。
 * **CLI 安装失败**：

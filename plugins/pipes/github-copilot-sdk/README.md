@@ -21,6 +21,7 @@ This is an advanced Pipe function for [OpenWebUI](https://github.com/open-webui/
 * **🛠️ Zero-config Installation**: Automatically detects and downloads the GitHub Copilot CLI, ready to use out of the box.
 * **🔑 Secure Authentication**: Supports Fine-grained Personal Access Tokens for minimized permissions.
 * **🐛 Debug Mode**: Built-in detailed log output for easy connection troubleshooting.
+* **⚠️ Single Node Only**: Due to local session storage, this plugin currently supports single-node OpenWebUI deployment or multi-node with sticky sessions enabled.
 
 ## 📦 Installation & Usage
 
@@ -39,7 +40,7 @@ Find "GitHub Copilot" in the function list and click the **⚙️ (Valves)** ico
 | Parameter | Description | Default |
 | :--- | :--- | :--- |
 | **GH_TOKEN** | **(Required)** Your GitHub Token. | - |
-| **MODEL_ID** | The model name to use. Recommended `gpt-5-mini` or `gpt-5`. | `gpt-5-mini` |
+| **MODEL_ID** | The model name to use. | `gpt-5-mini` |
 | **CLI_PATH** | Path to the Copilot CLI. Will download automatically if not found. | `/usr/local/bin/copilot` |
 | **DEBUG** | Whether to enable debug logs (output to chat). | `True` |
 | **SHOW_THINKING** | Show model reasoning/thinking process. | `True` |
@@ -56,10 +57,10 @@ For security, it is recommended to use a **Fine-grained Personal Access Token**:
 
 1. Visit [GitHub Token Settings](https://github.com/settings/tokens?type=beta).
 2. Click **Generate new token**.
-3. **Repository access**: Select `All repositories` or `Public Repositories`.
+3. **Repository access**: Select **Public repositories** (Required to access Copilot permissions).
 4. **Permissions**:
     * Click **Account permissions**.
-    * Find **Copilot Requests**, select **Read and write** (or Access).
+    * Find **Copilot Requests** (It defaults to **Read-only**, no selection needed).
 5. Generate and copy the Token.
 
 ## 📋 Dependencies
@@ -73,7 +74,6 @@ This Pipe will automatically attempt to install the following dependencies:
 
 * **Stuck on "Waiting..."**:
   * Check if `GH_TOKEN` is correct and has `Copilot Requests` permission.
-  * Try changing `MODEL_ID` to `gpt-4o` or `copilot-chat`.
 * **Images not recognized**:
   * Ensure `MODEL_ID` is a model that supports multimodal input.
 * **CLI Installation Failed**:

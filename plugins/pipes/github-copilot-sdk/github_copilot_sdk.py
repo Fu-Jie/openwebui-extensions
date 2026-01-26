@@ -1,8 +1,9 @@
 """
-title: GitHub Copilot Official SDK Pipe (Dynamic Models)
+title: GitHub Copilot Official SDK Pipe
 author: Fu-Jie
 author_url: https://github.com/Fu-Jie/awesome-openwebui
 funding_url: https://github.com/open-webui
+openwebui_id: ce96f7b4-12fc-4ac3-9a01-875713e69359
 description: Integrate GitHub Copilot SDK. Supports dynamic models, multi-turn conversation, streaming, multimodal input, and infinite sessions (context compaction).
 version: 0.1.1
 requirements: github-copilot-sdk

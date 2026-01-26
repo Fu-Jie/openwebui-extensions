@@ -100,13 +100,14 @@ description: 插件功能的简短描述。Brief description of plugin functiona
 | `author_url` | 作者主页链接 | `https://github.com/Fu-Jie/awesome-openwebui` |
 | `funding_url` | 赞助/项目链接 | `https://github.com/open-webui` |
 | `version` | 语义化版本号 | `0.1.0`, `1.2.3` |
-| `icon_url` | 图标 (Base64 编码的 SVG) | 见下方图标规范 |
+| `icon_url` | 图标 (Base64 编码的 SVG) | 仅 Action 插件**必须**提供。其他类型可选。 |
 | `requirements` | 额外依赖 (仅 OpenWebUI 环境未安装的) | `python-docx==1.1.2` |
 | `description` | 功能描述 | `将对话导出为 Word 文档` |
 
 #### 图标规范 (Icon Guidelines)
 
 - 图标来源：从 [Lucide Icons](https://lucide.dev/icons/) 获取符合插件功能的图标
+- 适用范围：Action 插件**必须**提供，其他插件可选
 - 格式：Base64 编码的 SVG
 - 获取方法：从 Lucide 下载 SVG，然后使用 Base64 编码
 - 示例格式：
