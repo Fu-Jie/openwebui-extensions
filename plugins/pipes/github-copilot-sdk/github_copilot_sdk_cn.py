@@ -3,7 +3,6 @@ title: GitHub Copilot Official SDK Pipe
 author: Fu-Jie
 author_url: https://github.com/Fu-Jie/awesome-openwebui
 funding_url: https://github.com/open-webui
-openwebui_id: ce96f7b4-12fc-4ac3-9a01-875713e69359
 description: 集成 GitHub Copilot SDK。支持动态模型、多轮对话、流式输出、多模态输入、无限会话及前端调试日志。
 version: 0.2.3
 requirements: github-copilot-sdk
