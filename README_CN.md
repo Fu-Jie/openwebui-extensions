@@ -7,28 +7,28 @@ OpenWebUI 增强功能集合。包含个人开发与收集的插件、提示词�
 <!-- STATS_START -->
 ## 📊 社区统计
 
-> 🕐 自动更新于 2026-01-26 16:12
+> 🕐 自动更新于 2026-01-26 17:15
 
 | 👤 作者 | 👥 粉丝 | ⭐ 积分 | 🏆 贡献 |
 |:---:|:---:|:---:|:---:|
-| [Fu-Jie](https://openwebui.com/u/Fu-Jie) | **158** | **154** | **32** |
+| [Fu-Jie](https://openwebui.com/u/Fu-Jie) | **159** | **155** | **33** |
 
 | 📝 发布 | ⬇️ 下载 | 👁️ 浏览 | 👍 点赞 | 💾 收藏 |
 |:---:|:---:|:---:|:---:|:---:|
-| **19** | **2396** | **27405** | **139** | **183** |
+| **19** | **2405** | **27548** | **140** | **184** |
 
 ### 🔥 热门插件 Top 6
 
-> 🕐 自动更新于 2026-01-26 16:12
+> 🕐 自动更新于 2026-01-26 17:15
 
 | 排名 | 插件 | 版本 | 下载 | 浏览 | 更新日期 |
 |:---:|------|:---:|:---:|:---:|:---:|
-| 🥇 | [Smart Mind Map](https://openwebui.com/posts/turn_any_text_into_beautiful_mind_maps_3094c59a) | 0.9.1 | 629 | 5604 | 2026-01-17 |
-| 🥈 | [Smart Infographic](https://openwebui.com/posts/smart_infographic_ad6f0c7f) | 1.4.9 | 410 | 3638 | 2026-01-25 |
-| 🥉 | [Export to Excel](https://openwebui.com/posts/export_mulit_table_to_excel_244b8f9d) | 0.3.7 | 256 | 1043 | 2026-01-07 |
-| 4️⃣ | [Export to Word (Enhanced)](https://openwebui.com/posts/export_to_word_enhanced_formatting_fca6a315) | 0.4.3 | 231 | 1845 | 2026-01-17 |
-| 5️⃣ | [Async Context Compression](https://openwebui.com/posts/async_context_compression_b1655bc8) | 1.2.2 | 228 | 2467 | 2026-01-21 |
-| 6️⃣ | [Flash Card](https://openwebui.com/posts/flash_card_65a2ea8f) | 0.2.4 | 165 | 2679 | 2026-01-17 |
+| 🥇 | [Smart Mind Map](https://openwebui.com/posts/turn_any_text_into_beautiful_mind_maps_3094c59a) | 0.9.1 | 631 | 5615 | 2026-01-17 |
+| 🥈 | [Smart Infographic](https://openwebui.com/posts/smart_infographic_ad6f0c7f) | 1.4.9 | 410 | 3669 | 2026-01-25 |
+| 🥉 | [Export to Excel](https://openwebui.com/posts/export_mulit_table_to_excel_244b8f9d) | 0.3.7 | 258 | 1051 | 2026-01-07 |
+| 4️⃣ | [Export to Word (Enhanced)](https://openwebui.com/posts/export_to_word_enhanced_formatting_fca6a315) | 0.4.3 | 232 | 1847 | 2026-01-17 |
+| 5️⃣ | [Async Context Compression](https://openwebui.com/posts/async_context_compression_b1655bc8) | 1.2.2 | 228 | 2468 | 2026-01-21 |
+| 6️⃣ | [Flash Card](https://openwebui.com/posts/flash_card_65a2ea8f) | 0.2.4 | 166 | 2685 | 2026-01-17 |
 
 *完整统计请查看 [社区统计报告](./docs/community-stats.zh.md)*
 <!-- STATS_END -->
