@@ -855,8 +855,8 @@ Filter 实例是**单例 (Singleton)**。
 
 ### 4. 🤖 Git Operations (Agent Rules)
 
+- **允许**: 直接推送到 `main` 分支并发布。
 - **允许**: 创建功能分支 (`feature/xxx`)，推送到功能分支。
-- **禁止**: 直接推送到 `main`，自动合并到 `main`。
 
 ### 5. 🤝 贡献者认可规范 (Contributor Recognition)
 
