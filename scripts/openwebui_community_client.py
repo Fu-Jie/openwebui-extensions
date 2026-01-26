@@ -473,10 +473,27 @@ class OpenWebUICommunityClient:
         # 查找 README
         readme_content = self._find_readme(file_path)
 
+        # 获取远程帖子信息（提前获取，用于判断是否需要上传图片）
+        remote_post = None
+        if post_id:
+            remote_post = self.get_post(post_id)
+
         # 查找并上传图片
         media_urls = None
         image_path = self._find_image(file_path)
-        if image_path:
+
+        # 决定是否上传图片
+        should_upload_image = True
+        if remote_post:
+            remote_media = remote_post.get("media", [])
+            if remote_media and len(remote_media) > 0:
+                # 远程已有图片，跳过上传以避免覆盖（防止出现空白图片问题）
+                print(
+                    f"  ℹ️  Remote post already has images. Skipping auto-upload to preserve existing media."
+                )
+                should_upload_image = False
+
+        if image_path and should_upload_image:
             print(f"  Found image: {os.path.basename(image_path)}")
             image_url = self.upload_image(image_path)
             if image_url:
@@ -500,7 +517,8 @@ class OpenWebUICommunityClient:
                 post_id = existing_post.get("id")
                 print(f"  Found existing post: {title} (ID: {post_id})")
                 self._inject_id_to_file(file_path, post_id)
-                # post_id 已设置，后续将进入更新流程
+                # post_id 已设置，重新获取 remote_post 以便后续版本检查
+                remote_post = self.get_post(post_id)
 
             else:
                 # 2. 如果没找到，且允许自动创建，则创建
@@ -521,11 +539,6 @@ class OpenWebUICommunityClient:
                     self._inject_id_to_file(file_path, new_post_id)
                     return True, f"Created new post (ID: {new_post_id})"
                 return False, "Failed to create new post"
-
-        # 获取远程帖子信息（只需获取一次）
-        remote_post = None
-        if post_id:
-            remote_post = self.get_post(post_id)
 
         # 版本检查（仅对更新有效）
         if not force and local_version and remote_post:

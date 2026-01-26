@@ -246,6 +246,52 @@ jobs:
           echo "=== Collected Files ==="
           find release_plugins -name "*.py" -type f | head -20
 
+      - name: Update plugin icon URLs
+        run: |
+          echo "Updating icon_url in plugins to use absolute GitHub URLs..."
+          # Base URL for raw content using the release tag
+          REPO_URL="https://raw.githubusercontent.com/${{ github.repository }}/${{ steps.version.outputs.version }}"
+          
+          find release_plugins -name "*.py" | while read -r file; do
+            # $file is like release_plugins/plugins/actions/infographic/infographic.py
+            # Remove release_plugins/ prefix to get the path in the repo
+            src_file="${file#release_plugins/}"
+            src_dir=$(dirname "$src_file")
+            base_name=$(basename "$src_file" .py)
+            
+            # Check if a corresponding png exists in the source repository
+            png_file="${src_dir}/${base_name}.png"
+            
+            if [ -f "$png_file" ]; then
+              echo "Found icon for $src_file: $png_file"
+              TARGET_ICON_URL="${REPO_URL}/${png_file}"
+              
+              # Use python for safe replacement
+              python3 -c "
+          import sys
+          import re
+          
+          file_path = '$file'
+          icon_url = '$TARGET_ICON_URL'
+          
+          try:
+              with open(file_path, 'r', encoding='utf-8') as f:
+                  content = f.read()
+              
+              # Replace icon_url: ... with new url
+              # Matches 'icon_url: ...' and replaces it
+              new_content = re.sub(r'^icon_url:.*$', f'icon_url: {icon_url}', content, flags=re.MULTILINE)
+              
+              with open(file_path, 'w', encoding='utf-8') as f:
+                  f.write(new_content)
+              print(f'Successfully updated icon_url in {file_path}')
+          except Exception as e:
+              print(f'Error updating {file_path}: {e}', file=sys.stderr)
+              sys.exit(1)
+          "
+            fi
+          done
+
       - name: Debug Filenames
         run: |
           python3 -c "import sys; print(f'Filesystem encoding: {sys.getfilesystemencoding()}')"
