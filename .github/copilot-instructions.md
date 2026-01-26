@@ -789,6 +789,19 @@ Filter 实例是**单例 (Singleton)**。
 
 ---
 
+## 🧪 测试规范 (Testing Standards)
+
+### 1. Copilot SDK 测试模型 (Copilot SDK Test Models)
+
+在编写 Copilot SDK 相关的测试脚本时 (如 `test_injection.py`, `test_capabilities.py` 等)，**必须**优先使用以下免费/低成本模型之一，严禁使用高昂费用的模型进行常规测试，除非用户明确要求：
+
+- `gpt-5-mini` (首选 / Preferred)
+- `gpt-4.1`
+
+此规则适用于所有自动化测试脚本和临时验证脚本。
+
+---
+
 ## 🔄 工作流与流程 (Workflow & Process)
 
 ### 1. ✅ 开发检查清单 (Development Checklist)
