@@ -139,42 +139,45 @@ def compare_versions(current: list[dict], previous_file: str) -> dict[str, list[
         print(f"Error parsing {previous_file}", file=sys.stderr)
         return {"added": current, "updated": [], "removed": []}
 
-    # Create lookup dictionaries by title
-    # Helper to extract title/version from either simple dict or raw post object
+    # Create lookup dictionaries by file_path (fallback to title)
+    # Helper to extract title/version/file_path from either simple dict or raw post object
     def get_info(p):
         if "data" in p and "function" in p["data"]:
             # It's a raw post object
             manifest = p["data"]["function"].get("meta", {}).get("manifest", {})
             title = manifest.get("title") or p.get("title")
             version = manifest.get("version", "0.0.0")
-            return title, version, p
+            file_path = p.get("file_path")
+            return title, version, file_path, p
         else:
             # It's a simple dict
-            return p.get("title"), p.get("version"), p
+            return p.get("title"), p.get("version"), p.get("file_path"), p
 
-    current_by_title = {}
+    current_by_key = {}
     for p in current:
-        title, _, _ = get_info(p)
-        if title:
-            current_by_title[title] = p
+        title, _, file_path, _ = get_info(p)
+        key = file_path or title
+        if key:
+            current_by_key[key] = p
 
-    previous_by_title = {}
+    previous_by_key = {}
     for p in previous:
-        title, _, _ = get_info(p)
-        if title:
-            previous_by_title[title] = p
+        title, _, file_path, _ = get_info(p)
+        key = file_path or title
+        if key:
+            previous_by_key[key] = p
 
     result = {"added": [], "updated": [], "removed": []}
 
     # Find added and updated plugins
-    for title, plugin in current_by_title.items():
-        curr_title, curr_ver, _ = get_info(plugin)
+    for key, plugin in current_by_key.items():
+        curr_title, curr_ver, _file_path, _ = get_info(plugin)
 
-        if title not in previous_by_title:
+        if key not in previous_by_key:
             result["added"].append(plugin)
         else:
-            prev_plugin = previous_by_title[title]
-            _, prev_ver, _ = get_info(prev_plugin)
+            prev_plugin = previous_by_key[key]
+            _, prev_ver, _prev_file_path, _ = get_info(prev_plugin)
 
             if curr_ver != prev_ver:
                 result["updated"].append(
@@ -185,8 +188,8 @@ def compare_versions(current: list[dict], previous_file: str) -> dict[str, list[
                 )
 
     # Find removed plugins
-    for title, plugin in previous_by_title.items():
-        if title not in current_by_title:
+    for key, plugin in previous_by_key.items():
+        if key not in current_by_key:
             result["removed"].append(plugin)
 
     return result

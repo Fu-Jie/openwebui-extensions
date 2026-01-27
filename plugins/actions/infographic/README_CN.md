@@ -1,10 +1,16 @@
 # 📊 智能信息图 (AntV Infographic)
 
-**作者:** [Fu-Jie](https://github.com/Fu-Jie/awesome-openwebui) | **版本:** 1.4.9 | **项目:** [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui) | **许可证:** MIT
+**作者:** [Fu-Jie](https://github.com/Fu-Jie/awesome-openwebui) | **版本:** 1.5.0 | **项目:** [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui) | **许可证:** MIT
 
 基于 AntV Infographic 引擎的 Open WebUI 插件，能够将长文本内容一键转换为专业、美观的信息图表。
 
-## 🔥 v1.4.9 更新日志
+## 🔥 v1.5.0 更新日志
+
+- 🌐 **智能语言检测**：自动从浏览器准确识别当前界面语言设置。
+- 🗣️ **上下文感知生成**：生成的信息图内容现在严格跟随用户输入内容的语言（例如：输入日语 -> 生成日语信息图）。
+- 🐛 **问题修复**：修复了界面语言与生成内容语言不同步的问题。
+
+### 此前: v1.4.9
 
 - 🎨 **70+ 官方模板**：全面集成 AntV 官方信息图模板库。
 - 🖼️ **图标与插图支持**：支持 Iconify 图标库与 unDraw 插图库，视觉效果更丰富。
@@ -62,7 +68,6 @@
 - **调试日志**: 在 Valves 中启用 `SHOW_STATUS` 以查看进度更新。
 - **错误信息**: 如果看到错误，请复制完整的错误信息并报告。
 - **提交 Issue**: 如果遇到任何问题，请在 GitHub 上提交 Issue：[Awesome OpenWebUI Issues](https://github.com/Fu-Jie/awesome-openwebui/issues)
-
 
 ## 📝 语法示例 (高级用户)
 

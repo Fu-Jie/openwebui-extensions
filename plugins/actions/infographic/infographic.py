@@ -4,7 +4,7 @@ author: Fu-Jie
 author_url: https://github.com/Fu-Jie/awesome-openwebui
 funding_url: https://github.com/open-webui
 icon_url: data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPgogIDxsaW5lIHgxPSIxMiIgeTE9IjIwIiB4Mj0iMTIiIHkyPSIxMCIgLz4KICA8bGluZSB4MT0iMTgiIHkxPSIyMCIgeDI9IjE4IiB5Mj0iNCIgLz4KICA8bGluZSB4MT0iNiIgeTE9IjIwIiB4Mj0iNiIgeTI9IjE2IiAvPgo8L3N2Zz4=
-version: 1.4.9
+version: 1.5.0
 openwebui_id: ad6f0c7f-c571-4dea-821d-8e71697274cf
 description: AI-powered infographic generator based on AntV Infographic. Supports professional templates, auto-icon matching, and SVG/PNG downloads.
 """
@@ -31,6 +31,10 @@ logger = logging.getLogger(__name__)
 
 SYSTEM_PROMPT_INFOGRAPHIC_ASSISTANT = """
 You are a professional infographic design expert who can analyze user-provided text content and convert it into AntV Infographic syntax format.
+
+## Important Language Rule
+- **GENERATE CONTENT IN INPUT LANGUAGE**: You must generate the text content of the infographic in the **exact same language** as the user's input content (the text you are analyzing).
+- **Format Consistency**: Even if this system prompt is in English, if the user input is in Chinese, the infographic content must be in Chinese. If input is Japanese, output Japanese.
 
 ## Infographic Syntax Specification
 
@@ -958,7 +962,11 @@ class Action:
     def __init__(self):
         self.valves = self.Valves()
 
-    def _get_user_context(self, __user__: Optional[Dict[str, Any]]) -> Dict[str, str]:
+    async def _get_user_context(
+        self,
+        __user__: Optional[Dict[str, Any]],
+        __event_call__: Optional[Callable[[Any], Awaitable[None]]] = None,
+    ) -> Dict[str, str]:
         """Safely extracts user context information."""
         if isinstance(__user__, (list, tuple)):
             user_data = __user__[0] if __user__ else {}
@@ -967,10 +975,32 @@ class Action:
         else:
             user_data = {}
 
+        user_id = user_data.get("id", "unknown_user")
+        user_name = user_data.get("name", "User")
+        user_language = user_data.get("language", "en-US")
+
+        if __event_call__:
+            try:
+                js_code = """
+                    return (
+                        localStorage.getItem('locale') || 
+                        localStorage.getItem('language') || 
+                        navigator.language || 
+                        'en-US'
+                    );
+                """
+                frontend_lang = await __event_call__(
+                    {"type": "execute", "data": {"code": js_code}}
+                )
+                if frontend_lang and isinstance(frontend_lang, str):
+                    user_language = frontend_lang
+            except Exception as e:
+                logger.warning(f"Failed to retrieve frontend language: {e}")
+
         return {
-            "user_id": user_data.get("id", "unknown_user"),
-            "user_name": user_data.get("name", "User"),
-            "user_language": user_data.get("language", "en-US"),
+            "user_id": user_id,
+            "user_name": user_name,
+            "user_language": user_language,
         }
 
     def _get_chat_context(
@@ -1469,18 +1499,10 @@ class Action:
         logger.info("Action: Infographic started (v1.4.0)")
 
         # Get user information
-        if isinstance(__user__, (list, tuple)):
-            user_language = __user__[0].get("language", "en") if __user__ else "en"
-            user_name = __user__[0].get("name", "User") if __user__[0] else "User"
-            user_id = (
-                __user__[0]["id"]
-                if __user__ and "id" in __user__[0]
-                else "unknown_user"
-            )
-        elif isinstance(__user__, dict):
-            user_language = __user__.get("language", "en")
-            user_name = __user__.get("name", "User")
-            user_id = __user__.get("id", "unknown_user")
+        user_ctx = await self._get_user_context(__user__, __event_call__)
+        user_name = user_ctx["user_name"]
+        user_id = user_ctx["user_id"]
+        user_language = user_ctx["user_language"]
 
         # Get current time
         now = datetime.now()

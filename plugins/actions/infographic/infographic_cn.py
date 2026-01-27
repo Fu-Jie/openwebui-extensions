@@ -4,7 +4,7 @@ author: Fu-Jie
 author_url: https://github.com/Fu-Jie/awesome-openwebui
 funding_url: https://github.com/open-webui
 icon_url: data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPgogIDxsaW5lIHgxPSIxMiIgeTE9IjIwIiB4Mj0iMTIiIHkyPSIxMCIgLz4KICA8bGluZSB4MT0iMTgiIHkxPSIyMCIgeDI9IjE4IiB5Mj0iNCIgLz4KICA8bGluZSB4MT0iNiIgeTE9IjIwIiB4Mj0iNiIgeTI9IjE2IiAvPgo8L3N2Zz4=
-version: 1.4.9
+version: 1.5.0
 openwebui_id: e04a48ff-23ee-4a41-8ea7-66c19524e7c8
 description: 基于 AntV Infographic 的智能信息图生成插件。支持多种专业模板，自动图标匹配，并提供 SVG/PNG 下载功能。
 """
@@ -31,6 +31,10 @@ logger = logging.getLogger(__name__)
 
 SYSTEM_PROMPT_INFOGRAPHIC_ASSISTANT = """
 You are a professional infographic design expert who can analyze user-provided text content and convert it into AntV Infographic syntax format.
+
+## Important Language Rule (语言规则)
+- **Priority Input Language (优先使用输入语言)**: You must generate the text content of the infographic in the **exact same language** as the user's input content.
+- **Example**: If the user provides a summary in Chinese, the labels and descriptions in the infographic must be in Chinese.
 
 ## Infographic Syntax Specification
 
@@ -974,7 +978,11 @@ class Action:
             "Sunday": "星期日",
         }
 
-    def _get_user_context(self, __user__: Optional[Dict[str, Any]]) -> Dict[str, str]:
+    async def _get_user_context(
+        self,
+        __user__: Optional[Dict[str, Any]],
+        __event_call__: Optional[Callable[[Any], Awaitable[None]]] = None,
+    ) -> Dict[str, str]:
         """安全提取用户上下文信息。"""
         if isinstance(__user__, (list, tuple)):
             user_data = __user__[0] if __user__ else {}
@@ -983,10 +991,32 @@ class Action:
         else:
             user_data = {}
 
+        user_id = user_data.get("id", "unknown_user")
+        user_name = user_data.get("name", "用户")
+        user_language = user_data.get("language", "zh-CN")
+
+        if __event_call__:
+            try:
+                js_code = """
+                    return (
+                        localStorage.getItem('locale') || 
+                        localStorage.getItem('language') || 
+                        navigator.language || 
+                        'zh-CN'
+                    );
+                """
+                frontend_lang = await __event_call__(
+                    {"type": "execute", "data": {"code": js_code}}
+                )
+                if frontend_lang and isinstance(frontend_lang, str):
+                    user_language = frontend_lang
+            except Exception as e:
+                pass
+
         return {
-            "user_id": user_data.get("id", "unknown_user"),
-            "user_name": user_data.get("name", "用户"),
-            "user_language": user_data.get("language", "zh-CN"),
+            "user_id": user_id,
+            "user_name": user_name,
+            "user_language": user_language,
         }
 
     def _get_chat_context(
@@ -1509,20 +1539,10 @@ class Action:
         logger.info("Action: 信息图启动 (v1.4.0)")
 
         # 获取用户信息
-        if isinstance(__user__, (list, tuple)):
-            user_language = (
-                __user__[0].get("language", "zh-CN") if __user__ else "zh-CN"
-            )
-            user_name = __user__[0].get("name", "用户") if __user__[0] else "用户"
-            user_id = (
-                __user__[0]["id"]
-                if __user__ and "id" in __user__[0]
-                else "unknown_user"
-            )
-        elif isinstance(__user__, dict):
-            user_language = __user__.get("language", "zh-CN")
-            user_name = __user__.get("name", "用户")
-            user_id = __user__.get("id", "unknown_user")
+        user_ctx = await self._get_user_context(__user__, __event_call__)
+        user_name = user_ctx["user_name"]
+        user_id = user_ctx["user_id"]
+        user_language = user_ctx["user_language"]
 
         # 获取当前时间
         now = datetime.now()

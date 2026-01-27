@@ -349,6 +349,53 @@ await __event_emitter__(
 )
 ```
 
+#### Advanced Use Case: Retrieving Frontend Data
+
+One of the most powerful capabilities of the `execute` event type is the ability to fetch data from the browser environment (JavaScript) and return it to your Python backend. This allows plugins to access information like:
+
+- `localStorage` items (user preferences, tokens)
+- `navigator` properties (language, geolocation, platform)
+- `document` properties (cookies, URL parameters)
+
+**How it works:**
+The JavaScript code you provide in the `"code"` field is executed in the browser. If your JS code includes a `return` statement, that value is sent back to Python as the result of `await __event_call__`.
+
+**Example: Getting the User's UI Language**
+
+```python
+try:
+    # Execute JS on the frontend to get language settings
+    response = await __event_call__(
+        {
+            "type": "execute",
+            "data": {
+                # This JS code runs in the browser.
+                # The 'return' value is sent back to Python.
+                "code": """
+                    return (
+                        localStorage.getItem('locale') || 
+                        localStorage.getItem('language') || 
+                        navigator.language || 
+                        'en-US'
+                    );
+                """,
+            },
+        }
+    )
+    
+    # 'response' will contain the string returned by JS (e.g., "en-US", "zh-CN")
+    # Note: Wrap in try-except to handle potential timeouts or JS errors
+    logger.info(f"Frontend Language: {response}")
+    
+except Exception as e:
+    logger.error(f"Failed to get frontend data: {e}")
+```
+
+**Key capabilities unlocked:**
+- **Context Awareness:** Adapt responses based on user time zone or language.
+- **Client-Side Storage:** Use `localStorage` to persist simple plugin settings without a database.
+- **Hardware Access:** Request geolocation or clipboard access (requires user permission).
+
 ---
 
 ## 🏗️ When & Where to Use Events

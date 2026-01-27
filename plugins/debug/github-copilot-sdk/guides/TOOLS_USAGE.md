@@ -1,0 +1,191 @@
+# 🛠️ Custom Tools Usage / 自定义工具使用指南
+
+## Overview / 概览
+
+This pipe includes **1 example custom tool** that demonstrates how to use GitHub Copilot SDK's tool calling feature.
+
+本 Pipe 包含 **1 个示例自定义工具**，展示如何使用 GitHub Copilot SDK 的工具调用功能。
+
+---
+
+## 🚀 Quick Start / 快速开始
+
+### 1. Enable Tools / 启用工具
+
+In Valves configuration:
+在 Valves 配置中：
+
+```
+ENABLE_TOOLS: true
+AVAILABLE_TOOLS: all
+```
+
+### 2. Test with Conversations / 测试对话
+
+Try these examples:
+尝试这些示例：
+
+**English:**
+
+- "Give me a random number between 1 and 100"
+
+**中文：**
+
+- "给我一个 1 到 100 之间的随机数"
+
+---
+
+## 📦 Included Tools / 内置工具
+
+### 1. `generate_random_number` / 生成随机数
+
+**Description:** Generate a random integer  
+**描述：** 生成随机整数
+
+**Parameters / 参数:**
+
+- `min` (optional): Minimum value (default: 1)
+- `max` (optional): Maximum value (default: 100)
+- `min` (可选): 最小值 (默认: 1)
+- `max` (可选): 最大值 (默认: 100)
+
+**Example / 示例:**
+
+```
+User: "Give me a random number between 1 and 10"
+Copilot: [calls generate_random_number with min=1, max=10] "Generated random number: 7"
+
+用户: "给我一个 1 到 10 之间的随机数"
+Copilot: [调用 generate_random_number，参数 min=1, max=10] "生成的随机数: 7"
+```
+
+---
+
+## ⚙️ Advanced Configuration / 高级配置
+
+### Select Specific Tools / 选择特定工具
+
+Instead of enabling all tools, specify which ones to use:  
+不启用所有工具，而是指定要使用的工具：
+
+```
+ENABLE_TOOLS: true
+AVAILABLE_TOOLS: generate_random_number
+```
+
+---
+
+## 🔧 How Tool Calling Works / 工具调用的工作原理
+
+```
+1. User asks a question / 用户提问
+        ↓
+2. Copilot decides if it needs a tool / Copilot 决定是否需要工具
+        ↓
+3. If yes, Copilot calls the appropriate tool / 如果需要，调用相应工具
+        ↓
+4. Tool executes and returns result / 工具执行并返回结果
+        ↓
+5. Copilot uses the result to answer / Copilot 使用结果回答
+```
+
+### Visual Feedback / 可视化反馈
+
+When tools are called, you'll see:  
+当工具被调用时，你会看到：
+
+```
+🔧 **Calling tool**: `generate_random_number`
+✅ **Tool `generate_random_number` completed**
+
+Generated random number: 7
+```
+
+---
+
+## 📚 Creating Your Own Tools / 创建自定义工具
+
+Want to add your own tools? Follow this pattern (module-level tools):  
+想要添加自己的工具？遵循这个模式（模块级工具）：
+
+```python
+from pydantic import BaseModel, Field
+from copilot import define_tool
+
+class MyToolParams(BaseModel):
+    param_name: str = Field(description="Parameter description")
+
+
+@define_tool(description="Clear description of what the tool does and when to use it")
+async def my_tool(params: MyToolParams) -> str:
+    # Do something
+    result = do_something(params.param_name)
+    return f"Result: {result}"
+```
+
+Then register it in `_initialize_custom_tools()`:  
+然后将它添加到 `_initialize_custom_tools()`:
+
+```python
+def _initialize_custom_tools(self):
+    if not self.valves.ENABLE_TOOLS:
+        return []
+
+    all_tools = {
+        "generate_random_number": generate_random_number,
+        "my_tool": my_tool,  # ✅ Add here
+    }
+
+    if self.valves.AVAILABLE_TOOLS == "all":
+        return list(all_tools.values())
+
+    enabled = [t.strip() for t in self.valves.AVAILABLE_TOOLS.split(",")]
+    return [all_tools[name] for name in enabled if name in all_tools]
+```
+
+---
+
+## ⚠️ Important Notes / 重要说明
+
+### Security / 安全性
+
+- Tools run in the same process as the pipe
+- Be careful with tools that execute code or access files
+- Always validate input parameters
+
+- 工具在与 Pipe 相同的进程中运行
+- 谨慎处理执行代码或访问文件的工具
+- 始终验证输入参数
+
+### Performance / 性能
+
+- Tool execution is synchronous during streaming
+- Long-running tools may cause delays
+- Consider adding timeouts for external API calls
+
+- 工具执行在流式传输期间是同步的
+- 长时间运行的工具可能导致延迟
+- 考虑为外部 API 调用添加超时
+
+### Debugging / 调试
+
+- Enable `DEBUG: true` to see tool events in the browser console
+- Check tool calls in `🔧 Calling tool` messages
+- Tool errors are displayed in the response
+
+- 启用 `DEBUG: true` 在浏览器控制台查看工具事件
+- 在 `🔧 Calling tool` 消息中检查工具调用
+- 工具错误会显示在响应中
+
+---
+
+## 📖 References / 参考资料
+
+- [Copilot SDK Documentation](https://github.com/github/copilot-sdk)
+- [COPILOT_TOOLS_QUICKSTART.md](COPILOT_TOOLS_QUICKSTART.md) - Detailed implementation guide
+- [JSON Schema](https://json-schema.org/) - For parameter definitions
+
+---
+
+**Version:** 0.2.3  
+**Last Updated:** 2026-01-27

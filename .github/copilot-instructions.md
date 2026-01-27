@@ -62,17 +62,40 @@ plugins/
 │   ├── ACTION_PLUGIN_TEMPLATE_CN.py   # Chinese template
 │   └── README.md
 ├── filters/           # Filter 插件 (输入处理)
-│   ├── my_filter/
-│   │   ├── my_filter.py
-│   │   ├── 我的过滤器.py
-│   │   ├── README.md
-│   │   └── README_CN.md
-│   └── README.md
+│   └── ...
 ├── pipes/             # Pipe 插件 (输出处理)
 │   └── ...
-└── pipelines/         # Pipeline 插件
+├── pipelines/         # Pipeline 插件
     └── ...
+├── debug/             # 调试与开发工具 (Debug & Development Tools)
+│   ├── my_debug_tool/
+│   │   ├── debug_script.py
+│   │   └── notes.md
+│   └── ...
 ```
+
+#### 调试目录规范 (Debug Directory Standards)
+
+`plugins/debug/` 目录用于存放调试用的脚本、临时验证代码或开发笔记。
+
+**目录结构 (Directory Structure)**:
+应根据调试工具所属的插件或功能模块进行子目录分类，而非将文件散落在根目录。
+
+```
+plugins/debug/
+├── my_plugin_name/      # 特定插件的调试文件 (Debug files for specific plugin)
+│   ├── debug_script.py
+│   └── guides/
+├── common_tools/        # 通用调试工具 (General debug tools)
+│   └── ...
+└── ...
+```
+
+**规范说明 (Guidelines)**:
+- **不强制要求 README**: 该目录下的子项目不需要包含 `README.md`。
+- **发布豁免**: 该目录下的内容**绝不会**被发布脚本处理。
+- **内容灵活性**: 可以包含 Python 脚本、Markdown 文档、JSON 数据等。
+- **分类存放**: 任何调试产物（如 `test_*.py`, `inspect_*.py`）都不应直接存放在项目根目录，必须移动到此目录下相应的子文件夹中。
 
 ### 3. 文档字符串规范 (Docstring Standard)
 
@@ -408,6 +431,51 @@ async def long_running_task_with_notification(self, event_emitter, ...):
     if task_future in done:
         return task_future.result()
 ```
+
+### 7. 前端数据获取与交互规范 (Frontend Data Access & Interaction)
+
+#### 获取前端信息 (Retrieving Frontend Info)
+
+当需要获取用户浏览器的上下文信息（如语言、时区、LocalStorage）时，**必须**使用 `__event_call__` 的 `execute` 类型，而不是通过文件上传或复杂的 API 请求。
+
+```python
+async def _get_frontend_value(self, js_code: str) -> str:
+    """Helper to execute JS and get return value."""
+    try:
+        response = await __event_call__(
+            {
+                "type": "execute",
+                "data": {
+                    "code": js_code,
+                },
+            }
+        )
+        return str(response)
+    except Exception as e:
+        logger.error(f"Failed to execute JS: {e}")
+        return ""
+
+# 示例：获取界面语言 (Get UI Language)
+async def get_user_language(self):
+    js_code = """
+        return (
+            localStorage.getItem('locale') || 
+            localStorage.getItem('language') || 
+            navigator.language || 
+            'en-US'
+        );
+    """
+    return await self._get_frontend_value(js_code)
+```
+
+#### 适用场景与引导 (Usage Guidelines)
+
+- **语言适配**: 动态获取界面语言 (`ru-RU`, `zh-CN`) 自动切换输出语言。
+- **时区处理**: 获取 `Intl.DateTimeFormat().resolvedOptions().timeZone` 处理时间。
+- **客户端存储**: 读取 `localStorage` 中的用户偏好设置。
+- **硬件能力**: 获取 `navigator.clipboard` 或 `navigator.geolocation` (需授权)。
+
+**注意**: 即使插件有 `Valves` 配置，也应优先尝试自动探测，提升用户体验。
 
 ---
 

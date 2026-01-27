@@ -1,10 +1,16 @@
 # 📊 Smart Infographic (AntV)
 
-**Author:** [Fu-Jie](https://github.com/Fu-Jie/awesome-openwebui) | **Version:** 1.4.9 | **Project:** [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui) | **License:** MIT
+**Author:** [Fu-Jie](https://github.com/Fu-Jie/awesome-openwebui) | **Version:** 1.5.0 | **Project:** [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui) | **License:** MIT
 
 An Open WebUI plugin powered by the AntV Infographic engine. It transforms long text into professional, beautiful infographics with a single click.
 
-## 🔥 What's New in v1.4.9
+## 🔥 What's New in v1.5.0
+
+- 🌐 **Smart Language Detection**: Automatically detects the accurate UI language from your browser.
+- 🗣️ **Context-Aware Generation**: Generated infographics now strictly follow the language of your input content (e.g., input Japanese -> output Japanese infographic).
+- 🐛 **Bug Fixes**: Fixed issues with language synchronization between the UI and generated content.
+
+### Previous: v1.4.9
 
 - 🎨 **70+ Official Templates**: Integrated comprehensive AntV infographic template library.
 - 🖼️ **Iconify & unDraw Support**: Richer visuals with official icons and illustrations.
@@ -62,7 +68,6 @@ You can adjust the following parameters in the plugin settings to optimize the g
 - **Debug Logs**: Enable `SHOW_STATUS` in Valves to see progress updates.
 - **Error Messages**: If you see an error, please copy the full error message and report it.
 - **Submit an Issue**: If you encounter any problems, please submit an issue on GitHub: [Awesome OpenWebUI Issues](https://github.com/Fu-Jie/awesome-openwebui/issues)
-
 
 ## 📝 Syntax Example (For Advanced Users)
 
