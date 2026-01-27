@@ -106,10 +106,14 @@ def scan_plugins_directory(plugins_dir: str) -> list[dict[str, Any]]:
                     continue
 
                 file_path = os.path.join(root, file)
-                metadata = extract_plugin_metadata(file_path)
                 if metadata:
                     # Determine plugin type from directory structure
                     rel_path = os.path.relpath(file_path, plugins_dir)
+                    
+                    # Normalize file_path to always start with "plugins/" for consistent ID comparison
+                    # regardless of where we scan from (/tmp/old_repo or ./plugins)
+                    metadata["file_path"] = os.path.join("plugins", rel_path)
+                    
                     parts = rel_path.split(os.sep)
                     if len(parts) > 0:
                         metadata["type"] = parts[0]  # actions, filters, pipes, etc.
