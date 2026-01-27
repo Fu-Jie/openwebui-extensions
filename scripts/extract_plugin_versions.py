@@ -93,7 +93,11 @@ def scan_plugins_directory(plugins_dir: str) -> list[dict[str, Any]]:
         return plugins
 
     # Walk through all subdirectories
-    for root, _dirs, files in os.walk(plugins_path):
+    for root, dirs, files in os.walk(plugins_path):
+        # Exclude debug directory from scan
+        if "debug" in dirs:
+            dirs.remove("debug")
+
         for file in files:
             if file.endswith(".py") and not file.startswith("__"):
                 # Skip specific files that should not trigger release

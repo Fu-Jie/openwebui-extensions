@@ -23,7 +23,11 @@ from openwebui_community_client import get_client
 def find_existing_plugins(plugins_dir: str) -> list:
     """查找所有已发布的插件文件（有 openwebui_id 的）"""
     plugins = []
-    for root, _, files in os.walk(plugins_dir):
+    for root, dirs, files in os.walk(plugins_dir):
+        # Exclude debug directory
+        if "debug" in dirs:
+            dirs.remove("debug")
+
         for file in files:
             if file.endswith(".py") and not file.startswith("__"):
                 file_path = os.path.join(root, file)
