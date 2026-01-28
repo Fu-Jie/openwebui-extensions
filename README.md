@@ -10,24 +10,24 @@ A collection of enhancements, plugins, and prompts for [OpenWebUI](https://githu
 <!-- STATS_START -->
 ## 📊 Community Stats
 
-> 🕐 Auto-updated: 2026-01-28 13:13
+> 🕐 Auto-updated: 2026-01-28 14:14
 
 | 👤 Author | 👥 Followers | ⭐ Points | 🏆 Contributions |
 |:---:|:---:|:---:|:---:|
-| [Fu-Jie](https://openwebui.com/u/Fu-Jie) | **165** | **167** | **36** |
+| [Fu-Jie](https://openwebui.com/u/Fu-Jie) | **166** | **168** | **36** |
 
 | 📝 Posts | ⬇️ Downloads | 👁️ Views | 👍 Upvotes | 💾 Saves |
 |:---:|:---:|:---:|:---:|:---:|
-| **20** | **2576** | **30237** | **150** | **198** |
+| **20** | **2577** | **30275** | **151** | **198** |
 
 ### 🔥 Top 6 Popular Plugins
 
-> 🕐 Auto-updated: 2026-01-28 13:13
+> 🕐 Auto-updated: 2026-01-28 14:14
 
 | Rank | Plugin | Version | Downloads | Views | Updated |
 |:---:|------|:---:|:---:|:---:|:---:|
-| 🥇 | [Smart Mind Map](https://openwebui.com/posts/turn_any_text_into_beautiful_mind_maps_3094c59a) | 0.9.2 | 676 | 5962 | 2026-01-28 |
-| 🥈 | [📊 Smart Infographic (AntV)](https://openwebui.com/posts/smart_infographic_ad6f0c7f) | 1.5.0 | 448 | 4042 | 2026-01-27 |
+| 🥇 | [Smart Mind Map](https://openwebui.com/posts/turn_any_text_into_beautiful_mind_maps_3094c59a) | 0.9.2 | 676 | 5967 | 2026-01-28 |
+| 🥈 | [📊 Smart Infographic (AntV)](https://openwebui.com/posts/smart_infographic_ad6f0c7f) | 1.5.0 | 449 | 4045 | 2026-01-27 |
 | 🥉 | [Export to Excel](https://openwebui.com/posts/export_mulit_table_to_excel_244b8f9d) | 0.3.7 | 266 | 1109 | 2026-01-07 |
 | 4️⃣ | [Async Context Compression](https://openwebui.com/posts/async_context_compression_b1655bc8) | 1.2.2 | 242 | 2606 | 2026-01-21 |
 | 5️⃣ | [Export to Word (Enhanced)](https://openwebui.com/posts/export_to_word_enhanced_formatting_fca6a315) | 0.4.3 | 241 | 1965 | 2026-01-17 |
