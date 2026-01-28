@@ -5,30 +5,9 @@
 This filter reduces token consumption in long conversations through intelligent summarization and message compression while keeping conversations coherent.
 
 ## What's new in 1.2.2
+
 - **Critical Fix**: Resolved `TypeError: 'str' object is not callable` caused by variable name conflict in logging function.
 - **Compatibility**: Enhanced `params` handling to support Pydantic objects, improving compatibility with different OpenWebUI versions.
-
-## What's new in 1.2.1
-
-- **Smart Configuration**: Automatically detects base model settings for custom models and adds `summary_model_max_context` for independent summary limits.
-- **Performance & Refactoring**: Optimized threshold parsing with caching, removed redundant code, and improved LLM response handling (JSONResponse support).
-- **Bug Fixes & Modernization**: Fixed `datetime` deprecation warnings, corrected type annotations, and replaced print statements with proper logging.
-
-## What's new in 1.2.0
-
-- **Preflight Context Check**: Before sending to the model, validates that total tokens fit within the context window. Automatically trims or drops oldest messages if exceeded.
-- **Structure-Aware Assistant Trimming**: When context exceeds the limit, long AI responses are intelligently collapsed while preserving their structure (headers H1-H6, first line, last line).
-- **Native Tool Output Trimming**: Detects and trims native tool outputs (`function_calling: "native"`), extracting only the final answer. Enable via `enable_tool_output_trimming`. **Note**: Non-native tool outputs are not fully injected into context.
-- **Consolidated Status Notifications**: Unified "Context Usage" and "Context Summary Updated" notifications with appended warnings (e.g., `| ⚠️ High Usage`) for clearer feedback.
-- **Context Usage Warning**: Emits a warning notification when context usage exceeds 90%.
-- **Enhanced Header Detection**: Optimized regex (`^#{1,6}\s+`) to avoid false positives like `#hashtag`.
-- **Detailed Token Logging**: Logs now show token breakdown for System, Head, Summary, and Tail sections with total.
-
-## What's new in 1.1.3
-- **Improved Compatibility**: Changed summary injection role from `user` to `assistant` for better compatibility across different LLMs.
-- **Enhanced Stability**: Fixed a race condition in state management that could cause "inlet state not found" warnings in high-concurrency scenarios.
-- **Bug Fixes**: Corrected default model handling to prevent misleading logs when no model is specified.
-
 
 ---
 
@@ -57,11 +36,7 @@ This filter reduces token consumption in long conversations through intelligent 
 
 ### 2) Filter order
 
-It is recommended to keep this filter early in the chain so it runs before filters that mutate messages:
-
-1. Pre-filters (priority < 10) — e.g., system prompt injectors.
-2. This compression filter (priority = 10).
-3. Post-filters (priority > 10) — e.g., output formatting.
+- Recommended order: pre-filters (<10) → this filter (10) → post-filters (>10).
 
 ---
 
@@ -85,6 +60,16 @@ It is recommended to keep this filter early in the chain so it runs before filte
 
 ---
 
+## ⭐ Support
+
+If this plugin has been useful, a star on [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui) is a big motivation for me. Thank you for the support.
+
+## Troubleshooting ❓
+
 - **Initial system prompt is lost**: Keep `keep_first` greater than 0 to protect the initial message.
 - **Compression effect is weak**: Raise `compression_threshold_tokens` or lower `keep_first` / `keep_last` to allow more aggressive compression.
 - **Submit an Issue**: If you encounter any problems, please submit an issue on GitHub: [Awesome OpenWebUI Issues](https://github.com/Fu-Jie/awesome-openwebui/issues)
+
+## Changelog
+
+See the full history on GitHub: [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui)

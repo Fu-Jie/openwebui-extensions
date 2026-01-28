@@ -10,19 +10,6 @@ An Open WebUI plugin powered by the AntV Infographic engine. It transforms long 
 - 🗣️ **Context-Aware Generation**: Generated infographics now strictly follow the language of your input content (e.g., input Japanese -> output Japanese infographic).
 - 🐛 **Bug Fixes**: Fixed issues with language synchronization between the UI and generated content.
 
-### Previous: v1.4.9
-
-- 🎨 **70+ Official Templates**: Integrated comprehensive AntV infographic template library.
-- 🖼️ **Iconify & unDraw Support**: Richer visuals with official icons and illustrations.
-- 📏 **Visual Optimization**: Improved text wrapping, adaptive sizing, and layout refinement.
-- ✨ **PNG Upload**: Infographics now upload as PNG format for better Word export compatibility.
-- 🔧 **Canvas Conversion**: Uses browser canvas for high-quality SVG to PNG conversion (2x scale).
-
-### Previous: v1.4.0
-
-- ✨ **Default Mode Change**: Default output mode is now `image` (static image) for better compatibility.
-- 📱 **Responsive Sizing**: Images now auto-adapt to the chat container width.
-
 ## ✨ Key Features
 
 - 🚀 **AI-Powered Transformation**: Automatically analyzes text logic, extracts key points, and generates structured charts.
@@ -52,6 +39,10 @@ You can adjust the following parameters in the plugin settings to optimize the g
 | **Message Count (MESSAGE_COUNT)** | `1` | Number of recent messages to use for analysis. Increase this for more context. |
 | **Output Mode (OUTPUT_MODE)** | `image` | `image` for static image embedding (default, better compatibility), `html` for interactive chart. |
 
+## ⭐ Support
+
+If this plugin has been useful, a star on [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui) is a big motivation for me. Thank you for the support.
+
 ## 🛠️ Supported Template Types
 
 | Category | Template Name | Use Case |
@@ -68,6 +59,10 @@ You can adjust the following parameters in the plugin settings to optimize the g
 - **Debug Logs**: Enable `SHOW_STATUS` in Valves to see progress updates.
 - **Error Messages**: If you see an error, please copy the full error message and report it.
 - **Submit an Issue**: If you encounter any problems, please submit an issue on GitHub: [Awesome OpenWebUI Issues](https://github.com/Fu-Jie/awesome-openwebui/issues)
+
+## Changelog
+
+See the full history on GitHub: [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui)
 
 ## 📝 Syntax Example (For Advanced Users)
 

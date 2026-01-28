@@ -1,4 +1,59 @@
-# Export to Excel
+# 📊 Export to Excel
+
+**Author:** [Fu-Jie](https://github.com/Fu-Jie/awesome-openwebui) | **Version:** 0.3.6 | **Project:** [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui) | **License:** MIT
+
+Export chat history to an Excel (.xlsx) file directly from the chat interface.
+
+## 🔥 What's New in v0.3.6
+
+- **OpenWebUI-Style Theme**: Modern dark header (#1f2937) with light gray zebra striping for better readability.
+- **Zebra Striping**: Alternating row colors (#ffffff / #f3f4f6) for improved visual scanning.
+- **Smart Data Type Conversion**: Automatically converts columns to numeric or datetime types with fallback to string.
+- **Full Cell Bold/Italic**: Supports full cell Markdown bold (`**text**`) and italic (`*text*`) formatting in Excel.
+- **Partial Markdown Cleanup**: Removes partial Markdown formatting symbols for cleaner Excel output.
+- **Export Scope**: Added `EXPORT_SCOPE` to choose between the last message or all messages.
+- **Smart Sheet Naming**: Names sheets based on Markdown headers, AI titles, or message index.
+- **Multiple Tables Support**: Improved handling of multiple tables across messages.
+- **Smart Filename Generation**: Supports filenames based on chat title, AI summary, or Markdown headers.
+- **Configuration Options**: Added `TITLE_SOURCE` to control filename strategy.
+- **AI Title Generation**: Added `MODEL_ID` to use AI for filename generation with progress notifications.
+
+## ✨ Core Features
+
+- 🚀 **One-Click Export**: Adds an “Export to Excel” action button to the chat.
+- 🧠 **Automatic Header Extraction**: Intelligently identifies table headers from chat content.
+- 📊 **Multi-Table Support**: Handles multiple tables within a single chat session.
+
+## 🚀 How to Use
+
+1. **Install**: Search for “Export to Excel” in the Open WebUI Community and install.
+2. **Trigger**: In any chat, click the “Export to Excel” action button.
+3. **Download**: The .xlsx file will be automatically downloaded.
+
+## ⚙️ Configuration (Valves)
+
+| Parameter | Default | Description |
+| :--- | :--- | :--- |
+| `TITLE_SOURCE` | `chat_title` | Filename source: `chat_title`, `ai_generated`, or `markdown_title`. |
+| `EXPORT_SCOPE` | `last_message` | Export scope: `last_message` or `all_messages`. |
+| `MODEL_ID` | `""` | Model ID for AI title generation. Empty uses current chat model. |
+| `SHOW_STATUS` | `True` | Show operation status updates. |
+| `SHOW_DEBUG_LOG` | `False` | Print debug logs in the browser console (F12). |
+
+## ⭐ Support
+
+If this plugin has been useful, a star on [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui) is a big motivation for me. Thank you for the support.
+
+## Troubleshooting ❓
+
+- **Plugin not working?**: Check if the filter/action is enabled in the model settings.
+- **Debug Logs**: Enable `SHOW_STATUS` and check the browser console (F12) if needed.
+- **Error Messages**: If you see an error, please copy the full error message and report it.
+- **Submit an Issue**: If you encounter any problems, please submit an issue on GitHub: [Awesome OpenWebUI Issues](https://github.com/Fu-Jie/awesome-openwebui/issues)
+
+## Changelog
+
+See the full history on GitHub: [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui)# Export to Excel
 
 This plugin allows you to export your chat history to an Excel (.xlsx) file directly from the chat interface.
 

@@ -38,6 +38,10 @@
 | `MESSAGE_COUNT` | `1` | 用于生成思维导图的最近消息数量（1-5）。 |
 | `OUTPUT_MODE` | `html` | 输出模式：`html`（交互式）或 `image`（静态图片）。 |
 
+## ⭐ 支持
+
+如果这个插件对你有帮助，欢迎到 [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui) 点个 Star，这将是我持续改进的动力，感谢支持。
+
 ## 故障排除 (Troubleshooting) ❓
 
 - **插件无法启动**：检查 OpenWebUI 日志，确认插件已正确上传并启用。
@@ -59,3 +63,7 @@
 1. **文本准备**：提供结构清晰、层次分明的文本内容。
 2. **模型选择**：日常使用推荐 `gemini-2.5-flash` 等快速模型。
 3. **导出质量**：PNG 适合演示分享，SVG 适合进一步矢量编辑。
+
+## 更新日志
+
+完整历史请查看 GitHub 项目： [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui)

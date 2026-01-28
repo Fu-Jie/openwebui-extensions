@@ -22,7 +22,7 @@
 * **🐛 调试模式**：内置详细的日志输出（浏览器控制台），方便排查问题。
 * **⚠️ 仅支持单节点**：由于会话状态存储在本地，本插件目前仅支持 OpenWebUI 单节点部署，或开启了会话粘性 (Sticky Session) 的多节点集群。
 
-## 📦 安装与使用
+## 安装与配置
 
 ### 1. 导入函数
 
@@ -69,7 +69,13 @@
 | **SHOW_THINKING** | 是否显示思考过程（需开启流式 + 模型支持）。 | `True` |
 | **MODEL_ID** | 自定义模型 ID。 | - |
 
-### 3. 使用自定义工具 (🆕 可选)
+## ⭐ 支持
+
+如果这个插件对你有帮助，欢迎到 [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui) 点个 Star，这将是我持续改进的动力，感谢支持。
+
+## 🧩 其他
+
+### 使用自定义工具（可选）
 
 本 Pipe 内置了 **1 个示例工具**来展示工具调用功能：
 
@@ -82,7 +88,7 @@
 
 **📚 详细使用说明和创建自定义工具，请参阅 [TOOLS_USAGE.md](TOOLS_USAGE.md)**
 
-### 4. 获取 GH_TOKEN
+### 获取 GH_TOKEN
 
 为了安全起见，推荐使用 **Fine-grained Personal Access Token**：
 
@@ -101,7 +107,7 @@
 * `github-copilot-sdk` (Python 包)
 * `github-copilot-cli` (二进制文件，通过官方脚本安装)
 
-## ⚠️ 常见问题
+## 故障排除 (Troubleshooting) ❓
 
 * **一直显示 "Waiting..."**：
   * 检查 `GH_TOKEN` 是否正确且拥有 `Copilot Requests` 权限。
@@ -112,3 +118,7 @@
   * 你可以手动下载 CLI 并挂载到容器中，然后在 Valves 中指定 `CLI_PATH`。
 * **看不到思考过程**：
   * 确认已开启**流式输出**，且所选模型支持推理输出。
+
+## 更新日志
+
+完整历史请查看 GitHub 项目： [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui)

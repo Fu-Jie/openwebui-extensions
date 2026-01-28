@@ -39,6 +39,10 @@ A comprehensive thinking lens that dives deep into any content - from context to
 | **Clear Previous HTML (CLEAR_PREVIOUS_HTML)** | `True` | Whether to clear previous plugin results. |
 | **Message Count (MESSAGE_COUNT)** | `1` | Number of recent messages to analyze. |
 
+## ⭐ Support
+
+If this plugin has been useful, a star on [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui) is a big motivation for me. Thank you for the support.
+
 ## 🌗 Theme Support
 
 The plugin automatically detects and adapts to OpenWebUI's theme settings:
@@ -48,7 +52,7 @@ The plugin automatically detects and adapts to OpenWebUI's theme settings:
   2. Parent document `html/body` class or `data-theme` attribute
   3. System preference via `prefers-color-scheme: dark`
 
-- **Requirements**: For best results, enable **iframe Sandbox Allow Same Origin** in OpenWebUI: 
+- **Requirements**: For best results, enable **iframe Sandbox Allow Same Origin** in OpenWebUI:
   - Go to **Settings** → **Interface** → **Artifacts** → Check **iframe Sandbox Allow Same Origin**
 
 ## 🎨 Visual Preview
@@ -88,3 +92,7 @@ The plugin generates a structured thinking timeline:
 - **Debug Logs**: Enable `SHOW_STATUS` in Valves to see progress updates.
 - **Error Messages**: If you see an error, please copy the full error message and report it.
 - **Submit an Issue**: If you encounter any problems, please submit an issue on GitHub: [Awesome OpenWebUI Issues](https://github.com/Fu-Jie/awesome-openwebui/issues)
+
+## Changelog
+
+See the full history on GitHub: [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui)

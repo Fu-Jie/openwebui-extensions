@@ -44,6 +44,10 @@ Export conversation to Word (.docx) with **syntax highlighting**, **native math 
 | **Mermaid PNG Scale** | `3.0` | Resolution multiplier for Mermaid images |
 | **Math Enable** | `True` | Enable LaTeX math conversion |
 
+## ⭐ Support
+
+If this plugin has been useful, a star on [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui) is a big motivation for me. Thank you for the support.
+
 ## 🛠️ Supported Markdown Syntax
 
 | Syntax | Word Result |
@@ -71,25 +75,13 @@ Export conversation to Word (.docx) with **syntax highlighting**, **native math 
 - `latex2mathml` - LaTeX to MathML conversion
 - `mathml2omml` - MathML to Office Math (OMML) conversion
 
-## 📝 Changelog
-
-### v0.4.3
-- **S3 Object Storage**: Direct S3/MinIO access via boto3 for faster image retrieval.
-- **6-Level Fallback**: Robust file retrieval: DB → S3 → Local → URL → API → Attributes.
-- **Better Logging**: Improved error messages for debugging file access issues.
-
-### v0.4.1
-- **Chinese Parameter Names**: Localized configuration names for Chinese version.
-
-### v0.4.0
-- **Multi-language Support**: UI language switching (English/Chinese).
-- **Font & Style Configuration**: Customizable fonts and table colors.
-- **Mermaid Enhancements**: Hybrid SVG+PNG rendering, background color config.
-- **Performance**: Real-time progress updates for large exports.
-
 ## Troubleshooting ❓
 
 - **Plugin not working?**: Check if the filter/action is enabled in the model settings.
 - **Debug Logs**: Check the browser console (F12) for detailed logs if available.
 - **Error Messages**: If you see an error, please copy the full error message and report it.
 - **Submit an Issue**: If you encounter any problems, please submit an issue on GitHub: [Awesome OpenWebUI Issues](https://github.com/Fu-Jie/awesome-openwebui/issues)
+
+## 📝 Changelog
+
+See the full history on GitHub: [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui)

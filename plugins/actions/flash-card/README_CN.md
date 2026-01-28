@@ -4,22 +4,17 @@
 
 **作者:** [Fu-Jie](https://github.com/Fu-Jie/awesome-openwebui) | **版本:** 0.2.4 | **项目:** [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui) | **许可证:** MIT
 
-## 预览 📸
+## 🔥 最新更新 v0.2.4
 
-![闪记卡示例](flash_card_cn.png)
-
-## 更新日志
-
-### v0.2.4
-- **输出优化**: 移除输出中的调试信息。
+* **输出优化**: 移除输出中的调试信息。
 
 ## 核心特性 🔑
 
-- **一键生成**：输入任意文本，直接产出结构化卡片。
-- **要点聚合**：自动提取 3-5 个记忆要点与 2-4 个标签。
-- **多语言支持**：可设定目标语言（默认中文）。
-- **渐进合并**：多次调用会将新卡片合并到同一 HTML 容器中；如需重置可启用清空选项。
-- **状态提示**：实时推送“生成中/完成/错误”等状态与通知。
+* **一键生成**：输入任意文本，直接产出结构化卡片。
+* **要点聚合**：自动提取 3-5 个记忆要点与 2-4 个标签。
+* **多语言支持**：可设定目标语言（默认中文）。
+* **渐进合并**：多次调用会将新卡片合并到同一 HTML 容器中；如需重置可启用清空选项。
+* **状态提示**：实时推送“生成中/完成/错误”等状态与通知。
 
 ## 使用方法 🛠️
 
@@ -39,9 +34,21 @@
 | CLEAR_PREVIOUS_HTML | 是否清空旧的卡片 HTML（否则合并追加） | false  |
 | MESSAGE_COUNT       | 取最近 N 条消息生成卡片               | 1      |
 
+## ⭐ 支持
+
+如果这个插件对你有帮助，欢迎到 [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui) 点个 Star，这将是我持续改进的动力，感谢支持。
+
 ## 故障排除 (Troubleshooting) ❓
 
-- **插件不工作？**: 请检查是否在模型设置中启用了该过滤器/动作。
-- **调试日志**: 在 Valves 中启用 `SHOW_STATUS` 以查看进度更新。
-- **错误信息**: 如果看到错误，请复制完整的错误信息并报告。
-- **提交 Issue**: 如果遇到任何问题，请在 GitHub 上提交 Issue：[Awesome OpenWebUI Issues](https://github.com/Fu-Jie/awesome-openwebui/issues)
+* **插件不工作？**: 请检查是否在模型设置中启用了该过滤器/动作。
+* **调试日志**: 在 Valves 中启用 `SHOW_STATUS` 以查看进度更新。
+* **错误信息**: 如果看到错误，请复制完整的错误信息并报告。
+* **提交 Issue**: 如果遇到任何问题，请在 GitHub 上提交 Issue：[Awesome OpenWebUI Issues](https://github.com/Fu-Jie/awesome-openwebui/issues)
+
+## 预览 📸
+
+![闪记卡示例](flash_card_cn.png)
+
+## 更新日志
+
+完整历史请查看 GitHub 项目： [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui)

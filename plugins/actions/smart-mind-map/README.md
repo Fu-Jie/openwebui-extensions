@@ -38,6 +38,10 @@ Smart Mind Map is a powerful OpenWebUI action plugin that intelligently analyzes
 | `MESSAGE_COUNT` | `1` | Number of recent messages to use for generation (1-5). |
 | `OUTPUT_MODE` | `html` | Output mode: `html` (interactive) or `image` (static). |
 
+## ⭐ Support
+
+If this plugin has been useful, a star on [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui) is a big motivation for me. Thank you for the support.
+
 ## Troubleshooting ❓
 
 - **Plugin not working?**: Check if the action is enabled in the chat settings.
@@ -59,3 +63,7 @@ Smart Mind Map is a powerful OpenWebUI action plugin that intelligently analyzes
 1. **Text Preparation**: Provide text with clear structure and distinct hierarchies.
 2. **Model Selection**: Use fast models like `gemini-2.5-flash` for daily use.
 3. **Export Quality**: Use PNG for presentations and SVG for further editing.
+
+## Changelog
+
+See the full history on GitHub: [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui)

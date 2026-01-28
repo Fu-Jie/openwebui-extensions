@@ -22,9 +22,9 @@ This is an advanced Pipe function for [OpenWebUI](https://github.com/open-webui/
 * **🐛 Debug Mode**: Built-in detailed log output (browser console) for easy troubleshooting.
 * **⚠️ Single Node Only**: Due to local session storage, this plugin currently supports single-node OpenWebUI deployment or multi-node with sticky sessions enabled.
 
-## 📦 Installation & Usage
+## Installation & Configuration
 
-### 1. Import Function
+### 1) Import Function
 
 1. Open OpenWebUI.
 2. Go to **Workspace** -> **Functions**.
@@ -32,7 +32,7 @@ This is an advanced Pipe function for [OpenWebUI](https://github.com/open-webui/
 4. Paste the content of `github_copilot_sdk.py` (or `github_copilot_sdk_cn.py` for Chinese) completely.
 5. Save.
 
-### 2. Configure Valves (Settings)
+### 2) Configure Valves (Settings)
 
 Find "GitHub Copilot" in the function list and click the **⚙️ (Valves)** icon to configure:
 
@@ -69,7 +69,13 @@ These optional settings can be set per user (overrides global Valves):
 | **SHOW_THINKING** | Show model reasoning/thinking process (requires streaming + model support). | `True` |
 | **MODEL_ID** | Custom model ID. | - |
 
-### 3. Using Custom Tools (🆕 Optional)
+## ⭐ Support
+
+If this plugin has been useful, a star on [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui) is a big motivation for me. Thank you for the support.
+
+## 🧩 Others
+
+### Using Custom Tools (Optional)
 
 This pipe includes **1 example tool** to demonstrate tool calling:
 
@@ -82,7 +88,7 @@ This pipe includes **1 example tool** to demonstrate tool calling:
 
 **📚 For detailed usage and creating your own tools, see [TOOLS_USAGE.md](TOOLS_USAGE.md)**
 
-### 4. Get GH_TOKEN
+### Get GH_TOKEN
 
 For security, it is recommended to use a **Fine-grained Personal Access Token**:
 
@@ -101,7 +107,7 @@ This Pipe will automatically attempt to install the following dependencies:
 * `github-copilot-sdk` (Python package)
 * `github-copilot-cli` (Binary file, installed via official script)
 
-## ⚠️ FAQ
+## Troubleshooting ❓
 
 * **Stuck on "Waiting..."**:
   * Check if `GH_TOKEN` is correct and has `Copilot Requests` permission.
@@ -112,3 +118,7 @@ This Pipe will automatically attempt to install the following dependencies:
 * **CLI Installation Failed**:
   * Ensure the OpenWebUI container has internet access.
   * You can manually download the CLI and specify `CLI_PATH` in Valves.
+
+## Changelog
+
+See the full history on GitHub: [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui)

@@ -44,6 +44,10 @@
 | **Mermaid_PNG缩放比例** | `3.0` | Mermaid 图片分辨率倍数 |
 | **启用数学公式** | `True` | 启用 LaTeX 公式转换 |
 
+## ⭐ 支持
+
+如果这个插件对你有帮助，欢迎到 [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui) 点个 Star，这将是我持续改进的动力，感谢支持。
+
 ## 🛠️ 支持的 Markdown 语法
 
 | 语法 | Word 效果 |
@@ -71,25 +75,13 @@
 - `latex2mathml` - LaTeX 转 MathML
 - `mathml2omml` - MathML 转 Office Math (OMML)
 
-## 📝 更新日志
-
-### v0.4.3
-- **S3 对象存储**: 通过 boto3 直连 S3/MinIO，图片获取速度更快。
-- **6 级回退机制**: 稳健的文件获取：数据库 → S3 → 本地 → URL → API → 属性。
-- **日志优化**: 改进错误提示，便于调试文件访问问题。
-
-### v0.4.1
-- **中文参数名**: 配置项名称和描述全部汉化。
-
-### v0.4.0
-- **多语言支持**: 界面语言切换（中文/英文）。
-- **字体与样式配置**: 支持自定义中英文字体、代码字体以及表格颜色。
-- **Mermaid 增强**: 混合 SVG+PNG 渲染，支持背景色配置。
-- **性能优化**: 导出大型文档时提供实时进度反馈。
-
 ## 故障排除 (Troubleshooting) ❓
 
 - **插件不工作？**: 请检查是否在模型设置中启用了该过滤器/动作。
 - **调试日志**: 请查看浏览器控制台 (F12) 获取详细日志（如果可用）。
 - **错误信息**: 如果看到错误，请复制完整的错误信息并报告。
 - **提交 Issue**: 如果遇到任何问题，请在 GitHub 上提交 Issue：[Awesome OpenWebUI Issues](https://github.com/Fu-Jie/awesome-openwebui/issues)
+
+## 📝 更新日志
+
+完整历史请查看 GitHub 项目： [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui)

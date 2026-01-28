@@ -2,35 +2,30 @@
 
 **Author:** [Fu-Jie](https://github.com/Fu-Jie/awesome-openwebui) | **Version:** 0.1.0 | **Project:** [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui) | **License:** MIT
 
----
+**Folder Memory** is an intelligent context filter plugin for OpenWebUI. It automatically extracts consistent "Project Rules" from ongoing conversations within a folder and injects them back into the folder's system prompt.
 
-### 📌 What's new in 0.1.0
+## 🔥 What's New in v0.1.0
+
 - **Initial Release**: Automated "Project Rules" management for OpenWebUI folders.
 - **Folder-Level Persistence**: Automatically updates folder system prompts with extracted rules.
 - **Optimized Performance**: Runs asynchronously and supports `PRIORITY` configuration for seamless integration with other filters.
 
----
-
-**Folder Memory** is an intelligent context filter plugin for OpenWebUI. It automatically extracts consistent "Project Rules" from ongoing conversations within a folder and injects them back into the folder's system prompt.
-
-## ✨ Features
+## ✨ Core Features
 
 - **Automatic Extraction**: Analyzes chat history every N messages to extract project rules.
 - **Non-destructive Injection**: Updates only the specific "Project Rules" block in the system prompt, preserving other instructions.
 - **Async Processing**: Runs in the background without blocking the user's chat experience.
 - **ORM Integration**: Directly updates folder data using OpenWebUI's internal models for reliability.
 
-## ⚠️ Prerequisites
+## Installation & Configuration
 
-- **Conversations must occur inside a folder.** This plugin only triggers when a chat belongs to a folder (i.e., you need to create a folder in OpenWebUI and start a conversation within it).
-
-## 📦 Installation
+### 1) Installation
 
 1. Copy `folder_memory.py` to your OpenWebUI `plugins/filters/` directory (or upload via Admin UI).
 2. Enable the filter in your **Settings** -> **Filters**.
-3. (Optional) Configure the triggering threshold (default: every 10 messages).
+3. **Prerequisite**: Conversations must occur inside a folder (create a folder and start a chat within it).
 
-## ⚙️ Configuration (Valves)
+### 2) Configuration (Valves)
 
 | Valve | Default | Description |
 | :--- | :--- | :--- |
@@ -40,6 +35,10 @@
 | `RULES_BLOCK_TITLE` | `## 📂 Project Rules` | The title displayed above the injected rules block. |
 | `SHOW_DEBUG_LOG` | `False` | Show detailed debug logs in the browser console. |
 | `UPDATE_ROOT_FOLDER` | `False` | If enabled, finds and updates the root folder rules instead of the current subfolder. |
+
+## ⭐ Support
+
+If this plugin has been useful, a star on [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui) is a big motivation for me. Thank you for the support.
 
 ## 🛠️ How It Works
 
@@ -58,3 +57,7 @@
 ## 🗺️ Roadmap
 
 See [ROADMAP.md](./ROADMAP.md) for future plans, including "Project Knowledge" collection.
+
+## Changelog
+
+See the full history on GitHub: [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui)

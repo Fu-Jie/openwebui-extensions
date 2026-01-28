@@ -7,30 +7,9 @@
 本过滤器通过智能摘要和消息压缩技术，在保持对话连贯性的同时，显著降低长对话的 Token 消耗。
 
 ## 1.2.2 版本更新
+
 - **严重错误修复**: 解决了因日志函数变量名冲突导致的 `TypeError: 'str' object is not callable` 错误。
 - **兼容性增强**: 改进了 `params` 处理逻辑以支持 Pydantic 对象，提高了对不同 OpenWebUI 版本的兼容性。
-
-## 1.2.1 版本更新
-
-- **智能配置增强**: 自动检测自定义模型的基础模型配置，并新增 `summary_model_max_context` 参数以独立控制摘要模型的上下文限制。
-- **性能优化与重构**: 重构了阈值解析逻辑并增加缓存，移除了冗余的处理代码，并增强了 LLM 响应处理（支持 JSONResponse）。
-- **稳定性改进**: 修复了 `datetime` 弃用警告，修正了类型注解，并将 print 语句替换为标准日志记录。
-
-## 1.2.0 版本更新
-
-- **预检上下文检查 (Preflight Context Check)**: 在发送给模型之前，验证总 Token 是否符合上下文窗口。如果超出，自动裁剪或丢弃最旧的消息。
-- **结构感知助手裁剪 (Structure-Aware Assistant Trimming)**: 当上下文超出限制时，智能折叠过长的 AI 回复，同时保留其结构（标题 H1-H6、首行、尾行）。
-- **原生工具输出裁剪 (Native Tool Output Trimming)**: 检测并裁剪原生工具输出 (`function_calling: "native"`)，仅提取最终答案。通过 `enable_tool_output_trimming` 启用。**注意**：非原生工具调用输出不会完整注入上下文。
-- **统一状态通知**: 统一了“上下文使用情况”和“上下文摘要更新”的通知，并附加警告（例如 `| ⚠️ 高负载`），反馈更清晰。
-- **上下文使用警告**: 当上下文使用率超过 90% 时发出警告通知。
-- **增强的标题检测**: 优化了正则表达式 (`^#{1,6}\s+`) 以避免误判（如 `#hashtag`）。
-- **详细 Token 日志**: 日志现在显示 System、Head、Summary 和 Tail 部分的 Token 细分及总计。
-
-## 1.1.3 版本更新
-- **兼容性提升**: 将摘要注入角色从 `user` 改为 `assistant`，以提高在不同 LLM 之间的兼容性。
-- **稳定性增强**: 修复了状态管理中的竞态条件，解决了高并发场景下可能出现的“无法获取 inlet 状态”警告。
-- **Bug 修复**: 修正了默认模型处理逻辑，防止在未指定模型时产生误导性日志。
-
 
 ---
 
@@ -61,11 +40,7 @@
 
 ### 2. 过滤器顺序
 
-建议将此过滤器的优先级设置得相对较高（数值较小），以确保它在其他可能修改消息内容的过滤器之前运行。一个典型的顺序可能是：
-
-1. 前置过滤器 (priority < 10) —— 例如系统提示注入。
-2. 本压缩过滤器 (priority = 10)。
-3. 后置过滤器 (priority > 10) —— 例如最终输出格式化。
+- 建议顺序：前置过滤器（<10）→ 本过滤器（10）→ 后置过滤器（>10）。
 
 ---
 
@@ -124,6 +99,16 @@
 
 ---
 
+## ⭐ 支持
+
+如果这个插件对你有帮助，欢迎到 [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui) 点个 Star，这将是我持续改进的动力，感谢支持。
+
+## 故障排除 (Troubleshooting) ❓
+
 - **初始系统提示丢失**：将 `keep_first` 设置为大于 0。
 - **压缩效果不明显**：提高 `compression_threshold_tokens`，或降低 `keep_first` / `keep_last` 以增强压缩力度。
 - **提交 Issue**: 如果遇到任何问题，请在 GitHub 上提交 Issue：[Awesome OpenWebUI Issues](https://github.com/Fu-Jie/awesome-openwebui/issues)
+
+## 更新日志
+
+完整历史请查看 GitHub 项目： [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui)
