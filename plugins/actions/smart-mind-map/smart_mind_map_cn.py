@@ -3,7 +3,7 @@ title: 思维导图
 author: Fu-Jie
 author_url: https://github.com/Fu-Jie/awesome-openwebui
 funding_url: https://github.com/open-webui
-version: 0.9.1
+version: 0.9.2
 openwebui_id: 8d4b097b-219b-4dd2-b509-05fbe6388335
 icon_url: data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxyZWN0IHg9IjE2IiB5PSIxNiIgd2lkdGg9IjYiIGhlaWdodD0iNiIgcng9IjEiLz48cmVjdCB4PSIyIiB5PSIxNiIgd2lkdGg9IjYiIGhlaWdodD0iNiIgcng9IjEiLz48cmVjdCB4PSI5IiB5PSIyIiB3aWR0aD0iNiIgaGVpZ2h0PSI2IiByeD0iMSIvPjxwYXRoIGQ9Ik01IDE2di0zYTEgMSAwIDAgMSAxLTFoMTJhMSAxIDAgMCAxIDEgMXYzIi8+PHBhdGggZD0iTTEyIDEyVjgiLz48L3N2Zz4=
 description: 智能分析文本内容,生成交互式思维导图,帮助用户结构化和可视化知识。
@@ -32,7 +32,8 @@ SYSTEM_PROMPT_MINDMAP_ASSISTANT = """
 你是一个专业的思维导图生成助手,能够高效地分析用户提供的长篇文本,并将其核心主题、关键概念、分支和子分支结构化为标准的Markdown列表语法,以便Markmap.js进行渲染。
 
 请严格遵循以下指导原则:
--   **语言**: 所有输出必须使用用户指定的语言。
+-   **语言**: 所有输出必须与输入文本(正在分析的文本)保持完全一致的语言。
+-   **格式一致性**: 即使系统提示词是中文,只要用户输入是英文,导图内容必须是英文;若输入为日文,则输出日文。
 -   **格式**: 你的输出必须严格为Markdown列表格式,并用```markdown 和 ``` 包裹。
     -   使用 `#` 定义中心主题(根节点)。
     -   使用 `-` 和两个空格的缩进表示分支和子分支。
@@ -809,7 +810,11 @@ class Action:
             "Sunday": "星期日",
         }
 
-    def _get_user_context(self, __user__: Optional[Dict[str, Any]]) -> Dict[str, str]:
+    async def _get_user_context(
+        self,
+        __user__: Optional[Dict[str, Any]],
+        __event_call__: Optional[Callable[[Any], Awaitable[None]]] = None,
+    ) -> Dict[str, str]:
         """Extract basic user context with safe fallbacks."""
         if isinstance(__user__, (list, tuple)):
             user_data = __user__[0] if __user__ else {}
@@ -818,10 +823,32 @@ class Action:
         else:
             user_data = {}
 
+        user_id = user_data.get("id", "unknown_user")
+        user_name = user_data.get("name", "User")
+        user_language = user_data.get("language", "en-US")
+
+        if __event_call__:
+            try:
+                js_code = """
+                    return (
+                        localStorage.getItem('locale') || 
+                        localStorage.getItem('language') || 
+                        navigator.language || 
+                        'en-US'
+                    );
+                """
+                frontend_lang = await __event_call__(
+                    {"type": "execute", "data": {"code": js_code}}
+                )
+                if frontend_lang and isinstance(frontend_lang, str):
+                    user_language = frontend_lang
+            except Exception as e:
+                logger.warning(f"Failed to retrieve frontend language: {e}")
+
         return {
-            "user_id": user_data.get("id", "unknown_user"),
-            "user_name": user_data.get("name", "用户"),
-            "user_language": user_data.get("language", "zh-CN"),
+            "user_id": user_id,
+            "user_name": user_name,
+            "user_language": user_language,
         }
 
     def _get_chat_context(
@@ -1348,8 +1375,8 @@ class Action:
         __metadata__: Optional[dict] = None,
         __request__: Optional[Request] = None,
     ) -> Optional[dict]:
-        logger.info("Action: 思维导图 (v0.9.1) started")
-        user_ctx = self._get_user_context(__user__)
+        logger.info("Action: 思维导图 (v0.9.2) started")
+        user_ctx = await self._get_user_context(__user__, __event_call__)
         user_language = user_ctx["user_language"]
         user_name = user_ctx["user_name"]
         user_id = user_ctx["user_id"]

@@ -2,17 +2,14 @@
 
 思维导图是一个强大的 OpenWebUI 动作插件，能够智能分析长篇文本内容，自动生成交互式思维导图，帮助用户结构化和可视化知识。
 
-**作者:** [Fu-Jie](https://github.com/Fu-Jie/awesome-openwebui) | **版本:** 0.9.1 | **项目:** [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui) | **许可证:** MIT
+**作者:** [Fu-Jie](https://github.com/Fu-Jie/awesome-openwebui) | **版本:** 0.9.2 | **项目:** [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui) | **许可证:** MIT
 
-## v0.9.1 更新亮点
+## v0.9.2 更新亮点
 
-**新功能：图片输出模式**
+**语言规则对齐**
 
-- **静态图片支持**：新增 `OUTPUT_MODE` 配置参数。
-  - `html`（默认）：交互式 HTML 思维导图。
-  - `image`：静态 SVG 图片直接嵌入 Markdown（**不输出 HTML 代码**，聊天记录更简洁）。
-- **高效存储**：图片模式将 SVG 上传至 `/api/v1/files`，避免聊天记录中出现超长 Base64 字符串。
-- **智能特性**：生成的图片支持自动响应式宽度和自动主题检测（亮色/暗色）。
+- **输入语言优先**：导图输出严格与输入文本语言一致。
+- **一致性提升**：与信息图语言规则保持一致，多语言输出更可预期。
 
 ## 核心特性 🔑
 

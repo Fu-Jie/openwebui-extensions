@@ -4,7 +4,7 @@ author: Fu-Jie
 author_url: https://github.com/Fu-Jie/awesome-openwebui
 funding_url: https://github.com/open-webui
 funding_url: https://github.com/Fu-Jie/awesome-openwebui
-version: 0.9.1
+version: 0.9.2
 openwebui_id: 3094c59a-b4dd-4e0c-9449-15e2dd547dc4
 icon_url: data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxyZWN0IHg9IjE2IiB5PSIxNiIgd2lkdGg9IjYiIGhlaWdodD0iNiIgcng9IjEiLz48cmVjdCB4PSIyIiB5PSIxNiIgd2lkdGg9IjYiIGhlaWdodD0iNiIgcng9IjEiLz48cmVjdCB4PSI5IiB5PSIyIiB3aWR0aD0iNiIgaGVpZ2h0PSI2IiByeD0iMSIvPjxwYXRoIGQ9Ik01IDE2di0zYTEgMSAwIDAgMSAxLTFoMTJhMSAxIDAgMCAxIDEgMXYzIi8+PHBhdGggZD0iTTEyIDEyVjgiLz48L3N2Zz4=
 description: Intelligently analyzes text content and generates interactive mind maps to help users structure and visualize knowledge.
@@ -33,7 +33,8 @@ SYSTEM_PROMPT_MINDMAP_ASSISTANT = """
 You are a professional mind map generation assistant, capable of efficiently analyzing long-form text provided by users and structuring its core themes, key concepts, branches, and sub-branches into standard Markdown list syntax for rendering by Markmap.js.
 
 Please strictly follow these guidelines:
--   **Language**: All output must be in the language specified by the user.
+-   **Language**: All output must be in the exact same language as the input text (the text you are analyzing).
+-   **Format Consistency**: Even if this system prompt is in English, if the user input is in Chinese, the mind map content must be in Chinese. If input is Japanese, output Japanese.
 -   **Format**: Your output must strictly be in Markdown list format, wrapped with ```markdown and ```.
     -   Use `#` to define the central theme (root node).
     -   Use `-` with two-space indentation to represent branches and sub-branches.
@@ -811,7 +812,11 @@ class Action:
             "Sunday": "Sunday",
         }
 
-    def _get_user_context(self, __user__: Optional[Dict[str, Any]]) -> Dict[str, str]:
+    async def _get_user_context(
+        self,
+        __user__: Optional[Dict[str, Any]],
+        __event_call__: Optional[Callable[[Any], Awaitable[None]]] = None,
+    ) -> Dict[str, str]:
         """Extract basic user context with safe fallbacks."""
         if isinstance(__user__, (list, tuple)):
             user_data = __user__[0] if __user__ else {}
@@ -820,10 +825,32 @@ class Action:
         else:
             user_data = {}
 
+        user_id = user_data.get("id", "unknown_user")
+        user_name = user_data.get("name", "User")
+        user_language = user_data.get("language", "en-US")
+
+        if __event_call__:
+            try:
+                js_code = """
+                    return (
+                        localStorage.getItem('locale') || 
+                        localStorage.getItem('language') || 
+                        navigator.language || 
+                        'en-US'
+                    );
+                """
+                frontend_lang = await __event_call__(
+                    {"type": "execute", "data": {"code": js_code}}
+                )
+                if frontend_lang and isinstance(frontend_lang, str):
+                    user_language = frontend_lang
+            except Exception as e:
+                logger.warning(f"Failed to retrieve frontend language: {e}")
+
         return {
-            "user_id": user_data.get("id", "unknown_user"),
-            "user_name": user_data.get("name", "User"),
-            "user_language": user_data.get("language", "en-US"),
+            "user_id": user_id,
+            "user_name": user_name,
+            "user_language": user_language,
         }
 
     def _get_chat_context(
@@ -1369,8 +1396,8 @@ class Action:
         __metadata__: Optional[dict] = None,
         __request__: Optional[Request] = None,
     ) -> Optional[dict]:
-        logger.info("Action: Smart Mind Map (v0.9.1) started")
-        user_ctx = self._get_user_context(__user__)
+        logger.info("Action: Smart Mind Map (v0.9.2) started")
+        user_ctx = await self._get_user_context(__user__, __event_call__)
         user_language = user_ctx["user_language"]
         user_name = user_ctx["user_name"]
         user_id = user_ctx["user_id"]

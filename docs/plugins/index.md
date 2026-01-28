@@ -48,7 +48,7 @@ OpenWebUI supports four types of plugins, each serving a different purpose:
 
 | Plugin | Type | Description | Version |
 |--------|------|-------------|---------|
-| [Smart Mind Map](actions/smart-mind-map.md) | Action | Generate interactive mind maps from text | 0.9.1 |
+| [Smart Mind Map](actions/smart-mind-map.md) | Action | Generate interactive mind maps from text | 0.9.2 |
 | [Smart Infographic](actions/smart-infographic.md) | Action | Transform text into professional infographics | 1.4.9 |
 | [Flash Card](actions/flash-card.md) | Action | Create beautiful learning flashcards | 0.2.4 |
 | [Export to Excel](actions/export-to-excel.md) | Action | Export chat history to Excel files | 0.3.7 |

@@ -1,7 +1,7 @@
 # Smart Mind Map（智能思维导图）
 
 <span class="category-badge action">Action</span>
-<span class="version-badge">v0.9.1</span>
+<span class="version-badge">v0.9.2</span>
 
 智能分析文本内容，生成交互式思维导图，帮助你更直观地理解信息结构。
 
@@ -17,7 +17,7 @@ Smart Mind Map 会将文本转换成漂亮的交互式思维导图。插件会�
 - :material-gesture-swipe: **丰富控制**：缩放/重置、展开层级（全部/2/3 级）与全屏
 - :material-palette: **主题感知**：自动检测 OpenWebUI 亮/暗色主题并支持手动切换
 - :material-download: **一键导出**：下载高分辨率 PNG、复制 SVG 或 Markdown
-- :material-translate: **多语言**：根据用户语言自动输出
+- :material-translate: **多语言**：输出语言与输入文本一致
 
 ---
 

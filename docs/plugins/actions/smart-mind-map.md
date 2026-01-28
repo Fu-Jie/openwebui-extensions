@@ -1,7 +1,7 @@
 # Smart Mind Map
 
 <span class="category-badge action">Action</span>
-<span class="version-badge">v0.9.1</span>
+<span class="version-badge">v0.9.2</span>
 
 Intelligently analyzes text content and generates interactive mind maps for better visualization and understanding.
 
@@ -17,7 +17,7 @@ The Smart Mind Map plugin transforms text content into beautiful, interactive mi
 - :material-gesture-swipe: **Rich Controls**: Zoom, reset view, expand level selector (All/2/3) and fullscreen
 - :material-palette: **Theme Aware**: Auto-detects OpenWebUI light/dark theme with manual toggle
 - :material-download: **One-Click Export**: Download high-res PNG, copy SVG, or copy Markdown source
-- :material-translate: **Multi-language**: Adapts output language to the user context
+- :material-translate: **Multi-language**: Matches output language to the input text
 
 ---
 

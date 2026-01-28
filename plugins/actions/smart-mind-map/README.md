@@ -2,17 +2,14 @@
 
 Smart Mind Map is a powerful OpenWebUI action plugin that intelligently analyzes long-form text content and automatically generates interactive mind maps, helping users structure and visualize knowledge.
 
-**Author:** [Fu-Jie](https://github.com/Fu-Jie/awesome-openwebui) | **Version:** 0.9.1 | **Project:** [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui) | **License:** MIT
+**Author:** [Fu-Jie](https://github.com/Fu-Jie/awesome-openwebui) | **Version:** 0.9.2 | **Project:** [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui) | **License:** MIT
 
-## What's New in v0.9.1
+## What's New in v0.9.2
 
-**New Feature: Image Output Mode**
+**Language Rule Alignment**
 
-- **Static Image Support**: Added `OUTPUT_MODE` configuration parameter.
-  - `html` (default): Interactive HTML mind map.
-  - `image`: Static SVG image embedded directly in Markdown (**No HTML code output**, cleaner chat history).
-- **Efficient Storage**: Image mode uploads SVG to `/api/v1/files`, avoiding huge base64 strings in chat history.
-- **Smart Features**: Auto-responsive width and automatic theme detection (light/dark) for generated images.
+- **Input Language First**: Mind map output now strictly matches the input text language.
+- **Consistent Behavior**: Matches the infographic language rule for predictable multilingual output.
 
 ## Key Features 🔑
 
