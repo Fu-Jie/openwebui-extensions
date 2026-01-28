@@ -80,7 +80,7 @@
 1. 在 Valves 中设置 `ENABLE_TOOLS: true`
 2. 尝试问：“给我一个随机数”
 
-**📚 详细使用说明和创建自定义工具，请参阅 [plugins/pipes/github-copilot-sdk/TOOLS_USAGE.md](plugins/pipes/github-copilot-sdk/TOOLS_USAGE.md)**
+**📚 详细使用说明和创建自定义工具，请参阅 [TOOLS_USAGE.md](https://github.com/Fu-Jie/awesome-openwebui/blob/main/plugins/debug/github-copilot-sdk/guides/TOOLS_USAGE.md)**
 
 ### 4. 获取 GH_TOKEN
 

@@ -80,7 +80,7 @@ This pipe includes **1 example tool** to demonstrate tool calling:
 1. Set `ENABLE_TOOLS: true` in Valves
 2. Try: "Give me a random number"
 
-**📚 For detailed usage and creating your own tools, see [plugins/pipes/github-copilot-sdk/TOOLS_USAGE.md](plugins/pipes/github-copilot-sdk/TOOLS_USAGE.md)**
+**📚 For detailed usage and creating your own tools, see [TOOLS_USAGE.md](https://github.com/Fu-Jie/awesome-openwebui/blob/main/plugins/debug/github-copilot-sdk/guides/TOOLS_USAGE.md)**
 
 ### 4. Get GH_TOKEN
 
