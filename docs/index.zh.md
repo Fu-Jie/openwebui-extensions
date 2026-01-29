@@ -25,7 +25,7 @@ hide:
 
 <div class="grid cards" markdown>
 
--   :material-puzzle:{ .lg .middle } **插件中心**
+- :material-puzzle:{ .lg .middle } **插件中心**
 
     ---
 
@@ -33,7 +33,7 @@ hide:
 
     [:octicons-arrow-right-24: 探索插件](plugins/index.md)
 
--   :material-message-text:{ .lg .middle } **提示词库**
+- :material-message-text:{ .lg .middle } **提示词库**
 
     ---
 
@@ -41,7 +41,7 @@ hide:
 
     [:octicons-arrow-right-24: 浏览提示词](prompts/index.md)
 
--   :material-tools:{ .lg .middle } **增强功能**
+- :material-tools:{ .lg .middle } **增强功能**
 
     ---
 
@@ -49,7 +49,15 @@ hide:
 
     [:octicons-arrow-right-24: 查看指南](enhancements/index.md)
 
--   :material-book-open-page-variant:{ .lg .middle } **开发指南**
+- :material-rocket-launch:{ .lg .middle } **扩展 (Extensions)**
+
+    ---
+
+    独立的 OpenWebUI 前端增强扩展，全面提升交互体验。
+
+    [:octicons-arrow-right-24: 浏览扩展](extensions/index.md)
+
+- :material-book-open-page-variant:{ .lg .middle } **开发指南**
 
     ---
 
@@ -65,7 +73,7 @@ hide:
 
 <div class="grid cards" markdown>
 
--   :material-brain:{ .lg .middle } **智能思维导图**
+- :material-brain:{ .lg .middle } **智能思维导图**
 
     ---
 
@@ -73,7 +81,7 @@ hide:
 
     [:octicons-arrow-right-24: 了解更多](plugins/actions/smart-mind-map.md)
 
--   :material-card-text:{ .lg .middle } **Flash Card（闪记卡）**
+- :material-card-text:{ .lg .middle } **Flash Card（闪记卡）**
 
     ---
 
@@ -81,7 +89,7 @@ hide:
 
     [:octicons-arrow-right-24: 了解更多](plugins/actions/flash-card.md)
 
--   :material-arrow-collapse-vertical:{ .lg .middle } **异步上下文压缩**
+- :material-arrow-collapse-vertical:{ .lg .middle } **异步上下文压缩**
 
     ---
 

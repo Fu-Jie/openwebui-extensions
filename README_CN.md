@@ -76,6 +76,12 @@ OpenWebUI 增强功能集合。包含个人开发与收集的插件、提示词�
 
 每个提示词都独立保存为 Markdown 文件，可直接在 OpenWebUI 中使用。
 
+## 🛠️ 扩展 (Extensions)
+
+Open WebUI 的前端增强扩展：
+
+- **[Open WebUI Prompt Plus](https://github.com/Fu-Jie/open-webui-prompt-plus)**: 一站式提示词管理套件，支持 AI 提示词生成、Spotlight 风格快速搜索及高级分类管理。
+
 ## 📖 开发文档
 
 位于 `docs/zh/` 目录：

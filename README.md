@@ -73,6 +73,12 @@ Located in the `prompts/` directory, containing fine-tuned System Prompts:
 - **Coding**: Programming assistance prompts.
 - **Marketing**: Marketing and copywriting prompts.
 
+## 🛠️ Extensions
+
+Standalone frontend extensions to supercharge your Open WebUI:
+
+- **[Open WebUI Prompt Plus](https://github.com/Fu-Jie/open-webui-prompt-plus)**: An all-in-one prompt management suite featuring AI-powered prompt generation, spotlight-style quick search, and advanced category organization.
+
 ## 📖 Documentation
 
 Located in the `docs/en/` directory:

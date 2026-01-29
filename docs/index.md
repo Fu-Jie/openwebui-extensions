@@ -25,7 +25,7 @@ hide:
 
 <div class="grid cards" markdown>
 
--   :material-puzzle:{ .lg .middle } **Plugin Center**
+- :material-puzzle:{ .lg .middle } **Plugin Center**
 
     ---
 
@@ -33,7 +33,7 @@ hide:
 
     [:octicons-arrow-right-24: Explore Plugins](plugins/index.md)
 
--   :material-message-text:{ .lg .middle } **Prompt Library**
+- :material-message-text:{ .lg .middle } **Prompt Library**
 
     ---
 
@@ -41,7 +41,7 @@ hide:
 
     [:octicons-arrow-right-24: Browse Prompts](prompts/index.md)
 
--   :material-tools:{ .lg .middle } **Enhancements**
+- :material-tools:{ .lg .middle } **Enhancements**
 
     ---
 
@@ -49,7 +49,15 @@ hide:
 
     [:octicons-arrow-right-24: View Guides](enhancements/index.md)
 
--   :material-book-open-page-variant:{ .lg .middle } **Development**
+- :material-rocket-launch:{ .lg .middle } **Extensions**
+
+    ---
+
+    Standalone frontend extensions to supercharge your Open WebUI interface.
+
+    [:octicons-arrow-right-24: Browse Extensions](extensions/index.md)
+
+- :material-book-open-page-variant:{ .lg .middle } **Development**
 
     ---
 
@@ -65,7 +73,7 @@ hide:
 
 <div class="grid cards" markdown>
 
--   :material-brain:{ .lg .middle } **Smart Mind Map**
+- :material-brain:{ .lg .middle } **Smart Mind Map**
 
     ---
 
@@ -73,7 +81,7 @@ hide:
 
     [:octicons-arrow-right-24: Learn More](plugins/actions/smart-mind-map.md)
 
--   :material-card-text:{ .lg .middle } **Flash Card**
+- :material-card-text:{ .lg .middle } **Flash Card**
 
     ---
 
@@ -81,7 +89,7 @@ hide:
 
     [:octicons-arrow-right-24: Learn More](plugins/actions/flash-card.md)
 
--   :material-arrow-collapse-vertical:{ .lg .middle } **Async Context Compression**
+- :material-arrow-collapse-vertical:{ .lg .middle } **Async Context Compression**
 
     ---
 
