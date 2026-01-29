@@ -74,6 +74,7 @@ KEY FEATURES / 关键特性:
 ✅ Only updates content field (不仅更新内容字段)
 ✅ Skips files without openwebui_id (跳过没有 openwebui_id 的文件)
 ✅ Automatically matches CN/EN plugin files (自动匹配中英文插件文件)
+✅ Supports staged plugin source code updates (支持暂存插件源码更新)
 ✅ Safe: Won't modify version or media fields (安全：不会修改版本或媒体字段)
 
 NOTES / 注意事项:
@@ -150,6 +151,38 @@ def _get_staged_readmes(repo_root: Path) -> List[Path]:
     return paths
 
 
+def _get_staged_plugin_files(repo_root: Path) -> List[Path]:
+    try:
+        output = subprocess.check_output(
+            [
+                "git",
+                "-C",
+                str(repo_root),
+                "diff",
+                "--cached",
+                "--name-only",
+                "--",
+                "*.py",
+            ],
+            text=True,
+        )
+    except subprocess.CalledProcessError as exc:
+        print(f"Failed to read staged files: {exc}")
+        return []
+
+    paths = []
+    for line in output.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        if "/plugins/" not in line:
+            continue
+        if line.endswith("__init__.py") or os.path.basename(line).startswith("test_"):
+            continue
+        paths.append(repo_root / line)
+    return paths
+
+
 def _parse_frontmatter(content: str) -> Dict[str, str]:
     match = re.search(r'^\s*"""\n(.*?)\n"""', content, re.DOTALL)
     if not match:
@@ -202,6 +235,25 @@ def _get_post_id(plugin_file: Path) -> Optional[str]:
     return meta.get("openwebui_id") or meta.get("post_id")
 
 
+def _get_plugin_metadata(plugin_file: Path) -> Dict[str, str]:
+    try:
+        content = plugin_file.read_text(encoding="utf-8")
+    except Exception:
+        return {}
+    return _parse_frontmatter(content)
+
+
+def _find_readme_for_plugin(plugin_file: Path) -> Optional[str]:
+    plugin_dir = plugin_file.parent
+    is_cn = plugin_file.stem.endswith("_cn")
+    readme_candidates = ["README_CN.md", "README.md"] if is_cn else ["README.md", "README_CN.md"]
+    for name in readme_candidates:
+        readme_path = plugin_dir / name
+        if readme_path.exists():
+            return readme_path.read_text(encoding="utf-8")
+    return None
+
+
 def main() -> int:
     repo_root = _get_repo_root()
     _load_dotenv(repo_root)
@@ -223,10 +275,46 @@ def main() -> int:
     spec.loader.exec_module(module)
     client = module.get_client(api_key)
 
+    staged_plugins = _get_staged_plugin_files(repo_root)
     staged_readmes = _get_staged_readmes(repo_root)
-    if not staged_readmes:
-        print("No staged README files found.")
+    if not staged_plugins and not staged_readmes:
+        print("No staged README or plugin files found.")
         return 0
+
+    updated_post_ids: set[str] = set()
+
+    for plugin_file in staged_plugins:
+        if not plugin_file.exists():
+            print(f"Skipped (missing): {plugin_file}")
+            continue
+
+        post_id = _get_post_id(plugin_file)
+        if not post_id:
+            print(f"Skipped (no openwebui_id): {plugin_file}")
+            continue
+
+        try:
+            post_data = client.get_post(post_id)
+            if not post_data:
+                print(f"Skipped (post not found): {plugin_file}")
+                continue
+
+            source_code = plugin_file.read_text(encoding="utf-8")
+            metadata = _get_plugin_metadata(plugin_file)
+            readme_content = _find_readme_for_plugin(plugin_file)
+
+            ok = client.update_plugin(
+                post_id=post_id,
+                source_code=source_code,
+                readme_content=readme_content or metadata.get("description", ""),
+                metadata=metadata,
+                media_urls=None,
+            )
+            if ok:
+                updated_post_ids.add(post_id)
+                print(f"Updated plugin -> {plugin_file} (post_id: {post_id})")
+        except Exception as exc:
+            print(f"Failed: {plugin_file} ({exc})")
 
     for readme_path in staged_readmes:
         if not readme_path.exists():
@@ -244,6 +332,10 @@ def main() -> int:
             continue
 
         try:
+            if post_id in updated_post_ids:
+                print(f"Skipped (already updated via plugin): {readme_path}")
+                continue
+
             post_data = client.get_post(post_id)
             if not post_data:
                 print(f"Skipped (post not found): {readme_path}")
