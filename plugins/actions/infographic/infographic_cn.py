@@ -1,5 +1,5 @@
 """
-title: 📊 智能信息图 (AntV Infographic)
+title: 智能信息图
 author: Fu-Jie
 author_url: https://github.com/Fu-Jie/awesome-openwebui
 funding_url: https://github.com/open-webui

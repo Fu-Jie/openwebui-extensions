@@ -1,5 +1,5 @@
 """
-title: 📊 Smart Infographic (AntV)
+title: Smart Infographic
 author: Fu-Jie
 author_url: https://github.com/Fu-Jie/awesome-openwebui
 funding_url: https://github.com/open-webui

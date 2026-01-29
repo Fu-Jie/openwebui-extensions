@@ -1,4 +1,4 @@
-# 📊 Smart Infographic (AntV)
+# Smart Infographic
 
 **Author:** [Fu-Jie](https://github.com/Fu-Jie/awesome-openwebui) | **Version:** 1.5.0 | **Project:** [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui) | **License:** MIT
 

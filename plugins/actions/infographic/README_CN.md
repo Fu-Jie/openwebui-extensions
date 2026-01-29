@@ -1,4 +1,4 @@
-# 📊 智能信息图 (AntV Infographic)
+# 智能信息图
 
 **作者:** [Fu-Jie](https://github.com/Fu-Jie/awesome-openwebui) | **版本:** 1.5.0 | **项目:** [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui) | **许可证:** MIT
 
