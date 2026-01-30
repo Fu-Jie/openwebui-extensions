@@ -7,28 +7,28 @@ OpenWebUI 增强功能集合。包含个人开发与收集的插件、提示词�
 <!-- STATS_START -->
 ## 📊 社区统计
 
-> 🕐 自动更新于 2026-01-31 01:17
+> 🕐 自动更新于 2026-01-31 02:17
 
 | 👤 作者 | 👥 粉丝 | ⭐ 积分 | 🏆 贡献 |
 |:---:|:---:|:---:|:---:|
-| [Fu-Jie](https://openwebui.com/u/Fu-Jie) | **172** | **189** | **39** |
+| [Fu-Jie](https://openwebui.com/u/Fu-Jie) | **172** | **190** | **39** |
 
 | 📝 发布 | ⬇️ 下载 | 👁️ 浏览 | 👍 点赞 | 💾 收藏 |
 |:---:|:---:|:---:|:---:|:---:|
-| **20** | **2861** | **33876** | **165** | **216** |
+| **20** | **2863** | **33935** | **166** | **217** |
 
 ### 🔥 热门插件 Top 6
 
-> 🕐 自动更新于 2026-01-31 01:17
+> 🕐 自动更新于 2026-01-31 02:17
 
 | 排名 | 插件 | 版本 | 下载 | 浏览 | 更新日期 |
 |:---:|------|:---:|:---:|:---:|:---:|
-| 🥇 | [Smart Mind Map](https://openwebui.com/posts/turn_any_text_into_beautiful_mind_maps_3094c59a) | 0.9.2 | 720 | 6370 | 2026-01-28 |
-| 🥈 | [Smart Infographic](https://openwebui.com/posts/smart_infographic_ad6f0c7f) | 1.5.0 | 500 | 4480 | 2026-01-29 |
+| 🥇 | [Smart Mind Map](https://openwebui.com/posts/turn_any_text_into_beautiful_mind_maps_3094c59a) | 0.9.2 | 721 | 6381 | 2026-01-28 |
+| 🥈 | [Smart Infographic](https://openwebui.com/posts/smart_infographic_ad6f0c7f) | 1.5.0 | 501 | 4495 | 2026-01-29 |
 | 🥉 | [Export to Excel](https://openwebui.com/posts/export_mulit_table_to_excel_244b8f9d) | 0.3.7 | 285 | 1239 | 2026-01-29 |
-| 4️⃣ | [Export to Word (Enhanced)](https://openwebui.com/posts/export_to_word_enhanced_formatting_fca6a315) | 0.4.3 | 274 | 2173 | 2026-01-28 |
-| 5️⃣ | [Async Context Compression](https://openwebui.com/posts/async_context_compression_b1655bc8) | 1.2.2 | 262 | 2812 | 2026-01-28 |
-| 6️⃣ | [Markdown Normalizer](https://openwebui.com/posts/markdown_normalizer_baaa8732) | 1.2.4 | 198 | 3233 | 2026-01-29 |
+| 4️⃣ | [Export to Word (Enhanced)](https://openwebui.com/posts/export_to_word_enhanced_formatting_fca6a315) | 0.4.3 | 274 | 2174 | 2026-01-28 |
+| 5️⃣ | [Async Context Compression](https://openwebui.com/posts/async_context_compression_b1655bc8) | 1.2.2 | 262 | 2816 | 2026-01-28 |
+| 6️⃣ | [Markdown Normalizer](https://openwebui.com/posts/markdown_normalizer_baaa8732) | 1.2.4 | 198 | 3240 | 2026-01-29 |
 
 *完整统计请查看 [社区统计报告](./docs/community-stats.zh.md)*
 <!-- STATS_END -->
