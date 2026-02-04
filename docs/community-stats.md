@@ -1,15 +1,15 @@
 # 📊 OpenWebUI Community Stats Report
 
-> 📅 Updated: 2026-02-04 08:39
+> 📅 Updated: 2026-02-04 13:25
 
 ## 📈 Overview
 
 | Metric | Value |
 |------|------|
 | 📝 Total Posts | 20 |
-| ⬇️ Total Downloads | 3283 |
-| 👁️ Total Views | 38543 |
-| 👍 Total Upvotes | 171 |
+| ⬇️ Total Downloads | 3297 |
+| 👁️ Total Views | 38712 |
+| 👍 Total Upvotes | 190 |
 | 💾 Total Saves | 236 |
 | 💬 Total Comments | 45 |
 
@@ -23,23 +23,23 @@
 
 | Rank | Title | Type | Version | Downloads | Views | Upvotes | Saves | Updated |
 |:---:|------|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| 1 | [Smart Mind Map](https://openwebui.com/posts/turn_any_text_into_beautiful_mind_maps_3094c59a) | action | 0.9.2 | 793 | 6978 | 19 | 43 | 2026-01-28 |
-| 2 | [Smart Infographic](https://openwebui.com/posts/smart_infographic_ad6f0c7f) | action | 1.5.0 | 564 | 5132 | 21 | 31 | 2026-01-30 |
-| 3 | [Export to Word (Enhanced)](https://openwebui.com/posts/export_to_word_enhanced_formatting_fca6a315) | action | 0.4.3 | 311 | 2434 | 10 | 24 | 2026-01-28 |
-| 4 | [Export to Excel](https://openwebui.com/posts/export_mulit_table_to_excel_244b8f9d) | action | 0.3.7 | 308 | 1383 | 5 | 6 | 2026-01-29 |
-| 5 | [Async Context Compression](https://openwebui.com/posts/async_context_compression_b1655bc8) | action | 1.2.2 | 301 | 3155 | 11 | 30 | 2026-01-28 |
-| 6 | [Markdown Normalizer](https://openwebui.com/posts/markdown_normalizer_baaa8732) | action | 1.2.4 | 250 | 3693 | 13 | 26 | 2026-01-29 |
-| 7 | [Flash Card](https://openwebui.com/posts/flash_card_65a2ea8f) | action | 0.2.4 | 203 | 3102 | 11 | 14 | 2026-01-28 |
-| 8 | [Deep Dive](https://openwebui.com/posts/deep_dive_c0b846e4) | action | 1.0.0 | 116 | 1038 | 4 | 9 | 2026-01-08 |
-| 9 | [导出为 Word (增强版)](https://openwebui.com/posts/导出为_word_支持公式流程图表格和代码块_8a6306c0) | action | 0.4.3 | 112 | 1990 | 11 | 6 | 2026-01-28 |
-| 10 | [AI Task Instruction Generator](https://openwebui.com/posts/ai_task_instruction_generator_9bab8b37) | unknown |  | 103 | 1518 | 5 | 3 | 2026-01-28 |
-| 11 | [智能信息图](https://openwebui.com/posts/智能信息图_e04a48ff) | action | 1.5.0 | 50 | 923 | 8 | 1 | 2026-01-29 |
-| 12 | [📂 Folder Memory – Auto-Evolving Project Context](https://openwebui.com/posts/folder_memory_auto_evolving_project_context_4a9875b2) | filter | 0.1.0 | 44 | 1071 | 4 | 8 | 2026-01-20 |
-| 13 | [GitHub Copilot Official SDK Pipe](https://openwebui.com/posts/github_copilot_official_sdk_pipe_ce96f7b4) | action | 0.2.3 | 40 | 1441 | 9 | 4 | 2026-01-29 |
-| 14 | [思维导图](https://openwebui.com/posts/智能生成交互式思维导图帮助用户可视化知识_8d4b097b) | action | 0.9.2 | 31 | 521 | 4 | 2 | 2026-01-28 |
-| 15 | [异步上下文压缩](https://openwebui.com/posts/异步上下文压缩_5c0617cb) | action | 1.2.2 | 25 | 575 | 5 | 4 | 2026-01-28 |
-| 16 | [闪记卡 (Flash Card)](https://openwebui.com/posts/闪记卡生成插件_4a31eac3) | action | 0.2.4 | 21 | 587 | 6 | 1 | 2026-01-28 |
-| 17 | [精读](https://openwebui.com/posts/精读_99830b0f) | action | 1.0.0 | 11 | 359 | 3 | 1 | 2026-01-08 |
-| 18 | [🚀 Open WebUI Prompt Plus: AI-Powered Prompt Manager](https://openwebui.com/posts/open_webui_prompt_plus_ai_powered_prompt_manager_s_15fa060e) | unknown |  | 0 | 1160 | 9 | 15 | 2026-01-28 |
-| 19 | [Review of Claude Haiku 4.5](https://openwebui.com/posts/review_of_claude_haiku_45_41b0db39) | unknown |  | 0 | 126 | 1 | 0 | 2026-01-14 |
-| 20 | [ 🛠️ Debug Open WebUI Plugins in Your Browser](https://openwebui.com/posts/debug_open_webui_plugins_in_your_browser_81bf7960) | unknown |  | 0 | 1357 | 12 | 8 | 2026-01-10 |
+| 1 | [Smart Mind Map](https://openwebui.com/posts/turn_any_text_into_beautiful_mind_maps_3094c59a) | action | 0.9.2 | 797 | 7002 | 20 | 43 | 2026-01-28 |
+| 2 | [Smart Infographic](https://openwebui.com/posts/smart_infographic_ad6f0c7f) | action | 1.5.0 | 564 | 5152 | 22 | 31 | 2026-01-30 |
+| 3 | [Export to Word (Enhanced)](https://openwebui.com/posts/export_to_word_enhanced_formatting_fca6a315) | action | 0.4.3 | 312 | 2440 | 11 | 24 | 2026-01-28 |
+| 4 | [Export to Excel](https://openwebui.com/posts/export_mulit_table_to_excel_244b8f9d) | action | 0.3.7 | 308 | 1389 | 6 | 6 | 2026-01-29 |
+| 5 | [Async Context Compression](https://openwebui.com/posts/async_context_compression_b1655bc8) | action | 1.2.2 | 301 | 3162 | 12 | 30 | 2026-01-28 |
+| 6 | [Markdown Normalizer](https://openwebui.com/posts/markdown_normalizer_baaa8732) | action | 1.2.4 | 251 | 3700 | 14 | 26 | 2026-01-29 |
+| 7 | [Flash Card](https://openwebui.com/posts/flash_card_65a2ea8f) | action | 0.2.4 | 204 | 3111 | 12 | 14 | 2026-01-28 |
+| 8 | [Deep Dive](https://openwebui.com/posts/deep_dive_c0b846e4) | action | 1.0.0 | 116 | 1040 | 5 | 9 | 2026-01-08 |
+| 9 | [导出为 Word (增强版)](https://openwebui.com/posts/导出为_word_支持公式流程图表格和代码块_8a6306c0) | action | 0.4.3 | 112 | 1996 | 12 | 6 | 2026-01-28 |
+| 10 | [AI Task Instruction Generator](https://openwebui.com/posts/ai_task_instruction_generator_9bab8b37) | unknown |  | 110 | 1551 | 6 | 3 | 2026-01-28 |
+| 11 | [智能信息图](https://openwebui.com/posts/智能信息图_e04a48ff) | action | 1.5.0 | 50 | 929 | 9 | 1 | 2026-01-29 |
+| 12 | [📂 Folder Memory – Auto-Evolving Project Context](https://openwebui.com/posts/folder_memory_auto_evolving_project_context_4a9875b2) | filter | 0.1.0 | 44 | 1076 | 5 | 8 | 2026-01-20 |
+| 13 | [GitHub Copilot Official SDK Pipe](https://openwebui.com/posts/github_copilot_official_sdk_pipe_ce96f7b4) | action | 0.2.3 | 40 | 1452 | 10 | 4 | 2026-01-29 |
+| 14 | [思维导图](https://openwebui.com/posts/智能生成交互式思维导图帮助用户可视化知识_8d4b097b) | action | 0.9.2 | 31 | 524 | 5 | 2 | 2026-01-28 |
+| 15 | [异步上下文压缩](https://openwebui.com/posts/异步上下文压缩_5c0617cb) | action | 1.2.2 | 25 | 578 | 6 | 4 | 2026-01-28 |
+| 16 | [闪记卡 (Flash Card)](https://openwebui.com/posts/闪记卡生成插件_4a31eac3) | action | 0.2.4 | 21 | 589 | 7 | 1 | 2026-01-28 |
+| 17 | [精读](https://openwebui.com/posts/精读_99830b0f) | action | 1.0.0 | 11 | 361 | 4 | 1 | 2026-01-08 |
+| 18 | [🚀 Open WebUI Prompt Plus: AI-Powered Prompt Manager](https://openwebui.com/posts/open_webui_prompt_plus_ai_powered_prompt_manager_s_15fa060e) | unknown |  | 0 | 1173 | 10 | 15 | 2026-01-28 |
+| 19 | [Review of Claude Haiku 4.5](https://openwebui.com/posts/review_of_claude_haiku_45_41b0db39) | unknown |  | 0 | 127 | 1 | 0 | 2026-01-14 |
+| 20 | [ 🛠️ Debug Open WebUI Plugins in Your Browser](https://openwebui.com/posts/debug_open_webui_plugins_in_your_browser_81bf7960) | unknown |  | 0 | 1360 | 13 | 8 | 2026-01-10 |
