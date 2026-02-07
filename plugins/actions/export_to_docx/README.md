@@ -1,14 +1,15 @@
 # 📝 Export to Word (Enhanced)
 
-**Author:** [Fu-Jie](https://github.com/Fu-Jie/awesome-openwebui) | **Version:** 0.4.3 | **Project:** [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui) | **License:** MIT
+**Author:** [Fu-Jie](https://github.com/Fu-Jie/awesome-openwebui) | **Version:** 0.4.4 | **Project:** [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui) | **License:** MIT
 
 Export conversation to Word (.docx) with **syntax highlighting**, **native math equations**, **Mermaid diagrams**, **citations**, and **enhanced table formatting**.
 
-## 🔥 What's New in v0.4.3
+## 🔥 What's New in v0.4.4
 
-- ✨ **S3 Object Storage Support**: Direct access to images stored in S3/MinIO via boto3, bypassing API layer for faster exports.
-- 🔧 **Multi-level File Fallback**: 6-level fallback mechanism for file retrieval (DB → S3 → Local → URL → API → Attributes).
-- 🛡️ **Improved Error Handling**: Better logging and error messages for file retrieval failures.
+- 🧹 **Content Cleanup**: Enhanced stripping of `<details>` blocks (often used for tool calls/thinking process) to ensure a clean final document.
+- 📄 **Standard Document Formatting**: Applied professional document formatting standards for titles and headings (centered title, bold, optimized font sizes and spacing), including GB/T compliance for Chinese content.
+- 🔠 **Font Rendering Fix**: Fixed an issue where CJK characters would fallback to MS Gothic in Word; now correctly uses the configured Asian font (e.g., SimSun).
+- ⚙️ **Title Alignment**: Added `TITLE_ALIGNMENT` valve to configure document title alignment (left, center, right).
 
 ## ✨ Key Features
 

@@ -1,7 +1,7 @@
 # Export to Word
 
 <span class="category-badge action">Action</span>
-<span class="version-badge">v0.4.3</span>
+<span class="version-badge">v0.4.4</span>
 
 Export conversation to Word (.docx) with **syntax highlighting**, **native math equations**, **Mermaid diagrams**, **citations**, and **enhanced table formatting**.
 
@@ -53,11 +53,17 @@ You can configure the following settings via the **Valves** button in the plugin
 | `MATH_ENABLE` | Enable LaTeX math block conversion. | `True` |
 | `MATH_INLINE_DOLLAR_ENABLE` | Enable inline `$ ... $` math conversion. | `True` |
 
-## 🔥 What's New in v0.4.3
+## 🔥 What's New in v0.4.4
+
+- 🧹 **Content Cleanup**: Enhanced stripping of `<details>` blocks (often used for tool calls/thinking process) to ensure a clean final document.
+- 📄 **Standard Document Formatting**: Applied professional document formatting standards for titles and headings (centered title, bold, optimized font sizes and spacing), including GB/T compliance for Chinese content.
+- 🔠 **Font Rendering Fix**: Fixed an issue where CJK characters would fallback to MS Gothic in Word; now correctly uses the configured Asian font (e.g., SimSun).
+- ⚙️ **Title Alignment**: Added `TITLE_ALIGNMENT` valve to configure document title alignment (left, center, right).
 
 ### User-Level Configuration (UserValves)
 
 Users can override the following settings in their personal settings:
+
 - `TITLE_SOURCE`
 - `UI_LANGUAGE`
 - `FONT_LATIN`, `FONT_ASIAN`, `FONT_CODE`
@@ -120,4 +126,4 @@ Users can override the following settings in their personal settings:
 ## Source Code
 
 [:fontawesome-brands-github: View on GitHub](https://github.com/Fu-Jie/awesome-openwebui/tree/main/plugins/actions/export_to_docx){ .md-button }
-**Author:** [Fu-Jie](https://github.com/Fu-Jie) | **Version:** 0.4.3 | **Project:** [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui)
+**Author:** [Fu-Jie](https://github.com/Fu-Jie) | **Version:** 0.4.4 | **Project:** [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui)

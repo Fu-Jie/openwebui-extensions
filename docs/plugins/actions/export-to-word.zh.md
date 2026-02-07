@@ -1,7 +1,7 @@
 # Export to Word（导出为 Word）
 
 <span class="category-badge action">Action</span>
-<span class="version-badge">v0.4.3</span>
+<span class="version-badge">v0.4.4</span>
 
 将当前对话导出为完美格式的 Word 文档，支持**代码语法高亮**、**原生数学公式**、**Mermaid 图表**、**引用资料**以及**增强表格**渲染。
 
@@ -53,9 +53,17 @@ Export to Word 插件会把聊天消息从 Markdown 转成精致的 Word 文档�
 | `启用数学公式` | 启用 LaTeX 数学公式块转换。 | `True` |
 | `启用行内公式` | 启用行内 `$ ... $` 数学公式转换。 | `True` |
 
+## 🔥 v0.4.4 更新内容
+
+- 🧹 **内容清理加强**: 增强了对 `<details>` 块（通常包含工具调用或思考过程）的清理，确保最终文档整洁。
+- 📄 **文档格式标准化**: 采用了专业的文档排版标准（兼容中文 GB/T 规范），标题居中加粗，各级标题使用标准字号和间距。
+- 🔠 **字体渲染修复**: 修复了 CJK 字符在 Word 中回退到 MS Gothic 的问题；现在正确使用配置的中文字体（例如宋体）。
+- ⚙️ **标题对齐配置**: 新增 `标题对齐方式` Valve，支持配置文档标题的对齐方式（左对齐、居中、右对齐）。
+
 ### 用户级配置 (UserValves)
 
 用户可以在个人设置中覆盖以下配置：
+
 - `文档标题来源`
 - `界面语言`
 - `英文字体`, `中文字体`, `代码字体`
@@ -117,4 +125,5 @@ Export to Word 插件会把聊天消息从 Markdown 转成精致的 Word 文档�
 
 ## 源码
 
-[:fontawes**Author:** [Fu-Jie](https://github.com/Fu-Jie) | **Version:** 0.4.3 | **Project:** [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui)/tree/main/plugins/actions/export_to_docx){ .md-button }
+[:fontawesome-brands-github: View on GitHub](https://github.com/Fu-Jie/awesome-openwebui/tree/main/plugins/actions/export_to_docx){ .md-button }
+**Author:** [Fu-Jie](https://github.com/Fu-Jie) | **Version:** 0.4.4 | **Project:** [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui)

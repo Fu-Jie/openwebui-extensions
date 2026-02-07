@@ -17,7 +17,7 @@ Actions are interactive plugins that:
 
 <div class="grid cards" markdown>
 
--   :material-brain:{ .lg .middle } **Smart Mind Map**
+- :material-brain:{ .lg .middle } **Smart Mind Map**
 
     ---
 
@@ -27,7 +27,7 @@ Actions are interactive plugins that:
 
     [:octicons-arrow-right-24: Documentation](smart-mind-map.md)
 
--   :material-chart-bar:{ .lg .middle } **Smart Infographic**
+- :material-chart-bar:{ .lg .middle } **Smart Infographic**
 
     ---
 
@@ -37,7 +37,7 @@ Actions are interactive plugins that:
 
     [:octicons-arrow-right-24: Documentation](smart-infographic.md)
 
--   :material-card-text:{ .lg .middle } **Flash Card**
+- :material-card-text:{ .lg .middle } **Flash Card**
 
     ---
 
@@ -47,7 +47,7 @@ Actions are interactive plugins that:
 
     [:octicons-arrow-right-24: Documentation](flash-card.md)
 
--   :material-file-excel:{ .lg .middle } **Export to Excel**
+- :material-file-excel:{ .lg .middle } **Export to Excel**
 
     ---
 
@@ -57,17 +57,17 @@ Actions are interactive plugins that:
 
     [:octicons-arrow-right-24: Documentation](export-to-excel.md)
 
--   :material-file-word-box:{ .lg .middle } **Export to Word (Enhanced Formatting)**
+- :material-file-word-box:{ .lg .middle } **Export to Word (Enhanced Formatting)**
 
     ---
 
     Export the current conversation to a formatted Word doc with **syntax highlighting**, **native math equations**, **Mermaid diagrams**, **citations**, and **enhanced table formatting**.
-    
-    **Version:** 0.4.2
+
+    **Version:** 0.4.4
 
     [:octicons-arrow-right-24: Documentation](export-to-word.md)
 
--   :material-brain:{ .lg .middle } **Deep Dive**
+- :material-brain:{ .lg .middle } **Deep Dive**
 
     ---
 
@@ -76,8 +76,6 @@ Actions are interactive plugins that:
     **Version:** 1.0.0
 
     [:octicons-arrow-right-24: Documentation](deep-dive.md)
-
-
 
 </div>
 

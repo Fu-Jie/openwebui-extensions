@@ -17,7 +17,7 @@ Actions 是交互式插件，能够：
 
 <div class="grid cards" markdown>
 
--   :material-brain:{ .lg .middle } **Smart Mind Map**
+- :material-brain:{ .lg .middle } **Smart Mind Map**
 
     ---
 
@@ -27,7 +27,7 @@ Actions 是交互式插件，能够：
 
     [:octicons-arrow-right-24: 查看文档](smart-mind-map.md)
 
--   :material-chart-bar:{ .lg .middle } **Smart Infographic**
+- :material-chart-bar:{ .lg .middle } **Smart Infographic**
 
     ---
 
@@ -37,7 +37,7 @@ Actions 是交互式插件，能够：
 
     [:octicons-arrow-right-24: 查看文档](smart-infographic.md)
 
--   :material-card-text:{ .lg .middle } **Flash Card（闪记卡）**
+- :material-card-text:{ .lg .middle } **Flash Card（闪记卡）**
 
     ---
 
@@ -47,7 +47,7 @@ Actions 是交互式插件，能够：
 
     [:octicons-arrow-right-24: 查看文档](flash-card.md)
 
--   :material-file-excel:{ .lg .middle } **Export to Excel**
+- :material-file-excel:{ .lg .middle } **Export to Excel**
 
     ---
 
@@ -57,17 +57,17 @@ Actions 是交互式插件，能够：
 
     [:octicons-arrow-right-24: 查看文档](export-to-excel.md)
 
--   :material-file-word-box:{ .lg .middle } **Word 导出 (格式增强)**
+- :material-file-word-box:{ .lg .middle } **Word 导出 (格式增强)**
 
     ---
 
     将当前对话导出为完美格式的 Word 文档，支持**代码语法高亮**、**原生数学公式**、**Mermaid 图表**、**引用资料**以及**增强表格**渲染。
 
-    **版本：** 0.4.2
+    **版本：** 0.4.4
 
     [:octicons-arrow-right-24: 查看文档](export-to-word.md)
 
--   :material-brain:{ .lg .middle } **精读 (Deep Dive)**
+- :material-brain:{ .lg .middle } **精读 (Deep Dive)**
 
     ---
 
@@ -76,8 +76,6 @@ Actions 是交互式插件，能够：
     **版本：** 1.0.0
 
     [:octicons-arrow-right-24: 查看文档](deep-dive.zh.md)
-
-
 
 </div>
 

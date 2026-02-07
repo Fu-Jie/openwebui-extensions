@@ -1,14 +1,15 @@
 # 📝 导出为 Word (增强版)
 
-**Author:** [Fu-Jie](https://github.com/Fu-Jie/awesome-openwebui) | **Version:** 0.4.3 | **Project:** [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui) | **许可证:** MIT
+**Author:** [Fu-Jie](https://github.com/Fu-Jie/awesome-openwebui) | **Version:** 0.4.4 | **Project:** [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui) | **许可证:** MIT
 
 将对话导出为 Word (.docx)，支持**代码语法高亮**、**原生数学公式**、**Mermaid 图表**、**引用参考**和**增强表格格式**。
 
-## 🔥 v0.4.3 更新内容
+## 🔥 v0.4.4 更新内容
 
-- ✨ **S3 对象存储支持**: 通过 boto3 直连 S3/MinIO，绕过 API 层，导出速度更快。
-- 🔧 **多级文件回退**: 6 级文件获取机制（数据库 → S3 → 本地 → URL → API → 属性）。
-- 🛡️ **错误处理优化**: 更完善的日志记录和错误提示，便于调试文件访问问题。
+- 🧹 **内容清理加强**: 增强了对 `<details>` 块（通常包含工具调用或思考过程）的清理，确保最终文档整洁。
+- 📄 **文档格式标准化**: 采用了专业的文档排版标准（兼容中文 GB/T 规范），标题居中加粗，各级标题使用标准字号和间距。
+- 🔠 **字体渲染修复**: 修复了 CJK 字符在 Word 中回退到 MS Gothic 的问题；现在正确使用配置的中文字体（例如宋体）。
+- ⚙️ **标题对齐配置**: 新增 `标题对齐方式` Valve，支持配置文档标题的对齐方式（左对齐、居中、右对齐）。
 
 ## ✨ 核心特性
 

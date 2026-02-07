@@ -1,9 +1,9 @@
 """
-title: 导出为 Word (增强版)
+title: 导出为Word增强版
 author: Fu-Jie
 author_url: https://github.com/Fu-Jie/awesome-openwebui
 funding_url: https://github.com/open-webui
-version: 0.4.3
+version: 0.4.4
 openwebui_id: 8a6306c0-d005-4e46-aaae-8db3532c9ed5
 icon_url: data:image/svg+xml;base64,PHN2ZwogIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIKICB3aWR0aD0iMjQiCiAgaGVpZ2h0PSIyNCIKICB2aWV3Qm94PSIwIDAgMjQgMjQiCiAgZmlsbD0ibm9uZSIKICBzdHJva2U9ImN1cnJlbnRDb2xvciIKICBzdHJva2Utd2lkdGg9IjIiCiAgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIgogIHN0cm9rZS1saW5lam9pbj0icm91bmQiCj4KICA8cGF0aCBkPSJNNiAyMmEyIDIgMCAwIDEtMi0yVjRhMiAyIDAgMCAxIDItMmg4YTIuNCAyLjQgMCAwIDEgMS43MDQuNzA2bDMuNTg4IDMuNTg4QTIuNCAyLjQgMCAwIDEgMjAgOHYxMmEyIDIgMCAwIDEtMiAyeiIgLz4KICA8cGF0aCBkPSJNMTQgMnY1YTEgMSAwIDAgMCAxIDFoNSIgLz4KICA8cGF0aCBkPSJNMTAgOUg4IiAvPgogIDxwYXRoIGQ9Ik0xNiAxM0g4IiAvPgogIDxwYXRoIGQ9Ik0xNiAxN0g4IiAvPgo8L3N2Zz4K
 requirements: python-docx, Pygments, latex2mathml, mathml2omml
@@ -101,9 +101,8 @@ _TRANSPARENT_1PX_PNG = base64.b64decode(
 _ASVG_NS = "http://schemas.microsoft.com/office/drawing/2016/SVG/main"
 nsmap.setdefault("asvg", _ASVG_NS)
 
-_REASONING_DETAILS_RE = re.compile(
-    r"<details\b[^>]*\btype\s*=\s*(?:\"reasoning\"|'reasoning'|reasoning)[^>]*>.*?</details\s*>",
-    re.IGNORECASE | re.DOTALL,
+_ALL_DETAILS_RE = re.compile(
+    r"<details\b[^>]*>.*?</details\s*>", re.IGNORECASE | re.DOTALL
 )
 _THINK_RE = re.compile(r"<think\b[^>]*>.*?</think\s*>", re.IGNORECASE | re.DOTALL)
 _ANALYSIS_RE = re.compile(
@@ -178,6 +177,12 @@ class Action:
             description="Font for code blocks and inline code (e.g., 'Consolas', 'Courier New', 'Monaco')",
         )
 
+        # Title alignment
+        标题对齐方式: str = Field(
+            default="center",
+            description="标题对齐方式: 'left' (左对齐), 'center' (居中), 或 'right' (右对齐)",
+        )
+
         # Table styling
         表头背景色: str = Field(
             default="F2F2F2",
@@ -242,60 +247,60 @@ class Action:
         )
 
     class UserValves(BaseModel):
-        文档标题来源: str = Field(
-            default="chat_title",
+        文档标题来源: Optional[str] = Field(
+            default=None,
             description="Title Source: 'chat_title' (Chat Title), 'ai_generated' (AI Generated), 'markdown_title' (Markdown Title)",
         )
-        界面语言: str = Field(
-            default="zh",
+        界面语言: Optional[str] = Field(
+            default=None,
             description="UI language for export messages. Options: 'en' (English), 'zh' (Chinese)",
         )
-        英文字体: str = Field(
-            default="Calibri",
+        英文字体: Optional[str] = Field(
+            default=None,
             description="Font for Latin characters (e.g., 'Times New Roman', '', 'Arial')",
         )
-        中文字体: str = Field(
-            default="SimSun",
+        中文字体: Optional[str] = Field(
+            default=None,
             description="Font for Asian characters (e.g., 'SimSun', 'Microsoft YaHei', 'PingFang SC')",
         )
-        代码字体: str = Field(
-            default="Consolas",
+        代码字体: Optional[str] = Field(
+            default=None,
             description="Font for code blocks and inline code (e.g., 'Consolas', 'Courier New', 'Monaco')",
         )
-        表头背景色: str = Field(
-            default="F2F2F2",
+        表头背景色: Optional[str] = Field(
+            default=None,
             description="Table header background color (hex, without #)",
         )
-        表格隔行背景色: str = Field(
-            default="FBFBFB",
+        表格隔行背景色: Optional[str] = Field(
+            default=None,
             description="Table zebra stripe background color for alternate rows (hex, without #)",
         )
-        Mermaid_PNG缩放比例: float = Field(
-            default=3.0,
+        Mermaid_PNG缩放比例: Optional[float] = Field(
+            default=None,
             description="PNG render resolution multiplier (higher = clearer, larger file)",
         )
-        Mermaid显示比例: float = Field(
-            default=1.0,
+        Mermaid显示比例: Optional[float] = Field(
+            default=None,
             description="Diagram width relative to available page width (<=1 recommended)",
         )
-        Mermaid布局优化: bool = Field(
-            default=False,
+        Mermaid布局优化: Optional[bool] = Field(
+            default=None,
             description="Optimize Mermaid layout: convert LR to TD for graph/flowchart",
         )
-        Mermaid背景色: str = Field(
-            default="",
+        Mermaid背景色: Optional[str] = Field(
+            default=None,
             description="Mermaid background color. Empty = transparent (recommended for Word dark mode). Used only for optional PNG fill.",
         )
-        启用Mermaid图注: bool = Field(
-            default=True,
+        启用Mermaid图注: Optional[bool] = Field(
+            default=None,
             description="Add figure captions under Mermaid images/charts",
         )
-        启用数学公式: bool = Field(
-            default=True,
+        启用数学公式: Optional[bool] = Field(
+            default=None,
             description="Enable LaTeX math block conversion (\\\\[...\\\\] and $$...$$) into Word equations",
         )
-        启用行内公式: bool = Field(
-            default=True,
+        启用行内公式: Optional[bool] = Field(
+            default=None,
             description="Enable inline $...$ math conversion into Word equations (conservative parsing to reduce false positives)",
         )
 
@@ -449,11 +454,21 @@ class Action:
             user_id = __user__.get("id", "unknown_user")
 
         # Apply UserValves if present
-        if __user__ and "valves" in __user__:
-            # Update self.valves with user-specific values
-            for key, value in __user__["valves"].model_dump().items():
-                if hasattr(self.valves, key):
-                    setattr(self.valves, key, value)
+        if __user__:
+            # Robustly parse UserValves whether it's a dict or Pydantic model
+            raw_valves = __user__.get("valves", {})
+            if isinstance(raw_valves, self.UserValves):
+                user_valves = raw_valves
+            elif isinstance(raw_valves, dict):
+                user_valves = self.UserValves(**raw_valves)
+            else:
+                user_valves = None
+
+            if user_valves:
+                for key, value in user_valves.model_dump(exclude_unset=True).items():
+                    # Only override if the value is not None (and explicitly set)
+                    if hasattr(self.valves, key) and value is not None:
+                        setattr(self.valves, key, value)
 
         # Get user language from Valves configuration
         self._user_lang = self._get_lang_key(self.valves.界面语言)
@@ -490,6 +505,37 @@ class Action:
             try:
                 message_content = last_assistant_message["content"]
                 if isinstance(message_content, str):
+                    if __event_emitter__ and self.valves.SHOW_DEBUG_LOG:
+                        debug_data = {}
+                        for name, regex in [
+                            ("Details Block (详情块)", _ALL_DETAILS_RE),
+                            ("Think Block (思考块)", _THINK_RE),
+                            ("Analysis Block (分析块)", _ANALYSIS_RE),
+                        ]:
+                            matches = regex.findall(message_content)
+                            if matches:
+                                debug_data[name] = [
+                                    (m[:200] + "...") if len(m) > 200 else m
+                                    for m in matches
+                                ]
+                        if debug_data:
+                            await self._emit_debug_log(
+                                __event_emitter__,
+                                "上下文内容清理分析 (Context Stripping Analysis)",
+                                debug_data,
+                            )
+
+                        # Log font configuration
+                        await self._emit_debug_log(
+                            __event_emitter__,
+                            "字体配置 (Font Configuration)",
+                            {
+                                "英文字体 (Latin Font)": self.valves.英文字体,
+                                "中文字体 (Asian Font)": self.valves.中文字体,
+                                "代码字体 (Code Font)": self.valves.代码字体,
+                            },
+                        )
+
                     message_content = self._strip_reasoning_blocks(message_content)
 
                 if not message_content or not message_content.strip():
@@ -1101,34 +1147,11 @@ class Action:
         return title.strip() if isinstance(title, str) else ""
 
     def clean_filename(self, name: str) -> str:
-        """Clean illegal characters from filename and strip emoji."""
+        """清理文件名中的非法字符并移除 Emoji"""
         if not isinstance(name, str):
             return ""
 
-        def _is_emoji_codepoint(codepoint: int) -> bool:
-            # Common emoji ranges + flag regional indicators.
-            return (
-                0x1F000 <= codepoint <= 0x1FAFF
-                or 0x1F1E6 <= codepoint <= 0x1F1FF
-                or 0x2600 <= codepoint <= 0x26FF
-                or 0x2700 <= codepoint <= 0x27BF
-                or 0x2300 <= codepoint <= 0x23FF
-                or 0x2B00 <= codepoint <= 0x2BFF
-            )
-
-        def _is_emoji_modifier(codepoint: int) -> bool:
-            # VS15/VS16, ZWJ, keycap, skin tones, and tag characters used in some emoji sequences.
-            return (
-                codepoint in (0x200D, 0xFE0E, 0xFE0F, 0x20E3)
-                or 0x1F3FB <= codepoint <= 0x1F3FF
-                or 0xE0020 <= codepoint <= 0xE007F
-            )
-
-        without_emoji = "".join(
-            ch
-            for ch in name
-            if not (_is_emoji_codepoint(ord(ch)) or _is_emoji_modifier(ord(ch)))
-        )
+        without_emoji = self._remove_emojis(name)
         cleaned = re.sub(r'[\\/*?:"<>|]', "", without_emoji)
         cleaned = re.sub(r"\s+", " ", cleaned).strip().strip(".")
         return cleaned[:50].strip()
@@ -1496,7 +1519,10 @@ class Action:
 
             # If there is no h1 in content, prepend chat title as h1 when provided
             if top_heading and not has_h1:
-                self.add_heading(doc, top_heading, 1)
+                # Remove emojis from title for a professional look
+                clean_title = self._remove_emojis(top_heading)
+                # Use Title style (level 0) for the main document title
+                self.add_heading(doc, clean_title, 0)
 
             lines = markdown_text.split("\n")
             i = 0
@@ -1756,7 +1782,7 @@ class Action:
         cur = text
         for _ in range(10):
             prev = cur
-            cur = _REASONING_DETAILS_RE.sub("", cur)
+            cur = _ALL_DETAILS_RE.sub("", cur)
             cur = _THINK_RE.sub("", cur)
             cur = _ANALYSIS_RE.sub("", cur)
             if cur == prev:
@@ -2240,13 +2266,153 @@ class Action:
         font = style.font
         font.name = self.valves.英文字体
         font.size = Pt(11)
-        # Set Asian font
-        style._element.rPr.rFonts.set(qn("w:eastAsia"), self.valves.中文字体)
+
+        # Ensure rPr element exists
+        rPr = style._element.get_or_add_rPr()
+        rFonts = rPr.get_or_add_rFonts()
+
+        # Set Latin and Asian fonts explicitly
+        rFonts.set(qn("w:ascii"), self.valves.英文字体)
+        rFonts.set(qn("w:hAnsi"), self.valves.英文字体)
+        rFonts.set(qn("w:eastAsia"), self.valves.中文字体)
+
+        # Set language to zh-CN to prevent MS Gothic fallback (Japanese font)
+        lang = rPr.find(qn("w:lang"))
+        if lang is None:
+            lang = OxmlElement("w:lang")
+            rPr.append(lang)
+        lang.set(qn("w:val"), "en-US")
+        lang.set(qn("w:eastAsia"), "zh-CN")
+
+        logger.info(
+            f"[Font Config] Latin: {self.valves.英文字体}, Asian: {self.valves.中文字体}"
+        )
 
         # Set paragraph format
         paragraph_format = style.paragraph_format
         paragraph_format.line_spacing_rule = WD_LINE_SPACING.ONE_POINT_FIVE
         paragraph_format.space_after = Pt(6)
+
+        # 配置 Title 样式 (用于文档标题)
+        # 标准格式: 22pt (二号), 加粗, 居中, 段后 24pt
+        if "Title" in doc.styles:
+            title_style = doc.styles["Title"]
+            title_font = title_style.font
+            title_font.name = self.valves.英文字体
+            title_font.size = Pt(22)  # 二号字体
+            title_font.bold = True
+            title_font.color.rgb = RGBColor(0, 0, 0)
+
+            # 段落格式: 根据配置设置对齐方式和间距
+            title_pf = title_style.paragraph_format
+            alignment_map = {
+                "left": WD_ALIGN_PARAGRAPH.LEFT,
+                "center": WD_ALIGN_PARAGRAPH.CENTER,
+                "right": WD_ALIGN_PARAGRAPH.RIGHT,
+            }
+            title_pf.alignment = alignment_map.get(
+                self.valves.标题对齐方式.lower(), WD_ALIGN_PARAGRAPH.CENTER
+            )
+            title_pf.space_before = Pt(0)
+            title_pf.space_after = Pt(24)
+
+            t_rPr = title_style._element.get_or_add_rPr()
+            t_rFonts = t_rPr.get_or_add_rFonts()
+            t_rFonts.set(qn("w:ascii"), self.valves.英文字体)
+            t_rFonts.set(qn("w:hAnsi"), self.valves.英文字体)
+            t_rFonts.set(qn("w:eastAsia"), self.valves.中文字体)
+
+            # Set language for Title
+            t_lang = t_rPr.find(qn("w:lang"))
+            if t_lang is None:
+                t_lang = OxmlElement("w:lang")
+                t_rPr.append(t_lang)
+            t_lang.set(qn("w:val"), "en-US")
+            t_lang.set(qn("w:eastAsia"), "zh-CN")
+
+        # 标准标题字号 (基于中文文档规范):
+        # Heading 1: 16pt (三号), 加粗, 段前 24pt, 段后 12pt
+        # Heading 2: 15pt (小三), 加粗, 段前 18pt, 段后 6pt
+        # Heading 3: 14pt (四号), 加粗, 段前 12pt, 段后 6pt
+        # Heading 4-9: 12pt (小四), 加粗, 逐级减小间距
+        heading_formats = {
+            1: {"size": 16, "space_before": 24, "space_after": 12},
+            2: {"size": 15, "space_before": 18, "space_after": 6},
+            3: {"size": 14, "space_before": 12, "space_after": 6},
+            4: {"size": 12, "space_before": 12, "space_after": 6},
+            5: {"size": 12, "space_before": 6, "space_after": 6},
+            6: {"size": 11, "space_before": 6, "space_after": 3},
+            7: {"size": 11, "space_before": 6, "space_after": 3},
+            8: {"size": 10.5, "space_before": 6, "space_after": 3},
+            9: {"size": 10.5, "space_before": 6, "space_after": 3},
+        }
+
+        # Apply font settings to Heading 1-9
+        for i in range(1, 10):
+            style_id = f"Heading {i}"
+            if style_id in doc.styles:
+                heading_style = doc.styles[style_id]
+                heading_font = heading_style.font
+                heading_font.name = self.valves.英文字体
+                heading_font.color.rgb = RGBColor(0, 0, 0)
+
+                # 应用标准格式
+                fmt = heading_formats.get(
+                    i, {"size": 11, "space_before": 6, "space_after": 3}
+                )
+                heading_font.size = Pt(fmt["size"])
+                heading_font.bold = True
+
+                heading_pf = heading_style.paragraph_format
+                heading_pf.space_before = Pt(fmt["space_before"])
+                heading_pf.space_after = Pt(fmt["space_after"])
+
+                # Ensure rPr exists
+                h_rPr = heading_style._element.get_or_add_rPr()
+                h_rFonts = h_rPr.get_or_add_rFonts()
+
+                # Set fonts
+                h_rFonts.set(qn("w:ascii"), self.valves.英文字体)
+                h_rFonts.set(qn("w:hAnsi"), self.valves.英文字体)
+                h_rFonts.set(qn("w:eastAsia"), self.valves.中文字体)
+
+                # Set language for Heading
+                h_lang = h_rPr.find(qn("w:lang"))
+                if h_lang is None:
+                    h_lang = OxmlElement("w:lang")
+                    h_rPr.append(h_lang)
+                h_lang.set(qn("w:val"), "en-US")
+                h_lang.set(qn("w:eastAsia"), "zh-CN")
+
+    def _remove_emojis(self, text: str) -> str:
+        """从文本中移除 Emoji (基于 Unicode 范围)"""
+        if not isinstance(text, str):
+            return ""
+
+        def _is_emoji_codepoint(codepoint: int) -> bool:
+            # Common emoji ranges + flag regional indicators.
+            return (
+                0x1F000 <= codepoint <= 0x1FAFF
+                or 0x1F1E6 <= codepoint <= 0x1F1FF
+                or 0x2600 <= codepoint <= 0x26FF
+                or 0x2700 <= codepoint <= 0x27BF
+                or 0x2300 <= codepoint <= 0x23FF
+                or 0x2B00 <= codepoint <= 0x2BFF
+            )
+
+        def _is_emoji_modifier(codepoint: int) -> bool:
+            # VS15/VS16, ZWJ, keycap, skin tones, and tag characters used in some emoji sequences.
+            return (
+                codepoint in (0x200D, 0xFE0E, 0xFE0F, 0x20E3)
+                or 0x1F3FB <= codepoint <= 0x1F3FF
+                or 0xE0020 <= codepoint <= 0xE007F
+            )
+
+        return "".join(
+            ch
+            for ch in text
+            if not (_is_emoji_codepoint(ord(ch)) or _is_emoji_modifier(ord(ch)))
+        )
 
     def add_heading(self, doc: Document, text: str, level: int):
         """Add heading"""
@@ -2282,6 +2448,12 @@ class Action:
             run.italic = True
         if strike:
             run.font.strike = True
+
+        # Explicitly set East Asian font to prevent MS Gothic fallback
+        # Word may not inherit w:eastAsia from style, causing Japanese font fallback for CJK
+        rPr = run._element.get_or_add_rPr()
+        rFonts = rPr.get_or_add_rFonts()
+        rFonts.set(qn("w:eastAsia"), self.valves.中文字体)
 
     def _add_inline_code(self, paragraph, s: str):
         if s == "":
@@ -2678,7 +2850,11 @@ class Action:
     ):
         u = self._normalize_url(url)
         if not u:
-            paragraph.add_run(display_text or text)
+            run = paragraph.add_run(display_text or text)
+            # Set East Asian font to prevent MS Gothic fallback
+            rPr = run._element.get_or_add_rPr()
+            rFonts = rPr.get_or_add_rFonts()
+            rFonts.set(qn("w:eastAsia"), self.valves.中文字体)
             return
 
         part = getattr(paragraph, "part", None)
@@ -2687,6 +2863,10 @@ class Action:
             run = paragraph.add_run(display_text or text)
             run.font.color.rgb = RGBColor(0, 0, 255)
             run.font.underline = True
+            # Set East Asian font to prevent MS Gothic fallback
+            rPr = run._element.get_or_add_rPr()
+            rFonts = rPr.get_or_add_rFonts()
+            rFonts.set(qn("w:eastAsia"), self.valves.中文字体)
             return
 
         r_id = part.relate_to(u, RT.HYPERLINK, is_external=True)
@@ -2699,6 +2879,11 @@ class Action:
         rStyle = OxmlElement("w:rStyle")
         rStyle.set(qn("w:val"), "Hyperlink")
         rPr.append(rStyle)
+
+        # Set East Asian font to prevent MS Gothic fallback
+        rFonts = OxmlElement("w:rFonts")
+        rFonts.set(qn("w:eastAsia"), self.valves.中文字体)
+        rPr.append(rFonts)
 
         color = OxmlElement("w:color")
         color.set(qn("w:val"), "0000FF")
