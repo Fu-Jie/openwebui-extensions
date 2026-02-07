@@ -56,6 +56,8 @@
 | **ENFORCE_FORMATTING** | 在系统提示词中添加格式化指导。 | `True` |
 | **ENABLE_MCP_SERVER** | 启用直接 MCP 客户端连接 (建议)。 | `True` |
 | **ENABLE_OPENWEBUI_TOOLS** | 启用 OpenWebUI 工具 (包括自定义和服务器工具)。 | `True` |
+| **ALLOWED_AGENT_MODELS** | 可用于生成代理的模型白名单（逗号分隔）。如为空，则不强制执行服务器端限制。例如：`gpt-5-mini,gpt-4.1`。 | - |
+| **FALLBACK_AGENT_MODEL** | 当请求的模型不在白名单中时使用的备用模型。如为空，不允许的模型将被拒绝。例如：`gpt-5-mini`。 | - |
 
 #### 用户 Valves（按用户覆盖）
 
@@ -91,6 +93,42 @@
 
 * `github-copilot-sdk` (Python 包)
 * `github-copilot-cli` (二进制文件，通过官方脚本安装)
+
+## 🔒 模型访问控制
+
+为了防止意外生成高成本的代理，您可以使用 **ALLOWED_AGENT_MODELS** 和 **FALLBACK_AGENT_MODEL** 配置来限制可使用的模型：
+
+### 配置示例
+
+**场景 1：仅允许特定模型**
+```
+ALLOWED_AGENT_MODELS: gpt-5-mini,gpt-4.1
+FALLBACK_AGENT_MODEL: (留空)
+```
+- 结果：只有 `gpt-5-mini` 和 `gpt-4.1` 可以使用
+- 如果用户尝试使用其他模型（如 `gpt-5`），请求将被拒绝
+
+**场景 2：允许特定模型，但自动降级到低成本模型**
+```
+ALLOWED_AGENT_MODELS: gpt-5-mini,gpt-4.1
+FALLBACK_AGENT_MODEL: gpt-5-mini
+```
+- 结果：只有 `gpt-5-mini` 和 `gpt-4.1` 在白名单中
+- 如果用户尝试使用 `gpt-5`，系统会自动使用 `gpt-5-mini` 作为备用模型
+
+**场景 3：不限制（默认行为）**
+```
+ALLOWED_AGENT_MODELS: (留空)
+FALLBACK_AGENT_MODEL: (留空)
+```
+- 结果：允许所有 Copilot 模型，无限制
+
+### 行为说明
+
+- 如果 `ALLOWED_AGENT_MODELS` 为空，则**不强制执行任何限制**（向后兼容）
+- 如果 `ALLOWED_AGENT_MODELS` 已设置但 `FALLBACK_AGENT_MODEL` 为空，则不在白名单中的模型将被**拒绝**
+- 如果 `ALLOWED_AGENT_MODELS` 和 `FALLBACK_AGENT_MODEL` 都已设置，则不在白名单中的模型将自动**替换为备用模型**
+- 备用模型本身也必须在白名单中，否则配置无效
 
 ## 故障排除 (Troubleshooting) ❓
 

@@ -107,6 +107,14 @@ class Pipe:
             default=True,
             description="在系统提示词中添加格式化指导，以提高输出的可读性（段落、换行、结构）。",
         )
+        ALLOWED_AGENT_MODELS: str = Field(
+            default="",
+            description="用于生成代理的模型白名单（逗号分隔）。如果为空，则不强制执行服务器端限制。",
+        )
+        FALLBACK_AGENT_MODEL: str = Field(
+            default="",
+            description="当请求的模型不在白名单中时使用的备用模型。如果为空，则拒绝不允许的模型。",
+        )
 
     class UserValves(BaseModel):
         GH_TOKEN: str = Field(
@@ -358,6 +366,52 @@ class Pipe:
                 return os.getcwd()  # 如果创建失败回退到 CWD
 
         return cwd
+
+    def _parse_allowed_models(self) -> list:
+        """将 ALLOWED_AGENT_MODELS 配置解析为模型 ID 列表。"""
+        if not self.valves.ALLOWED_AGENT_MODELS:
+            return []
+        return [
+            model.strip()
+            for model in self.valves.ALLOWED_AGENT_MODELS.split(",")
+            if model.strip()
+        ]
+
+    def _sanitize_model(self, requested_model: str) -> str:
+        """
+        强制执行模型白名单和备用逻辑。
+        
+        返回验证后的或备用的模型 ID。
+        如果模型不允许且没有可用的备用模型，则引发 ValueError。
+        """
+        allowed_models = self._parse_allowed_models()
+        
+        # 如果未配置白名单，则允许任何模型（向后兼容）
+        if not allowed_models:
+            return requested_model
+        
+        # 检查请求的模型是否在白名单中
+        if requested_model in allowed_models:
+            return requested_model
+        
+        # 模型不允许 - 检查备用模型
+        fallback_model = self.valves.FALLBACK_AGENT_MODEL.strip()
+        
+        if fallback_model:
+            # 验证备用模型是否在白名单中
+            if fallback_model in allowed_models:
+                logger.info(
+                    f"模型 '{requested_model}' 不在白名单中。使用备用模型：{fallback_model}"
+                )
+                return fallback_model
+            else:
+                raise ValueError(
+                    f"模型 '{requested_model}' 不在白名单中，备用模型 '{fallback_model}' 也不在白名单中。"
+                )
+        else:
+            raise ValueError(
+                f"模型 '{requested_model}' 不在允许的模型列表中：{', '.join(allowed_models)}"
+            )
 
     def _build_client_config(self, body: dict) -> dict:
         """根据 Valves 和请求构建 CopilotClient 配置"""
@@ -1461,6 +1515,15 @@ class Pipe:
                     f"使用基础模型: {real_model_id} (继承自自定义模型 {request_model})",
                     __event_call__,
                 )
+
+        # 强制执行模型白名单和备用逻辑（如果已配置）
+        try:
+            real_model_id = self._sanitize_model(real_model_id)
+        except ValueError as e:
+            await self._emit_debug_log(
+                f"阻止代理生成尝试: {e}", __event_call__
+            )
+            return f"错误: {str(e)}"
 
         messages = body.get("messages", [])
         if not messages:

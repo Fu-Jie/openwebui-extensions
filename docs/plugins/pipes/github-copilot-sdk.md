@@ -56,6 +56,8 @@ Find "GitHub Copilot" in the function list and click the **⚙️ (Valves)** ico
 | **ENFORCE_FORMATTING** | Add formatting instructions to system prompt for better readability. | `True` |
 | **ENABLE_MCP_SERVER** | Enable Direct MCP Client connection (Recommended). | `True` |
 | **ENABLE_OPENWEBUI_TOOLS** | Enable OpenWebUI Tools (includes defined and server tools). | `True` |
+| **ALLOWED_AGENT_MODELS** | Comma-separated allowlist of models that can be used to spawn agents. If empty, no server-side restriction is enforced. Example: `gpt-5-mini,gpt-4.1`. | - |
+| **FALLBACK_AGENT_MODEL** | Optional fallback model to use if requested model is not in the allowlist. If empty, disallowed models will be rejected. Example: `gpt-5-mini`. | - |
 
 #### User Valves (per-user overrides)
 
@@ -91,6 +93,42 @@ This Pipe will automatically attempt to install the following dependencies:
 
 * `github-copilot-sdk` (Python package)
 * `github-copilot-cli` (Binary file, installed via official script)
+
+## 🔒 Model Access Control
+
+To prevent accidental spawning of expensive agents, you can use **ALLOWED_AGENT_MODELS** and **FALLBACK_AGENT_MODEL** to restrict which models can be used:
+
+### Configuration Examples
+
+**Scenario 1: Allow only specific models**
+```
+ALLOWED_AGENT_MODELS: gpt-5-mini,gpt-4.1
+FALLBACK_AGENT_MODEL: (empty)
+```
+- Result: Only `gpt-5-mini` and `gpt-4.1` can be used
+- If a user attempts to use another model (e.g., `gpt-5`), the request will be rejected
+
+**Scenario 2: Allow specific models with automatic downgrade**
+```
+ALLOWED_AGENT_MODELS: gpt-5-mini,gpt-4.1
+FALLBACK_AGENT_MODEL: gpt-5-mini
+```
+- Result: Only `gpt-5-mini` and `gpt-4.1` are in the allowlist
+- If a user attempts to use `gpt-5`, the system automatically uses `gpt-5-mini` as the fallback
+
+**Scenario 3: No restrictions (default behavior)**
+```
+ALLOWED_AGENT_MODELS: (empty)
+FALLBACK_AGENT_MODEL: (empty)
+```
+- Result: All Copilot models are allowed without restriction
+
+### Behavior Details
+
+- If `ALLOWED_AGENT_MODELS` is empty, **no restrictions are enforced** (backward compatible)
+- If `ALLOWED_AGENT_MODELS` is set but `FALLBACK_AGENT_MODEL` is empty, models not in the allowlist are **rejected**
+- If both `ALLOWED_AGENT_MODELS` and `FALLBACK_AGENT_MODEL` are set, disallowed models are automatically **replaced with the fallback**
+- The fallback model itself must be in the allowlist, otherwise the configuration is invalid
 
 ## Troubleshooting ❓
 

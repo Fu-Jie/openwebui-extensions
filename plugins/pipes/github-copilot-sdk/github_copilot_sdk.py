@@ -104,6 +104,14 @@ class Pipe:
             default=True,
             description="Add formatting instructions to system prompt for better readability (paragraphs, line breaks, structure).",
         )
+        ALLOWED_AGENT_MODELS: str = Field(
+            default="",
+            description="Comma-separated allowlist of models that can be used to spawn agents. If empty, no server-side restriction is enforced.",
+        )
+        FALLBACK_AGENT_MODEL: str = Field(
+            default="",
+            description="Optional fallback model to use if requested model is not in the allowlist. If empty, disallowed models will be rejected.",
+        )
 
     class UserValves(BaseModel):
         GH_TOKEN: str = Field(
@@ -655,6 +663,52 @@ class Pipe:
                 return os.getcwd()  # Fallback to CWD if creation fails
 
         return cwd
+
+    def _parse_allowed_models(self) -> list:
+        """Parse ALLOWED_AGENT_MODELS valve into a list of model IDs."""
+        if not self.valves.ALLOWED_AGENT_MODELS:
+            return []
+        return [
+            model.strip()
+            for model in self.valves.ALLOWED_AGENT_MODELS.split(",")
+            if model.strip()
+        ]
+
+    def _sanitize_model(self, requested_model: str) -> str:
+        """
+        Enforce model allowlist and fallback logic.
+        
+        Returns the validated or fallback model ID.
+        Raises ValueError if the model is disallowed and no fallback is available.
+        """
+        allowed_models = self._parse_allowed_models()
+        
+        # If no allowlist is configured, allow any model (backward compatible)
+        if not allowed_models:
+            return requested_model
+        
+        # Check if requested model is in allowlist
+        if requested_model in allowed_models:
+            return requested_model
+        
+        # Model is not allowed - check for fallback
+        fallback_model = self.valves.FALLBACK_AGENT_MODEL.strip()
+        
+        if fallback_model:
+            # Verify fallback is in allowlist
+            if fallback_model in allowed_models:
+                logger.info(
+                    f"Model '{requested_model}' not in allowlist. Using fallback: {fallback_model}"
+                )
+                return fallback_model
+            else:
+                raise ValueError(
+                    f"Model '{requested_model}' not in allowlist, and fallback model '{fallback_model}' is also not in allowlist."
+                )
+        else:
+            raise ValueError(
+                f"Model '{requested_model}' is not in the allowed models list: {', '.join(allowed_models)}"
+            )
 
     def _build_client_config(self, body: dict) -> dict:
         """Build CopilotClient config from valves and request body."""
@@ -1256,6 +1310,15 @@ class Pipe:
                     f"Using base model: {real_model_id} (derived from custom model {request_model})",
                     __event_call__,
                 )
+
+        # Enforce model allowlist and fallback (if configured)
+        try:
+            real_model_id = self._sanitize_model(real_model_id)
+        except ValueError as e:
+            await self._emit_debug_log(
+                f"Blocked agent spawn attempt: {e}", __event_call__
+            )
+            return f"Error: {str(e)}"
 
         messages = body.get("messages", [])
         if not messages:
