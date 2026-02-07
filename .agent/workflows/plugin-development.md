@@ -11,6 +11,7 @@ This workflow outlines the standard process for developing, documenting, and rel
 Reference: `.github/copilot-instructions.md`
 
 ### Bilingual Requirement
+
 Every plugin **MUST** have bilingual versions for both code and documentation:
 
 - **Code**:
@@ -21,6 +22,7 @@ Every plugin **MUST** have bilingual versions for both code and documentation:
   - Chinese: `plugins/{type}/{name}/README_CN.md`
 
 ### Code Structure
+
 - **Docstring**: Must include `title`, `author`, `version`, `description`, etc.
 - **Valves**: Use `pydantic` for configuration.
 - **Database**: Re-use `open_webui.internal.db` shared connection.
@@ -32,8 +34,9 @@ Every plugin **MUST** have bilingual versions for both code and documentation:
   - Use Chat Persistence API for database storage
   - Always update both `messages[]` and `history.messages`
 
-### Commit Messages
-- **Language**: **English ONLY**. Do not use Chinese in commit messages.
+### Commit Messages & Release Notes
+
+- **Language**: **English ONLY**. Do not use Chinese in commit messages or release notes.
 - **Format**: Conventional Commits (e.g., `feat:`, `fix:`, `docs:`).
 
 ## 2. Documentation Updates
@@ -41,10 +44,12 @@ Every plugin **MUST** have bilingual versions for both code and documentation:
 When adding or updating a plugin, you **MUST** update the following documentation files to maintain consistency:
 
 ### Plugin Directory
+
 - `README.md`: Update version, description, and usage. **Explicitly describe new features in a prominent position at the beginning.**
 - `README_CN.md`: Update version, description, and usage. **Explicitly describe new features in a prominent position at the beginning.**
 
 ### Global Documentation (`docs/`)
+
 - **Index Pages**:
   - `docs/plugins/{type}/index.md`: Add/Update list item with **correct version**.
   - `docs/plugins/{type}/index.zh.md`: Add/Update list item with **correct version**.
@@ -53,6 +58,7 @@ When adding or updating a plugin, you **MUST** update the following documentatio
   - `docs/plugins/{type}/{name}.zh.md`: Ensure content matches README_CN.
 
 ### Root README
+
 - `README.md`: Add to "Featured Plugins" if applicable.
 - `README_CN.md`: Add to "Featured Plugins" if applicable.
 
@@ -61,6 +67,7 @@ When adding or updating a plugin, you **MUST** update the following documentatio
 Reference: `.github/workflows/release.yml`
 
 ### Version Bumping
+
 - **Rule**: Version bump is required **ONLY when the user explicitly requests a release**. Regular code changes do NOT require version bumps.
 - **Format**: Semantic Versioning (e.g., `1.0.0` -> `1.0.1`).
 - **When to Bump**: Only update the version when:
@@ -78,13 +85,14 @@ Reference: `.github/workflows/release.yml`
   8. Docs Detail CN (`docs/.../{name}.zh.md`)
 
 ### Automated Release Process
-1.  **Trigger**: Push to `main` branch with changes in `plugins/**/*.py`.
-2.  **Detection**: `scripts/extract_plugin_versions.py` detects changed plugins and compares versions.
-3.  **Release**:
+
+1. **Trigger**: Push to `main` branch with changes in `plugins/**/*.py`.
+2. **Detection**: `scripts/extract_plugin_versions.py` detects changed plugins and compares versions.
+3. **Release**:
     - Generates release notes based on changes.
     - Creates a GitHub Release tag (e.g., `v2024.01.01-1`).
     - Uploads individual `.py` files of **changed plugins only** as assets.
-4.  **Market Publishing**:
+4. **Market Publishing**:
     - Workflow: `.github/workflows/publish_plugin.yml`
     - Trigger: Release published.
     - Action: Automatically updates the plugin code and metadata on OpenWebUI.com using `scripts/publish_plugin.py`.
@@ -95,6 +103,7 @@ Reference: `.github/workflows/release.yml`
       - Example: `https://github.com/Fu-Jie/awesome-openwebui/blob/main/plugins/filters/folder-memory/README.md`
 
 ### Pull Request Check
+
 - Workflow: `.github/workflows/plugin-version-check.yml`
 - Checks if plugin files are modified.
 - **Fails** if version number is not updated.
@@ -114,5 +123,3 @@ Before committing:
 ## 5. Git Operations (Agent Rules)
 
 Strictly follow the rules defined in `.github/copilot-instructions.md` → **Git Operations (Agent Rules)** section.
-
-
