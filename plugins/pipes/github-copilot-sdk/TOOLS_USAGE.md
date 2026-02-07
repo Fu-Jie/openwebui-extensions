@@ -7,10 +7,10 @@ This pipe supports **OpenWebUI Native Tools** (Functions) and **Custom Python To
 
 ---
 
-## 🚀 OpenWebUI Native Tools / OpenWebUI 原生工具 (v0.3.0)
+## 🚀 OpenWebUI Native Tools / OpenWebUI 原生工具 (v0.3.1)
 
-**New in v0.3.0**: You can use any tool defined in OpenWebUI directly with Copilot.
-**v0.3.0 新增**: 您可以直接在 Copilot 中使用 OpenWebUI 中定义的任何工具。
+**New in v0.3.1**: You can use any tool defined in OpenWebUI directly with Copilot.
+**v0.3.1 新增**: 您可以直接在 Copilot 中使用 OpenWebUI 中定义的任何工具。
 
 **How to use / 如何使用:**
 
@@ -183,5 +183,5 @@ def _initialize_custom_tools(self):
 
 ---
 
-**Version:** 0.3.0
+**Version:** 0.3.1
 **Last Updated:** 2026-02-05
