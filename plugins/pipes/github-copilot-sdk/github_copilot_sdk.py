@@ -5,11 +5,12 @@ author_url: https://github.com/Fu-Jie/awesome-openwebui
 funding_url: https://github.com/open-webui
 openwebui_id: ce96f7b4-12fc-4ac3-9a01-875713e69359
 description: Integrate GitHub Copilot SDK. Supports dynamic models, multi-turn conversation, streaming, multimodal input, infinite sessions, and frontend debug logging.
-version: 0.2.3
-requirements: github-copilot-sdk
+version: 0.3.0
+requirements: github-copilot-sdk==0.1.22
 """
 
 import os
+import re
 import json
 import base64
 import tempfile
@@ -17,29 +18,23 @@ import asyncio
 import logging
 import shutil
 import subprocess
+import hashlib
+from pathlib import Path
 from typing import Optional, Union, AsyncGenerator, List, Any, Dict
-from pydantic import BaseModel, Field
+from types import SimpleNamespace
+from pydantic import BaseModel, Field, create_model
 
 # Import copilot SDK modules
 from copilot import CopilotClient, define_tool
 
+# Import Tool Server Connections and Tool System from OpenWebUI Config
+from open_webui.config import TOOL_SERVER_CONNECTIONS
+from open_webui.utils.tools import get_tools as get_openwebui_tools
+from open_webui.models.tools import Tools
+from open_webui.models.users import Users
+
 # Setup logger
 logger = logging.getLogger(__name__)
-
-
-class RandomNumberParams(BaseModel):
-    min: int = Field(description="Minimum value (inclusive)")
-    max: int = Field(description="Maximum value (inclusive)")
-
-
-@define_tool(description="Generate a random integer within a specified range.")
-async def generate_random_number(params: RandomNumberParams) -> str:
-    import random
-
-    if params.min >= params.max:
-        raise ValueError("min must be less than max")
-    number = random.randint(params.min, params.max)
-    return f"Generated random number: {number}"
 
 
 class Pipe:
@@ -48,13 +43,9 @@ class Pipe:
             default="",
             description="GitHub Fine-grained Token (Requires 'Copilot Requests' permission)",
         )
-        MODEL_ID: str = Field(
-            default="gpt-5-mini",
-            description="Default Copilot model name (used when dynamic fetching fails)",
-        )
-        CLI_PATH: str = Field(
-            default="/usr/local/bin/copilot",
-            description="Path to Copilot CLI",
+        COPILOT_CLI_VERSION: str = Field(
+            default="0.0.405",
+            description="Specific Copilot CLI version to install/enforce (e.g. '0.0.405'). Leave empty for latest.",
         )
         DEBUG: bool = Field(
             default=False,
@@ -67,10 +58,6 @@ class Pipe:
         SHOW_THINKING: bool = Field(
             default=True,
             description="Show model reasoning/thinking process",
-        )
-        SHOW_WORKSPACE_INFO: bool = Field(
-            default=True,
-            description="Show session workspace path and summary in debug mode",
         )
         EXCLUDE_KEYWORDS: str = Field(
             default="",
@@ -100,13 +87,14 @@ class Pipe:
             default="",
             description='Custom environment variables (JSON format, e.g., {"VAR": "value"})',
         )
-        ENABLE_TOOLS: bool = Field(
-            default=False,
-            description="Enable custom tools (example: random number)",
+
+        ENABLE_OPENWEBUI_TOOLS: bool = Field(
+            default=True,
+            description="Enable OpenWebUI Tools (includes defined Tools and Tool Server Tools).",
         )
-        AVAILABLE_TOOLS: str = Field(
-            default="all",
-            description="Available tools: 'all' or comma-separated list (e.g., 'generate_random_number')",
+        ENABLE_MCP_SERVER: bool = Field(
+            default=True,
+            description="Enable Direct MCP Client connection (Recommended).",
         )
         REASONING_EFFORT: str = Field(
             default="medium",
@@ -118,13 +106,13 @@ class Pipe:
         )
 
     class UserValves(BaseModel):
+        GH_TOKEN: str = Field(
+            default="",
+            description="Personal GitHub Fine-grained Token (overrides global setting)",
+        )
         REASONING_EFFORT: str = Field(
             default="",
             description="Reasoning effort level (low, medium, high, xhigh). Leave empty to use global setting.",
-        )
-        CLI_PATH: str = Field(
-            default="",
-            description="Custom path to Copilot CLI. Leave empty to use global setting.",
         )
         DEBUG: bool = Field(
             default=False,
@@ -134,9 +122,18 @@ class Pipe:
             default=True,
             description="Show model reasoning/thinking process",
         )
-        MODEL_ID: str = Field(
-            default="",
-            description="Custom model ID (e.g. gpt-4o). Leave empty to use global default.",
+        ENABLE_OPENWEBUI_TOOLS: bool = Field(
+            default=True,
+            description="Enable OpenWebUI Tools (includes defined Tools and Tool Server Tools).",
+        )
+        ENABLE_MCP_SERVER: bool = Field(
+            default=True,
+            description="Enable dynamic MCP server loading (overrides global).",
+        )
+
+        ENFORCE_FORMATTING: bool = Field(
+            default=True,
+            description="Enforce formatting guidelines (overrides global)",
         )
 
     def __init__(self):
@@ -147,6 +144,7 @@ class Pipe:
         self.temp_dir = tempfile.mkdtemp(prefix="copilot_images_")
         self.thinking_started = False
         self._model_cache = []  # Model list cache
+        self._last_update_check = 0  # Timestamp of last CLI update check
 
     def __del__(self):
         try:
@@ -183,23 +181,269 @@ class Pipe:
     # ==================== Custom Tool Examples ====================
     # Tool registration: Add @define_tool decorated functions at module level,
     # then register them in _initialize_custom_tools() -> all_tools dict.
-    def _initialize_custom_tools(self):
+    async def _initialize_custom_tools(self, __user__=None, __event_call__=None):
         """Initialize custom tools based on configuration"""
-        if not self.valves.ENABLE_TOOLS:
+        if not self.valves.ENABLE_OPENWEBUI_TOOLS:
             return []
 
-        # Define all available tools (register new tools here)
-        all_tools = {
-            "generate_random_number": generate_random_number,
+        # Load OpenWebUI tools dynamically
+        openwebui_tools = await self._load_openwebui_tools(
+            __user__=__user__, __event_call__=__event_call__
+        )
+
+        return openwebui_tools
+
+    def _json_schema_to_python_type(self, schema: dict) -> Any:
+        """Convert JSON Schema type to Python type for Pydantic models."""
+        if not isinstance(schema, dict):
+            return Any
+
+        schema_type = schema.get("type")
+        if isinstance(schema_type, list):
+            schema_type = next((t for t in schema_type if t != "null"), schema_type[0])
+
+        if schema_type == "string":
+            return str
+        if schema_type == "integer":
+            return int
+        if schema_type == "number":
+            return float
+        if schema_type == "boolean":
+            return bool
+        if schema_type == "object":
+            return Dict[str, Any]
+        if schema_type == "array":
+            items_schema = schema.get("items", {})
+            item_type = self._json_schema_to_python_type(items_schema)
+            return List[item_type]
+
+        return Any
+
+    def _convert_openwebui_tool(self, tool_name: str, tool_dict: dict):
+        """Convert OpenWebUI tool definition to Copilot SDK tool."""
+        # Sanitize tool name to match pattern ^[a-zA-Z0-9_-]+$
+        sanitized_tool_name = re.sub(r"[^a-zA-Z0-9_-]", "_", tool_name)
+
+        # If sanitized name is empty or consists only of separators (e.g. pure Chinese name), generate a fallback name
+        if not sanitized_tool_name or re.match(r"^[_.-]+$", sanitized_tool_name):
+            hash_suffix = hashlib.md5(tool_name.encode("utf-8")).hexdigest()[:8]
+            sanitized_tool_name = f"tool_{hash_suffix}"
+
+        if sanitized_tool_name != tool_name:
+            logger.debug(
+                f"Sanitized tool name '{tool_name}' to '{sanitized_tool_name}'"
+            )
+
+        spec = tool_dict.get("spec", {}) if isinstance(tool_dict, dict) else {}
+        params_schema = spec.get("parameters", {}) if isinstance(spec, dict) else {}
+        properties = params_schema.get("properties", {})
+        required = params_schema.get("required", [])
+
+        if not isinstance(properties, dict):
+            properties = {}
+        if not isinstance(required, list):
+            required = []
+
+        required_set = set(required)
+        fields = {}
+        for param_name, param_schema in properties.items():
+            param_type = self._json_schema_to_python_type(param_schema)
+            description = ""
+            if isinstance(param_schema, dict):
+                description = param_schema.get("description", "")
+
+            if param_name in required_set:
+                if description:
+                    fields[param_name] = (
+                        param_type,
+                        Field(..., description=description),
+                    )
+                else:
+                    fields[param_name] = (param_type, ...)
+            else:
+                optional_type = Optional[param_type]
+                if description:
+                    fields[param_name] = (
+                        optional_type,
+                        Field(default=None, description=description),
+                    )
+                else:
+                    fields[param_name] = (optional_type, None)
+
+        if fields:
+            ParamsModel = create_model(f"{sanitized_tool_name}_Params", **fields)
+        else:
+            ParamsModel = create_model(f"{sanitized_tool_name}_Params")
+
+        tool_callable = tool_dict.get("callable")
+        tool_description = spec.get("description", "") if isinstance(spec, dict) else ""
+        if not tool_description and isinstance(spec, dict):
+            tool_description = spec.get("summary", "")
+
+        # Critical: If the tool name was sanitized (e.g. Chinese -> Hash), instructions are lost.
+        # We must inject the original name into the description so the model knows what it is.
+        if sanitized_tool_name != tool_name:
+            tool_description = f"Function '{tool_name}': {tool_description}"
+
+        async def _tool(params):
+            payload = params.model_dump() if hasattr(params, "model_dump") else {}
+            return await tool_callable(**payload)
+
+        _tool.__name__ = sanitized_tool_name
+        _tool.__doc__ = tool_description
+
+        # Debug log for tool conversion
+        logger.debug(
+            f"Converting tool '{sanitized_tool_name}': {tool_description[:50]}..."
+        )
+
+        # Core Fix: Explicitly pass params_type and name
+        return define_tool(
+            name=sanitized_tool_name,
+            description=tool_description,
+            params_type=ParamsModel,
+        )(_tool)
+
+    def _build_openwebui_request(self):
+        """Build a minimal request-like object for OpenWebUI tool loading."""
+        app_state = SimpleNamespace(
+            config=SimpleNamespace(
+                TOOL_SERVER_CONNECTIONS=TOOL_SERVER_CONNECTIONS.value
+            ),
+            TOOLS={},
+        )
+        app = SimpleNamespace(state=app_state)
+        request = SimpleNamespace(
+            app=app,
+            cookies={},
+            state=SimpleNamespace(token=SimpleNamespace(credentials="")),
+        )
+        return request
+
+    async def _load_openwebui_tools(self, __user__=None, __event_call__=None):
+        """Load OpenWebUI tools and convert them to Copilot SDK tools."""
+        if isinstance(__user__, (list, tuple)):
+            user_data = __user__[0] if __user__ else {}
+        elif isinstance(__user__, dict):
+            user_data = __user__
+        else:
+            user_data = {}
+
+        if not user_data:
+            return []
+
+        user_id = user_data.get("id") or user_data.get("user_id")
+        if not user_id:
+            return []
+
+        user = Users.get_user_by_id(user_id)
+        if not user:
+            return []
+
+        # 1. Get User defined tools (Python scripts)
+        tool_items = Tools.get_tools_by_user_id(user_id, permission="read")
+        tool_ids = [tool.id for tool in tool_items] if tool_items else []
+
+        # 2. Get OpenAPI Tool Server tools
+        # We manually add enabled OpenAPI servers to the list because Tools.get_tools_by_user_id only checks the DB.
+        # open_webui.utils.tools.get_tools handles the actual loading and access control.
+        if hasattr(TOOL_SERVER_CONNECTIONS, "value"):
+            for server in TOOL_SERVER_CONNECTIONS.value:
+                # We only add 'openapi' servers here because get_tools currently only supports 'openapi' (or defaults to it).
+                # MCP tools are handled separately via ENABLE_MCP_SERVER.
+                if server.get("type") == "openapi":
+                    # Format expected by get_tools: "server:<id>" implies types="openapi"
+                    server_id = server.get("id")
+                    if server_id:
+                        tool_ids.append(f"server:{server_id}")
+
+        if not tool_ids:
+            return []
+
+        request = self._build_openwebui_request()
+        extra_params = {
+            "__request__": request,
+            "__user__": user_data,
+            "__event_emitter__": None,
+            "__event_call__": __event_call__,
+            "__chat_id__": None,
+            "__message_id__": None,
+            "__model_knowledge__": [],
         }
 
-        # Filter based on configuration
-        if self.valves.AVAILABLE_TOOLS == "all":
-            return list(all_tools.values())
+        tools_dict = await get_openwebui_tools(request, tool_ids, user, extra_params)
+        if not tools_dict:
+            return []
 
-        # Only enable specified tools
-        enabled = [t.strip() for t in self.valves.AVAILABLE_TOOLS.split(",")]
-        return [all_tools[name] for name in enabled if name in all_tools]
+        converted_tools = []
+        for tool_name, tool_def in tools_dict.items():
+            try:
+                converted_tools.append(
+                    self._convert_openwebui_tool(tool_name, tool_def)
+                )
+            except Exception as e:
+                await self._emit_debug_log(
+                    f"Failed to load OpenWebUI tool '{tool_name}': {e}",
+                    __event_call__,
+                )
+
+        return converted_tools
+
+    def _parse_mcp_servers(self) -> Optional[dict]:
+        """
+        Dynamically load MCP servers from OpenWebUI TOOL_SERVER_CONNECTIONS.
+        Returns a dict of mcp_servers compatible with CopilotClient.
+        """
+        if not self.valves.ENABLE_MCP_SERVER:
+            return None
+
+        mcp_servers = {}
+
+        # Iterate over OpenWebUI Tool Server Connections
+        if hasattr(TOOL_SERVER_CONNECTIONS, "value"):
+            connections = TOOL_SERVER_CONNECTIONS.value
+        else:
+            connections = []
+
+        for conn in connections:
+            if conn.get("type") == "mcp":
+                info = conn.get("info", {})
+                # Use ID from info or generate one
+                raw_id = info.get("id", f"mcp-server-{len(mcp_servers)}")
+
+                # Sanitize server_id (using same logic as tools)
+                server_id = re.sub(r"[^a-zA-Z0-9_-]", "_", raw_id)
+                if not server_id or re.match(r"^[_.-]+$", server_id):
+                    hash_suffix = hashlib.md5(raw_id.encode("utf-8")).hexdigest()[:8]
+                    server_id = f"server_{hash_suffix}"
+
+                url = conn.get("url")
+                if not url:
+                    continue
+
+                # Build Headers (Handle Auth)
+                headers = {}
+                auth_type = conn.get("auth_type", "bearer")
+                key = conn.get("key", "")
+
+                if auth_type == "bearer" and key:
+                    headers["Authorization"] = f"Bearer {key}"
+                elif auth_type == "basic" and key:
+                    headers["Authorization"] = f"Basic {key}"
+
+                # Merge custom headers if any
+                custom_headers = conn.get("headers", {})
+                if isinstance(custom_headers, dict):
+                    headers.update(custom_headers)
+
+                mcp_servers[server_id] = {
+                    "type": "http",
+                    "url": url,
+                    "headers": headers,
+                    "tools": ["*"],  # Enable all tools by default
+                }
+
+        return mcp_servers if mcp_servers else None
 
     async def _emit_debug_log(self, message: str, __event_call__=None):
         """Emit debug log to frontend (console) when DEBUG is enabled."""
@@ -390,9 +634,31 @@ class Pipe:
 
         return system_prompt_content, system_prompt_source
 
+    def _get_workspace_dir(self) -> str:
+        """Get the effective workspace directory with smart defaults."""
+        if self.valves.WORKSPACE_DIR:
+            return self.valves.WORKSPACE_DIR
+
+        # Smart default for OpenWebUI container
+        if os.path.exists("/app/backend/data"):
+            cwd = "/app/backend/data/copilot_workspace"
+        else:
+            # Local fallback: subdirectory in current working directory
+            cwd = os.path.join(os.getcwd(), "copilot_workspace")
+
+        # Ensure directory exists
+        if not os.path.exists(cwd):
+            try:
+                os.makedirs(cwd, exist_ok=True)
+            except Exception as e:
+                print(f"Error creating workspace {cwd}: {e}")
+                return os.getcwd()  # Fallback to CWD if creation fails
+
+        return cwd
+
     def _build_client_config(self, body: dict) -> dict:
         """Build CopilotClient config from valves and request body."""
-        cwd = self.valves.WORKSPACE_DIR if self.valves.WORKSPACE_DIR else os.getcwd()
+        cwd = self._get_workspace_dir()
         client_config = {}
         if os.environ.get("COPILOT_CLI_PATH"):
             client_config["cli_path"] = os.environ["COPILOT_CLI_PATH"]
@@ -418,7 +684,6 @@ class Pipe:
         custom_tools: List[Any],
         system_prompt_content: Optional[str],
         is_streaming: bool,
-        reasoning_effort: str = "",
     ):
         """Build SessionConfig for Copilot SDK."""
         from copilot.types import SessionConfig, InfiniteSessionConfig
@@ -470,9 +735,9 @@ class Pipe:
             "infinite_sessions": infinite_session_config,
         }
 
-        # Add reasoning_effort if not default (medium)
-        if reasoning_effort and reasoning_effort.lower() != "medium":
-            session_params["reasoning_effort"] = reasoning_effort.lower()
+        mcp_servers = self._parse_mcp_servers()
+        if mcp_servers:
+            session_params["mcp_servers"] = mcp_servers
 
         return SessionConfig(**session_params)
 
@@ -628,8 +893,8 @@ class Pipe:
                 # Return default model on failure
                 return [
                     {
-                        "id": f"{self.id}-{self.valves.MODEL_ID}",
-                        "name": f"GitHub Copilot ({self.valves.MODEL_ID})",
+                        "id": f"{self.id}-gpt-5-mini",
+                        "name": f"GitHub Copilot (gpt-5-mini)",
                     }
                 ]
             finally:
@@ -638,8 +903,8 @@ class Pipe:
             await self._emit_debug_log(f"Pipes Error: {e}")
             return [
                 {
-                    "id": f"{self.id}-{self.valves.MODEL_ID}",
-                    "name": f"GitHub Copilot ({self.valves.MODEL_ID})",
+                    "id": f"{self.id}-gpt-5-mini",
+                    "name": f"GitHub Copilot (gpt-5-mini)",
                 }
             ]
 
@@ -654,30 +919,93 @@ class Pipe:
         return client
 
     def _setup_env(self, __event_call__=None):
-        cli_path = self.valves.CLI_PATH
-        found = False
+        # Default CLI path logic
+        cli_path = "/usr/local/bin/copilot"
+        if os.environ.get("COPILOT_CLI_PATH"):
+            cli_path = os.environ["COPILOT_CLI_PATH"]
 
+        target_version = self.valves.COPILOT_CLI_VERSION.strip()
+        found = False
+        current_version = None
+
+        # internal helper to get version
+        def get_cli_version(path):
+            try:
+                output = (
+                    subprocess.check_output(
+                        [path, "--version"], stderr=subprocess.STDOUT
+                    )
+                    .decode()
+                    .strip()
+                )
+                # Copilot CLI version output format is usually just the version number or "copilot version X.Y.Z"
+                # We try to extract X.Y.Z
+                match = re.search(r"(\d+\.\d+\.\d+)", output)
+                return match.group(1) if match else output
+            except Exception:
+                return None
+
+        # Check default path
         if os.path.exists(cli_path):
             found = True
+            current_version = get_cli_version(cli_path)
 
+        # Check system path if not found
         if not found:
             sys_path = shutil.which("copilot")
             if sys_path:
                 cli_path = sys_path
                 found = True
+                current_version = get_cli_version(cli_path)
+
+        # Determine if we need to install or update
+        should_install = False
+        install_reason = ""
 
         if not found:
+            should_install = True
+            install_reason = "CLI not found"
+        elif target_version:
+            # Normalize versions for comparison (remove 'v' prefix)
+            norm_target = target_version.lstrip("v")
+            norm_current = current_version.lstrip("v") if current_version else ""
+
+            if norm_target != norm_current:
+                should_install = True
+                install_reason = f"Version mismatch (Current: {current_version}, Target: {target_version})"
+
+        if should_install:
+            if self.valves.DEBUG:
+                self._emit_debug_log_sync(
+                    f"Installing Copilot CLI: {install_reason}...", __event_call__
+                )
             try:
+                env = os.environ.copy()
+                if target_version:
+                    env["VERSION"] = target_version
+
                 subprocess.run(
                     "curl -fsSL https://gh.io/copilot-install | bash",
                     shell=True,
                     check=True,
+                    env=env,
                 )
-                if os.path.exists(self.valves.CLI_PATH):
-                    cli_path = self.valves.CLI_PATH
+
+                # Check default install location first, then system path
+                if os.path.exists("/usr/local/bin/copilot"):
+                    cli_path = "/usr/local/bin/copilot"
                     found = True
-            except:
-                pass
+                elif shutil.which("copilot"):
+                    cli_path = shutil.which("copilot")
+                    found = True
+
+                if found:
+                    current_version = get_cli_version(cli_path)
+            except Exception as e:
+                if self.valves.DEBUG:
+                    self._emit_debug_log_sync(
+                        f"Failed to install Copilot CLI: {e}", __event_call__
+                    )
 
         if found:
             os.environ["COPILOT_CLI_PATH"] = cli_path
@@ -687,25 +1015,9 @@ class Pipe:
 
             if self.valves.DEBUG:
                 self._emit_debug_log_sync(
-                    f"Copilot CLI found at: {cli_path}", __event_call__
+                    f"Copilot CLI found at: {cli_path} (Version: {current_version})",
+                    __event_call__,
                 )
-                try:
-                    # Try to get version to confirm it's executable
-                    ver = (
-                        subprocess.check_output(
-                            [cli_path, "--version"], stderr=subprocess.STDOUT
-                        )
-                        .decode()
-                        .strip()
-                    )
-                    self._emit_debug_log_sync(
-                        f"Copilot CLI Version: {ver}", __event_call__
-                    )
-                except Exception as e:
-                    self._emit_debug_log_sync(
-                        f"Warning: Copilot CLI found but failed to run: {e}",
-                        __event_call__,
-                    )
         else:
             if self.valves.DEBUG:
                 self._emit_debug_log_sync(
@@ -721,6 +1033,8 @@ class Pipe:
                 self._emit_debug_log_sync(
                     "Warning: GH_TOKEN is not set.", __event_call__
                 )
+
+        self._sync_mcp_config(__event_call__)
 
     def _process_images(self, messages, __event_call__=None):
         attachments = []
@@ -779,8 +1093,8 @@ class Pipe:
                 "gpt-5.2-codex"
                 not in self._collect_model_ids(
                     body={},
-                    request_model=self.valves.MODEL_ID,
-                    real_model_id=self.valves.MODEL_ID,
+                    request_model=self.id,
+                    real_model_id=None,
                 )[0].lower()
             ):
                 # Fallback to high if not supported
@@ -823,6 +1137,53 @@ class Pipe:
         except Exception as e:
             self._emit_debug_log_sync(f"Config sync check failed: {e}", __event_call__)
 
+    async def _update_copilot_cli(self, cli_path: str, __event_call__=None):
+        """Async task to update Copilot CLI if needed."""
+        import time
+
+        try:
+            # Check frequency (e.g., once every hour)
+            now = time.time()
+            if now - self._last_update_check < 3600:
+                return
+
+            self._last_update_check = now
+
+            # Simple check if "update" command is available or if we should just run it
+            # The user requested "async attempt to update copilot cli"
+
+            if self.valves.DEBUG:
+                self._emit_debug_log_sync(
+                    "Triggering async Copilot CLI update check...", __event_call__
+                )
+
+            # We create a subprocess to run the update
+            process = await asyncio.create_subprocess_exec(
+                cli_path,
+                "update",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+
+            stdout, stderr = await process.communicate()
+
+            if self.valves.DEBUG:
+                output = stdout.decode().strip() or stderr.decode().strip()
+                if output:
+                    self._emit_debug_log_sync(
+                        f"Async CLI Update result: {output}", __event_call__
+                    )
+
+        except Exception as e:
+            if self.valves.DEBUG:
+                self._emit_debug_log_sync(
+                    f"Async CLI Update failed: {e}", __event_call__
+                )
+
+    def _sync_mcp_config(self, __event_call__=None):
+        """Deprecated: MCP config is now handled dynamically via session config."""
+        pass
+
     # ==================== Internal Implementation ====================
     # _pipe_impl() contains the main request handling logic.
     # ================================================================
@@ -835,12 +1196,22 @@ class Pipe:
         __event_call__=None,
     ) -> Union[str, AsyncGenerator]:
         self._setup_env(__event_call__)
+
+        cwd = self._get_workspace_dir()
+        if self.valves.DEBUG:
+            await self._emit_debug_log(f"Agent working in: {cwd}", __event_call__)
+
         if not self.valves.GH_TOKEN:
             return "Error: Please configure GH_TOKEN in Valves."
 
+        # Trigger async CLI update if configured
+        cli_path = os.environ.get("COPILOT_CLI_PATH")
+        if cli_path:
+            asyncio.create_task(self._update_copilot_cli(cli_path, __event_call__))
+
         # Parse user selected model
         request_model = body.get("model", "")
-        real_model_id = self.valves.MODEL_ID  # Default value
+        real_model_id = request_model
 
         # Determine effective reasoning effort and debug setting
         if __user__:
@@ -877,6 +1248,14 @@ class Pipe:
             await self._emit_debug_log(
                 f"Using selected model: {real_model_id}", __event_call__
             )
+        elif __metadata__ and __metadata__.get("base_model_id"):
+            base_model_id = __metadata__.get("base_model_id", "")
+            if base_model_id.startswith(f"{self.id}-"):
+                real_model_id = base_model_id[len(f"{self.id}-") :]
+                await self._emit_debug_log(
+                    f"Using base model: {real_model_id} (derived from custom model {request_model})",
+                    __event_call__,
+                )
 
         messages = body.get("messages", [])
         if not messages:
@@ -918,11 +1297,34 @@ class Pipe:
             await client.start()
 
             # Initialize custom tools
-            custom_tools = self._initialize_custom_tools()
+            custom_tools = await self._initialize_custom_tools(
+                __user__=__user__, __event_call__=__event_call__
+            )
             if custom_tools:
                 tool_names = [t.name for t in custom_tools]
                 await self._emit_debug_log(
                     f"Enabled {len(custom_tools)} custom tools: {tool_names}",
+                    __event_call__,
+                )
+                if self.valves.DEBUG:
+                    for t in custom_tools:
+                        await self._emit_debug_log(
+                            f"📋 Tool Detail: {t.name} - {t.description[:100]}...",
+                            __event_call__,
+                        )
+
+            # Check MCP Servers
+            mcp_servers = self._parse_mcp_servers()
+            mcp_server_names = list(mcp_servers.keys()) if mcp_servers else []
+            if mcp_server_names:
+                await self._emit_debug_log(
+                    f"🔌 MCP Servers Configured: {mcp_server_names}",
+                    __event_call__,
+                )
+
+            else:
+                await self._emit_debug_log(
+                    "ℹ️ No MCP tool servers found in OpenWebUI Connections.",
                     __event_call__,
                 )
 
@@ -930,14 +1332,23 @@ class Pipe:
             session = None
             if chat_id:
                 try:
-                    session = await client.resume_session(chat_id)
+                    # Prepare resume config
+                    resume_params = {}
+                    if mcp_servers:
+                        resume_params["mcp_servers"] = mcp_servers
+
+                    session = (
+                        await client.resume_session(chat_id, resume_params)
+                        if resume_params
+                        else await client.resume_session(chat_id)
+                    )
                     await self._emit_debug_log(
-                        f"Resumed session: {chat_id} (Note: Formatting guidelines only apply to NEW sessions. Create a new chat to use updated formatting.)",
+                        f"Resumed session: {chat_id} (Reasoning: {effective_reasoning_effort or 'default'})",
                         __event_call__,
                     )
 
-                    # Show workspace info if available
-                    if self.valves.DEBUG and self.valves.SHOW_WORKSPACE_INFO:
+                    # Show workspace info of available
+                    if self.valves.DEBUG:
                         if session.workspace_path:
                             await self._emit_debug_log(
                                 f"Session workspace: {session.workspace_path}",
@@ -990,7 +1401,7 @@ class Pipe:
                 )
 
                 # Show workspace info for new sessions
-                if self.valves.DEBUG and self.valves.SHOW_WORKSPACE_INFO:
+                if self.valves.DEBUG:
                     if session.workspace_path:
                         await self._emit_debug_log(
                             f"Session workspace: {session.workspace_path}",
@@ -1012,7 +1423,11 @@ class Pipe:
             if body.get("stream", False):
                 init_msg = ""
                 if self.valves.DEBUG:
-                    init_msg = f"> [Debug] Agent working in: {os.getcwd()}\n"
+                    init_msg = (
+                        f"> [Debug] Agent working in: {self._get_workspace_dir()}\n"
+                    )
+                    if mcp_server_names:
+                        init_msg += f"> [Debug] 🔌 Connected MCP Servers: {', '.join(mcp_server_names)}\n"
 
                 # Transfer client ownership to stream_response
                 should_stop_client = False

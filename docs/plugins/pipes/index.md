@@ -15,7 +15,7 @@ Pipes allow you to:
 
 ## Available Pipe Plugins
 
-- [GitHub Copilot SDK](github-copilot-sdk.md) (v0.1.1) - Official GitHub Copilot SDK integration. Supports dynamic models, multi-turn conversation, streaming, multimodal input, and infinite sessions.
+- [GitHub Copilot SDK](github-copilot-sdk.md) (v0.3.0) - Official GitHub Copilot SDK integration. Features **zero-config OpenWebUI Tool Bridge** and **dynamic MCP discovery**. Supports streaming, multimodal, and infinite sessions.
 
 ---
 

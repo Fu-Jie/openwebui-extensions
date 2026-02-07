@@ -4,11 +4,12 @@ author: Fu-Jie
 author_url: https://github.com/Fu-Jie/awesome-openwebui
 funding_url: https://github.com/open-webui
 description: 集成 GitHub Copilot SDK。支持动态模型、多轮对话、流式输出、多模态输入、无限会话及前端调试日志。
-version: 0.2.3
-requirements: github-copilot-sdk
+version: 0.3.0
+requirements: github-copilot-sdk==0.1.22
 """
 
 import os
+import re
 import time
 import json
 import base64
@@ -18,46 +19,36 @@ import logging
 import shutil
 import subprocess
 import sys
-from typing import Optional, Union, AsyncGenerator, List, Any, Dict
-from pydantic import BaseModel, Field
+import hashlib
+from pathlib import Path
+from typing import Optional, Union, AsyncGenerator, List, Any, Dict, Callable
+from types import SimpleNamespace
+from pydantic import BaseModel, Field, create_model
 from datetime import datetime, timezone
 import contextlib
 
 # 导入 Copilot SDK 模块
 from copilot import CopilotClient, define_tool
 
+# 导入 OpenWebUI 配置和工具模块
+from open_webui.config import TOOL_SERVER_CONNECTIONS
+from open_webui.utils.tools import get_tools as get_openwebui_tools
+from open_webui.models.tools import Tools
+from open_webui.models.users import Users
+
 # Setup logger
 logger = logging.getLogger(__name__)
-
-
-class RandomNumberParams(BaseModel):
-    min: int = Field(description="最小值（包含）")
-    max: int = Field(description="最大值（包含）")
-
-
-@define_tool(description="在指定范围内生成随机整数。")
-async def generate_random_number(params: RandomNumberParams) -> str:
-    import random
-
-    if params.min >= params.max:
-        raise ValueError("min 必须小于 max")
-    number = random.randint(params.min, params.max)
-    return f"生成的随机数: {number}"
 
 
 class Pipe:
     class Valves(BaseModel):
         GH_TOKEN: str = Field(
             default="",
-            description="GitHub 细粒度 Token（需要 Copilot Requests 权限）",
+            description="GitHub OAuth Token (来自 'gh auth token')，用于 Copilot Chat (必须)",
         )
-        MODEL_ID: str = Field(
-            default="gpt-5-mini",
-            description="默认 Copilot 模型名（动态获取失败时使用）",
-        )
-        CLI_PATH: str = Field(
-            default="/usr/local/bin/copilot",
-            description="Copilot CLI 路径",
+        COPILOT_CLI_VERSION: str = Field(
+            default="0.0.405",
+            description="指定安装/强制使用的 Copilot CLI 版本 (例如 '0.0.405')。留空则使用最新版。",
         )
         DEBUG: bool = Field(
             default=False,
@@ -70,10 +61,6 @@ class Pipe:
         SHOW_THINKING: bool = Field(
             default=True,
             description="显示模型推理/思考过程",
-        )
-        SHOW_WORKSPACE_INFO: bool = Field(
-            default=True,
-            description="调试模式下显示会话工作空间路径与摘要",
         )
         EXCLUDE_KEYWORDS: str = Field(
             default="",
@@ -103,13 +90,14 @@ class Pipe:
             default="",
             description='自定义环境变量（JSON 格式，例如 {"VAR": "value"}）',
         )
-        ENABLE_TOOLS: bool = Field(
-            default=False,
-            description="启用自定义工具（例如：随机数）",
+
+        ENABLE_OPENWEBUI_TOOLS: bool = Field(
+            default=True,
+            description="启用 OpenWebUI 工具 (包括自定义工具和工具服务器工具)。",
         )
-        AVAILABLE_TOOLS: str = Field(
-            default="all",
-            description="可用工具：'all' 或逗号分隔列表（例如：'generate_random_number'）",
+        ENABLE_MCP_SERVER: bool = Field(
+            default=True,
+            description="启用直接 MCP 客户端连接 (推荐)。",
         )
         REASONING_EFFORT: str = Field(
             default="medium",
@@ -121,13 +109,13 @@ class Pipe:
         )
 
     class UserValves(BaseModel):
+        GH_TOKEN: str = Field(
+            default="",
+            description="个人 GitHub Fine-grained Token (覆盖全局设置)",
+        )
         REASONING_EFFORT: str = Field(
             default="",
             description="推理强度级别 (low, medium, high, xhigh)。留空以使用全局设置。",
-        )
-        CLI_PATH: str = Field(
-            default="",
-            description="自定义 Copilot CLI 路径。留空以使用全局设置。",
         )
         DEBUG: bool = Field(
             default=False,
@@ -135,11 +123,21 @@ class Pipe:
         )
         SHOW_THINKING: bool = Field(
             default=True,
-            description="显示模型推理/思考过程",
+            description="显示模型的推理/思考过程",
         )
-        MODEL_ID: str = Field(
-            default="",
-            description="自定义模型 ID (例如 gpt-4o)。留空以使用全局默认值。",
+
+        ENABLE_OPENWEBUI_TOOLS: bool = Field(
+            default=True,
+            description="启用 OpenWebUI 工具 (包括自定义工具和工具服务器工具，覆盖全局设置)。",
+        )
+        ENABLE_MCP_SERVER: bool = Field(
+            default=True,
+            description="启用动态 MCP 服务器加载 (覆盖全局设置)。",
+        )
+
+        ENFORCE_FORMATTING: bool = Field(
+            default=True,
+            description="强制启用格式化指导 (覆盖全局设置)",
         )
 
     def __init__(self):
@@ -150,6 +148,7 @@ class Pipe:
         self.temp_dir = tempfile.mkdtemp(prefix="copilot_images_")
         self.thinking_started = False
         self._model_cache = []  # 模型列表缓存
+        self._last_update_check = 0  # 上次 CLI 更新检查时间
 
     def __del__(self):
         try:
@@ -338,9 +337,31 @@ class Pipe:
 
         return system_prompt_content, system_prompt_source
 
+    def _get_workspace_dir(self) -> str:
+        """获取具有智能默认值的有效工作空间目录。"""
+        if self.valves.WORKSPACE_DIR:
+            return self.valves.WORKSPACE_DIR
+
+        # OpenWebUI 容器的智能默认值
+        if os.path.exists("/app/backend/data"):
+            cwd = "/app/backend/data/copilot_workspace"
+        else:
+            # 本地回退：当前工作目录的子目录
+            cwd = os.path.join(os.getcwd(), "copilot_workspace")
+
+        # 确保目录存在
+        if not os.path.exists(cwd):
+            try:
+                os.makedirs(cwd, exist_ok=True)
+            except Exception as e:
+                print(f"Error creating workspace {cwd}: {e}")
+                return os.getcwd()  # 如果创建失败回退到 CWD
+
+        return cwd
+
     def _build_client_config(self, body: dict) -> dict:
         """根据 Valves 和请求构建 CopilotClient 配置"""
-        cwd = self.valves.WORKSPACE_DIR if self.valves.WORKSPACE_DIR else os.getcwd()
+        cwd = self._get_workspace_dir()
         client_config = {}
         if os.environ.get("COPILOT_CLI_PATH"):
             client_config["cli_path"] = os.environ["COPILOT_CLI_PATH"]
@@ -359,6 +380,270 @@ class Pipe:
 
         return client_config
 
+    async def _initialize_custom_tools(self, __user__=None, __event_call__=None):
+        """根据配置初始化自定义工具"""
+
+        if not self.valves.ENABLE_OPENWEBUI_TOOLS:
+            return []
+
+        # 动态加载 OpenWebUI 工具
+        openwebui_tools = await self._load_openwebui_tools(
+            __user__=__user__, __event_call__=__event_call__
+        )
+
+        return openwebui_tools
+
+    def _json_schema_to_python_type(self, schema: dict) -> Any:
+        """将 JSON Schema 类型转换为 Python 类型以用于 Pydantic 模型。"""
+        if not isinstance(schema, dict):
+            return Any
+
+        schema_type = schema.get("type")
+        if isinstance(schema_type, list):
+            schema_type = next((t for t in schema_type if t != "null"), schema_type[0])
+
+        if schema_type == "string":
+            return str
+        if schema_type == "integer":
+            return int
+        if schema_type == "number":
+            return float
+        if schema_type == "boolean":
+            return bool
+        if schema_type == "object":
+            return Dict[str, Any]
+        if schema_type == "array":
+            items_schema = schema.get("items", {})
+            item_type = self._json_schema_to_python_type(items_schema)
+            return List[item_type]
+
+        return Any
+
+    def _convert_openwebui_tool(self, tool_name: str, tool_dict: dict):
+        """将 OpenWebUI 工具定义转换为 Copilot SDK 工具。"""
+        # 净化工具名称以匹配模式 ^[a-zA-Z0-9_-]+$
+        sanitized_tool_name = re.sub(r"[^a-zA-Z0-9_-]", "_", tool_name)
+
+        # 如果净化后的名称为空或仅包含分隔符（例如纯中文名称），生成回退名称
+        if not sanitized_tool_name or re.match(r"^[_.-]+$", sanitized_tool_name):
+            hash_suffix = hashlib.md5(tool_name.encode("utf-8")).hexdigest()[:8]
+            sanitized_tool_name = f"tool_{hash_suffix}"
+
+        if sanitized_tool_name != tool_name:
+            logger.debug(f"将工具名称 '{tool_name}' 净化为 '{sanitized_tool_name}'")
+
+        spec = tool_dict.get("spec", {}) if isinstance(tool_dict, dict) else {}
+        params_schema = spec.get("parameters", {}) if isinstance(spec, dict) else {}
+        properties = params_schema.get("properties", {})
+        required = params_schema.get("required", [])
+
+        if not isinstance(properties, dict):
+            properties = {}
+        if not isinstance(required, list):
+            required = []
+
+        required_set = set(required)
+        fields = {}
+        for param_name, param_schema in properties.items():
+            param_type = self._json_schema_to_python_type(param_schema)
+            description = ""
+            if isinstance(param_schema, dict):
+                description = param_schema.get("description", "")
+
+            if param_name in required_set:
+                if description:
+                    fields[param_name] = (
+                        param_type,
+                        Field(..., description=description),
+                    )
+                else:
+                    fields[param_name] = (param_type, ...)
+            else:
+                optional_type = Optional[param_type]
+                if description:
+                    fields[param_name] = (
+                        optional_type,
+                        Field(default=None, description=description),
+                    )
+                else:
+                    fields[param_name] = (optional_type, None)
+
+        if fields:
+            ParamsModel = create_model(f"{sanitized_tool_name}_Params", **fields)
+        else:
+            ParamsModel = create_model(f"{sanitized_tool_name}_Params")
+
+        tool_callable = tool_dict.get("callable")
+        tool_description = spec.get("description", "") if isinstance(spec, dict) else ""
+        if not tool_description and isinstance(spec, dict):
+            tool_description = spec.get("summary", "")
+
+        # 关键: 如果工具名称被净化（例如中文转哈希），语义会丢失。
+        # 我们必须将原始名称注入到描述中，以便模型知道它的作用。
+        if sanitized_tool_name != tool_name:
+            tool_description = f"功能 '{tool_name}': {tool_description}"
+
+        async def _tool(params):
+            payload = params.model_dump() if hasattr(params, "model_dump") else {}
+            return await tool_callable(**payload)
+
+        _tool.__name__ = sanitized_tool_name
+        _tool.__doc__ = tool_description
+
+        # 转换调试日志
+        logger.debug(
+            f"正在转换工具 '{sanitized_tool_name}': {tool_description[:50]}..."
+        )
+
+        # 核心关键点：必须显式传递 types，否则 define_tool 无法推断动态函数的参数
+        # 显式传递 name 确保 SDK 注册的名称正确
+        return define_tool(
+            name=sanitized_tool_name,
+            description=tool_description,
+            params_type=ParamsModel,
+        )(_tool)
+
+    def _build_openwebui_request(self):
+        """构建一个最小的 request 模拟对象用于 OpenWebUI 工具加载。"""
+        app_state = SimpleNamespace(
+            config=SimpleNamespace(
+                TOOL_SERVER_CONNECTIONS=TOOL_SERVER_CONNECTIONS.value
+            ),
+            TOOLS={},
+        )
+        app = SimpleNamespace(state=app_state)
+        request = SimpleNamespace(
+            app=app,
+            cookies={},
+            state=SimpleNamespace(token=SimpleNamespace(credentials="")),
+        )
+        return request
+
+    async def _load_openwebui_tools(self, __user__=None, __event_call__=None):
+        """动态加载 OpenWebUI 工具并转换为 Copilot SDK 工具。"""
+        if isinstance(__user__, (list, tuple)):
+            user_data = __user__[0] if __user__ else {}
+        elif isinstance(__user__, dict):
+            user_data = __user__
+        else:
+            user_data = {}
+
+        if not user_data:
+            return []
+
+        user_id = user_data.get("id") or user_data.get("user_id")
+        if not user_id:
+            return []
+
+        user = Users.get_user_by_id(user_id)
+        if not user:
+            return []
+
+        # 1. 获取用户自定义工具 (Python 脚本)
+        tool_items = Tools.get_tools_by_user_id(user_id, permission="read")
+        tool_ids = [tool.id for tool in tool_items] if tool_items else []
+
+        # 2. 获取 OpenAPI 工具服务器工具
+        # 我们手动添加已启用的 OpenAPI 服务器，因为 Tools.get_tools_by_user_id 仅检查数据库。
+        # open_webui.utils.tools.get_tools 会处理实际的加载和访问控制。
+        if hasattr(TOOL_SERVER_CONNECTIONS, "value"):
+            for server in TOOL_SERVER_CONNECTIONS.value:
+                # 我们在此处仅添加 'openapi' 服务器，因为 get_tools 目前似乎仅支持 'openapi' (默认为此)。
+                # MCP 工具通过 ENABLE_MCP_SERVER 单独处理。
+                if server.get("type") == "openapi":
+                    # get_tools 期望的格式: "server:<id>" 隐含 type="openapi"
+                    server_id = server.get("id")
+                    if server_id:
+                        tool_ids.append(f"server:{server_id}")
+
+        if not tool_ids:
+            return []
+
+        request = self._build_openwebui_request()
+        extra_params = {
+            "__request__": request,
+            "__user__": user_data,
+            "__event_emitter__": None,
+            "__event_call__": __event_call__,
+            "__chat_id__": None,
+            "__message_id__": None,
+            "__model_knowledge__": [],
+        }
+
+        tools_dict = await get_openwebui_tools(request, tool_ids, user, extra_params)
+        if not tools_dict:
+            return []
+
+        converted_tools = []
+        for tool_name, tool_def in tools_dict.items():
+            try:
+                converted_tools.append(
+                    self._convert_openwebui_tool(tool_name, tool_def)
+                )
+            except Exception as e:
+                await self._emit_debug_log(
+                    f"加载 OpenWebUI 工具 '{tool_name}' 失败: {e}",
+                    __event_call__,
+                )
+
+        return converted_tools
+
+    def _parse_mcp_servers(self) -> Optional[dict]:
+        """
+        从 OpenWebUI TOOL_SERVER_CONNECTIONS 动态加载 MCP 服务器配置。
+        返回兼容 CopilotClient 的 mcp_servers 字典。
+        """
+        if not self.valves.ENABLE_MCP_SERVER:
+            return None
+
+        mcp_servers = {}
+
+        # 遍历 OpenWebUI 工具服务器连接
+        if hasattr(TOOL_SERVER_CONNECTIONS, "value"):
+            connections = TOOL_SERVER_CONNECTIONS.value
+        else:
+            connections = []
+
+        for conn in connections:
+            if conn.get("type") == "mcp":
+                info = conn.get("info", {})
+                # 使用 info 中的 ID 或自动生成
+                raw_id = info.get("id", f"mcp-server-{len(mcp_servers)}")
+
+                # 净化 server_id (使用与工具相同的逻辑)
+                server_id = re.sub(r"[^a-zA-Z0-9_-]", "_", raw_id)
+                if not server_id or re.match(r"^[_.-]+$", server_id):
+                    hash_suffix = hashlib.md5(raw_id.encode("utf-8")).hexdigest()[:8]
+                    server_id = f"server_{hash_suffix}"
+
+                url = conn.get("url")
+                if not url:
+                    continue
+
+                # 构建 Header (处理认证)
+                headers = {}
+                auth_type = conn.get("auth_type", "bearer")
+                key = conn.get("key", "")
+
+                if auth_type == "bearer" and key:
+                    headers["Authorization"] = f"Bearer {key}"
+                elif auth_type == "basic" and key:
+                    headers["Authorization"] = f"Basic {key}"
+
+                # 合并自定义 headers
+                custom_headers = conn.get("headers", {})
+                if isinstance(custom_headers, dict):
+                    headers.update(custom_headers)
+
+                mcp_servers[server_id] = {
+                    "type": "http",
+                    "url": url,
+                    "headers": headers,
+                    "tools": ["*"],  # 默认启用所有工具
+                }
+
+        return mcp_servers if mcp_servers else None
+
     def _build_session_config(
         self,
         chat_id: Optional[str],
@@ -366,7 +651,6 @@ class Pipe:
         custom_tools: List[Any],
         system_prompt_content: Optional[str],
         is_streaming: bool,
-        reasoning_effort: str = "",
     ):
         """构建 Copilot SDK 的 SessionConfig"""
         from copilot.types import SessionConfig, InfiniteSessionConfig
@@ -414,11 +698,12 @@ class Pipe:
             "tools": custom_tools,
             "system_message": system_message_config,
             "infinite_sessions": infinite_session_config,
+            # 注册权限处理 Hook
         }
 
-        # 如果不是默认值（medium），添加 reasoning_effort
-        if reasoning_effort and reasoning_effort.lower() != "medium":
-            session_params["reasoning_effort"] = reasoning_effort.lower()
+        mcp_servers = self._parse_mcp_servers()
+        if mcp_servers:
+            session_params["mcp_servers"] = mcp_servers
 
         return SessionConfig(**session_params)
 
@@ -544,24 +829,6 @@ class Pipe:
                     break
 
         return system_prompt_content, system_prompt_source
-
-    def _initialize_custom_tools(self):
-        """根据配置初始化自定义工具"""
-        if not self.valves.ENABLE_TOOLS:
-            return []
-
-        # 定义所有可用工具（在此注册新工具）
-        all_tools = {
-            "generate_random_number": generate_random_number,
-        }
-
-        # 根据配置过滤
-        if self.valves.AVAILABLE_TOOLS == "all":
-            return list(all_tools.values())
-
-        # 仅启用指定的工具
-        enabled = [t.strip() for t in self.valves.AVAILABLE_TOOLS.split(",")]
-        return [all_tools[name] for name in enabled if name in all_tools]
 
     async def _emit_debug_log(self, message: str, __event_call__=None):
         """在 DEBUG 开启时将日志输出到前端控制台。"""
@@ -764,8 +1031,8 @@ class Pipe:
                 # 失败时返回默认模型
                 return [
                     {
-                        "id": f"{self.id}-{self.valves.MODEL_ID}",
-                        "name": f"GitHub Copilot ({self.valves.MODEL_ID})",
+                        "id": f"{self.id}-gpt-5-mini",
+                        "name": f"GitHub Copilot (gpt-5-mini)",
                     }
                 ]
             finally:
@@ -774,8 +1041,8 @@ class Pipe:
             await self._emit_debug_log(f"Pipes Error: {e}")
             return [
                 {
-                    "id": f"{self.id}-{self.valves.MODEL_ID}",
-                    "name": f"GitHub Copilot ({self.valves.MODEL_ID})",
+                    "id": f"{self.id}-gpt-5-mini",
+                    "name": f"GitHub Copilot (gpt-5-mini)",
                 }
             ]
 
@@ -807,30 +1074,93 @@ class Pipe:
         return client
 
     def _setup_env(self, __event_call__=None):
-        cli_path = self.valves.CLI_PATH
-        found = False
+        cli_path = "/usr/local/bin/copilot"
+        if os.environ.get("COPILOT_CLI_PATH"):
+            cli_path = os.environ["COPILOT_CLI_PATH"]
 
+        target_version = self.valves.COPILOT_CLI_VERSION.strip()
+        found = False
+        current_version = None
+
+        # 内部 helper: 获取版本
+        def get_cli_version(path):
+            try:
+                output = (
+                    subprocess.check_output(
+                        [path, "--version"], stderr=subprocess.STDOUT
+                    )
+                    .decode()
+                    .strip()
+                )
+                # Copilot CLI 输出通常包含 "copilot version X.Y.Z" 或直接是版本号
+                match = re.search(r"(\d+\.\d+\.\d+)", output)
+                return match.group(1) if match else output
+            except Exception:
+                return None
+
+        # 检查默认路径
         if os.path.exists(cli_path):
             found = True
+            current_version = get_cli_version(cli_path)
 
+        # 二次检查系统路径
         if not found:
             sys_path = shutil.which("copilot")
             if sys_path:
                 cli_path = sys_path
                 found = True
+                current_version = get_cli_version(cli_path)
+
+        # 判断是否需要安装/更新
+        should_install = False
+        install_reason = ""
 
         if not found:
+            should_install = True
+            install_reason = "CLI 未找到"
+        elif target_version:
+            # 标准化版本号 (移除 'v' 前缀)
+            norm_target = target_version.lstrip("v")
+            norm_current = current_version.lstrip("v") if current_version else ""
+
+            if norm_target != norm_current:
+                should_install = True
+                install_reason = (
+                    f"版本不匹配 (当前: {current_version}, 目标: {target_version})"
+                )
+
+        if should_install:
+            if self.valves.DEBUG:
+                self._emit_debug_log_sync(
+                    f"正在安装 Copilot CLI: {install_reason}...", __event_call__
+                )
             try:
+                env = os.environ.copy()
+                if target_version:
+                    env["VERSION"] = target_version
+
                 subprocess.run(
                     "curl -fsSL https://gh.io/copilot-install | bash",
                     shell=True,
                     check=True,
+                    env=env,
                 )
-                if os.path.exists(self.valves.CLI_PATH):
-                    cli_path = self.valves.CLI_PATH
+
+                # 优先检查默认安装路径，其次是系统路径
+                if os.path.exists("/usr/local/bin/copilot"):
+                    cli_path = "/usr/local/bin/copilot"
                     found = True
-            except:
-                pass
+                elif shutil.which("copilot"):
+                    cli_path = shutil.which("copilot")
+                    found = True
+
+                if found:
+                    current_version = get_cli_version(cli_path)
+            except Exception as e:
+                if self.valves.DEBUG:
+                    self._emit_debug_log_sync(
+                        f"Copilot CLI 安装失败: {e}", __event_call__
+                    )
 
         if found:
             os.environ["COPILOT_CLI_PATH"] = cli_path
@@ -840,7 +1170,14 @@ class Pipe:
 
             if self.valves.DEBUG:
                 self._emit_debug_log_sync(
-                    f"Copilot CLI 已定位: {cli_path}", __event_call__
+                    f"已找到 Copilot CLI: {cli_path} (版本: {current_version})",
+                    __event_call__,
+                )
+        else:
+            if self.valves.DEBUG:
+                self._emit_debug_log_sync(
+                    "错误: 未找到 Copilot CLI。相关 Agent 功能将被禁用。",
+                    __event_call__,
                 )
 
         if self.valves.GH_TOKEN:
@@ -849,6 +1186,8 @@ class Pipe:
         else:
             if self.valves.DEBUG:
                 self._emit_debug_log_sync("Warning: GH_TOKEN 未设置。", __event_call__)
+
+        self._sync_mcp_config(__event_call__)
 
     def _process_images(self, messages, __event_call__=None):
         attachments = []
@@ -944,9 +1283,113 @@ class Pipe:
         except Exception as e:
             self._emit_debug_log_sync(f"配置同步检查失败: {e}", __event_call__)
 
+    def _sync_mcp_config(self, __event_call__=None):
+        """已弃用：MCP 配置现在通过 SessionConfig 动态处理。"""
+        pass
+
     # ==================== 内部实现 ====================
     # _pipe_impl() 包含主请求处理逻辑。
     # ================================================
+    def _sync_copilot_config(self, reasoning_effort: str, __event_call__=None):
+        """
+        如果设置了 REASONING_EFFORT，则动态更新 ~/.copilot/config.json。
+        这提供了一个回退机制，以防 API 注入被服务器忽略。
+        """
+        if not reasoning_effort:
+            return
+
+        effort = reasoning_effort
+
+        # 检查模型是否支持 xhigh
+        # 目前只有 gpt-5.2-codex 支持 xhigh
+        if effort == "xhigh":
+            # 简单检查，使用默认模型 ID
+            if (
+                "gpt-5.2-codex"
+                not in self._collect_model_ids(
+                    body={},
+                    request_model=self.id,
+                    real_model_id=None,
+                )[0].lower()
+            ):
+                # 如果不支持则回退到 high
+                effort = "high"
+
+        try:
+            # 目标标准路径 ~/.copilot/config.json
+            config_path = os.path.expanduser("~/.copilot/config.json")
+            config_dir = os.path.dirname(config_path)
+
+            # 仅当目录存在时才继续（避免在路径错误时创建垃圾文件）
+            if not os.path.exists(config_dir):
+                return
+
+            data = {}
+            # 读取现有配置
+            if os.path.exists(config_path):
+                try:
+                    with open(config_path, "r") as f:
+                        data = json.load(f)
+                except Exception:
+                    data = {}
+
+            # 如果有变化则更新
+            current_val = data.get("reasoning_effort")
+            if current_val != effort:
+                data["reasoning_effort"] = effort
+                try:
+                    with open(config_path, "w") as f:
+                        json.dump(data, f, indent=4)
+
+                    self._emit_debug_log_sync(
+                        f"已动态更新 ~/.copilot/config.json: reasoning_effort='{effort}'",
+                        __event_call__,
+                    )
+                except Exception as e:
+                    self._emit_debug_log_sync(
+                        f"写入 config.json 失败: {e}", __event_call__
+                    )
+        except Exception as e:
+            self._emit_debug_log_sync(f"配置同步检查失败: {e}", __event_call__)
+
+    async def _update_copilot_cli(self, cli_path: str, __event_call__=None):
+        """异步任务：如果需要则更新 Copilot CLI。"""
+        import time
+
+        try:
+            # 检查频率（例如：每小时一次）
+            now = time.time()
+            if now - self._last_update_check < 3600:
+                return
+
+            self._last_update_check = now
+
+            if self.valves.DEBUG:
+                self._emit_debug_log_sync(
+                    "触发异步 Copilot CLI 更新检查...", __event_call__
+                )
+
+            # 我们创建一个子进程来运行更新
+            process = await asyncio.create_subprocess_exec(
+                cli_path,
+                "update",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+
+            stdout, stderr = await process.communicate()
+
+            if self.valves.DEBUG and process.returncode == 0:
+                self._emit_debug_log_sync("Copilot CLI 更新检查完成", __event_call__)
+            elif process.returncode != 0 and self.valves.DEBUG:
+                self._emit_debug_log_sync(
+                    f"Copilot CLI 更新失败: {stderr.decode()}", __event_call__
+                )
+
+        except Exception as e:
+            if self.valves.DEBUG:
+                self._emit_debug_log_sync(f"CLI 更新任务异常: {e}", __event_call__)
+
     async def _pipe_impl(
         self,
         body: dict,
@@ -956,12 +1399,23 @@ class Pipe:
         __event_call__=None,
     ) -> Union[str, AsyncGenerator]:
         self._setup_env(__event_call__)
+
+        cwd = self._get_workspace_dir()
+        if self.valves.DEBUG:
+            await self._emit_debug_log(f"当前工作目录: {cwd}", __event_call__)
+
+        # CLI Update Check
+        if os.environ.get("COPILOT_CLI_PATH"):
+            asyncio.create_task(
+                self._update_copilot_cli(os.environ["COPILOT_CLI_PATH"], __event_call__)
+            )
+
         if not self.valves.GH_TOKEN:
             return "Error: 请在 Valves 中配置 GH_TOKEN。"
 
         # 解析用户选择的模型
         request_model = body.get("model", "")
-        real_model_id = self.valves.MODEL_ID  # 默认值
+        real_model_id = request_model
 
         # 确定有效的推理强度和调试设置
         if __user__:
@@ -979,6 +1433,10 @@ class Pipe:
             if user_valves.REASONING_EFFORT
             else self.valves.REASONING_EFFORT
         )
+
+        # Sync config for reasoning effort (Legacy/Fallback)
+        self._sync_copilot_config(effective_reasoning_effort, __event_call__)
+
         # 如果用户启用了 DEBUG，则覆盖全局设置
         if user_valves.DEBUG:
             self.valves.DEBUG = True
@@ -995,6 +1453,14 @@ class Pipe:
             await self._emit_debug_log(
                 f"使用选择的模型: {real_model_id}", __event_call__
             )
+        elif __metadata__ and __metadata__.get("base_model_id"):
+            base_model_id = __metadata__.get("base_model_id", "")
+            if base_model_id.startswith(f"{self.id}-"):
+                real_model_id = base_model_id[len(f"{self.id}-") :]
+                await self._emit_debug_log(
+                    f"使用基础模型: {real_model_id} (继承自自定义模型 {request_model})",
+                    __event_call__,
+                )
 
         messages = body.get("messages", [])
         if not messages:
@@ -1019,17 +1485,43 @@ class Pipe:
         is_streaming = body.get("stream", False)
         await self._emit_debug_log(f"请求流式传输: {is_streaming}", __event_call__)
 
+        # 处理多模态（图像）和提取最后的消息文本
+        last_text, attachments = self._process_images(messages, __event_call__)
+
         client = CopilotClient(self._build_client_config(body))
         should_stop_client = True
         try:
             await client.start()
 
             # 初始化自定义工具
-            custom_tools = self._initialize_custom_tools()
+            custom_tools = await self._initialize_custom_tools(
+                __user__=__user__, __event_call__=__event_call__
+            )
             if custom_tools:
                 tool_names = [t.name for t in custom_tools]
                 await self._emit_debug_log(
                     f"已启用 {len(custom_tools)} 个自定义工具: {tool_names}",
+                    __event_call__,
+                )
+                # 详细打印每个工具的描述 (用于调试)
+                if self.valves.DEBUG:
+                    for t in custom_tools:
+                        await self._emit_debug_log(
+                            f"📋 工具详情: {t.name} - {t.description[:100]}...",
+                            __event_call__,
+                        )
+
+            # 检查 MCP 服务器
+            mcp_servers = self._parse_mcp_servers()
+            mcp_server_names = list(mcp_servers.keys()) if mcp_servers else []
+            if mcp_server_names:
+                await self._emit_debug_log(
+                    f"🔌 MCP 服务器已配置: {mcp_server_names}",
+                    __event_call__,
+                )
+            else:
+                await self._emit_debug_log(
+                    "ℹ️ 未在 OpenWebUI 连接中发现 MCP 服务器。",
                     __event_call__,
                 )
 
@@ -1037,14 +1529,22 @@ class Pipe:
 
             if chat_id:
                 try:
+                    # 复用已解析的 mcp_servers
+                    resume_config = (
+                        {"mcp_servers": mcp_servers} if mcp_servers else None
+                    )
                     # 尝试直接使用 chat_id 作为 session_id 恢复会话
-                    session = await client.resume_session(chat_id)
+                    session = (
+                        await client.resume_session(chat_id, resume_config)
+                        if resume_config
+                        else await client.resume_session(chat_id)
+                    )
                     await self._emit_debug_log(
                         f"已通过 ChatID 恢复会话: {chat_id}", __event_call__
                     )
 
                     # 显示工作空间信息（如果可用）
-                    if self.valves.DEBUG and self.valves.SHOW_WORKSPACE_INFO:
+                    if self.valves.DEBUG:
                         if session.workspace_path:
                             await self._emit_debug_log(
                                 f"会话工作空间: {session.workspace_path}",
@@ -1107,7 +1607,7 @@ class Pipe:
                 await self._emit_debug_log(f"创建了新会话: {new_sid}", __event_call__)
 
                 # 显示新会话的工作空间信息
-                if self.valves.DEBUG and self.valves.SHOW_WORKSPACE_INFO:
+                if self.valves.DEBUG:
                     if session.workspace_path:
                         await self._emit_debug_log(
                             f"会话工作空间: {session.workspace_path}",
@@ -1132,6 +1632,9 @@ class Pipe:
                         init_msg = f"> [Debug] 创建了新会话: {new_sid}\n"
                     else:
                         init_msg = f"> [Debug] 已通过 ChatID 恢复会话: {chat_id}\n"
+
+                    if mcp_server_names:
+                        init_msg += f"> [Debug] 🔌 已连接 MCP 服务器: {', '.join(mcp_server_names)}\n"
 
                 return self.stream_response(
                     client,
