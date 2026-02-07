@@ -4,6 +4,10 @@
 
 This is an advanced Pipe function for [OpenWebUI](https://github.com/open-webui/open-webui) that allows you to use GitHub Copilot models (such as `gpt-5`, `gpt-5-mini`, `claude-sonnet-4.5`) directly within OpenWebUI. It is built upon the official [GitHub Copilot SDK for Python](https://github.com/github/copilot-sdk), providing a native integration experience.
 
+> [!IMPORTANT]
+> **Active GitHub Copilot Subscription Required**
+> This plugin requires a valid GitHub Copilot subscription (Individual, Business, or Enterprise). It will verify your subscription status during authentication.
+
 ## 🚀 What's New (v0.3.0) - The Power of "Unified Ecosystem"
 
 * **🔌 Zero-Config Tool Bridge**: Automatically transforms your existing OpenWebUI Functions (Tools) into Copilot-compatible tools. **Copilot now has total access to your entire WebUI toolset!**

@@ -4,6 +4,10 @@
 
 这是一个用于 [OpenWebUI](https://github.com/open-webui/open-webui) 的高级 Pipe 函数，允许你直接在 OpenWebUI 中使用 GitHub Copilot 模型（如 `gpt-5`, `gpt-5-mini`, `claude-sonnet-4.5`）。它基于官方 [GitHub Copilot SDK for Python](https://github.com/github/copilot-sdk) 构建，提供了原生级的集成体验。
 
+> [!IMPORTANT]
+> **需 GitHub Copilot 订阅**
+> 本插件需要有效的 GitHub Copilot 订阅（个人版、商业版或企业版）。插件将在认证阶段验证您的订阅状态。
+
 ## 🚀 最新特性 (v0.3.0) - “统一生态”的力量
 
 * **🔌 零配置工具桥接 (Unified Tool Bridge)**: 自动将您现有的 OpenWebUI Functions (工具) 转换为 Copilot 兼容工具。**Copilot 现在可以无缝调用您手头所有的 WebUI 工具！**
