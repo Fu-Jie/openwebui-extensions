@@ -15,7 +15,7 @@ Pipes 可以用于：
 
 ## 可用的 Pipe 插件
 
-- [GitHub Copilot SDK](github-copilot-sdk.zh.md) (v0.3.0) - GitHub Copilot SDK 官方集成。**零配置工具桥接**与**动态 MCP 发现**。支持流式输出、多模态及无限会话。
+- [GitHub Copilot SDK](github-copilot-sdk.zh.md) (v0.5.1) - GitHub Copilot SDK 官方集成。**零配置工具桥接**与**BYOK (自带 Key) 支持**。支持流式输出、多模态及无限会话。
 
 ---
 

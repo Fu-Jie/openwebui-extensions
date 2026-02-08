@@ -4,8 +4,8 @@ author: Fu-Jie
 author_url: https://github.com/Fu-Jie/awesome-openwebui
 funding_url: https://github.com/open-webui
 description: 集成 GitHub Copilot SDK。支持动态模型、多轮对话、流式输出、多模态输入、无限会话及前端调试日志。
-version: 0.3.0
-requirements: github-copilot-sdk==0.1.22
+version: 0.5.1
+requirements: github-copilot-sdk==0.1.23
 """
 
 import os
@@ -21,7 +21,7 @@ import subprocess
 import sys
 import hashlib
 from pathlib import Path
-from typing import Optional, Union, AsyncGenerator, List, Any, Dict, Callable
+from typing import Optional, Union, AsyncGenerator, List, Any, Dict, Callable, Tuple, Literal
 from types import SimpleNamespace
 from pydantic import BaseModel, Field, create_model
 from datetime import datetime, timezone
@@ -30,25 +30,89 @@ import contextlib
 # 导入 Copilot SDK 模块
 from copilot import CopilotClient, define_tool
 
-# 导入 OpenWebUI 配置和工具模块
-from open_webui.config import TOOL_SERVER_CONNECTIONS
-from open_webui.utils.tools import get_tools as get_openwebui_tools
+# 导入 Tool Server Connections 和 Tool System (从 OpenWebUI 配置)
+from open_webui.config import (
+    PERSISTENT_CONFIG_REGISTRY,
+    TOOL_SERVER_CONNECTIONS,
+)
+from open_webui.utils.tools import get_tools as get_openwebui_tools, get_builtin_tools
 from open_webui.models.tools import Tools
 from open_webui.models.users import Users
 
 # Setup logger
 logger = logging.getLogger(__name__)
 
+FORMATTING_GUIDELINES = (
+    "\n\n[环境与能力上下文]\n"
+    "你是一个在特定高性能环境中运行的 AI 助手。了解你的上下文对于做出最佳决策至关重要。\n"
+    "\n"
+    "**系统环境：**\n"
+    "- **平台**：你在 **OpenWebUI** 托管的 Linux 容器化环境中运行。\n"
+    "- **核心引擎**：你由 **GitHub Copilot SDK** 驱动，并通过 **GitHub Copilot CLI** 进行交互。\n"
+    "- **访问权限**：你可以直接访问 **OpenWebUI 源代码**。你可以通过文件操作或工具读取、分析和参考你正在运行的平台的内部实现。\n"
+    "- **文件系统访问**：你以 **root** 身份运行。你对 **整个容器文件系统** 拥有 **读取权限**（包括系统文件）。但是，你应 **仅写入** 你指定的持久化工作区目录。\n"
+    "- **原生 Python 环境**：你运行在一个 **丰富的 Python 环境** 中，已经包含了 OpenWebUI 的所有依赖库。你可以直接导入并使用这些已安装的库（例如用于数据处理、工具函数等），而无需安装任何新东西。\n"
+    "- **包管理**：仅当你需要 **额外** 的库时，才应在你的工作区内 **创建一个虚拟环境** 并在那里安装它们。不要搞乱全局 pip。\n"
+    "- **网络**：你有互联网访问权限，并且可以在提供相应工具（例如 Web 搜索、MCP 服务器）的情况下与外部 API 进行交互。\n"
+    "\n"
+    "**界面能力 (OpenWebUI)：**\n"
+    "- **丰富的 Web UI**：你不受简单终端或纯文本响应的限制。你在现代 Web 浏览器中进行渲染。\n"
+    "- **视觉渲染**：你可以并且应该使用高级视觉元素来清晰地解释概念。\n"
+    "- **交互式脚本**：如果环境支持/工具有效，你通常可以直接运行 Python 脚本来执行计算、数据分析或自动化任务。\n"
+    "- **内置工具集成**：OpenWebUI 提供了与内部服务直接交互的原生工具。例如，`create_note`、`get_notes` 或 `manage_memories` 等工具直接操作平台的数据库。利用这些工具来持久化地管理用户数据和系统状态。\n"
+    "\n"
+    "**格式化与呈现指令：**\n"
+    "1. **Markdown & 多媒体**：\n"
+    "   - 自由使用 **粗体**、*斜体*、列表和 **Markdown 表格**（标准格式，严禁使用 HTML 表格）来构建你的答案。\n"
+    "   - **Mermaid 图表**：对于流程图、序列图或架构逻辑，请务必使用标准的 ```mermaid 代码块。不要使用其他格式。\n"
+    "   - **LaTeX 数学**：使用标准 LaTeX 格式表示数学表达式。\n"
+    "\n"
+    "2. **图像与文件**：\n"
+    "   - 如果工具生成了图像或文件，你 **必须** 使用 `![caption](url)` 直接嵌入。\n"
+    "   - 除非明确要求，否则不要仅提供文本链接。\n"
+    "\n"
+    "3. **交互式 HTML/JS**：\n"
+    "   - 你可以输出独立的 HTML/JS/CSS 代码块。OpenWebUI 将在 iframe 中将其渲染为交互式小部件。\n"
+    "   - **重要**：请将所有 HTML、CSS（在 `<style>` 中）和 JavaScript（在 `<script>` 中）合并到一个 **单一的** ` ```html ` 代码块中。\n"
+    "   - 将此用于动态数据可视化（例如图表）、交互式演示或自定义 UI 组件。\n"
+    "\n"
+    "4. **响应结构**：\n"
+    "   - **先思考**：在执行复杂任务之前，简要概述你的计划。\n"
+    "   - **简洁但完整**：具体的答案优于通用的答案。\n"
+    "   - **高级质感**：格式化你的输出，使其看起来专业且经过打磨，就像技术博客文章或文档一样。\n"
+)
+
 
 class Pipe:
     class Valves(BaseModel):
         GH_TOKEN: str = Field(
             default="",
-            description="GitHub OAuth Token (来自 'gh auth token')，用于 Copilot Chat (必须)",
+            description="GitHub Fine-grained Token (需要 'Copilot Requests' 权限)",
         )
-        COPILOT_CLI_VERSION: str = Field(
-            default="0.0.405",
-            description="指定安装/强制使用的 Copilot CLI 版本 (例如 '0.0.405')。留空则使用最新版。",
+        ENABLE_OPENWEBUI_TOOLS: bool = Field(
+            default=True,
+            description="启用 OpenWebUI 工具 (包括自定义工具和工具服务器工具)。",
+        )
+        ENABLE_MCP_SERVER: bool = Field(
+            default=True,
+            description="启用直接 MCP 客户端连接 (推荐)。",
+        )
+        ENABLE_TOOL_CACHE: bool = Field(
+            default=True,
+            description="缓存 OpenWebUI 工具和 MCP 服务器配置 (性能优化)。",
+        )
+        REASONING_EFFORT: Literal["low", "medium", "high", "xhigh"] = Field(
+            default="medium",
+            description="推理强度级别 (low, medium, high)。仅影响标准 Copilot 模型 (非 BYOK)。",
+        )
+        SHOW_THINKING: bool = Field(
+            default=True,
+            description="显示模型推理/思考过程",
+        )
+
+        INFINITE_SESSION: bool = Field(
+            default=True,
+            description="启用无限会话（自动上下文压缩）",
         )
         DEBUG: bool = Field(
             default=False,
@@ -58,21 +122,21 @@ class Pipe:
             default="error",
             description="Copilot CLI 日志级别：none, error, warning, info, debug, all",
         )
-        SHOW_THINKING: bool = Field(
-            default=True,
-            description="显示模型推理/思考过程",
+        TIMEOUT: int = Field(
+            default=300,
+            description="每个流式分块超时（秒）",
+        )
+        WORKSPACE_DIR: str = Field(
+            default="",
+            description="文件操作的受限工作区目录。为空则使用当前进程目录。",
+        )
+        COPILOT_CLI_VERSION: str = Field(
+            default="0.0.405",
+            description="指定安装/强制使用的 Copilot CLI 版本 (例如 '0.0.405')。留空则表示使用最新版。",
         )
         EXCLUDE_KEYWORDS: str = Field(
             default="",
             description="排除包含这些关键词的模型（逗号分隔，如：codex, haiku）",
-        )
-        WORKSPACE_DIR: str = Field(
-            default="",
-            description="文件操作的受限工作区目录；为空则使用当前进程目录",
-        )
-        INFINITE_SESSION: bool = Field(
-            default=True,
-            description="启用无限会话（自动上下文压缩）",
         )
         COMPACTION_THRESHOLD: float = Field(
             default=0.8,
@@ -82,30 +146,34 @@ class Pipe:
             default=0.95,
             description="缓冲区耗尽阈值 (0.0-1.0)",
         )
-        TIMEOUT: int = Field(
-            default=300,
-            description="每个流式分块超时（秒）",
-        )
         CUSTOM_ENV_VARS: str = Field(
             default="",
             description='自定义环境变量（JSON 格式，例如 {"VAR": "value"}）',
         )
 
-        ENABLE_OPENWEBUI_TOOLS: bool = Field(
-            default=True,
-            description="启用 OpenWebUI 工具 (包括自定义工具和工具服务器工具)。",
+        BYOK_TYPE: Literal["openai", "anthropic"] = Field(
+            default="openai",
+            description="BYOK 提供商类型：openai, anthropic",
         )
-        ENABLE_MCP_SERVER: bool = Field(
-            default=True,
-            description="启用直接 MCP 客户端连接 (推荐)。",
+        BYOK_BASE_URL: str = Field(
+            default="",
+            description="BYOK 基础 URL (例如 https://api.openai.com/v1)",
         )
-        REASONING_EFFORT: str = Field(
-            default="medium",
-            description="推理强度级别: low, medium, high. (gpt-5.2-codex 额外支持 xhigh)",
+        BYOK_API_KEY: str = Field(
+            default="",
+            description="BYOK API 密钥 (全局设置)",
         )
-        ENFORCE_FORMATTING: bool = Field(
-            default=True,
-            description="在系统提示词中添加格式化指导，以提高输出的可读性（段落、换行、结构）。",
+        BYOK_BEARER_TOKEN: str = Field(
+            default="",
+            description="BYOK Bearer 令牌 (全局，优先级高于 API Key)",
+        )
+        BYOK_MODELS: str = Field(
+            default="",
+            description="BYOK 模型列表 (逗号分隔)。留空则尝试从 API 获取。",
+        )
+        BYOK_WIRE_API: Literal["completions", "responses"] = Field(
+            default="completions",
+            description="BYOK 传输 API 类型：completions, responses",
         )
 
     class UserValves(BaseModel):
@@ -113,31 +181,55 @@ class Pipe:
             default="",
             description="个人 GitHub Fine-grained Token (覆盖全局设置)",
         )
-        REASONING_EFFORT: str = Field(
+        REASONING_EFFORT: Literal["", "low", "medium", "high", "xhigh"] = Field(
             default="",
-            description="推理强度级别 (low, medium, high, xhigh)。留空以使用全局设置。",
+            description="推理强度级别覆盖。仅影响标准 Copilot 模型。",
+        )
+        SHOW_THINKING: bool = Field(
+            default=True,
+            description="显示模型推理/思考过程",
         )
         DEBUG: bool = Field(
             default=False,
             description="启用技术调试日志（连接信息等）",
         )
-        SHOW_THINKING: bool = Field(
-            default=True,
-            description="显示模型的推理/思考过程",
-        )
-
         ENABLE_OPENWEBUI_TOOLS: bool = Field(
             default=True,
-            description="启用 OpenWebUI 工具 (包括自定义工具和工具服务器工具，覆盖全局设置)。",
+            description="启用 OpenWebUI 工具 (包括自定义工具和工具服务器工具)。",
         )
         ENABLE_MCP_SERVER: bool = Field(
             default=True,
             description="启用动态 MCP 服务器加载 (覆盖全局设置)。",
         )
-
-        ENFORCE_FORMATTING: bool = Field(
+        ENABLE_TOOL_CACHE: bool = Field(
             default=True,
-            description="强制启用格式化指导 (覆盖全局设置)",
+            description="为此用户启用工具/MCP 配置缓存。",
+        )
+
+        # BYOK 用户覆盖
+        BYOK_API_KEY: str = Field(
+            default="",
+            description="BYOK API 密钥 (用户覆盖)",
+        )
+        BYOK_TYPE: Literal["", "openai", "anthropic"] = Field(
+            default="",
+            description="BYOK 提供商类型覆盖。",
+        )
+        BYOK_BASE_URL: str = Field(
+            default="",
+            description="BYOK 基础 URL 覆盖。",
+        )
+        BYOK_BEARER_TOKEN: str = Field(
+            default="",
+            description="BYOK Bearer 令牌 覆盖。",
+        )
+        BYOK_MODELS: str = Field(
+            default="",
+            description="BYOK 模型列表覆盖。",
+        )
+        BYOK_WIRE_API: Literal["", "completions", "responses"] = Field(
+            default="",
+            description="BYOK 传输 API 覆盖。",
         )
 
     def __init__(self):
@@ -146,9 +238,12 @@ class Pipe:
         self.name = "copilotsdk"
         self.valves = self.Valves()
         self.temp_dir = tempfile.mkdtemp(prefix="copilot_images_")
-        self.thinking_started = False
         self._model_cache = []  # 模型列表缓存
-        self._last_update_check = 0  # 上次 CLI 更新检查时间
+        self._standard_model_ids = set()  # 追踪标准模型 ID，以区分 BYOK 模型
+        self._env_setup_done = False  # 是否已完成环境初始化环境检查
+        self._tool_cache = None  # 已转换的 OpenWebUI 工具缓存
+        self._mcp_server_cache = None  # MCP 服务器配置缓存
+        self._last_update_check = 0  # Timestamp of last CLI update check
 
     def __del__(self):
         try:
@@ -176,227 +271,58 @@ class Pipe:
             __event_call__=__event_call__,
         )
 
-    # ==================== 功能性分区说明 ====================
-    # 1) 工具注册：定义工具并在 _initialize_custom_tools 中注册
-    # 2) 调试日志：_emit_debug_log / _emit_debug_log_sync
-    # 3) 提示词/会话：_extract_system_prompt / _build_session_config / _build_prompt
-    # 4) 运行流程：pipe() 负责请求，stream_response() 负责流式输出
+    # ==================== 功能性分区 ====================
+    # 1) 工具加载与转换
+    # 2) 提示词提取与处理
+    # 3) 环境配置与工作区
     # ======================================================
-    # ==================== 自定义工具示例 ====================
-    # 工具注册：在模块级别添加 @define_tool 装饰的函数，
-    # 然后在 _initialize_custom_tools() 的 all_tools 字典中注册。
-
-    def _extract_text_from_content(self, content) -> str:
-        """从各种消息内容格式中提取文本内容"""
-        if isinstance(content, str):
-            return content
-        elif isinstance(content, list):
-            text_parts = []
-            for item in content:
-                if isinstance(item, dict) and item.get("type") == "text":
-                    text_parts.append(item.get("text", ""))
-            return " ".join(text_parts)
-        return ""
-
-    def _apply_formatting_hint(self, prompt: str) -> str:
-        """在启用格式化时，向用户提示词追加轻量格式化要求。"""
-        if not self.valves.ENFORCE_FORMATTING:
-            return prompt
-
-        if not prompt:
-            return prompt
-
-        if "[格式化指南]" in prompt or "[格式化要求]" in prompt:
-            return prompt
-
-        formatting_hint = (
-            "\n\n[格式化要求]\n" "请使用清晰的段落与换行，必要时使用项目符号列表。"
-        )
-        return f"{prompt}{formatting_hint}"
-
-    def _dedupe_preserve_order(self, items: List[str]) -> List[str]:
-        """去重保序"""
-        seen = set()
-        result = []
-        for item in items:
-            if not item or item in seen:
-                continue
-            seen.add(item)
-            result.append(item)
-        return result
-
-    def _collect_model_ids(
-        self, body: dict, request_model: str, real_model_id: str
-    ) -> List[str]:
-        """收集可能的模型 ID（来自请求/metadata/body params）"""
-        model_ids: List[str] = []
-        if request_model:
-            model_ids.append(request_model)
-        if request_model.startswith(f"{self.id}-"):
-            model_ids.append(request_model[len(f"{self.id}-") :])
-        if real_model_id:
-            model_ids.append(real_model_id)
-
-        metadata = body.get("metadata", {})
-        if isinstance(metadata, dict):
-            meta_model = metadata.get("model")
-            meta_model_id = metadata.get("model_id")
-            if isinstance(meta_model, str):
-                model_ids.append(meta_model)
-            if isinstance(meta_model_id, str):
-                model_ids.append(meta_model_id)
-
-        body_params = body.get("params", {})
-        if isinstance(body_params, dict):
-            for key in ("model", "model_id", "modelId"):
-                val = body_params.get(key)
-                if isinstance(val, str):
-                    model_ids.append(val)
-
-        return self._dedupe_preserve_order(model_ids)
-
-    async def _extract_system_prompt(
-        self,
-        body: dict,
-        messages: List[dict],
-        request_model: str,
-        real_model_id: str,
-        __event_call__=None,
-    ) -> tuple[Optional[str], str]:
-        """从 metadata/模型 DB/body/messages 提取系统提示词"""
-        system_prompt_content: Optional[str] = None
-        system_prompt_source = ""
-
-        # 1) metadata.model.params.system
-        metadata = body.get("metadata", {})
-        if isinstance(metadata, dict):
-            meta_model = metadata.get("model")
-            if isinstance(meta_model, dict):
-                meta_params = meta_model.get("params")
-                if isinstance(meta_params, dict) and meta_params.get("system"):
-                    system_prompt_content = meta_params.get("system")
-                    system_prompt_source = "metadata.model.params"
-                    await self._emit_debug_log(
-                        f"从 metadata.model.params 提取系统提示词（长度: {len(system_prompt_content)}）",
-                        __event_call__,
-                    )
-
-        # 2) 模型 DB
-        if not system_prompt_content:
-            try:
-                from open_webui.models.models import Models
-
-                model_ids_to_try = self._collect_model_ids(
-                    body, request_model, real_model_id
-                )
-                for mid in model_ids_to_try:
-                    model_record = Models.get_model_by_id(mid)
-                    if model_record and hasattr(model_record, "params"):
-                        params = model_record.params
-                        if isinstance(params, dict):
-                            system_prompt_content = params.get("system")
-                            if system_prompt_content:
-                                system_prompt_source = f"model_db:{mid}"
-                                await self._emit_debug_log(
-                                    f"从模型数据库提取系统提示词（长度: {len(system_prompt_content)}）",
-                                    __event_call__,
-                                )
-                                break
-            except Exception as e:
-                await self._emit_debug_log(
-                    f"从模型数据库提取系统提示词失败: {e}",
-                    __event_call__,
-                )
-
-        # 3) body.params.system
-        if not system_prompt_content:
-            body_params = body.get("params", {})
-            if isinstance(body_params, dict):
-                system_prompt_content = body_params.get("system")
-                if system_prompt_content:
-                    system_prompt_source = "body_params"
-                    await self._emit_debug_log(
-                        f"从 body.params 提取系统提示词（长度: {len(system_prompt_content)}）",
-                        __event_call__,
-                    )
-
-        # 4) messages (role=system)
-        if not system_prompt_content:
-            for msg in messages:
-                if msg.get("role") == "system":
-                    system_prompt_content = self._extract_text_from_content(
-                        msg.get("content", "")
-                    )
-                    if system_prompt_content:
-                        system_prompt_source = "messages_system"
-                        await self._emit_debug_log(
-                            f"从消息中提取系统提示词（长度: {len(system_prompt_content)}）",
-                            __event_call__,
-                        )
-                    break
-
-        return system_prompt_content, system_prompt_source
-
-    def _get_workspace_dir(self) -> str:
-        """获取具有智能默认值的有效工作空间目录。"""
-        if self.valves.WORKSPACE_DIR:
-            return self.valves.WORKSPACE_DIR
-
-        # OpenWebUI 容器的智能默认值
-        if os.path.exists("/app/backend/data"):
-            cwd = "/app/backend/data/copilot_workspace"
-        else:
-            # 本地回退：当前工作目录的子目录
-            cwd = os.path.join(os.getcwd(), "copilot_workspace")
-
-        # 确保目录存在
-        if not os.path.exists(cwd):
-            try:
-                os.makedirs(cwd, exist_ok=True)
-            except Exception as e:
-                print(f"Error creating workspace {cwd}: {e}")
-                return os.getcwd()  # 如果创建失败回退到 CWD
-
-        return cwd
-
-    def _build_client_config(self, body: dict) -> dict:
-        """根据 Valves 和请求构建 CopilotClient 配置"""
-        cwd = self._get_workspace_dir()
-        client_config = {}
-        if os.environ.get("COPILOT_CLI_PATH"):
-            client_config["cli_path"] = os.environ["COPILOT_CLI_PATH"]
-        client_config["cwd"] = cwd
-
-        if self.valves.LOG_LEVEL:
-            client_config["log_level"] = self.valves.LOG_LEVEL
-
-        if self.valves.CUSTOM_ENV_VARS:
-            try:
-                custom_env = json.loads(self.valves.CUSTOM_ENV_VARS)
-                if isinstance(custom_env, dict):
-                    client_config["env"] = custom_env
-            except:
-                pass
-
-        return client_config
 
     async def _initialize_custom_tools(self, __user__=None, __event_call__=None):
         """根据配置初始化自定义工具"""
-
         if not self.valves.ENABLE_OPENWEBUI_TOOLS:
             return []
+
+        # 确定缓存设置 (用户覆盖 > 全局)
+        enable_cache = self.valves.ENABLE_TOOL_CACHE
+        if __user__:
+            try:
+                raw_user_valves = __user__.get("valves", {})
+                if isinstance(raw_user_valves, dict):
+                    uv = self.UserValves(**raw_user_valves)
+                    enable_cache = uv.ENABLE_TOOL_CACHE
+            except:
+                pass
+
+        # 检查缓存
+        if enable_cache and self._tool_cache is not None:
+            await self._emit_debug_log("ℹ️ 使用缓存的 OpenWebUI 工具。", __event_call__)
+            return self._tool_cache
 
         # 动态加载 OpenWebUI 工具
         openwebui_tools = await self._load_openwebui_tools(
             __user__=__user__, __event_call__=__event_call__
         )
 
+        # 更新缓存
+        if enable_cache:
+            self._tool_cache = openwebui_tools
+            await self._emit_debug_log(
+                "✅ OpenWebUI 工具已缓存，供后续请求使用。", __event_call__
+            )
+
         return openwebui_tools
 
     def _json_schema_to_python_type(self, schema: dict) -> Any:
-        """将 JSON Schema 类型转换为 Python 类型以用于 Pydantic 模型。"""
+        """将 JSON Schema 类型转换为 Pydantic 模型的 Python 类型。"""
         if not isinstance(schema, dict):
             return Any
+
+        # 检查枚举 (Literal)
+        enum_values = schema.get("enum")
+        if enum_values and isinstance(enum_values, list):
+            from typing import Literal
+
+            return Literal[tuple(enum_values)]
 
         schema_type = schema.get("type")
         if isinstance(schema_type, list):
@@ -424,13 +350,9 @@ class Pipe:
         # 净化工具名称以匹配模式 ^[a-zA-Z0-9_-]+$
         sanitized_tool_name = re.sub(r"[^a-zA-Z0-9_-]", "_", tool_name)
 
-        # 如果净化后的名称为空或仅包含分隔符（例如纯中文名称），生成回退名称
         if not sanitized_tool_name or re.match(r"^[_.-]+$", sanitized_tool_name):
             hash_suffix = hashlib.md5(tool_name.encode("utf-8")).hexdigest()[:8]
             sanitized_tool_name = f"tool_{hash_suffix}"
-
-        if sanitized_tool_name != tool_name:
-            logger.debug(f"将工具名称 '{tool_name}' 净化为 '{sanitized_tool_name}'")
 
         spec = tool_dict.get("spec", {}) if isinstance(tool_dict, dict) else {}
         params_schema = spec.get("parameters", {}) if isinstance(spec, dict) else {}
@@ -450,6 +372,11 @@ class Pipe:
             if isinstance(param_schema, dict):
                 description = param_schema.get("description", "")
 
+            # 提取默认值
+            default_value = None
+            if isinstance(param_schema, dict) and "default" in param_schema:
+                default_value = param_schema.get("default")
+
             if param_name in required_set:
                 if description:
                     fields[param_name] = (
@@ -463,64 +390,110 @@ class Pipe:
                 if description:
                     fields[param_name] = (
                         optional_type,
-                        Field(default=None, description=description),
+                        Field(default=default_value, description=description),
                     )
                 else:
-                    fields[param_name] = (optional_type, None)
+                    fields[param_name] = (optional_type, default_value)
 
-        if fields:
-            ParamsModel = create_model(f"{sanitized_tool_name}_Params", **fields)
-        else:
-            ParamsModel = create_model(f"{sanitized_tool_name}_Params")
+        ParamsModel = (
+            create_model(f"{sanitized_tool_name}_Params", **fields)
+            if fields
+            else create_model(f"{sanitized_tool_name}_Params")
+        )
 
         tool_callable = tool_dict.get("callable")
         tool_description = spec.get("description", "") if isinstance(spec, dict) else ""
         if not tool_description and isinstance(spec, dict):
             tool_description = spec.get("summary", "")
 
-        # 关键: 如果工具名称被净化（例如中文转哈希），语义会丢失。
-        # 我们必须将原始名称注入到描述中，以便模型知道它的作用。
+        # 确定工具来源/组以添加描述前缀
+        tool_id = tool_dict.get("tool_id", "")
+        tool_type = tool_dict.get("type", "")
+
+        if tool_type == "builtin":
+            group_prefix = "[OpenWebUI 内置]"
+        elif tool_type == "external" or tool_id.startswith("server:"):
+            tool_group_name = tool_dict.get("_tool_group_name")
+            tool_group_desc = tool_dict.get("_tool_group_description")
+            server_id = (
+                tool_id.replace("server:", "").split("|")[0]
+                if tool_id.startswith("server:")
+                else tool_id
+            )
+
+            if tool_group_name:
+                group_prefix = (
+                    f"[工具服务器: {tool_group_name} - {tool_group_desc}]"
+                    if tool_group_desc
+                    else f"[工具服务器: {tool_group_name}]"
+                )
+            else:
+                group_prefix = f"[工具服务器: {server_id}]"
+        else:
+            tool_group_name = tool_dict.get("_tool_group_name")
+            tool_group_desc = tool_dict.get("_tool_group_description")
+
+            if tool_group_name:
+                group_prefix = (
+                    f"[用户工具: {tool_group_name} - {tool_group_desc}]"
+                    if tool_group_desc
+                    else f"[用户工具: {tool_group_name}]"
+                )
+            else:
+                group_prefix = f"[用户工具: {tool_id}]" if tool_id else "[用户工具]"
+
         if sanitized_tool_name != tool_name:
-            tool_description = f"功能 '{tool_name}': {tool_description}"
+            tool_description = f"{group_prefix} 函数 '{tool_name}': {tool_description}"
+        else:
+            tool_description = f"{group_prefix} {tool_description}"
 
         async def _tool(params):
-            payload = params.model_dump() if hasattr(params, "model_dump") else {}
+            payload = (
+                params.model_dump(exclude_unset=True)
+                if hasattr(params, "model_dump")
+                else {}
+            )
             return await tool_callable(**payload)
 
         _tool.__name__ = sanitized_tool_name
         _tool.__doc__ = tool_description
 
-        # 转换调试日志
-        logger.debug(
-            f"正在转换工具 '{sanitized_tool_name}': {tool_description[:50]}..."
-        )
-
-        # 核心关键点：必须显式传递 types，否则 define_tool 无法推断动态函数的参数
-        # 显式传递 name 确保 SDK 注册的名称正确
         return define_tool(
             name=sanitized_tool_name,
             description=tool_description,
             params_type=ParamsModel,
         )(_tool)
 
-    def _build_openwebui_request(self):
+    def _build_openwebui_request(self, user_data: Optional[dict] = None):
         """构建一个最小的 request 模拟对象用于 OpenWebUI 工具加载。"""
         app_state = SimpleNamespace(
             config=SimpleNamespace(
-                TOOL_SERVER_CONNECTIONS=TOOL_SERVER_CONNECTIONS.value
+                TOOL_SERVER_CONNECTIONS=(
+                    TOOL_SERVER_CONNECTIONS.value
+                    if hasattr(TOOL_SERVER_CONNECTIONS, "value")
+                    else []
+                )
             ),
             TOOLS={},
         )
         app = SimpleNamespace(state=app_state)
+
+        def url_path_for(name: str, **path_params):
+            return f"/mock/path/{name}"
+
+        app.url_path_for = url_path_for
+
         request = SimpleNamespace(
             app=app,
             cookies={},
             state=SimpleNamespace(token=SimpleNamespace(credentials="")),
         )
+        if user_data and user_data.get("token"):
+            request.state.token.credentials = user_data["token"]
         return request
 
     async def _load_openwebui_tools(self, __user__=None, __event_call__=None):
-        """动态加载 OpenWebUI 工具并转换为 Copilot SDK 工具。"""
+        """加载 OpenWebUI 工具并转换为 Copilot SDK 工具。"""
         if isinstance(__user__, (list, tuple)):
             user_data = __user__[0] if __user__ else {}
         elif isinstance(__user__, dict):
@@ -535,54 +508,99 @@ class Pipe:
         if not user_id:
             return []
 
-        user = Users.get_user_by_id(user_id)
-        if not user:
+        try:
+            from open_webui.models.users import Users
+
+            user = Users.get_user_by_id(user_id)
+            if not user:
+                return []
+        except:
             return []
 
-        # 1. 获取用户自定义工具 (Python 脚本)
+        # 1. 用户自定义工具
         tool_items = Tools.get_tools_by_user_id(user_id, permission="read")
         tool_ids = [tool.id for tool in tool_items] if tool_items else []
 
-        # 2. 获取 OpenAPI 工具服务器工具
-        # 我们手动添加已启用的 OpenAPI 服务器，因为 Tools.get_tools_by_user_id 仅检查数据库。
-        # open_webui.utils.tools.get_tools 会处理实际的加载和访问控制。
+        # 2. 工具服务器工具
         if hasattr(TOOL_SERVER_CONNECTIONS, "value"):
             for server in TOOL_SERVER_CONNECTIONS.value:
-                # 我们在此处仅添加 'openapi' 服务器，因为 get_tools 目前似乎仅支持 'openapi' (默认为此)。
-                # MCP 工具通过 ENABLE_MCP_SERVER 单独处理。
                 if server.get("type") == "openapi":
-                    # get_tools 期望的格式: "server:<id>" 隐含 type="openapi"
                     server_id = server.get("id")
                     if server_id:
                         tool_ids.append(f"server:{server_id}")
 
-        if not tool_ids:
-            return []
-
-        request = self._build_openwebui_request()
+        request = self._build_openwebui_request(user_data)
         extra_params = {
             "__request__": request,
             "__user__": user_data,
-            "__event_emitter__": None,
             "__event_call__": __event_call__,
-            "__chat_id__": None,
-            "__message_id__": None,
-            "__model_knowledge__": [],
         }
 
-        tools_dict = await get_openwebui_tools(request, tool_ids, user, extra_params)
+        tools_dict = {}
+        if tool_ids:
+            try:
+                tools_dict = await get_openwebui_tools(
+                    request, tool_ids, user, extra_params
+                )
+            except Exception as e:
+                await self._emit_debug_log(f"获取自定义工具出错: {e}", __event_call__)
+
+        # 内置工具
+        try:
+            builtin_tools = get_builtin_tools(
+                request,
+                {"__user__": user_data},
+                model={
+                    "info": {
+                        "meta": {
+                            "capabilities": {
+                                "web_search": True,
+                                "image_generation": True,
+                            }
+                        }
+                    }
+                },
+            )
+            if builtin_tools:
+                tools_dict.update(builtin_tools)
+        except Exception as e:
+            await self._emit_debug_log(f"获取内置工具出错: {e}", __event_call__)
+
         if not tools_dict:
             return []
+
+        server_metadata_cache = {}
+        if hasattr(TOOL_SERVER_CONNECTIONS, "value"):
+            for server in TOOL_SERVER_CONNECTIONS.value:
+                sid = server.get("id") or server.get("info", {}).get("id")
+                if sid:
+                    info = server.get("info", {})
+                    server_metadata_cache[sid] = {
+                        "name": info.get("name") or sid,
+                        "description": info.get("description", ""),
+                    }
 
         converted_tools = []
         for tool_name, tool_def in tools_dict.items():
             try:
+                # 尝试丰富元数据
+                tool_id = tool_def.get("tool_id", "")
+                if tool_id.startswith("server:"):
+                    sid = tool_id.replace("server:", "").split("|")[0]
+                    if sid in server_metadata_cache:
+                        tool_def["_tool_group_name"] = server_metadata_cache[sid].get(
+                            "name"
+                        )
+                        tool_def["_tool_group_description"] = server_metadata_cache[
+                            sid
+                        ].get("description")
+
                 converted_tools.append(
                     self._convert_openwebui_tool(tool_name, tool_def)
                 )
             except Exception as e:
                 await self._emit_debug_log(
-                    f"加载 OpenWebUI 工具 '{tool_name}' 失败: {e}",
+                    f"转换 OpenWebUI 工具 '{tool_name}' 失败: {e}",
                     __event_call__,
                 )
 
@@ -595,6 +613,10 @@ class Pipe:
         """
         if not self.valves.ENABLE_MCP_SERVER:
             return None
+
+        # 检查缓存
+        if self.valves.ENABLE_TOOL_CACHE and self._mcp_server_cache is not None:
+            return self._mcp_server_cache
 
         mcp_servers = {}
 
@@ -635,12 +657,29 @@ class Pipe:
                 if isinstance(custom_headers, dict):
                     headers.update(custom_headers)
 
+                # 获取过滤配置
+                mcp_config = conn.get("config", {})
+                function_filter = mcp_config.get("function_name_filter_list", "")
+
+                allowed_tools = ["*"]
+                if function_filter:
+                    if isinstance(function_filter, str):
+                        allowed_tools = [
+                            f.strip() for f in function_filter.split(",") if f.strip()
+                        ]
+                    elif isinstance(function_filter, list):
+                        allowed_tools = function_filter
+
                 mcp_servers[server_id] = {
                     "type": "http",
                     "url": url,
                     "headers": headers,
-                    "tools": ["*"],  # 默认启用所有工具
+                    "tools": allowed_tools,
                 }
+
+        # 更新缓存
+        if self.valves.ENABLE_TOOL_CACHE:
+            self._mcp_server_cache = mcp_servers
 
         return mcp_servers if mcp_servers else None
 
@@ -653,6 +692,7 @@ class Pipe:
         is_streaming: bool,
     ):
         """构建 Copilot SDK 的 SessionConfig"""
+        # 处理无限会话配置
         from copilot.types import SessionConfig, InfiniteSessionConfig
 
         infinite_session_config = None
@@ -663,34 +703,19 @@ class Pipe:
                 buffer_exhaustion_threshold=self.valves.BUFFER_THRESHOLD,
             )
 
-        system_message_config = None
-        if system_prompt_content or self.valves.ENFORCE_FORMATTING:
-            # 构建系统消息内容
-            system_parts = []
+        # 始终包含格式化指南（默认开启）
+        system_parts = []
+        if system_prompt_content:
+            system_parts.append(system_prompt_content)
+        system_parts.append(FORMATTING_GUIDELINES)
 
-            if system_prompt_content:
-                system_parts.append(system_prompt_content)
+        # 始终使用 'replace' 模式以确保完全控制并避免重复
+        system_message_config = {
+            "mode": "replace",
+            "content": "\n".join(system_parts),
+        }
 
-            if self.valves.ENFORCE_FORMATTING:
-                formatting_instruction = (
-                    "\n\n[格式化指南]\n"
-                    "在提供解释或描述时：\n"
-                    "- 使用清晰的段落分隔（双换行）\n"
-                    "- 将长句拆分为多个短句\n"
-                    "- 对多个要点使用项目符号或编号列表\n"
-                    "- 为主要部分添加标题（##、###）\n"
-                    "- 确保不同主题之间有适当的间距"
-                )
-                system_parts.append(formatting_instruction)
-                logger.info(f"[ENFORCE_FORMATTING] 已添加格式化指导到系统提示词")
-
-            if system_parts:
-                system_message_config = {
-                    "mode": "append",
-                    "content": "\n".join(system_parts),
-                }
-
-        # 准备会话配置参数
+        # 准备基础参数
         session_params = {
             "session_id": chat_id if chat_id else None,
             "model": real_model_id,
@@ -698,9 +723,9 @@ class Pipe:
             "tools": custom_tools,
             "system_message": system_message_config,
             "infinite_sessions": infinite_session_config,
-            # 注册权限处理 Hook
         }
 
+        # 注入 MCP 转换器
         mcp_servers = self._parse_mcp_servers()
         if mcp_servers:
             session_params["mcp_servers"] = mcp_servers
@@ -717,6 +742,10 @@ class Pipe:
             seen.add(item)
             result.append(item)
         return result
+
+    def _apply_formatting_hint(self, prompt: str) -> str:
+        """返回原始提示词（已移除格式化提示）"""
+        return prompt
 
     def _collect_model_ids(
         self, body: dict, request_model: str, real_model_id: str
@@ -755,24 +784,37 @@ class Pipe:
         request_model: str,
         real_model_id: str,
         __event_call__=None,
-    ) -> tuple[Optional[str], str]:
+        debug_enabled: bool = False,
+    ) -> Tuple[Optional[str], str]:
         """从 metadata/模型 DB/body/messages 提取系统提示词"""
         system_prompt_content: Optional[str] = None
         system_prompt_source = ""
 
+        # 0) body.get("system_prompt") - Explicit Override (Highest Priority)
+        if hasattr(body, "get") and body.get("system_prompt"):
+            system_prompt_content = body.get("system_prompt")
+            system_prompt_source = "body_explicit_system_prompt"
+            await self._emit_debug_log(
+                f"从显式 body 字段提取了系统提示词（长度: {len(system_prompt_content)}）",
+                __event_call__,
+                debug_enabled=debug_enabled,
+            )
+
         # 1) metadata.model.params.system
-        metadata = body.get("metadata", {})
-        if isinstance(metadata, dict):
-            meta_model = metadata.get("model")
-            if isinstance(meta_model, dict):
-                meta_params = meta_model.get("params")
-                if isinstance(meta_params, dict) and meta_params.get("system"):
-                    system_prompt_content = meta_params.get("system")
-                    system_prompt_source = "metadata.model.params"
-                    await self._emit_debug_log(
-                        f"从 metadata.model.params 提取系统提示词（长度: {len(system_prompt_content)}）",
-                        __event_call__,
-                    )
+        if not system_prompt_content:
+            metadata = body.get("metadata", {})
+            if isinstance(metadata, dict):
+                meta_model = metadata.get("model")
+                if isinstance(meta_model, dict):
+                    meta_params = meta_model.get("params")
+                    if isinstance(meta_params, dict) and meta_params.get("system"):
+                        system_prompt_content = meta_params.get("system")
+                        system_prompt_source = "metadata.model.params"
+                        await self._emit_debug_log(
+                            f"从 metadata.model.params 提取系统提示词（长度: {len(system_prompt_content)}）",
+                            __event_call__,
+                            debug_enabled=debug_enabled,
+                        )
 
         # 2) 模型 DB
         if not system_prompt_content:
@@ -791,14 +833,16 @@ class Pipe:
                             if system_prompt_content:
                                 system_prompt_source = f"model_db:{mid}"
                                 await self._emit_debug_log(
-                                    f"从模型数据库提取系统提示词（长度: {len(system_prompt_content)}）",
+                                    f"成功！使用 ID 从模型数据库中提取了系统提示词: {mid}（长度: {len(system_prompt_content)}）",
                                     __event_call__,
+                                    debug_enabled=debug_enabled,
                                 )
                                 break
             except Exception as e:
                 await self._emit_debug_log(
                     f"从模型数据库提取系统提示词失败: {e}",
                     __event_call__,
+                    debug_enabled=debug_enabled,
                 )
 
         # 3) body.params.system
@@ -830,9 +874,16 @@ class Pipe:
 
         return system_prompt_content, system_prompt_source
 
-    async def _emit_debug_log(self, message: str, __event_call__=None):
+    async def _emit_debug_log(
+        self, message: str, __event_call__=None, debug_enabled: Optional[bool] = None
+    ):
         """在 DEBUG 开启时将日志输出到前端控制台。"""
-        if not self.valves.DEBUG:
+        should_log = (
+            debug_enabled
+            if debug_enabled is not None
+            else getattr(self.valves, "DEBUG", False)
+        )
+        if not should_log:
             return
 
         logger.debug(f"[Copilot Pipe] {message}")
@@ -850,18 +901,25 @@ class Pipe:
         except Exception as e:
             logger.debug(f"[Copilot Pipe] 前端调试日志失败: {e}")
 
-    def _emit_debug_log_sync(self, message: str, __event_call__=None):
+    def _emit_debug_log_sync(
+        self, message: str, __event_call__=None, debug_enabled: Optional[bool] = None
+    ):
         """在非异步上下文中输出调试日志。"""
-        if not self.valves.DEBUG:
+        should_log = (
+            debug_enabled
+            if debug_enabled is not None
+            else getattr(self.valves, "DEBUG", False)
+        )
+        if not should_log:
             return
 
         try:
             loop = asyncio.get_running_loop()
+            loop.create_task(
+                self._emit_debug_log(message, __event_call__, debug_enabled=True)
+            )
         except RuntimeError:
             logger.debug(f"[Copilot Pipe] {message}")
-            return
-
-        loop.create_task(self._emit_debug_log(message, __event_call__))
 
     async def _emit_native_message(self, message_data: dict, __event_call__=None):
         """发送原生 OpenAI 格式消息事件用于工具调用/结果。"""
@@ -885,7 +943,11 @@ class Pipe:
         return {}
 
     def _get_chat_context(
-        self, body: dict, __metadata__: Optional[dict] = None, __event_call__=None
+        self,
+        body: dict,
+        __metadata__: Optional[dict] = None,
+        __event_call__=None,
+        debug_enabled: bool = False,
     ) -> Dict[str, str]:
         """
         高度可靠的聊天上下文提取逻辑。
@@ -917,13 +979,17 @@ class Pipe:
         # 调试：记录 ID 来源
         if chat_id:
             self._emit_debug_log_sync(
-                f"提取到 ChatID: {chat_id} (来源: {source})", __event_call__
+                f"提取到 ChatID: {chat_id} (来源: {source})",
+                __event_call__,
+                debug_enabled=debug_enabled,
             )
         else:
             # 如果还是没找到，记录一下 body 的键，方便排查
             keys = list(body.keys()) if isinstance(body, dict) else "not a dict"
             self._emit_debug_log_sync(
-                f"警告: 未能提取到 ChatID。Body 键: {keys}", __event_call__
+                f"警告: 未能提取到 ChatID。Body 键: {keys}",
+                __event_call__,
+                debug_enabled=debug_enabled,
             )
 
         return {
@@ -1002,14 +1068,16 @@ class Pipe:
                     )
 
                     # 格式化显示名称
+                    # 格式化显示名称
+                    clean_id = self._clean_model_id(m_id)
                     if multiplier == 0:
-                        display_name = f"-🔥 {m_id} (unlimited)"
+                        display_name = f"-🔥 {clean_id} (0x)"
                     else:
-                        display_name = f"-{m_id} ({multiplier}x)"
+                        display_name = f"-{clean_id} ({multiplier}x)"
 
                     models_with_info.append(
                         {
-                            "id": f"{self.id}-{m_id}",
+                            "id": f"{self.id}-{m_id}",  # Keep original prefix logic for ID
                             "name": display_name,
                             "multiplier": multiplier,
                             "raw_id": m_id,
@@ -1073,7 +1141,78 @@ class Pipe:
         await client.start()
         return client
 
-    def _setup_env(self, __event_call__=None):
+    async def _update_copilot_cli(
+        self, cli_path, __event_call__=None, debug_enabled: bool = False
+    ):
+        """如果已配置，则异步检查 Copilot CLI 更新。"""
+        if not self.valves.AUTO_UPDATE:
+            return
+
+        # 检查更新频率（每 24 小时一次）
+        now = time.time()
+        if now - self._last_update_check < 86400:
+            return
+
+        self._last_update_check = now
+
+        try:
+            self._emit_debug_log_sync(
+                "正在检查 Copilot CLI 更新...",
+                __event_call__,
+                debug_enabled=debug_enabled,
+            )
+
+            # 我们创建一个子进程来运行更新
+            process = await asyncio.create_subprocess_exec(
+                cli_path,
+                "update",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+
+            stdout, stderr = await process.communicate()
+
+            if process.returncode == 0:
+                self._emit_debug_log_sync(
+                    "Copilot CLI 更新检查完成",
+                    __event_call__,
+                    debug_enabled=debug_enabled,
+                )
+            else:
+                self._emit_debug_log_sync(
+                    f"Copilot CLI 更新失败: {stderr.decode()}",
+                    __event_call__,
+                    debug_enabled=debug_enabled,
+                )
+
+        except Exception as e:
+            self._emit_debug_log_sync(
+                f"CLI 更新任务异常: {e}", __event_call__, debug_enabled=debug_enabled
+            )
+
+    def _setup_env(self, __event_call__=None, debug_enabled: bool = False):
+        """初始化环境变量并验证 Copilot CLI。"""
+        if self._env_setup_done:
+            return
+
+        # 1. 认证相关的环境变量
+        if self.valves.GH_TOKEN:
+            os.environ["GH_TOKEN"] = self.valves.GH_TOKEN
+            os.environ["GITHUB_TOKEN"] = self.valves.GH_TOKEN
+        else:
+            self._emit_debug_log_sync(
+                "警告: 未设置 GH_TOKEN。", __event_call__, debug_enabled=debug_enabled
+            )
+
+        # 禁用 CLI 自动更新以确保版本一致性
+        os.environ["COPILOT_AUTO_UPDATE"] = "false"
+        self._emit_debug_log_sync(
+            "已禁用 CLI 自动更新 (COPILOT_AUTO_UPDATE=false)",
+            __event_call__,
+            debug_enabled=debug_enabled,
+        )
+
+        # 2. CLI 路径发现
         cli_path = "/usr/local/bin/copilot"
         if os.environ.get("COPILOT_CLI_PATH"):
             cli_path = os.environ["COPILOT_CLI_PATH"]
@@ -1082,7 +1221,6 @@ class Pipe:
         found = False
         current_version = None
 
-        # 内部 helper: 获取版本
         def get_cli_version(path):
             try:
                 output = (
@@ -1092,18 +1230,18 @@ class Pipe:
                     .decode()
                     .strip()
                 )
-                # Copilot CLI 输出通常包含 "copilot version X.Y.Z" 或直接是版本号
+                import re
+
                 match = re.search(r"(\d+\.\d+\.\d+)", output)
                 return match.group(1) if match else output
             except Exception:
                 return None
 
-        # 检查默认路径
+        # 检查现有版本
         if os.path.exists(cli_path):
             found = True
             current_version = get_cli_version(cli_path)
 
-        # 二次检查系统路径
         if not found:
             sys_path = shutil.which("copilot")
             if sys_path:
@@ -1111,85 +1249,79 @@ class Pipe:
                 found = True
                 current_version = get_cli_version(cli_path)
 
-        # 判断是否需要安装/更新
-        should_install = False
-        install_reason = ""
-
         if not found:
-            should_install = True
-            install_reason = "CLI 未找到"
-        elif target_version:
-            # 标准化版本号 (移除 'v' 前缀)
+            pkg_path = os.path.join(os.path.dirname(__file__), "bin", "copilot")
+            if os.path.exists(pkg_path):
+                cli_path = pkg_path
+                found = True
+                current_version = get_cli_version(cli_path)
+
+        # 3. 安装/更新逻辑
+        should_install = not found
+        install_reason = "CLI 未找到"
+        if found and target_version:
             norm_target = target_version.lstrip("v")
             norm_current = current_version.lstrip("v") if current_version else ""
 
-            if norm_target != norm_current:
-                should_install = True
-                install_reason = (
-                    f"版本不匹配 (当前: {current_version}, 目标: {target_version})"
-                )
+            # 只有当目标版本大于当前版本时才安装
+            try:
+                from packaging.version import parse as parse_version
+
+                if parse_version(norm_target) > parse_version(norm_current):
+                    should_install = True
+                    install_reason = f"需要升级 ({current_version} -> {target_version})"
+                elif parse_version(norm_target) < parse_version(norm_current):
+                    self._emit_debug_log_sync(
+                        f"当前版本 ({current_version}) 比指定版本 ({target_version}) 更新。跳过降级。",
+                        __event_call__,
+                        debug_enabled=debug_enabled,
+                    )
+            except Exception as e:
+                # 如果 packaging 不可用，回退到字符串比较
+                if norm_target != norm_current:
+                    should_install = True
+                    install_reason = (
+                        f"版本不匹配 ({current_version} != {target_version})"
+                    )
 
         if should_install:
-            if self.valves.DEBUG:
-                self._emit_debug_log_sync(
-                    f"正在安装 Copilot CLI: {install_reason}...", __event_call__
-                )
+            self._emit_debug_log_sync(
+                f"正在安装/更新 Copilot CLI: {install_reason}...",
+                __event_call__,
+                debug_enabled=debug_enabled,
+            )
             try:
                 env = os.environ.copy()
                 if target_version:
                     env["VERSION"] = target_version
-
                 subprocess.run(
                     "curl -fsSL https://gh.io/copilot-install | bash",
                     shell=True,
                     check=True,
                     env=env,
                 )
-
-                # 优先检查默认安装路径，其次是系统路径
-                if os.path.exists("/usr/local/bin/copilot"):
-                    cli_path = "/usr/local/bin/copilot"
-                    found = True
-                elif shutil.which("copilot"):
-                    cli_path = shutil.which("copilot")
-                    found = True
-
-                if found:
-                    current_version = get_cli_version(cli_path)
+                # 重新验证
+                current_version = get_cli_version(cli_path)
             except Exception as e:
-                if self.valves.DEBUG:
-                    self._emit_debug_log_sync(
-                        f"Copilot CLI 安装失败: {e}", __event_call__
-                    )
-
-        if found:
-            os.environ["COPILOT_CLI_PATH"] = cli_path
-            cli_dir = os.path.dirname(cli_path)
-            if cli_dir not in os.environ["PATH"]:
-                os.environ["PATH"] = f"{cli_dir}:{os.environ['PATH']}"
-
-            if self.valves.DEBUG:
                 self._emit_debug_log_sync(
-                    f"已找到 Copilot CLI: {cli_path} (版本: {current_version})",
+                    f"CLI 安装失败: {e}",
                     __event_call__,
-                )
-        else:
-            if self.valves.DEBUG:
-                self._emit_debug_log_sync(
-                    "错误: 未找到 Copilot CLI。相关 Agent 功能将被禁用。",
-                    __event_call__,
+                    debug_enabled=debug_enabled,
                 )
 
-        if self.valves.GH_TOKEN:
-            os.environ["GH_TOKEN"] = self.valves.GH_TOKEN
-            os.environ["GITHUB_TOKEN"] = self.valves.GH_TOKEN
-        else:
-            if self.valves.DEBUG:
-                self._emit_debug_log_sync("Warning: GH_TOKEN 未设置。", __event_call__)
+        # 4. 完成初始化
+        os.environ["COPILOT_CLI_PATH"] = cli_path
+        self._env_setup_done = True
+        self._emit_debug_log_sync(
+            f"环境设置完成。CLI 路径: {cli_path} (版本: {current_version})",
+            __event_call__,
+            debug_enabled=debug_enabled,
+        )
+        self._sync_mcp_config(__event_call__, debug_enabled=debug_enabled)
 
-        self._sync_mcp_config(__event_call__)
-
-    def _process_images(self, messages, __event_call__=None):
+    def _process_images(
+        self, messages, __event_call__=None, debug_enabled: bool = False
+    ):
         attachments = []
         text_content = ""
         if not messages:
@@ -1219,73 +1351,19 @@ class Pipe:
                                 }
                             )
                             self._emit_debug_log_sync(
-                                f"Image processed: {file_path}", __event_call__
+                                f"Image processed: {file_path}",
+                                __event_call__,
+                                debug_enabled=debug_enabled,
                             )
                         except Exception as e:
                             self._emit_debug_log_sync(
-                                f"Image error: {e}", __event_call__
+                                f"Image error: {e}",
+                                __event_call__,
+                                debug_enabled=debug_enabled,
                             )
         else:
             text_content = str(content)
         return text_content, attachments
-
-    def _sync_copilot_config(self, reasoning_effort: str, __event_call__=None):
-        """
-        动态更新 ~/.copilot/config.json 中的 reasoning_effort 设置。
-        如果 API 注入被忽略，这提供了最后的保障。
-        """
-        if not reasoning_effort:
-            return
-
-        effort = reasoning_effort
-
-        # 检查模型对 xhigh 的支持
-        # 目前仅 gpt-5.2-codex 支持 xhigh
-        # 在 _sync_copilot_config 中很难获得准确的当前模型 ID，
-        # 因此这里我们放宽限制，允许写入 xhigh。
-        # 如果模型不支持，Copilot CLI 可能会忽略或降级处理，但这比在这里硬编码判断更安全，
-        # 因为获取当前请求的 body 需要修改函数签名。
-
-        try:
-            # 目标标准路径 ~/.copilot/config.json
-            config_path = os.path.expanduser("~/.copilot/config.json")
-            config_dir = os.path.dirname(config_path)
-
-            # 仅在目录存在时执行（避免在错误环境创建垃圾文件）
-            if not os.path.exists(config_dir):
-                return
-
-            data = {}
-            # 读取现有配置
-            if os.path.exists(config_path):
-                try:
-                    with open(config_path, "r") as f:
-                        data = json.load(f)
-                except Exception:
-                    data = {}
-
-            # 如果值有变化则更新
-            current_val = data.get("reasoning_effort")
-            if current_val != effort:
-                data["reasoning_effort"] = effort
-                try:
-                    with open(config_path, "w") as f:
-                        json.dump(data, f, indent=4)
-
-                    self._emit_debug_log_sync(
-                        f"已动态更新 ~/.copilot/config.json: reasoning_effort='{effort}'",
-                        __event_call__,
-                    )
-                except Exception as e:
-                    self._emit_debug_log_sync(
-                        f"写入 config.json 失败: {e}", __event_call__
-                    )
-        except Exception as e:
-            self._emit_debug_log_sync(f"配置同步检查失败: {e}", __event_call__)
-
-    def _sync_mcp_config(self, __event_call__=None):
-        """已弃用：MCP 配置现在通过 SessionConfig 动态处理。"""
-        pass
 
     # ==================== 内部实现 ====================
     # _pipe_impl() 包含主请求处理逻辑。
@@ -1352,22 +1430,28 @@ class Pipe:
         except Exception as e:
             self._emit_debug_log_sync(f"配置同步检查失败: {e}", __event_call__)
 
-    async def _update_copilot_cli(self, cli_path: str, __event_call__=None):
-        """异步任务：如果需要则更新 Copilot CLI。"""
+    async def _update_copilot_cli(
+        self, cli_path, __event_call__=None, debug_enabled: bool = False
+    ):
+        """如果已配置，则异步检查 Copilot CLI 更新。"""
         import time
 
+        if not self.valves.AUTO_UPDATE:
+            return
+
+        # 检查更新频率（每 24 小时一次）
+        now = time.time()
+        if now - self._last_update_check < 86400:
+            return
+
+        self._last_update_check = now
+
         try:
-            # 检查频率（例如：每小时一次）
-            now = time.time()
-            if now - self._last_update_check < 3600:
-                return
-
-            self._last_update_check = now
-
-            if self.valves.DEBUG:
-                self._emit_debug_log_sync(
-                    "触发异步 Copilot CLI 更新检查...", __event_call__
-                )
+            self._emit_debug_log_sync(
+                "正在检查 Copilot CLI 更新...",
+                __event_call__,
+                debug_enabled=debug_enabled,
+            )
 
             # 我们创建一个子进程来运行更新
             process = await asyncio.create_subprocess_exec(
@@ -1379,16 +1463,23 @@ class Pipe:
 
             stdout, stderr = await process.communicate()
 
-            if self.valves.DEBUG and process.returncode == 0:
-                self._emit_debug_log_sync("Copilot CLI 更新检查完成", __event_call__)
-            elif process.returncode != 0 and self.valves.DEBUG:
+            if process.returncode == 0:
                 self._emit_debug_log_sync(
-                    f"Copilot CLI 更新失败: {stderr.decode()}", __event_call__
+                    "Copilot CLI 更新检查完成",
+                    __event_call__,
+                    debug_enabled=debug_enabled,
+                )
+            else:
+                self._emit_debug_log_sync(
+                    f"Copilot CLI 更新失败: {stderr.decode()}",
+                    __event_call__,
+                    debug_enabled=debug_enabled,
                 )
 
         except Exception as e:
-            if self.valves.DEBUG:
-                self._emit_debug_log_sync(f"CLI 更新任务异常: {e}", __event_call__)
+            self._emit_debug_log_sync(
+                f"CLI 更新任务异常: {e}", __event_call__, debug_enabled=debug_enabled
+            )
 
     async def _pipe_impl(
         self,
@@ -1398,26 +1489,7 @@ class Pipe:
         __event_emitter__=None,
         __event_call__=None,
     ) -> Union[str, AsyncGenerator]:
-        self._setup_env(__event_call__)
-
-        cwd = self._get_workspace_dir()
-        if self.valves.DEBUG:
-            await self._emit_debug_log(f"当前工作目录: {cwd}", __event_call__)
-
-        # CLI Update Check
-        if os.environ.get("COPILOT_CLI_PATH"):
-            asyncio.create_task(
-                self._update_copilot_cli(os.environ["COPILOT_CLI_PATH"], __event_call__)
-            )
-
-        if not self.valves.GH_TOKEN:
-            return "Error: 请在 Valves 中配置 GH_TOKEN。"
-
-        # 解析用户选择的模型
-        request_model = body.get("model", "")
-        real_model_id = request_model
-
-        # 确定有效的推理强度和调试设置
+        # 1. 首先确定有效的调试设置
         if __user__:
             raw_valves = __user__.get("valves", {})
             if isinstance(raw_valves, self.UserValves):
@@ -1428,90 +1500,235 @@ class Pipe:
                 user_valves = self.UserValves()
         else:
             user_valves = self.UserValves()
+
+        effective_debug = self.valves.DEBUG or user_valves.DEBUG
+
+        # 2. 初始化环境
+        self._setup_env(__event_call__, debug_enabled=effective_debug)
+
+        cwd = self._get_workspace_dir()
+        await self._emit_debug_log(
+            f"Agent 工作目录: {cwd}", __event_call__, debug_enabled=effective_debug
+        )
+
+        # 确定有效的 BYOK 设置
+        byok_api_key = user_valves.BYOK_API_KEY or self.valves.BYOK_API_KEY
+        byok_bearer_token = (
+            user_valves.BYOK_BEARER_TOKEN or self.valves.BYOK_BEARER_TOKEN
+        )
+        byok_base_url = user_valves.BYOK_BASE_URL or self.valves.BYOK_BASE_URL
+        byok_active = bool(byok_base_url and (byok_api_key or byok_bearer_token))
+
+        # 检查 GH_TOKEN 或 BYOK 配置
+        gh_token = user_valves.GH_TOKEN or self.valves.GH_TOKEN
+        if not gh_token and not byok_active:
+            return "Error: 请在 Valves 中配置 GH_TOKEN 或 BYOK 设置。"
+
+        # 解析模型
+        request_model = body.get("model", "")
+        real_model_id = request_model
+
+        # 确定推理强度
         effective_reasoning_effort = (
             user_valves.REASONING_EFFORT
             if user_valves.REASONING_EFFORT
             else self.valves.REASONING_EFFORT
         )
 
-        # Sync config for reasoning effort (Legacy/Fallback)
-        self._sync_copilot_config(effective_reasoning_effort, __event_call__)
-
-        # 如果用户启用了 DEBUG，则覆盖全局设置
-        if user_valves.DEBUG:
-            self.valves.DEBUG = True
-
-        # 处理 SHOW_THINKING（优先使用用户设置）
+        # 确定显示思考过程
         show_thinking = (
             user_valves.SHOW_THINKING
             if user_valves.SHOW_THINKING is not None
             else self.valves.SHOW_THINKING
         )
 
-        if request_model.startswith(f"{self.id}-"):
-            real_model_id = request_model[len(f"{self.id}-") :]
-            await self._emit_debug_log(
-                f"使用选择的模型: {real_model_id}", __event_call__
+        # 1. 确定实际使用的模型 ID
+        resolved_id = request_model
+        model_source_type = "selected"
+
+        if __metadata__ and __metadata__.get("base_model_id"):
+            resolved_id = __metadata__.get("base_model_id", "")
+            model_source_type = "base"
+
+        # 2. 去除前缀 (内联逻辑)
+        real_model_id = resolved_id
+        if "." in real_model_id:
+            real_model_id = real_model_id.split(".", 1)[-1]
+        if real_model_id.startswith(f"{self.id}-"):
+            real_model_id = real_model_id[len(f"{self.id}-") :]
+        if real_model_id.startswith("copilot - "):
+            real_model_id = real_model_id[10:]
+
+        # 3. 记录解析结果
+        if real_model_id != request_model:
+            log_msg = (
+                f"使用 {model_source_type} 模型: {real_model_id} "
+                f"(清洗自 '{resolved_id}')"
             )
-        elif __metadata__ and __metadata__.get("base_model_id"):
-            base_model_id = __metadata__.get("base_model_id", "")
-            if base_model_id.startswith(f"{self.id}-"):
-                real_model_id = base_model_id[len(f"{self.id}-") :]
-                await self._emit_debug_log(
-                    f"使用基础模型: {real_model_id} (继承自自定义模型 {request_model})",
-                    __event_call__,
-                )
+            await self._emit_debug_log(
+                log_msg,
+                __event_call__,
+                debug_enabled=effective_debug,
+            )
 
         messages = body.get("messages", [])
         if not messages:
-            return "No messages."
+            return "没有消息。"
 
-        # 使用改进的助手获取 Chat ID
-        chat_ctx = self._get_chat_context(body, __metadata__, __event_call__)
+        # 获取 Chat ID
+        chat_ctx = self._get_chat_context(
+            body, __metadata__, __event_call__, debug_enabled=effective_debug
+        )
         chat_id = chat_ctx.get("chat_id")
 
-        # 从多个来源提取系统提示词
+        # 提取系统提示词
         system_prompt_content, system_prompt_source = await self._extract_system_prompt(
-            body, messages, request_model, real_model_id, __event_call__
+            body,
+            messages,
+            request_model,
+            real_model_id,
+            __event_call__,
+            debug_enabled=effective_debug,
         )
 
         if system_prompt_content:
             preview = system_prompt_content[:60].replace("\n", " ")
             await self._emit_debug_log(
-                f"系统提示词已确认（来源: {system_prompt_source}, 长度: {len(system_prompt_content)}, 预览: {preview}）",
+                f"系统提示词来源: {system_prompt_source} (长度: {len(system_prompt_content)})",
                 __event_call__,
+                debug_enabled=effective_debug,
             )
 
         is_streaming = body.get("stream", False)
-        await self._emit_debug_log(f"请求流式传输: {is_streaming}", __event_call__)
+        await self._emit_debug_log(
+            f"流式请求: {is_streaming}",
+            __event_call__,
+            debug_enabled=effective_debug,
+        )
 
-        # 处理多模态（图像）和提取最后的消息文本
-        last_text, attachments = self._process_images(messages, __event_call__)
+        last_text, attachments = self._process_images(
+            messages, __event_call__, debug_enabled=effective_debug
+        )
 
+        # 判断 BYOK 模型逻辑
+        import re
+
+        is_byok_model = False
+        model_display_name = ""
+
+        # 获取模型名称
+        body_metadata = body.get("metadata", {})
+        if not isinstance(body_metadata, dict):
+            body_metadata = {}
+
+        meta_model = body_metadata.get("model", {})
+        if isinstance(meta_model, dict):
+            model_display_name = meta_model.get("name", "")
+
+        if not model_display_name and __metadata__:
+            model_obj = __metadata__.get("model", {})
+            if isinstance(model_obj, dict):
+                model_display_name = model_obj.get("name", "")
+            elif isinstance(model_obj, str):
+                model_display_name = model_obj
+            
+            if not model_display_name:
+                model_display_name = __metadata__.get("model_name", "") or __metadata__.get("name", "")
+
+        if model_display_name:
+            # 这里的正则已更新支持中文括号
+            has_multiplier = bool(re.search(r"[\(（]\d+(?:\.\d+)?x[\)）]", model_display_name))
+            
+            # 逻辑：如果自定义模型名称没有倍率，检查 Base Model 的官方名称
+            if not has_multiplier:
+                # 确保缓存已填充
+                if not self._model_cache:
+                    try:
+                        await self.pipes()
+                    except:
+                        pass
+                
+                # 在缓存中查找 base model 以检查其官方名称
+                cached_model = next(
+                    (m for m in self._model_cache if m.get("raw_id") == real_model_id or m.get("id") == real_model_id or m.get("id") == f"{self.id}-{real_model_id}"), 
+                    None
+                )
+                
+                if cached_model:
+                    cached_name = cached_model.get("name", "")
+                    # 这里的正则也已更新支持中文括号
+                    if re.search(r"[\(（]\d+(?:\.\d+)?x[\)）]", cached_name):
+                        has_multiplier = True
+                        await self._emit_debug_log(
+                            f"修正：在 Base Model 名称 '{cached_name}' 中发现倍率信息 (自定义模型: '{model_display_name}')。视为标准 Copilot 模型。",
+                            __event_call__,
+                            debug_enabled=effective_debug,
+                        )
+
+            is_byok_model = not has_multiplier and byok_active
+            await self._emit_debug_log(
+                f"BYOK 检测 (通过显示名称): '{model_display_name}' -> 有倍率={has_multiplier}, 是BYOK={is_byok_model}",
+                __event_call__,
+                debug_enabled=effective_debug,
+            )
+        else:
+            # 缓存回退逻辑
+            if not self._model_cache:
+                try:
+                    await self.pipes()
+                except:
+                    pass
+
+            base_model_id_from_meta = __metadata__.get("base_model_id", "") if __metadata__ else ""
+            lookup_model_id = base_model_id_from_meta if base_model_id_from_meta else request_model
+
+            model_info = next(
+                (m for m in (self._model_cache or []) if m["id"] == lookup_model_id),
+                None,
+            )
+
+            if model_info:
+                if "source" in model_info:
+                    is_byok_model = model_info["source"] == "byok"
+                else:
+                    model_name = model_info.get("name", "")
+                    has_multiplier = bool(re.search(r"[\(（]\d+(?:\.\d+)?x[\)）]", model_name))
+                    is_byok_model = not has_multiplier and byok_active
+            else:
+                if byok_active:
+                    if not gh_token:
+                        is_byok_model = True
+                    elif real_model_id.startswith("copilot-"):
+                        is_byok_model = False
+                    elif real_model_id not in self._standard_model_ids:
+                        is_byok_model = True
+            
+            await self._emit_debug_log(
+                f"BYOK 检测 (通过启发式): model_id='{real_model_id}', byok_active={byok_active} -> is_byok={is_byok_model}",
+                __event_call__,
+                debug_enabled=effective_debug,
+            )
+
+        # 仅针对标准 Copilot 模型同步配置
+        if not is_byok_model:
+            self._sync_copilot_config(effective_reasoning_effort, __event_call__)
+
+        # 初始化客户端
         client = CopilotClient(self._build_client_config(body))
         should_stop_client = True
         try:
             await client.start()
 
-            # 初始化自定义工具
             custom_tools = await self._initialize_custom_tools(
                 __user__=__user__, __event_call__=__event_call__
             )
             if custom_tools:
                 tool_names = [t.name for t in custom_tools]
                 await self._emit_debug_log(
-                    f"已启用 {len(custom_tools)} 个自定义工具: {tool_names}",
+                    f"启用 {len(custom_tools)} 个工具 (自定义/内置)",
                     __event_call__,
                 )
-                # 详细打印每个工具的描述 (用于调试)
-                if self.valves.DEBUG:
-                    for t in custom_tools:
-                        await self._emit_debug_log(
-                            f"📋 工具详情: {t.name} - {t.description[:100]}...",
-                            __event_call__,
-                        )
 
-            # 检查 MCP 服务器
             mcp_servers = self._parse_mcp_servers()
             mcp_server_names = list(mcp_servers.keys()) if mcp_servers else []
             if mcp_server_names:
@@ -1521,121 +1738,148 @@ class Pipe:
                 )
             else:
                 await self._emit_debug_log(
-                    "ℹ️ 未在 OpenWebUI 连接中发现 MCP 服务器。",
+                    "ℹ️ 未发现 MCP 工具服务器。",
                     __event_call__,
                 )
 
             session = None
+            is_new_session = True
+
+            provider_config = None
+            if is_byok_model:
+                byok_type = (user_valves.BYOK_TYPE or self.valves.BYOK_TYPE).lower()
+                if byok_type not in ["openai", "anthropic"]:
+                    byok_type = "openai"
+                
+                byok_wire_api = user_valves.BYOK_WIRE_API or self.valves.BYOK_WIRE_API
+
+                provider_config = {
+                    "type": byok_type,
+                    "wire_api": byok_wire_api,
+                    "base_url": byok_base_url,
+                }
+                if byok_api_key:
+                    provider_config["api_key"] = byok_api_key
+                if byok_bearer_token:
+                    provider_config["bearer_token"] = byok_bearer_token
 
             if chat_id:
                 try:
-                    # 复用已解析的 mcp_servers
-                    resume_config = (
-                        {"mcp_servers": mcp_servers} if mcp_servers else None
-                    )
-                    # 尝试直接使用 chat_id 作为 session_id 恢复会话
-                    session = (
-                        await client.resume_session(chat_id, resume_config)
-                        if resume_config
-                        else await client.resume_session(chat_id)
-                    )
+                    resume_params = {
+                        "model": real_model_id,
+                        "streaming": is_streaming,
+                        "tools": custom_tools,
+                        "available_tools": ([t.name for t in custom_tools] if custom_tools else None),
+                    }
+                    if mcp_servers:
+                        resume_params["mcp_servers"] = mcp_servers
+
+                    system_parts = []
+                    if system_prompt_content:
+                        system_parts.append(system_prompt_content.strip())
+                    system_parts.append(FORMATTING_GUIDELINES)
+                    final_system_msg = "\n".join(system_parts)
+
+                    resume_params["system_message"] = {
+                        "mode": "replace",
+                        "content": final_system_msg,
+                    }
+
+                    if provider_config:
+                        resume_params["provider"] = provider_config
+                        await self._emit_debug_log(
+                            f"包含 BYOK 提供商配置: type={provider_config.get('type')}",
+                            __event_call__,
+                            debug_enabled=effective_debug,
+                        )
+
+                    session = await client.resume_session(chat_id, resume_params)
                     await self._emit_debug_log(
-                        f"已通过 ChatID 恢复会话: {chat_id}", __event_call__
+                        f"成功恢复会话 {chat_id}，模型: {real_model_id}",
+                        __event_call__,
                     )
-
-                    # 显示工作空间信息（如果可用）
-                    if self.valves.DEBUG:
-                        if session.workspace_path:
-                            await self._emit_debug_log(
-                                f"会话工作空间: {session.workspace_path}",
-                                __event_call__,
-                            )
-
                     is_new_session = False
                 except Exception as e:
-                    # 恢复失败，磁盘上可能不存在该会话
-                    reasoning_effort = (effective_reasoning_effort,)
                     await self._emit_debug_log(
-                        f"会话 {chat_id} 不存在或已过期 ({str(e)})，将创建新会话。",
+                        f"会话 {chat_id} 未找到或恢复失败 ({str(e)})，正在创建新会话。",
                         __event_call__,
                     )
-                    session = None
 
             if session is None:
-                session_config = self._build_session_config(
-                    chat_id,
-                    real_model_id,
-                    custom_tools,
-                    system_prompt_content,
-                    is_streaming,
-                )
+                is_new_session = True
+                
+                from copilot.types import SessionConfig, InfiniteSessionConfig
+                
+                infinite_session_config = None
+                if self.valves.INFINITE_SESSION:
+                    infinite_session_config = InfiniteSessionConfig(
+                        enabled=True,
+                        background_compaction_threshold=self.valves.COMPACTION_THRESHOLD,
+                        buffer_exhaustion_threshold=self.valves.BUFFER_THRESHOLD,
+                    )
+
+                system_parts = []
                 if system_prompt_content:
-                    await self._emit_debug_log(
-                        f"配置系统消息（模式: append）",
-                        __event_call__,
-                    )
+                    system_parts.append(system_prompt_content.strip())
+                system_parts.append(FORMATTING_GUIDELINES)
+                final_system_msg = "\n".join(system_parts)
 
-                # 显示系统配置预览
-                if system_prompt_content or self.valves.ENFORCE_FORMATTING:
-                    preview_parts = []
-                    if system_prompt_content:
-                        preview_parts.append(
-                            f"自定义提示词: {system_prompt_content[:100]}..."
-                        )
-                    if self.valves.ENFORCE_FORMATTING:
-                        preview_parts.append("格式化指导: 已启用")
+                session_params = {
+                    "session_id": chat_id if chat_id else None,
+                    "model": real_model_id,
+                    "streaming": is_streaming,
+                    "tools": custom_tools,
+                    "available_tools": [t.name for t in custom_tools] if custom_tools else None,
+                    "system_message": {
+                        "mode": "replace",
+                        "content": final_system_msg,
+                    },
+                    "infinite_sessions": infinite_session_config,
+                    "working_directory": self._get_workspace_dir(),
+                }
 
-                    if isinstance(session_config, dict):
-                        system_config = session_config.get("system_message", {})
-                    else:
-                        system_config = getattr(session_config, "system_message", None)
+                if provider_config:
+                    session_params["provider"] = provider_config
+                
+                if mcp_servers:
+                    session_params["mcp_servers"] = mcp_servers
 
-                    if isinstance(system_config, dict):
-                        full_content = system_config.get("content", "")
-                    else:
-                        full_content = ""
+                session_config = SessionConfig(**session_params)
 
-                    await self._emit_debug_log(
-                        f"系统消息配置 - {', '.join(preview_parts)} (总长度: {len(full_content)} 字符)",
-                        __event_call__,
-                    )
+                await self._emit_debug_log(
+                    f"注入系统提示词到新会话 (长度: {len(final_system_msg)})",
+                    __event_call__,
+                )
 
                 session = await client.create_session(config=session_config)
 
-                # 获取新会话 ID
-                new_sid = getattr(session, "session_id", getattr(session, "id", None))
-                await self._emit_debug_log(f"创建了新会话: {new_sid}", __event_call__)
+                model_type_label = "BYOK" if is_byok_model else "Copilot"
+                await self._emit_debug_log(
+                    f"新 {model_type_label} 会话已创建。选择: '{request_model}', 有效 ID: '{real_model_id}'",
+                    __event_call__,
+                    debug_enabled=effective_debug,
+                )
 
-                # 显示新会话的工作空间信息
-                if self.valves.DEBUG:
-                    if session.workspace_path:
-                        await self._emit_debug_log(
-                            f"会话工作空间: {session.workspace_path}",
-                            __event_call__,
-                        )
-
-            # 构建 Prompt（基于会话：仅发送最新用户输入）
-            prompt = self._apply_formatting_hint(last_text)
+            prompt = last_text
+            await self._emit_debug_log(
+                f"发送提示词 ({len(prompt)} 字符) 给 Agent...",
+                __event_call__,
+            )
 
             send_payload = {"prompt": prompt, "mode": "immediate"}
             if attachments:
                 send_payload["attachments"] = attachments
 
             if body.get("stream", False):
-                # 确定 UI 显示的会话状态消息
                 init_msg = ""
-                if self.valves.DEBUG:
-                    if is_new_session:
-                        new_sid = getattr(
-                            session, "session_id", getattr(session, "id", "unknown")
-                        )
-                        init_msg = f"> [Debug] 创建了新会话: {new_sid}\n"
-                    else:
-                        init_msg = f"> [Debug] 已通过 ChatID 恢复会话: {chat_id}\n"
-
+                if effective_debug:
+                    init_msg = (
+                        f"> [Debug] Agent 工作目录: {self._get_workspace_dir()}\n"
+                    )
                     if mcp_server_names:
                         init_msg += f"> [Debug] 🔌 已连接 MCP 服务器: {', '.join(mcp_server_names)}\n"
 
+                should_stop_client = False
                 return self.stream_response(
                     client,
                     session,
@@ -1644,23 +1888,22 @@ class Pipe:
                     __event_call__,
                     reasoning_effort=effective_reasoning_effort,
                     show_thinking=show_thinking,
+                    debug_enabled=effective_debug,
                 )
             else:
                 try:
                     response = await session.send_and_wait(send_payload)
-                    return response.data.content if response else "Empty response."
+                    return response.data.content if response else "无响应。"
                 finally:
-                    # 清理：如果没有 chat_id（临时会话），销毁会话
                     if not chat_id:
                         try:
                             await session.destroy()
-                        except Exception as cleanup_error:
-                            await self._emit_debug_log(
-                                f"会话清理警告: {cleanup_error}",
-                                __event_call__,
-                            )
+                        except:
+                            pass
         except Exception as e:
-            await self._emit_debug_log(f"请求错误: {e}", __event_call__)
+            await self._emit_debug_log(
+                f"请求错误: {e}", __event_call__, debug_enabled=effective_debug
+            )
             return f"Error: {str(e)}"
         finally:
             if should_stop_client:
@@ -1678,6 +1921,7 @@ class Pipe:
         __event_call__=None,
         reasoning_effort: str = "",
         show_thinking: bool = True,
+        debug_enabled: bool = False,
     ) -> AsyncGenerator:
         """
         从 Copilot SDK 流式传输响应，处理各种事件类型。
