@@ -57,7 +57,6 @@ Find "GitHub Copilot" in the function list and click the **⚙️ (Valves)** ico
 | **TIMEOUT** | Timeout for each stream chunk (seconds). | `300` |
 | **CUSTOM_ENV_VARS** | Custom environment variables (JSON format). | - |
 | **REASONING_EFFORT** | Reasoning effort level: low, medium, high. `xhigh` is supported for some models. | `medium` |
-
 | **ENABLE_MCP_SERVER** | Enable Direct MCP Client connection (Recommended). | `True` |
 | **ENABLE_OPENWEBUI_TOOLS** | Enable OpenWebUI Tools (includes defined and server tools). | `True` |
 | **BYOK_ENABLED** | Enable BYOK (Bring Your Own Key) to use custom providers. | `False` |
