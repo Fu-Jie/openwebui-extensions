@@ -23,7 +23,7 @@ Actions are interactive plugins that:
 
     Intelligently analyzes text content and generates interactive mind maps with beautiful visualizations.
 
-    **Version:** 0.9.1
+    **Version:** 0.9.2
 
     [:octicons-arrow-right-24: Documentation](smart-mind-map.md)
 
@@ -33,7 +33,7 @@ Actions are interactive plugins that:
 
     Transform text into professional infographics using AntV visualization engine with various templates.
 
-    **Version:** 1.4.9
+    **Version:** 1.5.0
 
     [:octicons-arrow-right-24: Documentation](smart-infographic.md)
 

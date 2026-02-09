@@ -5,7 +5,7 @@ author_url: https://github.com/Fu-Jie/awesome-openwebui
 funding_url: https://github.com/open-webui
 openwebui_id: ce96f7b4-12fc-4ac3-9a01-875713e69359
 description: Integrate GitHub Copilot SDK. Supports dynamic models, multi-turn conversation, streaming, multimodal input, infinite sessions, and frontend debug logging.
-version: 0.6.0
+version: 0.6.1
 requirements: github-copilot-sdk==0.1.23
 """
 
@@ -1753,74 +1753,81 @@ class Pipe:
             "chat_id": str(chat_id).strip(),
         }
 
-    async def _fetch_byok_models(self) -> List[dict]:
+    async def _fetch_byok_models(self, uv: "Pipe.UserValves" = None) -> List[dict]:
         """Fetch BYOK models from configured provider."""
         model_list = []
-        if self.valves.BYOK_BASE_URL:
+        
+        # Resolve effective settings (User > Global)
+        # Note: We handle the case where uv might be None
+        effective_base_url = (uv.BYOK_BASE_URL if uv else "") or self.valves.BYOK_BASE_URL
+        effective_type = (uv.BYOK_TYPE if uv else "") or self.valves.BYOK_TYPE
+        effective_api_key = (uv.BYOK_API_KEY if uv else "") or self.valves.BYOK_API_KEY
+        effective_bearer_token = (uv.BYOK_BEARER_TOKEN if uv else "") or self.valves.BYOK_BEARER_TOKEN
+        effective_models = (uv.BYOK_MODELS if uv else "") or self.valves.BYOK_MODELS
+
+        if effective_base_url:
             try:
-                base_url = self.valves.BYOK_BASE_URL.rstrip("/")
+                base_url = effective_base_url.rstrip("/")
                 url = f"{base_url}/models"
                 headers = {}
-                provider_type = self.valves.BYOK_TYPE.lower()
+                provider_type = effective_type.lower()
 
                 if provider_type == "anthropic":
-                    if self.valves.BYOK_API_KEY:
-                        headers["x-api-key"] = self.valves.BYOK_API_KEY
+                    if effective_api_key:
+                        headers["x-api-key"] = effective_api_key
                     headers["anthropic-version"] = "2023-06-01"
                 else:
-                    if self.valves.BYOK_BEARER_TOKEN:
+                    if effective_bearer_token:
                         headers["Authorization"] = (
-                            f"Bearer {self.valves.BYOK_BEARER_TOKEN}"
+                            f"Bearer {effective_bearer_token}"
                         )
-                    elif self.valves.BYOK_API_KEY:
-                        headers["Authorization"] = f"Bearer {self.valves.BYOK_API_KEY}"
+                    elif effective_api_key:
+                        headers["Authorization"] = f"Bearer {effective_api_key}"
 
-                timeout = aiohttp.ClientTimeout(total=5)
+                timeout = aiohttp.ClientTimeout(total=60)
                 async with aiohttp.ClientSession(timeout=timeout) as session:
-                    async with session.get(url, headers=headers) as resp:
-                        if resp.status == 200:
-                            data = await resp.json()
-                            if (
-                                isinstance(data, dict)
-                                and "data" in data
-                                and isinstance(data["data"], list)
-                            ):
-                                for item in data["data"]:
-                                    if isinstance(item, dict) and "id" in item:
-                                        model_list.append(item["id"])
-                            await self._emit_debug_log(
-                                f"BYOK: Fetched {len(model_list)} models from {url}"
-                            )
-                        else:
-                            await self._emit_debug_log(
-                                f"BYOK: Failed to fetch models from {url}. Status: {resp.status}"
-                            )
+                    for attempt in range(3):
+                        try:
+                            async with session.get(url, headers=headers) as resp:
+                                if resp.status == 200:
+                                    data = await resp.json()
+                                    if (
+                                        isinstance(data, dict)
+                                        and "data" in data
+                                        and isinstance(data["data"], list)
+                                    ):
+                                        for item in data["data"]:
+                                            if isinstance(item, dict) and "id" in item:
+                                                model_list.append(item["id"])
+                                    elif isinstance(data, list):
+                                        for item in data:
+                                            if isinstance(item, dict) and "id" in item:
+                                                model_list.append(item["id"])
+
+                                    await self._emit_debug_log(
+                                        f"BYOK: Fetched {len(model_list)} models from {url}"
+                                    )
+                                    break
+                                else:
+                                    await self._emit_debug_log(
+                                        f"BYOK: Failed to fetch models from {url} (Attempt {attempt+1}/3). Status: {resp.status}"
+                                    )
+                        except Exception as e:
+                            await self._emit_debug_log(f"BYOK: Model fetch error (Attempt {attempt+1}/3): {e}")
+
+                        if attempt < 2:
+                            await asyncio.sleep(1)
             except Exception as e:
-                await self._emit_debug_log(f"BYOK: Model fetch error: {e}")
+                await self._emit_debug_log(f"BYOK: Setup error: {e}")
 
         # Fallback to configured list or defaults
         if not model_list:
-            if self.valves.BYOK_MODELS.strip():
+            if effective_models.strip():
                 model_list = [
-                    m.strip() for m in self.valves.BYOK_MODELS.split(",") if m.strip()
+                    m.strip() for m in effective_models.split(",") if m.strip()
                 ]
                 await self._emit_debug_log(
                     f"BYOK: Using user-configured BYOK_MODELS ({len(model_list)} models)."
-                )
-            else:
-                defaults = {
-                    "anthropic": [
-                        "claude-3-5-sonnet-latest",
-                        "claude-3-5-haiku-latest",
-                        "claude-3-opus-latest",
-                    ],
-                }
-                model_list = defaults.get(
-                    self.valves.BYOK_TYPE.lower(),
-                    ["gpt-4o", "gpt-4o-mini", "claude-3-5-sonnet-latest"],
-                )
-                await self._emit_debug_log(
-                    f"BYOK: Using default fallback models for {self.valves.BYOK_TYPE} ({len(model_list)} models)."
                 )
 
         return [
@@ -1943,13 +1950,14 @@ class Pipe:
 
                 # Fetch BYOK models if configured
                 byok = []
-                if self.valves.BYOK_BASE_URL and (
+                effective_base_url = uv.BYOK_BASE_URL or self.valves.BYOK_BASE_URL
+                if effective_base_url and (
                     uv.BYOK_API_KEY
                     or self.valves.BYOK_API_KEY
                     or uv.BYOK_BEARER_TOKEN
                     or self.valves.BYOK_BEARER_TOKEN
                 ):
-                    byok = await self._fetch_byok_models()
+                    byok = await self._fetch_byok_models(uv=uv)
 
                 standard = []
                 if token:

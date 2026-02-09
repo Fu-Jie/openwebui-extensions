@@ -4,7 +4,7 @@ author: Fu-Jie
 author_url: https://github.com/Fu-Jie/awesome-openwebui
 funding_url: https://github.com/open-webui
 description: 集成 GitHub Copilot SDK。支持动态模型、多选提供商、流式输出、多模态 input、无限会话及前端调试日志。
-version: 0.6.0
+version: 0.6.1
 requirements: github-copilot-sdk==0.1.23
 """
 
@@ -779,52 +779,92 @@ class Pipe:
                         pass
         return text, att
 
-    async def _fetch_byok_models(self) -> List[dict]:
-        if not self.valves.BYOK_BASE_URL:
-            return []
-        try:
-            url, t = (
-                f"{self.valves.BYOK_BASE_URL.rstrip('/')}/models",
-                self.valves.BYOK_TYPE.lower(),
-            )
-            h = {"anthropic-version": "2023-06-01"} if t == "anthropic" else {}
-            if self.valves.BYOK_API_KEY:
-                h["x-api-key" if t == "anthropic" else "Authorization"] = (
-                    self.valves.BYOK_API_KEY
-                    if t == "anthropic"
-                    else f"Bearer {self.valves.BYOK_API_KEY}"
+    async def _fetch_byok_models(self, uv: "Pipe.UserValves" = None) -> List[dict]:
+        """从配置的提供商获取 BYOK 模型。"""
+        model_list = []
+        
+        # 确定有效配置 (用户 > 全局)
+        effective_base_url = (uv.BYOK_BASE_URL if uv else "") or self.valves.BYOK_BASE_URL
+        effective_type = (uv.BYOK_TYPE if uv else "") or self.valves.BYOK_TYPE
+        effective_api_key = (uv.BYOK_API_KEY if uv else "") or self.valves.BYOK_API_KEY
+        effective_bearer_token = (uv.BYOK_BEARER_TOKEN if uv else "") or self.valves.BYOK_BEARER_TOKEN
+        effective_models = (uv.BYOK_MODELS if uv else "") or self.valves.BYOK_MODELS
+
+        if effective_base_url:
+            try:
+                base_url = effective_base_url.rstrip("/")
+                url = f"{base_url}/models"
+                headers = {}
+                provider_type = effective_type.lower()
+
+                if provider_type == "anthropic":
+                    if effective_api_key:
+                        headers["x-api-key"] = effective_api_key
+                    headers["anthropic-version"] = "2023-06-01"
+                else:
+                    if effective_bearer_token:
+                        headers["Authorization"] = (
+                            f"Bearer {effective_bearer_token}"
+                        )
+                    elif effective_api_key:
+                        headers["Authorization"] = f"Bearer {effective_api_key}"
+
+                timeout = aiohttp.ClientTimeout(total=60)
+                async with aiohttp.ClientSession(timeout=timeout) as session:
+                    for attempt in range(3):
+                        try:
+                            async with session.get(url, headers=headers) as resp:
+                                if resp.status == 200:
+                                    data = await resp.json()
+                                    if (
+                                        isinstance(data, dict)
+                                        and "data" in data
+                                        and isinstance(data["data"], list)
+                                    ):
+                                        for item in data["data"]:
+                                            if isinstance(item, dict) and "id" in item:
+                                                model_list.append(item["id"])
+                                    elif isinstance(data, list):
+                                        for item in data:
+                                            if isinstance(item, dict) and "id" in item:
+                                                model_list.append(item["id"])
+                                    
+                                    await self._emit_debug_log(
+                                        f"BYOK: 从 {url} 获取了 {len(model_list)} 个模型"
+                                    )
+                                    break
+                                else:
+                                    await self._emit_debug_log(
+                                        f"BYOK: 获取模型失败 {url} (尝试 {attempt+1}/3). 状态码: {resp.status}"
+                                    )
+                        except Exception as e:
+                            await self._emit_debug_log(f"BYOK: 模型获取错误 (尝试 {attempt+1}/3): {e}")
+                        
+                        if attempt < 2:
+                            await asyncio.sleep(1)
+
+            except Exception as e:
+                await self._emit_debug_log(f"BYOK: 设置错误: {e}")
+
+        # 如果自动获取失败，回退到手动配置列表
+        if not model_list:
+            if effective_models.strip():
+                model_list = [
+                    m.strip() for m in effective_models.split(",") if m.strip()
+                ]
+                await self._emit_debug_log(
+                    f"BYOK: 使用用户手动配置的 BYOK_MODELS ({len(model_list)} 个模型)."
                 )
-            if self.valves.BYOK_BEARER_TOKEN:
-                h["Authorization"] = f"Bearer {self.valves.BYOK_BEARER_TOKEN}"
-            async with aiohttp.ClientSession(
-                timeout=aiohttp.ClientTimeout(total=5)
-            ) as s:
-                async with s.get(url, headers=h) as r:
-                    if r.status == 200:
-                        data = await r.json()
-                        return [
-                            {
-                                "id": m["id"],
-                                "name": f"-{self._clean_model_id(m['id'])}",
-                                "source": "byok",
-                                "provider": self.valves.BYOK_TYPE.capitalize(),
-                            }
-                            for m in data.get("data", [])
-                            if isinstance(m, dict) and "id" in m
-                        ]
-        except:
-            pass
+
         return [
             {
-                "id": m.strip(),
-                "name": f"-{self._clean_model_id(m.strip())}",
+                "id": m,
+                "name": f"-{self._clean_model_id(m)}",
                 "source": "byok",
-                "provider": self.valves.BYOK_TYPE.capitalize(),
+                "provider": effective_type.capitalize(),
+                "raw_id": m,
             }
-            for m in self.valves.BYOK_MODELS.split(",")
-            if m.strip()
-        ] or [
-            {"id": "gpt-4o", "name": "-gpt-4o", "source": "byok", "provider": "OpenAI"}
+            for m in model_list
         ]
 
     def _build_session_config(
@@ -1116,191 +1156,126 @@ class Pipe:
                 await client.stop()
 
     async def pipes(self, __user__: Optional[dict] = None) -> List[dict]:
-        # 清理多余日志，仅在 DEBUG 开启时输出
+        # 获取用户配置
         uv = self._get_user_valves(__user__)
-        if uv.DEBUG or self.valves.DEBUG:
-            logger.info(f"[Copilot SDK] 获取模型列表 (用户: {bool(__user__)})")
-
         token = uv.GH_TOKEN or self.valves.GH_TOKEN
 
-        # 环境防抖检查 (24小时内只检查一次)
+        # 环境初始化 (带有 24 小时冷却时间)
         from datetime import datetime
-
         now = datetime.now().timestamp()
-        needs_setup = not self.__class__._env_setup_done or (
-            now - self.__class__._last_update_check > 86400
-        )
-
-        if needs_setup:
-            self._setup_env(debug_enabled=uv.DEBUG or self.valves.DEBUG)
+        if not self.__class__._env_setup_done or (now - self.__class__._last_update_check > 86400):
+            self._setup_env(debug_enabled=uv.DEBUG or self.valves.DEBUG, token=token)
         elif token:
             os.environ["GH_TOKEN"] = os.environ["GITHUB_TOKEN"] = token
 
+        # 确定倍率限制
         eff_max = self.valves.MAX_MULTIPLIER
         if uv.MAX_MULTIPLIER is not None:
             eff_max = uv.MAX_MULTIPLIER
 
-        ex_kw = [
-            k.strip().lower()
-            for k in (self.valves.EXCLUDE_KEYWORDS + "," + uv.EXCLUDE_KEYWORDS).split(
-                ","
-            )
-            if k.strip()
-        ]
-        allowed_p = [
-            p.strip().lower()
-            for p in (uv.PROVIDERS if uv.PROVIDERS else self.valves.PROVIDERS).split(
-                ","
-            )
-            if p.strip()
-        ]
-        if self._model_cache:
-            res = []
-            for m in self._model_cache:
-                if allowed_p and m.get("provider", "Unknown").lower() not in allowed_p:
-                    continue
-                mid, mname = (m.get("raw_id") or m.get("id", "")).lower(), m.get(
-                    "name", ""
-                ).lower()
-                if any(kw in mid or kw in mname for kw in ex_kw):
-                    continue
-                if m.get("source") == "copilot" and m.get("multiplier", 0) > eff_max:
-                    continue
-                res.append(m)
-            return res
-        try:
-            self._setup_env()
-            byok_models = (
-                await self._fetch_byok_models()
-                if self.valves.BYOK_BASE_URL
-                and (
-                    uv.BYOK_API_KEY
-                    or self.valves.BYOK_API_KEY
-                    or self.valves.BYOK_BEARER_TOKEN
-                )
-                else []
-            )
+        # 确定关键词和提供商过滤
+        ex_kw = [k.strip().lower() for k in (self.valves.EXCLUDE_KEYWORDS + "," + uv.EXCLUDE_KEYWORDS).split(",") if k.strip()]
+        allowed_p = [p.strip().lower() for p in (uv.PROVIDERS if uv.PROVIDERS else self.valves.PROVIDERS).split(",") if p.strip()]
+
+        # 如果缓存为空，刷新模型列表
+        if not self._model_cache:
+            byok_models = []
             standard_models = []
-            if self.valves.GH_TOKEN:
-                c = CopilotClient({"cli_path": os.environ.get("COPILOT_CLI_PATH")})
+
+            # 1. 获取 BYOK 模型 (优先使用个人设置)
+            if ((uv.BYOK_BASE_URL if uv else "") or self.valves.BYOK_BASE_URL) and \
+               ((uv.BYOK_API_KEY if uv else "") or self.valves.BYOK_API_KEY or (uv.BYOK_BEARER_TOKEN if uv else "") or self.valves.BYOK_BEARER_TOKEN):
+                byok_models = await self._fetch_byok_models(uv=uv)
+
+            # 2. 获取标准 Copilot 模型
+            if token:
+                c = await self._get_client()
                 try:
-                    await c.start()
-                    auth = await c.get_auth_status()
-                    if getattr(auth, "status", str(auth)) == "authenticated":
-                        raw_models = await c.list_models()
-                        raw = raw_models if isinstance(raw_models, list) else []
-                        processed = []
-                        await self._emit_debug_log(
-                            f"SDK 返回了 {len(raw)} 个原始模型数据。"
-                        )
-                        for m in raw:
-                            try:
-                                m_is_dict = isinstance(m, dict)
-                                mid = (
-                                    m.get("id")
-                                    if m_is_dict
-                                    else getattr(m, "id", str(m))
-                                )
-                                bill = (
-                                    m.get("billing")
-                                    if m_is_dict
-                                    else getattr(m, "billing", None)
-                                )
-                                if bill and not isinstance(bill, dict):
-                                    bill = (
-                                        bill.to_dict()
-                                        if hasattr(bill, "to_dict")
-                                        else vars(bill)
-                                    )
-                                pol = (
-                                    m.get("policy")
-                                    if m_is_dict
-                                    else getattr(m, "policy", None)
-                                )
-                                if pol and not isinstance(pol, dict):
-                                    pol = (
-                                        pol.to_dict()
-                                        if hasattr(pol, "to_dict")
-                                        else vars(pol)
-                                    )
-                                if (pol or {}).get("state") == "disabled":
-                                    continue
-                                cap = (
-                                    m.get("capabilities")
-                                    if m_is_dict
-                                    else getattr(m, "capabilities", None)
-                                )
-                                vis, reas, ctx, supp = False, False, None, []
-                                if cap:
-                                    if not isinstance(cap, dict):
-                                        cap = (
-                                            cap.to_dict()
-                                            if hasattr(cap, "to_dict")
-                                            else vars(cap)
-                                        )
-                                    s = cap.get("supports", {})
-                                    vis, reas = s.get("vision", False), s.get(
-                                        "reasoning_effort", False
-                                    )
-                                    l = cap.get("limits", {})
-                                    ctx = l.get("max_context_window_tokens")
-                                raw_eff = (
-                                    m.get("supported_reasoning_efforts")
-                                    if m_is_dict
-                                    else getattr(m, "supported_reasoning_efforts", [])
-                                ) or []
-                                supp = [str(e).lower() for e in raw_eff if e]
-                                mult = (bill or {}).get("multiplier", 1)
-                                cid = self._clean_model_id(mid)
-                                processed.append(
-                                    {
-                                        "id": f"{self.id}-{mid}",
-                                        "name": (
-                                            f"-{cid} ({mult}x)"
-                                            if mult > 0
-                                            else f"-🔥 {cid} (0x)"
-                                        ),
-                                        "multiplier": mult,
-                                        "raw_id": mid,
-                                        "source": "copilot",
-                                        "provider": self._get_provider_name(m),
-                                        "meta": {
-                                            "capabilities": {
-                                                "vision": vis,
-                                                "reasoning": reas,
-                                                "supported_reasoning_efforts": supp,
-                                            },
-                                            "context_length": ctx,
-                                        },
-                                    }
-                                )
-                            except Exception as pe:
-                                await self._emit_debug_log(f"❌ 解析失败 {mid}: {pe}")
-                        processed.sort(key=lambda x: (x["multiplier"], x["raw_id"]))
-                        standard_models = processed
-                        self._standard_model_ids = {m["raw_id"] for m in processed}
+                    raw_models = await c.list_models()
+                    raw = raw_models if isinstance(raw_models, list) else []
+                    processed = []
+                    
+                    for m in raw:
+                        try:
+                            m_is_dict = isinstance(m, dict)
+                            mid = m.get("id") if m_is_dict else getattr(m, "id", str(m))
+                            bill = m.get("billing") if m_is_dict else getattr(m, "billing", None)
+                            if bill and not isinstance(bill, dict):
+                                bill = bill.to_dict() if hasattr(bill, "to_dict") else vars(bill)
+                            
+                            pol = m.get("policy") if m_is_dict else getattr(m, "policy", None)
+                            if pol and not isinstance(pol, dict):
+                                pol = pol.to_dict() if hasattr(pol, "to_dict") else vars(pol)
+                            
+                            if (pol or {}).get("state") == "disabled":
+                                continue
+                                
+                            cap = m.get("capabilities") if m_is_dict else getattr(m, "capabilities", None)
+                            vis, reas, ctx, supp = False, False, None, []
+                            if cap:
+                                if not isinstance(cap, dict):
+                                    cap = cap.to_dict() if hasattr(cap, "to_dict") else vars(cap)
+                                s = cap.get("supports", {})
+                                vis, reas = s.get("vision", False), s.get("reasoning_effort", False)
+                                l = cap.get("limits", {})
+                                ctx = l.get("max_context_window_tokens")
+                            
+                            raw_eff = (m.get("supported_reasoning_efforts") if m_is_dict else getattr(m, "supported_reasoning_efforts", [])) or []
+                            supp = [str(e).lower() for e in raw_eff if e]
+                            mult = (bill or {}).get("multiplier", 1)
+                            cid = self._clean_model_id(mid)
+                            processed.append({
+                                "id": f"{self.id}-{mid}",
+                                "name": f"-{cid} ({mult}x)" if mult > 0 else f"-🔥 {cid} (0x)",
+                                "multiplier": mult,
+                                "raw_id": mid,
+                                "source": "copilot",
+                                "provider": self._get_provider_name(m),
+                                "meta": {
+                                    "capabilities": {
+                                        "vision": vis,
+                                        "reasoning": reas,
+                                        "supported_reasoning_efforts": supp,
+                                    },
+                                    "context_length": ctx,
+                                },
+                            })
+                        except:
+                            continue
+                            
+                    processed.sort(key=lambda x: (x["multiplier"], x["raw_id"]))
+                    standard_models = processed
+                    self._standard_model_ids = {m["raw_id"] for m in processed}
                 except:
                     pass
                 finally:
                     await c.stop()
+
             self._model_cache = standard_models + byok_models
-            if not self._model_cache:
-                return [{"id": "error", "name": "错误：未返回内容。"}]
-            res = []
-            for m in self._model_cache:
-                if allowed_p and m.get("provider", "Unknown").lower() not in allowed_p:
+
+        if not self._model_cache:
+            return [{"id": "error", "name": "未找到任何模型。请检查 Token 或 BYOK 配置。"}]
+
+        # 3. 实时过滤结果
+        res = []
+        for m in self._model_cache:
+            # 提供商过滤
+            if allowed_p and m.get("provider", "Unknown").lower() not in allowed_p:
+                continue
+            
+            mid, mname = (m.get("raw_id") or m.get("id", "")).lower(), m.get("name", "").lower()
+            # 关键词过滤
+            if any(kw in mid or kw in mname for kw in ex_kw):
+                continue
+            
+            # 倍率限制 (仅限 Copilot 官方模型)
+            if m.get("source") == "copilot":
+                if float(m.get("multiplier", 1)) > (float(eff_max) + 0.0001):
                     continue
-                mid, mname = (m.get("raw_id") or m.get("id", "")).lower(), m.get(
-                    "name", ""
-                ).lower()
-                if any(kw in mid or kw in mname for kw in ex_kw):
-                    continue
-                if m.get("source") == "copilot" and m.get("multiplier", 0) > eff_max:
-                    continue
-                res.append(m)
-            return res
-        except Exception as e:
-            return [{"id": "error", "name": f"错误: {e}"}]
+            
+            res.append(m)
+            
+        return res if res else [{"id": "none", "name": "没有匹配当前过滤条件的模型"}]
 
     async def stream_response(
         self,
