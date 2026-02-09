@@ -5,6 +5,7 @@ author: Fu-Jie
 author_url: https://github.com/Fu-Jie/awesome-openwebui
 funding_url: https://github.com/open-webui
 version: 0.1.2
+openwebui_id: 403a62ee-a596-45e7-be65-fab9cc249dd6
 description: A specialized filter to bypass OpenWebUI's default RAG for GitHub Copilot SDK models. It moves uploaded files to a safe location ('copilot_files') so the Copilot Pipe can process them natively without interference.
 """
 
