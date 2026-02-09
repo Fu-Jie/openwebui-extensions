@@ -445,7 +445,7 @@ class OpenWebUIStats:
             username = user.get("username", "")
             profile_url = user.get("profile_url", "")
             lines.append(t["author_header"])
-            lines.append("|:---:|:---:|:---:|:---:|")
+            lines.append("| :---: | :---: | :---: | :---: |")
             lines.append(
                 f"| [{username}]({profile_url}) | **{user.get('followers', 0)}** | "
                 f"**{user.get('total_points', 0)}** | **{user.get('contributions', 0)}** |"
@@ -454,7 +454,7 @@ class OpenWebUIStats:
 
         # 统计徽章表格
         lines.append(t["header"])
-        lines.append("|:---:|:---:|:---:|:---:|:---:|")
+        lines.append("| :---: | :---: | :---: | :---: | :---: |")
         lines.append(
             f"| **{stats['total_posts']}** | **{stats['total_downloads']}** | "
             f"**{stats['total_views']}** | **{stats['total_upvotes']}** | **{stats['total_saves']}** |"
@@ -467,7 +467,7 @@ class OpenWebUIStats:
         lines.append(t["top6_updated"])
         lines.append("")
         lines.append(t["top6_header"])
-        lines.append("|:---:|------|:---:|:---:|:---:|:---:|")
+        lines.append("| :---: | :--- | :---: | :---: | :---: | :---: |")
 
         medals = ["🥇", "🥈", "🥉", "4️⃣", "5️⃣", "6️⃣"]
         for i, post in enumerate(top_plugins):

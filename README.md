@@ -65,7 +65,7 @@ A collection of enhancements, plugins, and prompts for [OpenWebUI](https://githu
 
 Located in the `plugins/` directory, containing Python-based enhancements:
 
-#### Actions
+### Actions
 
 - **Smart Mind Map** (`smart-mind-map`): Generates interactive mind maps from text.
 - **Smart Infographic** (`infographic`): Transforms text into professional infographics using AntV.
@@ -74,7 +74,7 @@ Located in the `plugins/` directory, containing Python-based enhancements:
 - **Export to Excel** (`export_to_excel`): Exports chat history to Excel files.
 - **Export to Word** (`export_to_docx`): Exports chat history to Word documents.
 
-#### Filters
+### Filters
 
 - **GitHub Copilot SDK Files Filter** (`github_copilot_sdk_files_filter`): Essential companion for Copilot SDK. Bypasses RAG to ensure full file accessibility for Agents.
 - **Web Gemini Multimodal Filter** (`web_gemini_multimodel_filter`): Adds multimodal capabilities (PDF, Video, Office) to any model with intelligent routing.
@@ -83,11 +83,11 @@ Located in the `plugins/` directory, containing Python-based enhancements:
 - **Folder Memory** (`folder-memory`): Automatically extracts project rules from conversations and injects them into the folder's system prompt.
 - **Markdown Normalizer** (`markdown_normalizer`): Fixes common Markdown formatting issues in LLM outputs.
 
-#### Pipes
+### Pipes
 
 - **GitHub Copilot SDK** (`github-copilot-sdk`): Official GitHub Copilot SDK integration. Supports dynamic models (GPT-4o, Claude 3.5, o1), multi-turn conversation, streaming, and infinite sessions.
 
-#### Pipelines
+### Pipelines
 
 - **MoE Prompt Refiner** (`moe_prompt_refiner`): Refines prompts for Mixture of Experts (MoE) summary requests to generate high-quality comprehensive reports.
 
