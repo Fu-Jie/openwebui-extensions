@@ -3,6 +3,7 @@ title: Gemini 多模态过滤器（含字幕增强）
 author: Gemini Adapter
 author_url: https://github.com/Fu-Jie
 funding_url: https://github.com/Fu-Jie/awesome-openwebui
+
 version: 0.3.2
 description: >
     一个强大的过滤器，为 OpenWebUI 中的任何模型提供多模态能力：PDF、Office、图片、音频、视频等。
@@ -492,6 +493,13 @@ class Filter:
         print(
             f"🤖 Checking model: {current_model} (Target: {self.valves.target_model_keyword})"
         )
+        # 0. SKIP COPILOT MODELS
+        # If the model is a Copilot Pipe model, we must NOT process files here.
+        # Copilot Pipe has its own file handling logic (copy to workspace).
+        if "copilot_sdk" in current_model.lower():
+            print(f"⏩ Skipping Gemini Filter for Copilot model: {current_model}")
+            return body
+
 
         # Check if model matches target keyword
         is_target_model = (

@@ -1,116 +1,118 @@
 # GitHub Copilot SDK Pipe for OpenWebUI
 
-**Author:** [Fu-Jie](https://github.com/Fu-Jie/awesome-openwebui) | **Version:** 0.5.1 | **Project:** [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui) | **License:** MIT
+**Author:** [Fu-Jie](https://github.com/Fu-Jie/awesome-openwebui) | **Version:** 0.6.0 | **Project:** [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui) | **License:** MIT
 
-This is an advanced Pipe function for [OpenWebUI](https://github.com/open-webui/open-webui) that integrates the official [GitHub Copilot SDK](https://github.com/github/copilot-sdk). It enables you to use **GitHub Copilot models** (e.g., `gpt-5.2-codex`, `claude-sonnet-4.5`, `gemini-3-pro`, `gpt-5-mini`) **AND** your own models via **BYOK** (OpenAI, Anthropic) directly within OpenWebUI, providing a unified agentic experience.
+This is an advanced Pipe function for [OpenWebUI](https://github.com/open-webui/open-webui) that integrates the official [GitHub Copilot SDK](https://github.com/github/copilot-sdk). It enables you to use **GitHub Copilot models** (e.g., `gpt-5.2-codex`, `claude-sonnet-4.5`,`gemini-3-pro`, `gpt-5-mini`) **AND** your own models via **BYOK** (OpenAI, Anthropic) directly within OpenWebUI, providing a unified agentic experience with **strict User & Chat-level Workspace Isolation**.
+
+> [!IMPORTANT]
+> **Essential Companion**
+> To unlock file handling and data analysis capabilities, you must install the [GitHub Copilot SDK Files Filter](https://openwebui.com/posts/403a62ee-a596-45e7-be65-fab9cc249dd6).
 
 > [!TIP]
 > **No Subscription Required for BYOK**
-> If you are using your own API keys (BYOK mode with OpenAI/Anthropic), **you do NOT need a GitHub Copilot subscription.**
-> A subscription is only required to access GitHub's official models.
+> If you are using your own API keys (BYOK mode with OpenAI/Anthropic), **you do NOT need a GitHub Copilot subscription.** A subscription is only required to access GitHub's official models.
 
-## 🚀 What's New (v0.5.1) - Major Upgrade
+---
 
-- **🧠 Smarter BYOK Detection**: Improved logic to correctly identify BYOK vs. Official Copilot models, supporting custom models (Characters/Prompts) and fixing multiplier detection (e.g., `(0x)`, `(1x)`).
-- **⚡ Performance Boost**: Implemented **Tool Caching** to persist tool definitions across requests, significantly reducing overhead.
-- **🧩 Enriched Tool Integration**: Tool descriptions now include source grouping (Built-in/User/Server) and automatic metadata extraction (Title/Description) from Python docstrings.
-- **🛡️ Precise Control**: Added support for OpenWebUI's `function_name_filter_list` to filter MCP and OpenAPI functions.
-- **🔑 User-Level BYOK**: Fully leverage Copilot SDK with your own Model Providers (OpenAI, Anthropic) with user-level API Key overrides.
-- **📝 Better Formatting**: Enforced standard Markdown tables in system prompts to prevent rendering issues with HTML tables.
+## ✨ v0.6.0 Updates (What's New)
+
+- **👥 User & Chat Management**: Physical management architecture (`user_id/chat_id`) for absolute resource independence.
+- **🤖 Empowering Agent Autonomy**: Automatic synchronization of raw files to the workspace, enabling direct Python-based analysis of Excel/CSV.
+- **🔧 OpenAPI & External Tool Fixes**: Full support for tools mounted via OpenAPI servers.
+- **📊 Cost Control**: Enhanced **Billing Multiplier Limits** (`MAX_MULTIPLIER`, e.g., set to 0 for free models only) and **Model Keyword Filtering** (`EXCLUDE_KEYWORDS`) for precise cost management.
+- **🧠 Persistent TODO Lists**: Database-backed task tracking that persists across sessions.
+
+---
 
 ## ✨ Key Capabilities
 
-- **🔑 Flexible Auth & BYOK**: Supports GitHub Copilot subscription (PAT) OR Bring Your Own Key (OpenAI/Anthropic), giving you total control over model access and billing.
-- **🌉 The Ultimate Bridge**: The first and only plugin that creates a seamless bridge between **OpenWebUI Tools** and **GitHub Copilot SDK**.
-- **🚀 Official & Native**: Built directly on the official Python SDK, providing the most stable and authentic Copilot experience.
-- **🌊 Advanced Streaming (Thought Process)**: Supports full model reasoning/thinking display with typewriter effects.
-- **🖼️ Intelligent Multimodal**: Full support for images and attachments, enabling Copilot to "see" your workspace.
-- **🛠️ Effortless Setup**: Automatic CLI detection, version enforcement, and dependency management.
-- **🛡️ Integrated Security**: Supports secure PAT authentication for standard and extended capabilities.
+- **🔑 Flexible Auth & BYOK**: Official Copilot subscriptions (PAT) or Bring Your Own Key (OpenAI/Anthropic).
+- **🔌 Universal Tool Protocol**: Native support for **MCP (Model Context Protocol)**, OpenAPI, and OpenWebUI built-in tools.
+- **🛡️ Sandbox Workspace Isolation**: Strict per-session sandboxing for data privacy and security.
+- **♾️ Infinite Session Management**: Smart context window management with automatic compaction for indefinite conversation capability.
+- **🧠 Deep Database Integration**: Real-time persistence of TOD·O lists for long-running workflows.
+- **🌊 Advanced Streaming**: Full support for thinking process/Chain of Thought visualization.
+- **🖼️ Intelligent Multimodal**: Vision capabilities and raw file analysis support.
+- **⚡ Interactive Artifacts**: Automatically renders HTML/JS apps generated by the agent directly in the chat interface.
 
-## Installation & Configuration
+---
 
-### 1) Import Function
+## ⚙️ Core Configuration (Valves)
 
-1. Open OpenWebUI.
-2. Go to **Workspace** -> **Functions**.
-3. Click **+** (Create Function).
-4. Paste the content of `github_copilot_sdk.py` (or `github_copilot_sdk_cn.py` for Chinese) completely.
-5. Save.
+### 1. Administrator Settings (Base)
 
-### 2) Configure Valves (Settings)
+Administrators define the default behavior for all users in the function settings.
 
-Find "GitHub Copilot" in the function list and click the **⚙️ (Valves)** icon to configure:
-
-| Parameter | Description | Default |
+| Valve | Default | Description |
 | :--- | :--- | :--- |
-| **GH_TOKEN** | **(Required)** GitHub Access Token (PAT or OAuth Token). Access to Chat. | - |
-| **DEBUG** | Whether to enable debug logs (output to browser console). | `False` |
-| **LOG_LEVEL** | Copilot CLI log level: none, error, warning, info, debug, all. | `error` |
-| **SHOW_THINKING** | Show model reasoning/thinking process (requires streaming + model support). | `True` |
-| **COPILOT_CLI_VERSION** | Specific Copilot CLI version to install/enforce. | `0.0.405` |
-| **EXCLUDE_KEYWORDS** | Exclude models containing these keywords (comma separated). | - |
-| **WORKSPACE_DIR** | Restricted workspace directory for file operations. | - |
-| **INFINITE_SESSION** | Enable Infinite Sessions (automatic context compaction). | `True` |
-| **COMPACTION_THRESHOLD** | Background compaction threshold (0.0-1.0). | `0.8` |
-| **BUFFER_THRESHOLD** | Buffer exhaustion threshold (0.0-1.0). | `0.95` |
-| **TIMEOUT** | Timeout for each stream chunk (seconds). | `300` |
-| **CUSTOM_ENV_VARS** | Custom environment variables (JSON format). | - |
-| **REASONING_EFFORT** | Reasoning effort level: low, medium, high. `xhigh` is supported for some models. | `medium` |
-| **ENABLE_MCP_SERVER** | Enable Direct MCP Client connection (Recommended). | `True` |
-| **ENABLE_OPENWEBUI_TOOLS** | Enable OpenWebUI Tools (includes defined and server tools). | `True` |
-| **BYOK_ENABLED** | Enable BYOK (Bring Your Own Key) to use custom providers. | `False` |
-| **BYOK_TYPE** | BYOK Provider Type: `openai`, `azure`, `anthropic`. | `openai` |
-| **BYOK_BASE_URL** | BYOK Base URL (e.g., `https://api.openai.com/v1`). | - |
-| **BYOK_API_KEY** | BYOK API Key (Global Setting). | - |
-| **BYOK_BEARER_TOKEN** | BYOK Bearer Token (Global, overrides API Key). | - |
-| **BYOK_WIRE_API** | BYOK Wire API: `completions`, `responses`. | `completions` |
+| `GH_TOKEN` | `""` | Global GitHub Token (Requires 'Copilot Requests' permission). |
+| `ENABLE_OPENWEBUI_TOOLS` | `True` | Enable OpenWebUI Tools (includes defined Tools and Built-in Tools). |
+| `ENABLE_OPENAPI_SERVER` | `True` | Enable OpenAPI Tool Server connection. |
+| `ENABLE_MCP_SERVER` | `True` | Enable Direct MCP Client connection (Recommended). |
+| `REASONING_EFFORT` | `medium` | Reasoning effort level: low, medium, high. |
+| `SHOW_THINKING` | `True` | Show model reasoning/thinking process. |
+| `INFINITE_SESSION` | `True` | Enable Infinite Sessions (automatic context compaction). |
+| `MAX_MULTIPLIER` | `1.0` | Max allowed billing multiplier (0x for free models only). |
+| `EXCLUDE_KEYWORDS` | `""` | Exclude models containing these keywords (comma separated). |
+| `TIMEOUT` | `300` | Timeout for each stream chunk (seconds). |
+| `BYOK_TYPE` | `openai` | BYOK Provider Type: `openai`, `anthropic`. |
+| `BYOK_BASE_URL` | `""` | BYOK Base URL (e.g., <https://api.openai.com/v1>). |
+| `BYOK_MODELS` | `""` | BYOK Model List (comma separated). Leave empty to fetch from API. |
+| `CUSTOM_ENV_VARS` | `""` | Custom environment variables (JSON format). |
+| `DEBUG` | `False` | Enable this to see detailed logs in your browser console. |
 
-#### User Valves (per-user overrides)
+### 2. User Settings (Individual Overrides)
 
-These optional settings can be set per user (overrides global Valves):
+Standard users can override these settings in their individual Profile/Function settings.
 
-| Parameter | Description | Default |
-| :--- | :--- | :--- |
-| **GH_TOKEN** | Personal GitHub Token (overrides global setting). | - |
-| **REASONING_EFFORT** | Reasoning effort level (low/medium/high/xhigh). | - |
-| **DEBUG** | Enable technical debug logs. | `False` |
-| **SHOW_THINKING** | Show model reasoning/thinking process. | `True` |
-| **ENABLE_OPENWEBUI_TOOLS** | Enable OpenWebUI Tools (overrides global). | `True` |
-| **ENABLE_MCP_SERVER** | Enable MCP server loading (overrides global). | `True` |
-| **BYOK_API_KEY** | BYOK API Key (User override). | - |
+| Valve | Description |
+| :--- | :--- |
+| `GH_TOKEN` | Use your personal GitHub Token. |
+| `REASONING_EFFORT` | Individual reasoning effort preference. |
+| `SHOW_THINKING` | Show model reasoning/thinking process. |
+| `MAX_MULTIPLIER` | Maximum allowed billing multiplier override. |
+| `EXCLUDE_KEYWORDS` | Exclude models containing these keywords. |
+| `BYOK_API_KEY` | Use your personal OpenAI/Anthropic API Key. |
+
+---
+
+## 🎯 Use Cases (What can you do?)
+
+- **📁 Fully Autonomous DevOps**: Agent analyzes code, runs tests, and applies patches within its isolated sandbox.
+- **📊 Deep Data Auditing**: Directly process raw Excel/CSV data via Python (bypassing RAG) and generate visual reports.
+- **📝 Long-Task Management**: Automatically decomposes complex requests and persists TOD·O progress across sessions.
+
+---
 
 ## ⭐ Support
 
-If this plugin has been useful, a star on [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui) is a big motivation for me. Thank you for the support.
+If this plugin has been useful, a **Star** on [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui) would be a great motivation for me. Thank you!
 
-### Get Token
+---
 
-To use GitHub Copilot, you need a GitHub Personal Access Token (PAT) with appropriate permissions.
+## 🚀 Installation & Configuration
 
-**Steps to generate your token:**
+### 1) Import Function
+
+1. Open OpenWebUI, go to **Workspace** -> **Functions**.
+2. Click **+** (Create Function), paste the content of `github_copilot_sdk.py`.
+3. Save and ensure it is enabled.
+
+### 2) Get Token
 
 1. Visit [GitHub Token Settings](https://github.com/settings/tokens?type=beta).
-2. Click **Generate new token (fine-grained)**.
-3. **Repository access**: Select **Public Repositories** (simplest) or **All repositories**.
-4. **Permissions**:
-    - If you chose **All repositories**, you must click **Account permissions**.
-    - Find **Copilot Requests**, and select **Access**.
-5. Generate and copy the Token.
+2. Create **Fine-grained token**, granting **Account permissions** -> **Copilot Requests** access.
+3. Paste the generated Token into the `GH_TOKEN` field in Valves.
 
-## 📋 Dependencies
+---
 
-This Pipe will automatically attempt to install the following dependencies:
+## 📋 Troubleshooting & Dependencies
 
-- `github-copilot-sdk` (Python package)
-- `github-copilot-cli` (Binary file, installed via official script)
+- **Agent ignores files?**: Ensure the Files Filter is enabled, otherwise RAG will interfere with raw binaries.
+- **No progress bar?**: The bar only appears when the Agent uses the `update_todo` tool.
+- **Dependencies**: This Pipe automatically installs `github-copilot-sdk` (Python) and `github-copilot-cli` (Binary).
 
-## Troubleshooting ❓
-
-- **Images not recognized**:
-  - Ensure `MODEL_ID` is a model that supports multimodal input.
-- **Thinking not shown**:
-  - Ensure **streaming is enabled** and the selected model supports reasoning output.
+---
 
 ## Changelog
 

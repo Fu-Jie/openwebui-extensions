@@ -16,7 +16,7 @@ Filters act as middleware in the message pipeline:
 
 <div class="grid cards" markdown>
 
--   :material-arrow-collapse-vertical:{ .lg .middle } **Async Context Compression**
+- :material-arrow-collapse-vertical:{ .lg .middle } **Async Context Compression**
 
     ---
 
@@ -26,7 +26,7 @@ Filters act as middleware in the message pipeline:
 
     [:octicons-arrow-right-24: Documentation](async-context-compression.md)
 
--   :material-text-box-plus:{ .lg .middle } **Context Enhancement**
+- :material-text-box-plus:{ .lg .middle } **Context Enhancement**
 
     ---
 
@@ -36,7 +36,7 @@ Filters act as middleware in the message pipeline:
 
     [:octicons-arrow-right-24: Documentation](context-enhancement.md)
 
--   :material-folder-refresh:{ .lg .middle } **Folder Memory**
+- :material-folder-refresh:{ .lg .middle } **Folder Memory**
 
     ---
 
@@ -46,7 +46,7 @@ Filters act as middleware in the message pipeline:
 
     [:octicons-arrow-right-24: Documentation](folder-memory.md)
 
--   :material-format-paint:{ .lg .middle } **Markdown Normalizer**
+- :material-format-paint:{ .lg .middle } **Markdown Normalizer**
 
     ---
 
@@ -56,7 +56,7 @@ Filters act as middleware in the message pipeline:
 
     [:octicons-arrow-right-24: Documentation](markdown_normalizer.md)
 
--   :material-merge:{ .lg .middle } **Multi-Model Context Merger**
+- :material-merge:{ .lg .middle } **Multi-Model Context Merger**
 
     ---
 
@@ -66,7 +66,7 @@ Filters act as middleware in the message pipeline:
 
     [:octicons-arrow-right-24: Documentation](multi-model-context-merger.md)
 
--   :material-file-document-multiple:{ .lg .middle } **Web Gemini Multimodal Filter**
+- :material-file-document-multiple:{ .lg .middle } **Web Gemini Multimodal Filter**
 
     ---
 
@@ -75,6 +75,16 @@ Filters act as middleware in the message pipeline:
     **Version:** 0.3.2
 
     [:octicons-arrow-right-24: Documentation](web-gemini-multimodel.md)
+
+- :material-file-shield:{ .lg .middle } **Copilot SDK Files Filter**
+
+    ---
+
+    A specialized filter to bypass OpenWebUI's default RAG for GitHub Copilot SDK models. It ensures the Agent receives raw files for autonomous analysis.
+
+    **Version:** 0.1.2
+
+    [:octicons-arrow-right-24: Documentation](github-copilot-sdk-files-filter.md)
 
 </div>
 

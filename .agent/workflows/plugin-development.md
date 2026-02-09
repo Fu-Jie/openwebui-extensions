@@ -45,8 +45,12 @@ When adding or updating a plugin, you **MUST** update the following documentatio
 
 ### Plugin Directory
 
-- `README.md`: Update version, description, and usage. **Explicitly describe new features in a prominent position at the beginning.**
-- `README_CN.md`: Update version, description, and usage. **Explicitly describe new features in a prominent position at the beginning.**
+- `README.md`: Update version, description, and usage.
+  - **Key Capabilities**: **MUST** include ALL core functionalities and features. Do not only list new features in "What's New".
+  - **What's New**: Explicitly describe only the latest changes/updates in a prominent position at the beginning. This section is dynamic and changes with versions.
+- `README_CN.md`: Update version, description, and usage.
+  - **核心功能 (Key Capabilities)**: **必须**包含所有核心功能和特性，不能只在 "What's New" 中列出。
+  - **最新更新 (What's New)**: 在开头显眼位置明确描述最新的更改/更新。此部分是动态的，随版本变化。
 
 ### Global Documentation (`docs/`)
 

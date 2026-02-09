@@ -889,6 +889,9 @@ Filter 实例是**单例 (Singleton)**。
 - [ ] 使用 logging 而非 print
 - [ ] 测试双语界面
 - [ ] **一致性检查**: 确保文档、代码、README 同步
+- [ ] **README 结构**: 
+    - **Key Capabilities** (英文) / **核心功能** (中文): 必须包含所有核心功能
+    - **What's New** (英文) / **最新更新** (中文): 仅包含最新版本的变更信息
 
 ### 2. 🔄 一致性维护 (Consistency Maintenance)
 

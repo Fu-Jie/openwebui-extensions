@@ -5,7 +5,7 @@ author_url: https://github.com/Fu-Jie/awesome-openwebui
 funding_url: https://github.com/open-webui
 openwebui_id: ce96f7b4-12fc-4ac3-9a01-875713e69359
 description: Integrate GitHub Copilot SDK. Supports dynamic models, multi-turn conversation, streaming, multimodal input, infinite sessions, and frontend debug logging.
-version: 0.5.1
+version: 0.6.0
 requirements: github-copilot-sdk==0.1.23
 """
 
@@ -20,10 +20,18 @@ import shutil
 import subprocess
 import hashlib
 import aiohttp
+import contextlib
+import traceback
 from pathlib import Path
 from typing import Optional, Union, AsyncGenerator, List, Any, Dict, Literal, Tuple
 from types import SimpleNamespace
 from pydantic import BaseModel, Field, create_model
+
+# Database imports
+from sqlalchemy import Column, String, Text, DateTime, Integer, JSON, inspect
+from sqlalchemy.orm import declarative_base, sessionmaker
+from sqlalchemy.engine import Engine
+from datetime import datetime, timezone
 
 # Import copilot SDK modules
 from copilot import CopilotClient, define_tool
@@ -37,47 +45,126 @@ from open_webui.utils.tools import get_tools as get_openwebui_tools, get_builtin
 from open_webui.models.tools import Tools
 from open_webui.models.users import Users
 
+# Open WebUI internal database (re-use shared connection)
+try:
+    from open_webui.internal import db as owui_db
+except ImportError:
+    owui_db = None
+
 # Setup logger
 logger = logging.getLogger(__name__)
 
-FORMATTING_GUIDELINES = (
+
+def _discover_owui_engine(db_module: Any) -> Optional[Engine]:
+    """Discover the Open WebUI SQLAlchemy engine via provided db module helpers."""
+    if db_module is None:
+        return None
+
+    db_context = getattr(db_module, "get_db_context", None) or getattr(
+        db_module, "get_db", None
+    )
+    if callable(db_context):
+        try:
+            with db_context() as session:
+                try:
+                    return session.get_bind()
+                except AttributeError:
+                    return getattr(session, "bind", None) or getattr(
+                        session, "engine", None
+                    )
+        except Exception as exc:
+            logger.error(f"[DB Discover] get_db_context failed: {exc}")
+
+    for attr in ("engine", "ENGINE", "bind", "BIND"):
+        candidate = getattr(db_module, attr, None)
+        if candidate is not None:
+            return candidate
+
+    return None
+
+
+owui_engine = _discover_owui_engine(owui_db)
+owui_Base = (
+    getattr(owui_db, "Base", None) if owui_db is not None else declarative_base()
+)
+
+
+class ChatTodo(owui_Base):
+    """Chat Todo Storage Table"""
+
+    __tablename__ = "chat_todos"
+    __table_args__ = {"extend_existing": True}
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    chat_id = Column(String(255), unique=True, nullable=False, index=True)
+    content = Column(Text, nullable=False)
+    metrics = Column(JSON, nullable=True)  # {"total": 39, "completed": 0, "percent": 0}
+    updated_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
+
+
+# Base guidelines for all users
+BASE_GUIDELINES = (
     "\n\n[Environment & Capabilities Context]\n"
-    "You are an AI assistant operating within a specific, high-capability environment. Understanding your context is crucial for optimal decision-making.\n"
+    "You are an AI assistant operating within a high-capability Linux container environment (OpenWebUI).\n"
     "\n"
-    "**System Environment:**\n"
-    "- **Platform**: You are running inside a Linux containerized environment hosted within **OpenWebUI**.\n"
-    "- **Core Engine**: You are powered by the **GitHub Copilot SDK** and interact via the **GitHub Copilot CLI**.\n"
-    "- **Access**: You have direct access to the **OpenWebUI source code**. You can read, analyze, and reference the internal implementation of the platform you are running on via file operations or tools.\n"
-    "- **FileSystem Access**: You are running as **root**. You have **READ access to the entire container file system** (including system files). However, you should **ONLY WRITE** to your designated persistent workspace directory.\n"
-    "- **Native Python Environment**: You are running in a **rich Python environment** that already includes all OpenWebUI dependencies. You can natively import and use these installed libraries (e.g., for data processing, utility functions) without installing anything new.\n"
-    "- **Package Management**: Only if you need **additional** libraries, you should **create a virtual environment** within your workspace and install them there. Do NOT mess with the global pip.\n"
-    "- **Network**: You have internet access and can interact with external APIs if provided with the necessary tools (e.g., Web Search, MCP Servers).\n"
-    "\n"
-    "**Interface Capabilities (OpenWebUI):**\n"
-    "- **Rich Web UI**: You are NOT limited to a simple terminal or text-only responses. You are rendering in a modern web browser.\n"
-    "- **Visual Rendering**: You can and should use advanced visual elements to explain concepts clearly.\n"
-    "- **Interactive Scripting**: You can often run Python scripts directly to perform calculations, data analysis, or automate tasks if the environment supports it/tools are available.\n"
-    "- **Built-in Tools Integration**: OpenWebUI provides native tools for direct interaction with its internal services. For example, tools like `create_note`, `get_notes`, or `manage_memories` interact directly with the platform's database. Use these tools to persistently manage user data and system state.\n"
+    "**System Environment & User Privileges:**\n"
+    "- **Output Environment**: You are rendering in the **OpenWebUI Chat Page**, a modern, interactive web interface. Optimize your output format to leverage Markdown for the best UI experience.\n"
+    "- **Root Access**: You are running as **root**. You have **READ access to the entire container file system** but you **MUST ONLY WRITE** to your designated persistent workspace directory (structured as `.../user_id/chat_id/`). All other system areas are strictly READ-ONLY.\n"
+    "- **STRICT FILE CREATION RULE**: You are **PROHIBITED** from creating or editing files outside of your specific workspace path. Never place files in `/root`, `/tmp`, or `/app` (unless specifically instructed for analysis, but writing is banned). Every file operation (`create`, `edit`, `bash`) MUST use the absolute path provided in your `Session Context` below.\n"
+    "- **Filesystem Layout (/app)**:\n"
+    "  - `/app/backend`: Python backend source code. You can analyze core package logic here.\n"
+    "  - `/app/build`: Compiled frontend assets (assets, static, pyodide, index.html).\n"
+    "- **Rich Python Environment**: You can natively import and use any installed OpenWebUI dependencies. You have access to a wealth of libraries (e.g., for data processing, utility functions). However, you **MUST NOT** install new packages in the global environment. If you need additional dependencies, you must create a virtual environment within your designated workspace directory.\n"
+    "- **Tool Availability**: You may have access to various tools (OpenWebUI Built-ins, Custom Tools, OpenAPI Servers, or MCP Servers) depending on the user's current configuration. If tools are visible in your session metadata, use them proactively to enhance your task execution.\n"
     "\n"
     "**Formatting & Presentation Directives:**\n"
-    "1. **Markdown & Multimedia**:\n"
-    "   - Use **bold**, *italics*, lists, and **Markdown tables** (standard format, never use HTML tables) liberally to structure your answer.\n"
-    "   - **Mermaid Diagrams**: For flowcharts, sequence diagrams, or architecture logic, ALWAYS use the standard ```mermaid code block. Do NOT use other formats.\n"
-    "   - **LaTeX Math**: Use standard LaTeX formatting for mathematical expressions.\n"
-    "\n"
-    "2. **Images & Files**:\n"
-    "   - If a tool generated an image or file, you **MUST** embed it directly using `![caption](url)`.\n"
-    "   - Do NOT simply provide a text link unless explicitly asked.\n"
-    "\n"
-    "3. **Interactive HTML/JS**:\n"
-    "   - You can output standalone HTML/JS/CSS code blocks. OpenWebUI will render them as interactive widgets in an iframe.\n"
-    "   - **IMPORTANT**: Combine all HTML, CSS (in `<style>`), and JavaScript (in `<script>`) into a **SINGLE** ` ```html ` code block.\n"
-    "   - Use this for dynamic data visualizations (e.g., charts, graphs), interactive demos, or custom UI components.\n"
-    "\n"
-    "4. **Response Structure**:\n"
-    "   - **Think First**: Before complex tasks, briefly outline your plan.\n"
-    "   - **Be Concise but Complete**: specific answers are better than generic ones.\n"
-    "   - **Premium Feel**: Format your output to look professional and polished, like a technical blog post or documentation.\n"
+    "1. **Markdown Excellence**: Leverage full **Markdown** capabilities (headers, bold, italics, tables, lists) to structure your response professionally for the chat interface.\n"
+    "2. **Advanced Visualization**: Use **Mermaid** for flowcharts/diagrams and **LaTeX** for math. **IMPORTANT**: Always wrap Mermaid code within a standard ` ```mermaid ` code block to ensure it is rendered correctly by the UI.\n"
+    "3. **Interactive Artifacts (HTML)**: Standalone HTML code blocks (HTML+CSS+JS) will be **AUTOMATICALLY RENDERED** as interactive web pages within the chat. **Dual Delivery Protocol**: For web applications, you MUST perform two actions:\n"
+    "   - 1. **Persist**: Create the file in the workspace (e.g., `index.html`) for project structure.\n"
+    "   - 2. **Render**: Immediately output the SAME code in a ` ```html ` block so the user can interact with it.\n"
+    "   - **Result**: The user gets both a saved file AND a live app. Never force the user to choose one over the other.\n"
+    "4. **Images & Files**: ALWAYS embed generated images/files directly using `![caption](url)`. Never provide plain text links.\n"
+    "5. **TODO Visibility**: Every time you call the `update_todo` tool, you **MUST** immediately follow up with a beautifully formatted **Markdown summary** of the current TODO list. Use task checkboxes (`- [ ]`), progress indicators, and clear headings so the user can see the status directly in the chat.\n"
+    "6. **Python Execution Standard**: For ANY task requiring Python logic (not just data analysis), you **MUST NOT** embed multi-line code directly in a shell command (e.g., using `python -c` or `<< 'EOF'`).\n"
+    '   - **Exception**: Trivial one-liners (e.g., `python -c "print(1+1)"`) are permitted.\n'
+    "   - **Protocol**: For everything else, you MUST:\n"
+    "     1. **Create** a `.py` file in the workspace (e.g., `script.py`).\n"
+    "     2. **Run** it using `python3 script.py`.\n"
+    "   - **Reason**: This ensures code is debuggable, readable, and persistent.\n"
+    "7. **Active & Autonomous**: You are an expert engineer. **DO NOT** ask for permission to proceed with obvious steps. **DO NOT** stop to ask 'Shall I continue?'.\n"
+    "   - **Behavior**: Analyze the user's request -> Formulate a plan -> **EXECUTE** the plan immediately.\n"
+    "   - **Clarification**: Only ask questions if the request is ambiguous or carries high risk (e.g., destructive actions).\n"
+    "   - **Goal**: Minimize user friction. Deliver results, not questions.\n"
+    "8. **Large Output Management**: If a tool execution output is truncated or saved to a temporary file (e.g., `/tmp/...`), DO NOT worry. The system will automatically move it to your workspace and notify you of the new filename. You can then read it directly.\n"
+)
+
+# Sensitive extensions only for Administrators
+ADMIN_EXTENSIONS = (
+    "\n**[ADMINISTRATOR PRIVILEGES - CONFIDENTIAL]**\n"
+    "You have detected that the current user is an **ADMINISTRATOR**. You are granted additional 'God Mode' perspective:\n"
+    "- **Full OS Interaction**: You can use shell tools to deep-dive into any container process or system configuration.\n"
+    "- **Database Access**: You can connect to the **OpenWebUI Database** directly using credentials found in environment variables (e.g., `DATABASE_URL`).\n"
+    "- **Copilot SDK & Metadata**: You can inspect your own session state in `/root/.copilot/session-state/` and core configuration in `/root/.copilot/config.json` to debug session persistence.\n"
+    "- **Environment Secrets**: You are permitted to read and analyze environment variables and system-wide secrets for diagnostic purposes.\n"
+    "**SECURITY NOTE**: Do NOT leak these sensitive internal details to non-admin users if you are ever switched to a lower privilege context.\n"
+)
+
+# Strict restrictions for regular Users
+USER_RESTRICTIONS = (
+    "\n**[USER ACCESS RESTRICTIONS - STRICT]**\n"
+    "You have detected that the current user is a **REGULAR USER**. You must adhere to the following security boundaries:\n"
+    "- **NO Environment Access**: You are strictly **FORBIDDEN** from accessing environment variables (e.g., via `env`, `printenv`, or Python's `os.environ`).\n"
+    "- **NO Database Access**: You must **NOT** attempt to connect to or query the OpenWebUI database.\n"
+    "- **NO System Metadata Access**: Access to `/root/.copilot/` or any system-level configuration files is strictly **PROHIBITED**.\n"
+    "- **NO Writing Outside Workspace**: Any attempt to write files to `/root`, `/app`, `/etc`, or other system folders is a **SECURITY VIOLATION**. All generated code, HTML, or data artifacts MUST be saved strictly inside the `Your Isolated Workspace` path provided.\n"
+    "- **Interactive Delivery**: When creating web/HTML content, you MUST accompanying the file creation with a rendered Artifact (` ```html ` block). Providing *only* a file path for a web app is considered a poor user experience.\n"
+    "- **Restricted Shell**: Use shell tools **ONLY** for operations within your isolated workspace sub-directory. You are strictly **PROHIBITED** from exploring or reading other users' workspace directories. Any attempt to probe system secrets or cross-user data will be logged as a security violation.\n"
+    "**SECURITY NOTE**: Your priority is to protect the platform's integrity while providing helpful assistance within these boundaries.\n"
 )
 
 
@@ -89,7 +176,11 @@ class Pipe:
         )
         ENABLE_OPENWEBUI_TOOLS: bool = Field(
             default=True,
-            description="Enable OpenWebUI Tools (includes defined Tools and Tool Server Tools).",
+            description="Enable OpenWebUI Tools (includes defined Tools and Built-in Tools).",
+        )
+        ENABLE_OPENAPI_SERVER: bool = Field(
+            default=True,
+            description="Enable OpenAPI Tool Server connection.",
         )
         ENABLE_MCP_SERVER: bool = Field(
             default=True,
@@ -124,17 +215,17 @@ class Pipe:
             default=300,
             description="Timeout for each stream chunk (seconds)",
         )
-        WORKSPACE_DIR: str = Field(
-            default="",
-            description="Restricted workspace directory for file operations. If empty, allows access to the current process directory.",
-        )
         COPILOT_CLI_VERSION: str = Field(
-            default="0.0.405",
-            description="Specific Copilot CLI version to install/enforce (e.g. '0.0.405'). Leave empty for latest.",
+            default="0.0.406",
+            description="Specific Copilot CLI version to install/enforce (e.g. '0.0.406'). Leave empty for latest.",
         )
         EXCLUDE_KEYWORDS: str = Field(
             default="",
             description="Exclude models containing these keywords (comma separated, e.g.: codex, haiku)",
+        )
+        MAX_MULTIPLIER: float = Field(
+            default=1.0,
+            description="Maximum allowed billing multiplier for standard Copilot models. 0 means only free models (0x). Set to a high value (e.g., 100) to allow all.",
         )
         COMPACTION_THRESHOLD: float = Field(
             default=0.8,
@@ -147,6 +238,10 @@ class Pipe:
         CUSTOM_ENV_VARS: str = Field(
             default="",
             description='Custom environment variables (JSON format, e.g., {"VAR": "value"})',
+        )
+        OPENWEBUI_UPLOAD_PATH: str = Field(
+            default="/app/backend/data/uploads",
+            description="Path to OpenWebUI uploads directory (for file processing).",
         )
 
         BYOK_TYPE: Literal["openai", "anthropic"] = Field(
@@ -191,9 +286,21 @@ class Pipe:
             default=False,
             description="Enable technical debug logs (connection info, etc.)",
         )
+        MAX_MULTIPLIER: Optional[float] = Field(
+            default=None,
+            description="Maximum allowed billing multiplier override for standard Copilot models.",
+        )
+        EXCLUDE_KEYWORDS: str = Field(
+            default="",
+            description="Exclude models containing these keywords (comma separated, user override).",
+        )
         ENABLE_OPENWEBUI_TOOLS: bool = Field(
             default=True,
-            description="Enable OpenWebUI Tools (includes defined Tools and Tool Server Tools).",
+            description="Enable OpenWebUI Tools (includes defined Tools and Built-in Tools).",
+        )
+        ENABLE_OPENAPI_SERVER: bool = Field(
+            default=True,
+            description="Enable OpenAPI Tool Server loading (overrides global).",
         )
         ENABLE_MCP_SERVER: bool = Field(
             default=True,
@@ -243,10 +350,126 @@ class Pipe:
 
     def __init__(self):
         self.type = "pipe"
-        self.id = "copilot"
+        self.id = "github_copilot_sdk"
         self.name = "copilotsdk"
         self.valves = self.Valves()
         self.temp_dir = tempfile.mkdtemp(prefix="copilot_images_")
+
+        # Database initialization
+        self._owui_db = owui_db
+        self._db_engine = owui_engine
+        self._fallback_session_factory = (
+            sessionmaker(bind=self._db_engine) if self._db_engine else None
+        )
+        self._init_database()
+
+    def _init_database(self):
+        """Initializes the database table using Open WebUI's shared connection."""
+        try:
+            if self._db_engine is None:
+                return
+
+            # Check if table exists using SQLAlchemy inspect
+            inspector = inspect(self._db_engine)
+            if not inspector.has_table("chat_todos"):
+                # Create the chat_todos table if it doesn't exist
+                ChatTodo.__table__.create(bind=self._db_engine, checkfirst=True)
+                logger.info("[Database] ✅ Successfully created chat_todos table.")
+        except Exception as e:
+            logger.error(f"[Database] ❌ Initialization failed: {str(e)}")
+
+    @contextlib.contextmanager
+    def _db_session(self):
+        """Yield a database session using Open WebUI helpers with graceful fallbacks."""
+        db_module = self._owui_db
+        db_context = None
+        if db_module is not None:
+            db_context = getattr(db_module, "get_db_context", None) or getattr(
+                db_module, "get_db", None
+            )
+
+        if callable(db_context):
+            with db_context() as session:
+                yield session
+                return
+
+        factory = None
+        if db_module is not None:
+            factory = getattr(db_module, "SessionLocal", None) or getattr(
+                db_module, "ScopedSession", None
+            )
+        if callable(factory):
+            session = factory()
+            try:
+                yield session
+            finally:
+                close = getattr(session, "close", None)
+                if callable(close):
+                    close()
+            return
+
+        if self._fallback_session_factory is None:
+            raise RuntimeError("Open WebUI database session is unavailable.")
+
+        session = self._fallback_session_factory()
+        try:
+            yield session
+        finally:
+            try:
+                session.close()
+            except:
+                pass
+
+    def _save_todo_to_db(
+        self,
+        chat_id: str,
+        content: str,
+        __event_emitter__=None,
+        __event_call__=None,
+        debug_enabled: bool = False,
+    ):
+        """Saves the TODO list to the database and emits status."""
+        try:
+            # 1. Parse metrics
+            total = content.count("- [ ]") + content.count("- [x]")
+            completed = content.count("- [x]")
+            percent = int((completed / total * 100)) if total > 0 else 0
+            metrics = {"total": total, "completed": completed, "percent": percent}
+
+            # 2. Database persistent
+            with self._db_session() as session:
+                existing = session.query(ChatTodo).filter_by(chat_id=chat_id).first()
+                if existing:
+                    existing.content = content
+                    existing.metrics = metrics
+                    existing.updated_at = datetime.now(timezone.utc)
+                else:
+                    new_todo = ChatTodo(
+                        chat_id=chat_id, content=content, metrics=metrics
+                    )
+                    session.add(new_todo)
+                session.commit()
+
+            self._emit_debug_log_sync(
+                f"DB: Saved TODO for chat {chat_id} (Progress: {percent}%)",
+                __event_call__,
+                debug_enabled=debug_enabled,
+            )
+
+            # 3. Emit status to OpenWebUI
+            if __event_emitter__:
+                status_msg = f"📝 TODO Progress: {percent}% ({completed}/{total})"
+                asyncio.run_coroutine_threadsafe(
+                    __event_emitter__(
+                        {
+                            "type": "status",
+                            "data": {"description": status_msg, "done": True},
+                        }
+                    ),
+                    asyncio.get_event_loop(),
+                )
+        except Exception as e:
+            logger.error(f"[Database] ❌ Failed to save todo: {e}")
 
     def __del__(self):
         try:
@@ -283,27 +506,21 @@ class Pipe:
     # ==================== Custom Tool Examples ====================
     # Tool registration: Add @define_tool decorated functions at module level,
     # then register them in _initialize_custom_tools() -> all_tools dict.
-    async def _initialize_custom_tools(self, __user__=None, __event_call__=None):
+    async def _initialize_custom_tools(
+        self, body: dict = None, __user__=None, __event_call__=None
+    ):
         """Initialize custom tools based on configuration"""
-        if not self.valves.ENABLE_OPENWEBUI_TOOLS:
+        # 1. Determine effective settings (User override > Global)
+        uv = self._get_user_valves(__user__)
+        enable_tools = uv.ENABLE_OPENWEBUI_TOOLS
+        enable_openapi = uv.ENABLE_OPENAPI_SERVER
+        enable_cache = uv.ENABLE_TOOL_CACHE
+
+        # 2. If all tool types are disabled, return empty immediately
+        if not enable_tools and not enable_openapi:
             return []
 
-        # Determine cache setting (user override > global)
-        enable_cache = self.valves.ENABLE_TOOL_CACHE
-        if __user__:
-            try:
-                # Attempt to get user valve, handling potential missing field or type issues gracefully
-                # We need to construct UserValves to access defaults/overrides correctly if passed as dict
-                raw_user_valves = __user__.get("valves", {})
-                if isinstance(raw_user_valves, dict):
-                    uv = self.UserValves(**raw_user_valves)
-                    enable_cache = uv.ENABLE_TOOL_CACHE
-                elif isinstance(raw_user_valves, self.UserValves):
-                    enable_cache = raw_user_valves.ENABLE_TOOL_CACHE
-            except:
-                pass
-
-        # Check Cache
+        # 3. Check Cache
         if enable_cache and self._tool_cache is not None:
             await self._emit_debug_log(
                 "ℹ️ Using cached OpenWebUI tools.", __event_call__
@@ -312,7 +529,11 @@ class Pipe:
 
         # Load OpenWebUI tools dynamically
         openwebui_tools = await self._load_openwebui_tools(
-            __user__=__user__, __event_call__=__event_call__
+            body=body,
+            __user__=__user__,
+            __event_call__=__event_call__,
+            enable_tools=enable_tools,
+            enable_openapi=enable_openapi,
         )
 
         # Update Cache
@@ -371,7 +592,9 @@ class Pipe:
 
         return Any
 
-    def _convert_openwebui_tool(self, tool_name: str, tool_dict: dict):
+    def _convert_openwebui_tool(
+        self, tool_name: str, tool_dict: dict, __event_call__=None
+    ):
         """Convert OpenWebUI tool definition to Copilot SDK tool."""
         # Sanitize tool name to match pattern ^[a-zA-Z0-9_-]+$
         sanitized_tool_name = re.sub(r"[^a-zA-Z0-9_-]", "_", tool_name)
@@ -500,7 +723,39 @@ class Pipe:
                 if hasattr(params, "model_dump")
                 else {}
             )
-            return await tool_callable(**payload)
+
+            try:
+                if self.valves.DEBUG:
+                    await self._emit_debug_log(
+                        f"🛠️ Invoking {sanitized_tool_name} with params: {list(payload.keys())}",
+                        __event_call__,
+                    )
+
+                result = await tool_callable(**payload)
+
+                # Special handling for OpenAPI tools which return (data, headers) tuple
+                if isinstance(result, tuple) and len(result) == 2:
+                    data, headers = result
+                    # Basic heuristic to detect response headers (aiohttp headers or dict)
+                    if hasattr(headers, "get") and hasattr(headers, "items"):
+                        if self.valves.DEBUG:
+                            await self._emit_debug_log(
+                                f"✅ {sanitized_tool_name} returned tuple, extracting data.",
+                                __event_call__,
+                            )
+                        return data
+
+                return result
+            except Exception as e:
+                # detailed traceback
+                err_msg = f"{str(e)}"
+                await self._emit_debug_log(
+                    f"❌ Tool Execution Failed '{sanitized_tool_name}': {err_msg}",
+                    __event_call__,
+                )
+
+                # Re-raise with a clean message so the LLM sees the error
+                raise RuntimeError(f"Tool {sanitized_tool_name} failed: {err_msg}")
 
         _tool.__name__ = sanitized_tool_name
         _tool.__doc__ = tool_description
@@ -517,7 +772,7 @@ class Pipe:
             params_type=ParamsModel,
         )(_tool)
 
-    def _build_openwebui_request(self, user: dict = None):
+    def _build_openwebui_request(self, user: dict = None, token: str = None):
         """Build a more complete request-like object with dynamically loaded OpenWebUI configs."""
         # Dynamically build config from the official registry
         config = SimpleNamespace()
@@ -529,6 +784,14 @@ class Pipe:
                 val = val.value
             setattr(config, item.env_name, val)
 
+        # Critical Fix: Explicitly sync TOOL_SERVER_CONNECTIONS to ensure OpenAPI tools work
+        # PERSISTENT_CONFIG_REGISTRY might not contain TOOL_SERVER_CONNECTIONS in all versions
+        if not hasattr(config, "TOOL_SERVER_CONNECTIONS"):
+            if hasattr(TOOL_SERVER_CONNECTIONS, "value"):
+                config.TOOL_SERVER_CONNECTIONS = TOOL_SERVER_CONNECTIONS.value
+            else:
+                config.TOOL_SERVER_CONNECTIONS = TOOL_SERVER_CONNECTIONS
+
         app_state = SimpleNamespace(
             config=config,
             TOOLS={},
@@ -536,6 +799,8 @@ class Pipe:
             FUNCTIONS={},
             FUNCTION_CONTENTS={},
             MODELS={},
+            redis=None,  # Crucial: prevent AttributeError in get_tool_servers
+            TOOL_SERVERS=[],  # Initialize as empty list
         )
 
         def url_path_for(name: str, **path_params):
@@ -550,6 +815,14 @@ class Pipe:
         )
 
         # Mocking generic request attributes
+        req_headers = {
+            "user-agent": "Mozilla/5.0 (OpenWebUI Plugin/GitHub-Copilot-SDK)",
+            "host": "localhost:8080",
+            "accept": "*/*",
+        }
+        if token:
+            req_headers["Authorization"] = f"Bearer {token}"
+
         request = SimpleNamespace(
             app=app,
             url=SimpleNamespace(
@@ -558,20 +831,24 @@ class Pipe:
                 __str__=lambda s: "http://localhost:8080/api/chat/completions",
             ),
             base_url="http://localhost:8080",
-            headers={
-                "user-agent": "Mozilla/5.0 (OpenWebUI Plugin/GitHub-Copilot-SDK)",
-                "host": "localhost:8080",
-                "accept": "*/*",
-            },
+            headers=req_headers,
             method="POST",
             cookies={},
             state=SimpleNamespace(
-                token=SimpleNamespace(credentials=""), user=user if user else {}
+                token=SimpleNamespace(credentials=token if token else ""),
+                user=user if user else {},
             ),
         )
         return request
 
-    async def _load_openwebui_tools(self, __user__=None, __event_call__=None):
+    async def _load_openwebui_tools(
+        self,
+        body: dict = None,
+        __user__=None,
+        __event_call__=None,
+        enable_tools: bool = True,
+        enable_openapi: bool = True,
+    ):
         """Load OpenWebUI tools and convert them to Copilot SDK tools."""
         if isinstance(__user__, (list, tuple)):
             user_data = __user__[0] if __user__ else {}
@@ -587,31 +864,119 @@ class Pipe:
         if not user_id:
             return []
 
+        # --- PROBE LOG ---
+        if __event_call__:
+            conn_status = "Missing"
+            if hasattr(TOOL_SERVER_CONNECTIONS, "value"):
+                val = TOOL_SERVER_CONNECTIONS.value
+                conn_status = (
+                    f"List({len(val)})" if isinstance(val, list) else str(type(val))
+                )
+
+            await self._emit_debug_log(
+                f"[Tools Debug] Entry. UserID: {user_id}, EnableTools: {enable_tools}, EnableOpenAPI: {enable_openapi}, Connections: {conn_status}",
+                __event_call__,
+                debug_enabled=True,
+            )
+        # -----------------
+
         user = Users.get_user_by_id(user_id)
         if not user:
             return []
 
+        tool_ids = []
         # 1. Get User defined tools (Python scripts)
-        tool_items = Tools.get_tools_by_user_id(user_id, permission="read")
-        tool_ids = [tool.id for tool in tool_items] if tool_items else []
+        if enable_tools:
+            tool_items = Tools.get_tools_by_user_id(user_id, permission="read")
+            if tool_items:
+                tool_ids.extend([tool.id for tool in tool_items])
 
         # 2. Get OpenAPI Tool Server tools
-        # We manually add enabled OpenAPI servers to the list because Tools.get_tools_by_user_id only checks the DB.
-        # open_webui.utils.tools.get_tools handles the actual loading and access control.
-        if hasattr(TOOL_SERVER_CONNECTIONS, "value"):
-            for server in TOOL_SERVER_CONNECTIONS.value:
-                # We only add 'openapi' servers here because get_tools currently only supports 'openapi' (or defaults to it).
-                # MCP tools are handled separately via ENABLE_MCP_SERVER.
-                if server.get("type") == "openapi":
-                    # Format expected by get_tools: "server:<id>" implies types="openapi"
-                    server_id = server.get("id")
-                    if server_id:
-                        tool_ids.append(f"server:{server_id}")
+        if enable_openapi:
+            if hasattr(TOOL_SERVER_CONNECTIONS, "value"):
+                raw_connections = TOOL_SERVER_CONNECTIONS.value
 
-        if not tool_ids:
+                # Handle Pydantic model vs List vs Dict
+                connections = []
+                if isinstance(raw_connections, list):
+                    connections = raw_connections
+                elif hasattr(raw_connections, "dict"):
+                    connections = raw_connections.dict()
+                elif hasattr(raw_connections, "model_dump"):
+                    connections = raw_connections.model_dump()
+
+                # Debug logging for connections
+                if self.valves.DEBUG:
+                    await self._emit_debug_log(
+                        f"[Tools] Found {len(connections)} server connections (Type: {type(raw_connections)})",
+                        __event_call__,
+                    )
+
+                for idx, server in enumerate(connections):
+                    # Handle server item type
+                    s_type = (
+                        server.get("type", "openapi")
+                        if isinstance(server, dict)
+                        else getattr(server, "type", "openapi")
+                    )
+
+                    # Handle server ID: Priority info.id > server.id > index
+                    s_id = None
+                    if isinstance(server, dict):
+                        info = server.get("info", {})
+                        s_id = info.get("id") or server.get("id")
+                    else:
+                        info = getattr(server, "info", {})
+                        if isinstance(info, dict):
+                            s_id = info.get("id")
+                        else:
+                            s_id = getattr(info, "id", None)
+
+                        if not s_id:
+                            s_id = getattr(server, "id", None)
+
+                    if not s_id:
+                        s_id = str(idx)
+
+                    if self.valves.DEBUG:
+                        await self._emit_debug_log(
+                            f"[Tools] Checking Server: ID={s_id}, Type={s_type}",
+                            __event_call__,
+                        )
+
+                    if s_type == "openapi":
+                        # Ensure we don't add empty IDs, though fallback to idx should prevent this
+                        if s_id:
+                            tool_ids.append(f"server:{s_id}")
+                    elif self.valves.DEBUG:
+                        await self._emit_debug_log(
+                            f"[Tools] Skipped non-OpenAPI server: {s_id} ({s_type})",
+                            __event_call__,
+                        )
+
+        if (
+            not tool_ids and not enable_tools
+        ):  # No IDs and no built-ins either if tools disabled
+            if self.valves.DEBUG:
+                await self._emit_debug_log(
+                    "[Tools] No tool IDs found and built-ins disabled.", __event_call__
+                )
             return []
 
-        request = self._build_openwebui_request(user_data)
+        if self.valves.DEBUG and tool_ids:
+            await self._emit_debug_log(
+                f"[Tools] Requesting tool IDs: {tool_ids}", __event_call__
+            )
+
+        # Extract token from body first (before building request)
+        token = None
+        if isinstance(body, dict):
+            token = body.get("token")
+
+        # Build request with token if available
+        request = self._build_openwebui_request(user_data, token=token)
+
+        # Pass OAuth/Auth details in extra_params
         extra_params = {
             "__request__": request,
             "__user__": user_data,
@@ -620,49 +985,81 @@ class Pipe:
             "__chat_id__": None,
             "__message_id__": None,
             "__model_knowledge__": [],
+            "__oauth_token__": (
+                {"access_token": token} if token else None
+            ),  # Mock OAuth token structure
         }
 
-        # Fetch User/Server Tools
+        # Fetch User/Server Tools (OpenWebUI Native)
         tools_dict = {}
         if tool_ids:
             try:
+                if self.valves.DEBUG:
+                    await self._emit_debug_log(
+                        f"[Tools] Calling get_openwebui_tools with IDs: {tool_ids}",
+                        __event_call__,
+                    )
+
                 tools_dict = await get_openwebui_tools(
                     request, tool_ids, user, extra_params
                 )
+
+                if self.valves.DEBUG:
+                    if tools_dict:
+                        tool_list = []
+                        for k, v in tools_dict.items():
+                            desc = v.get("description", "No description")[:50]
+                            tool_list.append(f"{k} ({desc}...)")
+                        await self._emit_debug_log(
+                            f"[Tools] Successfully loaded {len(tools_dict)} tools: {tool_list}",
+                            __event_call__,
+                        )
+                    else:
+                        await self._emit_debug_log(
+                            f"[Tools] get_openwebui_tools returned EMPTY dictionary.",
+                            __event_call__,
+                        )
+
             except Exception as e:
+                await self._emit_debug_log(
+                    f"[Tools] CRITICAL ERROR in get_openwebui_tools: {e}",
+                    __event_call__,
+                )
+                import traceback
+
+                traceback.print_exc()
                 await self._emit_debug_log(
                     f"Error fetching user/server tools: {e}", __event_call__
                 )
 
         # Fetch Built-in Tools (Web Search, Memory, etc.)
-        # Note: We pass minimal features/model dict as we want to expose all enabled built-ins
-        # that are globally configured.
-        try:
-            # Get builtin tools
-            builtin_tools = get_builtin_tools(
-                self._build_openwebui_request(user_data),
-                {
-                    "__user__": user_data,
-                    "__chat_id__": extra_params.get("__chat_id__"),
-                    "__message_id__": extra_params.get("__message_id__"),
-                },
-                model={
-                    "info": {
-                        "meta": {
-                            "capabilities": {
-                                "web_search": True,
-                                "image_generation": True,
+        if enable_tools:
+            try:
+                # Get builtin tools
+                builtin_tools = get_builtin_tools(
+                    self._build_openwebui_request(user_data),
+                    {
+                        "__user__": user_data,
+                        "__chat_id__": extra_params.get("__chat_id__"),
+                        "__message_id__": extra_params.get("__message_id__"),
+                    },
+                    model={
+                        "info": {
+                            "meta": {
+                                "capabilities": {
+                                    "web_search": True,
+                                    "image_generation": True,
+                                }
                             }
                         }
-                    }
-                },  # Mock capabilities to allow all globally enabled tools
-            )
-            if builtin_tools:
-                tools_dict.update(builtin_tools)
-        except Exception as e:
-            await self._emit_debug_log(
-                f"Error fetching built-in tools: {e}", __event_call__
-            )
+                    },  # Mock capabilities to allow all globally enabled tools
+                )
+                if builtin_tools:
+                    tools_dict.update(builtin_tools)
+            except Exception as e:
+                await self._emit_debug_log(
+                    f"Error fetching built-in tools: {e}", __event_call__
+                )
 
         if not tools_dict:
             return []
@@ -734,7 +1131,9 @@ class Pipe:
         for tool_name, tool_def in tools_dict.items():
             try:
                 converted_tools.append(
-                    self._convert_openwebui_tool(tool_name, tool_def)
+                    self._convert_openwebui_tool(
+                        tool_name, tool_def, __event_call__=__event_call__
+                    )
                 )
             except Exception as e:
                 await self._emit_debug_log(
@@ -744,34 +1143,18 @@ class Pipe:
 
         return converted_tools
 
-    def _parse_mcp_servers(self) -> Optional[dict]:
+    def _parse_mcp_servers(
+        self, __event_call__=None, enable_mcp: bool = True, enable_cache: bool = True
+    ) -> Optional[dict]:
         """
         Dynamically load MCP servers from OpenWebUI TOOL_SERVER_CONNECTIONS.
         Returns a dict of mcp_servers compatible with CopilotClient.
         """
-        if not self.valves.ENABLE_MCP_SERVER:
+        if not enable_mcp:
             return None
 
-        # Determine cache setting (no user context here usually, unless passed down, but for now use global as baseline + potentially stored user pref if we had access to user context easily in this method signature.
-        # However, _parse_mcp_servers is called from _build_client_config which doesn't easily pass user context.
-        # Wait, _parse_mcp_servers is called by _build_client_config(body) inside _pipe_impl.
-        # But _pipe_impl has access to user.
-        # Let's check where _parse_mcp_servers is called.
-        # It is called in _build_client_config.
-        # Actually _parse_mcp_servers is defined on 'self'.
-        # To support user override here, we'd need to pass user settings down or store them temporarily.
-        # Given the complexity, and that MCP servers are globally defined in OpenWebUI connection settings (usually),
-        # maybe global cache setting is sufficient for MCP?
-        # BUT, the user request implied "user can turn off".
-        # Let's stick to global for MCP for now unless we refactor to pass user_valves into this method.
-        # Refactoring to use self.valves.ENABLE_TOOL_CACHE is safe for now as baseline.
-        # If we really need user override for MCP cache, we need to pass `enable_cache` boolean to this method.
-
-        # Let's use the global valve for now as it matches the previous logic, but be aware of the limitation.
-        # The user's request "run user close" (user can turn off) likely applies to the tools they use.
-
         # Check Cache
-        if self.valves.ENABLE_TOOL_CACHE and self._mcp_server_cache is not None:
+        if enable_cache and self._mcp_server_cache is not None:
             return self._mcp_server_cache
 
         mcp_servers = {}
@@ -800,13 +1183,18 @@ class Pipe:
 
                 # Build Headers (Handle Auth)
                 headers = {}
-                auth_type = conn.get("auth_type", "bearer")
+                auth_type = str(conn.get("auth_type", "bearer")).lower()
                 key = conn.get("key", "")
 
                 if auth_type == "bearer" and key:
                     headers["Authorization"] = f"Bearer {key}"
                 elif auth_type == "basic" and key:
-                    headers["Authorization"] = f"Basic {key}"
+                    # Fix: Basic auth requires base64 encoding
+                    headers["Authorization"] = (
+                        f"Basic {base64.b64encode(key.encode()).decode()}"
+                    )
+                elif auth_type in ["api_key", "apikey"]:
+                    headers["X-API-Key"] = key
 
                 # Merge custom headers if any
                 custom_headers = conn.get("headers", {})
@@ -832,6 +1220,9 @@ class Pipe:
                     "headers": headers,
                     "tools": allowed_tools,
                 }
+                self._emit_debug_log_sync(
+                    f"🔌 MCP Integrated: {server_id}", __event_call__
+                )
 
         # Update Cache
         if self.valves.ENABLE_TOOL_CACHE:
@@ -1076,35 +1467,47 @@ class Pipe:
 
         return system_prompt_content, system_prompt_source
 
-    def _get_workspace_dir(self) -> str:
-        """Get the effective workspace directory with smart defaults."""
-        if self.valves.WORKSPACE_DIR:
-            return self.valves.WORKSPACE_DIR
-
-        # Smart default for OpenWebUI container
+    def _get_workspace_dir(self, user_id: str = None, chat_id: str = None) -> str:
+        """Get the effective workspace directory with user and chat isolation."""
+        # Fixed base directory for OpenWebUI container
         if os.path.exists("/app/backend/data"):
-            cwd = "/app/backend/data/copilot_workspace"
+            base_cwd = "/app/backend/data/copilot_workspace"
         else:
-            # Local fallback: subdirectory in current working directory
-            cwd = os.path.join(os.getcwd(), "copilot_workspace")
+            # Local fallback for development environment
+            base_cwd = os.path.join(os.getcwd(), "copilot_workspace")
+
+        cwd = base_cwd
+        if user_id:
+            # Sanitize user_id to prevent path traversal
+            safe_user_id = re.sub(r"[^a-zA-Z0-9_-]", "_", str(user_id))
+            cwd = os.path.join(cwd, safe_user_id)
+        if chat_id:
+            # Sanitize chat_id
+            safe_chat_id = re.sub(r"[^a-zA-Z0-9_-]", "_", str(chat_id))
+            cwd = os.path.join(cwd, safe_chat_id)
 
         # Ensure directory exists
         if not os.path.exists(cwd):
             try:
                 os.makedirs(cwd, exist_ok=True)
             except Exception as e:
-                print(f"Error creating workspace {cwd}: {e}")
-                return os.getcwd()  # Fallback to CWD if creation fails
+                logger.error(f"Error creating workspace {cwd}: {e}")
+                return base_cwd
 
         return cwd
 
-    def _build_client_config(self, body: dict) -> dict:
+    def _build_client_config(
+        self, body: dict, user_id: str = None, chat_id: str = None
+    ) -> dict:
         """Build CopilotClient config from valves and request body."""
-        cwd = self._get_workspace_dir()
+        cwd = self._get_workspace_dir(user_id=user_id, chat_id=chat_id)
         client_config = {}
         if os.environ.get("COPILOT_CLI_PATH"):
             client_config["cli_path"] = os.environ["COPILOT_CLI_PATH"]
         client_config["cwd"] = cwd
+
+        if self.valves.LOG_LEVEL:
+            client_config["log_level"] = self.valves.LOG_LEVEL
 
         if self.valves.LOG_LEVEL:
             client_config["log_level"] = self.valves.LOG_LEVEL
@@ -1127,6 +1530,13 @@ class Pipe:
         system_prompt_content: Optional[str],
         is_streaming: bool,
         provider_config: Optional[dict] = None,
+        reasoning_effort: str = "medium",
+        is_reas_model: bool = False,
+        is_admin: bool = False,
+        user_id: str = None,
+        enable_mcp: bool = True,
+        enable_cache: bool = True,
+        __event_call__=None,
     ):
         """Build SessionConfig for Copilot SDK."""
         from copilot.types import SessionConfig, InfiniteSessionConfig
@@ -1143,15 +1553,39 @@ class Pipe:
         system_parts = []
         if system_prompt_content:
             system_parts.append(system_prompt_content.strip())
-        system_parts.append(FORMATTING_GUIDELINES)
+
+        # Calculate final path once to ensure consistency
+        resolved_cwd = self._get_workspace_dir(user_id=user_id, chat_id=chat_id)
+
+        # Inject explicit path context
+        path_context = (
+            f"\n[Session Context]\n"
+            f"- **Your Isolated Workspace**: `{resolved_cwd}`\n"
+            f"- **Active User ID**: `{user_id}`\n"
+            f"- **Active Chat ID**: `{chat_id}`\n"
+            "**CRITICAL INSTRUCTION**: You MUST use the above workspace for ALL file operations.\n"
+            "- DO NOT create files in `/tmp` or any other system directories.\n"
+            "- Always interpret 'current directory' as your Isolated Workspace."
+        )
+        system_parts.append(path_context)
+
+        system_parts.append(BASE_GUIDELINES)
+        if is_admin:
+            system_parts.append(ADMIN_EXTENSIONS)
+        else:
+            system_parts.append(USER_RESTRICTIONS)
+
         final_system_msg = "\n".join(system_parts)
 
         # Design Choice: ALWAYS use 'replace' mode to ensure full control and avoid duplicates.
-        # This replaces any default system prompt with our combined version.
         system_message_config = {
             "mode": "replace",
             "content": final_system_msg,
         }
+
+        mcp_servers = self._parse_mcp_servers(
+            __event_call__, enable_mcp=enable_mcp, enable_cache=enable_cache
+        )
 
         # Prepare session config parameters
         session_params = {
@@ -1159,22 +1593,107 @@ class Pipe:
             "model": real_model_id,
             "streaming": is_streaming,
             "tools": custom_tools,
-            "available_tools": [t.name for t in custom_tools] if custom_tools else None,
             "system_message": system_message_config,
             "infinite_sessions": infinite_session_config,
+            "working_directory": resolved_cwd,
         }
+
+        if is_reas_model and reasoning_effort:
+            # Map requested effort to supported efforts if possible
+            m = next(
+                (
+                    m
+                    for m in (self._model_cache or [])
+                    if m.get("raw_id") == real_model_id
+                ),
+                None,
+            )
+            supp = (
+                m.get("meta", {})
+                .get("capabilities", {})
+                .get("supported_reasoning_efforts", [])
+                if m
+                else []
+            )
+            s_supp = [str(e).lower() for e in supp]
+            if s_supp:
+                session_params["reasoning_effort"] = (
+                    reasoning_effort
+                    if reasoning_effort.lower() in s_supp
+                    else ("high" if "high" in s_supp else "medium")
+                )
+            else:
+                session_params["reasoning_effort"] = reasoning_effort
+
+        if mcp_servers:
+            session_params["mcp_servers"] = mcp_servers
+            # Critical Fix: When using MCP, available_tools must be None to allow dynamic discovery
+            session_params["available_tools"] = None
+        else:
+            session_params["available_tools"] = (
+                [t.name for t in custom_tools] if custom_tools else None
+            )
 
         if provider_config:
             session_params["provider"] = provider_config
 
-        mcp_servers = self._parse_mcp_servers()
-        if mcp_servers:
-            session_params["mcp_servers"] = mcp_servers
-
-        # Ensure working directory is set to allow the agent to perform file operations
-        session_params["working_directory"] = self._get_workspace_dir()
+        # Inject hooks for automatic large file handling
+        session_params["hooks"] = self._build_session_hooks(
+            cwd=resolved_cwd, __event_call__=__event_call__
+        )
 
         return SessionConfig(**session_params)
+
+    def _build_session_hooks(self, cwd: str, __event_call__=None):
+        """
+        Build session lifecycle hooks.
+        Currently implements:
+        - on_post_tool_use: Auto-copy large files from /tmp to workspace
+        """
+
+        async def on_post_tool_use(input_data, invocation):
+            result = input_data.get("result", "")
+            tool_name = input_data.get("toolName", "")
+
+            # Logic to detect and move large files saved to /tmp
+            # Pattern: Saved to: /tmp/copilot_result_xxxx.txt
+            import re
+            import shutil
+
+            # We search for potential /tmp file paths in the output
+            # Common patterns from CLI: "Saved to: /tmp/..." or just "/tmp/..."
+            match = re.search(r"(/tmp/[\w\-\.]+)", str(result))
+            if match:
+                tmp_path = match.group(1)
+                if os.path.exists(tmp_path):
+                    try:
+                        filename = os.path.basename(tmp_path)
+                        target_path = os.path.join(cwd, f"auto_output_{filename}")
+                        shutil.copy2(tmp_path, target_path)
+
+                        self._emit_debug_log_sync(
+                            f"Hook [on_post_tool_use]: Auto-moved large output from {tmp_path} to {target_path}",
+                            __event_call__,
+                        )
+
+                        return {
+                            "additionalContext": (
+                                f"\n[SYSTEM AUTO-MANAGEMENT] The output was large and originally saved to {tmp_path}. "
+                                f"I have automatically moved it to your workspace as: `{os.path.basename(target_path)}`. "
+                                f"You should now use `read_file` or `grep` on this file to access the content."
+                            )
+                        }
+                    except Exception as e:
+                        self._emit_debug_log_sync(
+                            f"Hook [on_post_tool_use] Error moving file: {e}",
+                            __event_call__,
+                        )
+
+            return {}
+
+        return {
+            "on_post_tool_use": on_post_tool_use,
+        }
 
     def _get_user_context(self):
         """Helper to get user context (placeholder for future use)."""
@@ -1298,14 +1817,19 @@ class Pipe:
                 }
                 model_list = defaults.get(
                     self.valves.BYOK_TYPE.lower(),
-                    ["gpt-4o", "gpt-4o-mini", "o1", "o3-mini"],
+                    ["gpt-4o", "gpt-4o-mini", "claude-3-5-sonnet-latest"],
                 )
                 await self._emit_debug_log(
                     f"BYOK: Using default fallback models for {self.valves.BYOK_TYPE} ({len(model_list)} models)."
                 )
 
         return [
-            {"id": m, "name": f"-{self._clean_model_id(m)}", "source": "byok"}
+            {
+                "id": m,
+                "name": f"-{self._clean_model_id(m)}",
+                "source": "byok",
+                "raw_id": m,
+            }
             for m in model_list
         ]
 
@@ -1317,140 +1841,209 @@ class Pipe:
             return model_id[10:]
         return model_id
 
-    async def pipes(self) -> List[dict]:
-        """Dynamically fetch model list"""
-        if self._model_cache:
-            return self._model_cache
+    def _get_provider_name(self, m_info: Any) -> str:
+        """Identify provider from model metadata."""
+        m_id = getattr(m_info, "id", str(m_info)).lower()
+        if any(k in m_id for k in ["gpt", "codex"]):
+            return "OpenAI"
+        if "claude" in m_id:
+            return "Anthropic"
+        if "gemini" in m_id:
+            return "Google"
+        p = getattr(m_info, "policy", None)
+        if p:
+            t = str(getattr(p, "terms", "")).lower()
+            if "openai" in t:
+                return "OpenAI"
+            if "anthropic" in t:
+                return "Anthropic"
+            if "google" in t:
+                return "Google"
+        return "Unknown"
 
-        await self._emit_debug_log("Fetching model list dynamically...")
-        try:
-            self._setup_env()
+    def _get_user_valves(self, __user__: Optional[dict]) -> "Pipe.UserValves":
+        """Robustly extract UserValves from __user__ context."""
+        if not __user__:
+            return self.UserValves()
 
-            # Check for valid configuration
-            byok_active = bool(
-                self.valves.BYOK_BASE_URL
-                and (self.valves.BYOK_API_KEY or self.valves.BYOK_BEARER_TOKEN)
-            )
-            if not self.valves.GH_TOKEN and not byok_active:
-                self._standard_model_ids = set()
-                return [
-                    {"id": "error", "name": "Error: GH_TOKEN or BYOK not configured"}
-                ]
+        # Handle list/tuple wrap
+        user_data = __user__[0] if isinstance(__user__, (list, tuple)) else __user__
+        if not isinstance(user_data, dict):
+            return self.UserValves()
 
-            client_config = {}
-            if os.environ.get("COPILOT_CLI_PATH"):
-                client_config["cli_path"] = os.environ["COPILOT_CLI_PATH"]
-
-            # 1. Fetch BYOK Models if configured
-            byok_models = []
-            if byok_active:
-                byok_models = await self._fetch_byok_models()
-                # If GH_TOKEN is missing, return only BYOK models immediately
-                if not self.valves.GH_TOKEN:
-                    self._model_cache = byok_models
-                    return self._model_cache
-
-            # 2. Fetch Standard Copilot Models (if GH_TOKEN is present)
-            standard_models = []
-            client = CopilotClient(client_config)
+        raw_valves = user_data.get("valves")
+        if isinstance(raw_valves, self.UserValves):
+            return raw_valves
+        if isinstance(raw_valves, dict):
             try:
-                await client.start()
-                raw_models = await client.list_models()
-
-                exclude_list = [
-                    k.strip().lower()
-                    for k in self.valves.EXCLUDE_KEYWORDS.split(",")
-                    if k.strip()
-                ]
-                processed_models = []
-
-                for m in raw_models:
-                    # Extract fields resiliently
-                    m_id = (
-                        m.get("id") if isinstance(m, dict) else getattr(m, "id", str(m))
-                    )
-                    m_billing = (
-                        m.get("billing")
-                        if isinstance(m, dict)
-                        else getattr(m, "billing", {})
-                    )
-                    m_policy = (
-                        m.get("policy")
-                        if isinstance(m, dict)
-                        else getattr(m, "policy", {})
-                    )
-
-                    # Skip disabled models
-                    state = (
-                        m_policy.get("state")
-                        if isinstance(m_policy, dict)
-                        else getattr(m_policy, "state", "enabled")
-                    )
-                    if state == "disabled":
-                        continue
-
-                    # Apply exclusion filter
-                    if any(kw in m_id.lower() for kw in exclude_list):
-                        continue
-
-                    multiplier = (
-                        m_billing.get("multiplier", 1)
-                        if isinstance(m_billing, dict)
-                        else getattr(m_billing, "multiplier", 1)
-                    )
-
-                    clean_id = self._clean_model_id(m_id)
-                    # Use (0x) to indicate free/unlimited with a fire emoji
-                    # User requested 'copilotsdk-🔥 model (0x)' format
-                    if multiplier > 0:
-                        display_name = f"-{clean_id} ({multiplier}x)"
-                    else:
-                        display_name = f"-🔥 {clean_id} (0x)"
-
-                    processed_models.append(
-                        {
-                            "id": m_id,  # Keep raw ID
-                            "name": display_name,
-                            "multiplier": multiplier,
-                            "raw_id": m_id,
-                        }
-                    )
-
-                # Sort by multiplier (cheapest first), then name
-                processed_models.sort(key=lambda x: (x["multiplier"], x["raw_id"]))
-                standard_models = [
-                    {
-                        "id": f"{self.id}-{m['raw_id']}",
-                        "name": m["name"],
-                        "source": "copilot",
-                    }
-                    for m in processed_models
-                ]
-                self._standard_model_ids = {m["raw_id"] for m in processed_models}
-
+                return self.UserValves(**raw_valves)
             except Exception as e:
-                await self._emit_debug_log(f"Failed to fetch standard model list: {e}")
-                self._standard_model_ids = set()
-                # If standard fetch fails but we have BYOK, use BYOK
-                if byok_models:
-                    self._model_cache = byok_models
-                    return self._model_cache
-                # Otherwise, soft fail with default model
-                return [{"id": "gpt-5-mini", "name": "-gpt-5-mini"}]
-            finally:
-                await client.stop()
+                logger.warning(f"[Copilot] Failed to parse UserValves: {e}")
+        return self.UserValves()
 
-            # 3. Merge and Return
-            self._model_cache = standard_models + byok_models
+    async def pipes(self, __user__: Optional[dict] = None) -> List[dict]:
+        """Dynamically fetch and filter model list."""
+        if self.valves.DEBUG:
+            logger.info(f"[Pipes] Called with user context: {bool(__user__)}")
 
-            await self._emit_debug_log(
-                f"Successfully fetched {len(standard_models)} standard models and {len(byok_models)} BYOK models. Total: {len(self._model_cache)}"
+        uv = self._get_user_valves(__user__)
+        token = uv.GH_TOKEN
+
+        # Determine check interval (24 hours default)
+        now = datetime.now().timestamp()
+        needs_setup = not self.__class__._env_setup_done or (
+            now - self.__class__._last_update_check > 86400
+        )
+
+        # 1. Environment Setup (Only if needed or not done)
+        if needs_setup:
+            self._setup_env(token=token)
+            self.__class__._last_update_check = now
+        else:
+            # Still inject token for BYOK real-time updates
+            if token:
+                os.environ["GH_TOKEN"] = os.environ["GITHUB_TOKEN"] = token
+
+        # Get user info for isolation
+        user_data = (
+            __user__[0] if isinstance(__user__, (list, tuple)) else (__user__ or {})
+        )
+        user_id = user_data.get("id") or user_data.get("user_id") or "default_user"
+
+        token = uv.GH_TOKEN or self.valves.GH_TOKEN
+
+        # Multiplier filtering: User can constrain, but not exceed global limit
+        global_max = self.valves.MAX_MULTIPLIER
+        user_max = uv.MAX_MULTIPLIER
+        if user_max is not None:
+            eff_max = min(float(user_max), float(global_max))
+        else:
+            eff_max = float(global_max)
+
+        if self.valves.DEBUG:
+            logger.info(
+                f"[Pipes] Multiplier Filter: User={user_max}, Global={global_max}, Effective={eff_max}"
             )
-            return self._model_cache
 
-        except Exception as e:
-            await self._emit_debug_log(f"Pipes Error: {e}")
-            return [{"id": "gpt-5-mini", "name": "-gpt-5-mini"}]
+        # Keyword filtering: combine global and user keywords
+        ex_kw = [
+            k.strip().lower()
+            for k in (self.valves.EXCLUDE_KEYWORDS + "," + uv.EXCLUDE_KEYWORDS).split(
+                ","
+            )
+            if k.strip()
+        ]
+
+        if not self._model_cache:
+            if self.valves.DEBUG:
+                logger.info("[Pipes] Refreshing model cache...")
+            try:
+                # Use effective token for fetching
+                self._setup_env(token=token)
+
+                # Fetch BYOK models if configured
+                byok = []
+                if self.valves.BYOK_BASE_URL and (
+                    uv.BYOK_API_KEY
+                    or self.valves.BYOK_API_KEY
+                    or uv.BYOK_BEARER_TOKEN
+                    or self.valves.BYOK_BEARER_TOKEN
+                ):
+                    byok = await self._fetch_byok_models()
+
+                standard = []
+                if token:
+                    client_config = {
+                        "cli_path": os.environ.get("COPILOT_CLI_PATH"),
+                        "cwd": self._get_workspace_dir(
+                            user_id=user_id, chat_id="listing"
+                        ),
+                    }
+                    c = CopilotClient(client_config)
+                    try:
+                        await c.start()
+                        raw = await c.list_models()
+                        for m in raw if isinstance(raw, list) else []:
+                            try:
+                                mid = (
+                                    m.get("id")
+                                    if isinstance(m, dict)
+                                    else getattr(m, "id", "")
+                                )
+                                if not mid:
+                                    continue
+
+                                # Extract multiplier
+                                bill = (
+                                    m.get("billing")
+                                    if isinstance(m, dict)
+                                    else getattr(m, "billing", {})
+                                )
+                                if hasattr(bill, "to_dict"):
+                                    bill = bill.to_dict()
+                                mult = (
+                                    float(bill.get("multiplier", 1))
+                                    if isinstance(bill, dict)
+                                    else 1.0
+                                )
+
+                                cid = self._clean_model_id(mid)
+                                standard.append(
+                                    {
+                                        "id": f"{self.id}-{mid}",
+                                        "name": (
+                                            f"-{cid} ({mult}x)"
+                                            if mult > 0
+                                            else f"-🔥 {cid} (0x)"
+                                        ),
+                                        "multiplier": mult,
+                                        "raw_id": mid,
+                                        "source": "copilot",
+                                        "provider": self._get_provider_name(m),
+                                    }
+                                )
+                            except:
+                                pass
+                        standard.sort(key=lambda x: (x["multiplier"], x["raw_id"]))
+                        self._standard_model_ids = {m["raw_id"] for m in standard}
+                    except Exception as e:
+                        logger.error(f"[Pipes] Error listing models: {e}")
+                    finally:
+                        await c.stop()
+
+                self._model_cache = standard + byok
+                if not self._model_cache:
+                    return [
+                        {"id": "error", "name": "No models found. Check Token/Network."}
+                    ]
+            except Exception as e:
+                return [{"id": "error", "name": f"Error: {e}"}]
+
+        # Final pass filtering from cache (applied on every request)
+        res = []
+        # Use a small epsilon for float comparison to avoid precision issues (e.g. 0.33 vs 0.33000001)
+        epsilon = 0.0001
+
+        for m in self._model_cache:
+            # 1. Keyword filter
+            mid = (m.get("raw_id") or m.get("id", "")).lower()
+            mname = m.get("name", "").lower()
+            if any(kw in mid or kw in mname for kw in ex_kw):
+                continue
+
+            # 2. Multiplier filter (only for standard Copilot models)
+            if m.get("source") == "copilot":
+                m_mult = float(m.get("multiplier", 0))
+                if m_mult > (eff_max + epsilon):
+                    if self.valves.DEBUG:
+                        logger.debug(
+                            f"[Pipes] Filtered {m.get('id')} (Mult: {m_mult} > {eff_max})"
+                        )
+                    continue
+
+            res.append(m)
+
+        return res if res else [{"id": "none", "name": "No models matched filters"}]
 
     async def _get_client(self):
         """Helper to get or create a CopilotClient instance."""
@@ -1462,23 +2055,32 @@ class Pipe:
         await client.start()
         return client
 
-    def _setup_env(self, __event_call__=None, debug_enabled: bool = False):
-        """Setup environment variables and verify Copilot CLI."""
+    def _setup_env(
+        self,
+        __event_call__=None,
+        debug_enabled: bool = False,
+        token: str = None,
+        enable_mcp: bool = True,
+        enable_cache: bool = True,
+    ):
+        """Setup environment variables and verify Copilot CLI. Dynamic Token Injection."""
+        # 1. Real-time Token Injection (Always updates on each call)
+        effective_token = token or self.valves.GH_TOKEN
+        if effective_token:
+            os.environ["GH_TOKEN"] = os.environ["GITHUB_TOKEN"] = effective_token
+
         if self._env_setup_done:
+            # If done, we only sync MCP if called explicitly or in debug mode
+            # To improve speed, we avoid redundant file I/O here for regular requests
+            if debug_enabled:
+                self._sync_mcp_config(
+                    __event_call__,
+                    debug_enabled,
+                    enable_mcp=enable_mcp,
+                    enable_cache=enable_cache,
+                )
             return
 
-        # 1. Environment Variables for Auth
-        if self.valves.GH_TOKEN:
-            os.environ["GH_TOKEN"] = self.valves.GH_TOKEN
-            os.environ["GITHUB_TOKEN"] = self.valves.GH_TOKEN
-        else:
-            self._emit_debug_log_sync(
-                "Warning: GH_TOKEN is not set.",
-                __event_call__,
-                debug_enabled=debug_enabled,
-            )
-
-        # Disable CLI auto-update to ensure version consistency
         os.environ["COPILOT_AUTO_UPDATE"] = "false"
         self._emit_debug_log_sync(
             "Disabled CLI auto-update (COPILOT_AUTO_UPDATE=false)",
@@ -1587,18 +2189,71 @@ class Pipe:
 
         # 4. Finalize
         os.environ["COPILOT_CLI_PATH"] = cli_path
-        self._env_setup_done = True
+        self.__class__._env_setup_done = True
+        self.__class__._last_update_check = datetime.now().timestamp()
+
         self._emit_debug_log_sync(
             f"Environment setup complete. CLI: {cli_path} (v{current_version})",
             __event_call__,
             debug_enabled=debug_enabled,
         )
 
-    def _process_images(
-        self, messages, __event_call__=None, debug_enabled: bool = False
+    def _process_attachments(
+        self,
+        messages,
+        cwd=None,
+        files=None,
+        __event_call__=None,
+        debug_enabled: bool = False,
     ):
         attachments = []
         text_content = ""
+        saved_files_info = []
+
+        # 1. Process OpenWebUI Uploaded Files (body['files'])
+        if files and cwd:
+            for file_item in files:
+                try:
+                    # Adapt to different file structures
+                    file_obj = file_item.get("file", file_item)
+                    file_id = file_obj.get("id")
+                    filename = (
+                        file_obj.get("filename") or file_obj.get("name") or "upload.bin"
+                    )
+
+                    if file_id:
+                        # Construct source path
+                        src_path = os.path.join(
+                            self.valves.OPENWEBUI_UPLOAD_PATH, f"{file_id}_{filename}"
+                        )
+
+                        if os.path.exists(src_path):
+                            # Copy to workspace
+                            dst_path = os.path.join(cwd, filename)
+                            shutil.copy2(src_path, dst_path)
+
+                            saved_files_info.append(
+                                f"- User uploaded file: `{filename}` (Saved to workspace)"
+                            )
+                            self._emit_debug_log_sync(
+                                f"Copied file to workspace: {dst_path}",
+                                __event_call__,
+                                debug_enabled,
+                            )
+                        else:
+                            self._emit_debug_log_sync(
+                                f"Source file not found: {src_path}",
+                                __event_call__,
+                                debug_enabled,
+                            )
+                except Exception as e:
+                    self._emit_debug_log_sync(
+                        f"Error processing file {file_item}: {e}",
+                        __event_call__,
+                        debug_enabled,
+                    )
+
+        # 2. Process Base64 Images in Messages
         if not messages:
             return "", []
         last_msg = messages[-1]
@@ -1638,6 +2293,16 @@ class Pipe:
                             )
         else:
             text_content = str(content)
+
+        # Append saved files info to the text content seen by the agent
+        if saved_files_info:
+            info_block = (
+                "\n\n[System Notification: New Files Available]\n"
+                + "\n".join(saved_files_info)
+                + "\nYou can access these files directly using their filenames in your workspace."
+            )
+            text_content += info_block
+
         return text_content, attachments
 
     def _sync_copilot_config(
@@ -1651,20 +2316,6 @@ class Pipe:
             return
 
         effort = reasoning_effort
-
-        # Check model support for xhigh
-        # Only gpt-5.2-codex supports xhigh currently
-        if effort == "xhigh":
-            if (
-                "gpt-5.2-codex"
-                not in self._collect_model_ids(
-                    body={},
-                    request_model=self.id,
-                    real_model_id=None,
-                )[0].lower()
-            ):
-                # Fallback to high if not supported
-                effort = "high"
 
         try:
             # Target standard path ~/.copilot/config.json
@@ -1710,6 +2361,64 @@ class Pipe:
                 debug_enabled=debug_enabled,
             )
 
+    def _sync_mcp_config(
+        self,
+        __event_call__=None,
+        debug_enabled: bool = False,
+        enable_mcp: bool = True,
+        enable_cache: bool = True,
+    ):
+        """Sync MCP configuration to ~/.copilot/config.json."""
+        path = os.path.expanduser("~/.copilot/config.json")
+
+        # If disabled, we should ensure the config doesn't contain stale MCP info
+        if not enable_mcp:
+            if os.path.exists(path):
+                try:
+                    with open(path, "r") as f:
+                        data = json.load(f)
+                    if "mcp_servers" in data:
+                        del data["mcp_servers"]
+                        with open(path, "w") as f:
+                            json.dump(data, f, indent=4)
+                        self._emit_debug_log_sync(
+                            "MCP disabled: Cleared MCP servers from config.json",
+                            __event_call__,
+                            debug_enabled,
+                        )
+                except:
+                    pass
+            return
+
+        mcp = self._parse_mcp_servers(
+            __event_call__, enable_mcp=enable_mcp, enable_cache=enable_cache
+        )
+        if not mcp:
+            return
+        try:
+            path = os.path.expanduser("~/.copilot/config.json")
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            data = {}
+            if os.path.exists(path):
+                try:
+                    with open(path, "r") as f:
+                        data = json.load(f)
+                except:
+                    pass
+            if json.dumps(data.get("mcp_servers"), sort_keys=True) != json.dumps(
+                mcp, sort_keys=True
+            ):
+                data["mcp_servers"] = mcp
+                with open(path, "w") as f:
+                    json.dump(data, f, indent=4)
+                self._emit_debug_log_sync(
+                    f"Synced {len(mcp)} MCP servers to config.json",
+                    __event_call__,
+                    debug_enabled,
+                )
+        except:
+            pass
+
     # ==================== Internal Implementation ====================
     # _pipe_impl() contains the main request handling logic.
     # ================================================================
@@ -1721,26 +2430,63 @@ class Pipe:
         __event_emitter__=None,
         __event_call__=None,
     ) -> Union[str, AsyncGenerator]:
-        # 1. Determine effective debug setting FIRST to capture all logs
-        if __user__:
-            raw_valves = __user__.get("valves", {})
-            if isinstance(raw_valves, self.UserValves):
-                user_valves = raw_valves
-            elif isinstance(raw_valves, dict):
-                user_valves = self.UserValves(**raw_valves)
-            else:
-                user_valves = self.UserValves()
-        else:
-            user_valves = self.UserValves()
+        # --- PROBE LOG ---
+        if __event_call__:
+            await self._emit_debug_log(
+                f"🔔 Pipe initialized. User: {__user__.get('name') if __user__ else 'Unknown'}",
+                __event_call__,
+                debug_enabled=True,
+            )
+        # -----------------
+
+        # 1. Determine user role and settings
+        user_data = (
+            __user__[0] if isinstance(__user__, (list, tuple)) else (__user__ or {})
+        )
+        is_admin = user_data.get("role") == "admin"
+
+        # Robustly parse User Valves
+        user_valves = self._get_user_valves(__user__)
+
+        # --- DEBUG LOGGING ---
+        if self.valves.DEBUG:
+            logger.info(
+                f"[Copilot] Request received. Model: {body.get('model')}, Stream: {body.get('stream', False)}"
+            )
+            logger.info(
+                f"[Copilot] User Context: {bool(__user__)}, Event Call: {bool(__event_call__)}"
+            )
+        # ---------------------
+
+        user_id = user_data.get("id") or user_data.get("user_id") or "default_user"
 
         effective_debug = self.valves.DEBUG or user_valves.DEBUG
+        effective_token = user_valves.GH_TOKEN or self.valves.GH_TOKEN
 
-        # 2. Setup environment with effective debug
-        self._setup_env(__event_call__, debug_enabled=effective_debug)
+        # Get Chat ID using improved helper
+        chat_ctx = self._get_chat_context(
+            body, __metadata__, __event_call__, debug_enabled=effective_debug
+        )
+        chat_id = chat_ctx.get("chat_id") or "default"
 
-        cwd = self._get_workspace_dir()
+        # Determine effective MCP and cache settings
+        effective_mcp = user_valves.ENABLE_MCP_SERVER
+        effective_cache = user_valves.ENABLE_TOOL_CACHE
+
+        # 2. Setup environment with effective settings
+        self._setup_env(
+            __event_call__,
+            debug_enabled=effective_debug,
+            token=effective_token,
+            enable_mcp=effective_mcp,
+            enable_cache=effective_cache,
+        )
+
+        cwd = self._get_workspace_dir(user_id=user_id, chat_id=chat_id)
         await self._emit_debug_log(
-            f"Agent working in: {cwd}", __event_call__, debug_enabled=effective_debug
+            f"Agent working in: {cwd} (Admin: {is_admin}, MCP: {effective_mcp})",
+            __event_call__,
+            debug_enabled=effective_debug,
         )
 
         # Determine effective BYOK settings
@@ -1786,7 +2532,56 @@ class Pipe:
         # 2. Strip prefixes to get the clean model ID (e.g. 'gpt-4o')
         real_model_id = self._strip_model_prefix(resolved_id)
 
-        # 3. Log the resolution result
+        # 3. Enforce Multiplier Constraint (Safety Check)
+        global_max = self.valves.MAX_MULTIPLIER
+        user_max = user_valves.MAX_MULTIPLIER
+        if user_max is not None:
+            eff_max = min(float(user_max), float(global_max))
+        else:
+            eff_max = float(global_max)
+
+        # Try to find model info. If missing, force refresh cache.
+        m_info = next(
+            (m for m in (self._model_cache or []) if m.get("raw_id") == real_model_id),
+            None,
+        )
+        if not m_info:
+            logger.info(
+                f"[Pipe Impl] Model info missing for {real_model_id}, refreshing cache..."
+            )
+            await self.pipes(__user__)
+            m_info = next(
+                (
+                    m
+                    for m in (self._model_cache or [])
+                    if m.get("raw_id") == real_model_id
+                ),
+                None,
+            )
+
+        # --- DEBUG MULTIPLIER ---
+        if m_info:
+            logger.info(
+                f"[Pipe Impl] Model Info: ID={real_model_id}, Source={m_info.get('source')}, Mult={m_info.get('multiplier')}, EffMax={eff_max}"
+            )
+        else:
+            logger.warning(
+                f"[Pipe Impl] Model Info STILL NOT FOUND for ID: {real_model_id}. Treating as multiplier=1.0"
+            )
+        # ------------------------
+
+        # Check multiplier (If model not found, assume Copilot source and multiplier 1.0 for safety)
+        is_copilot_source = m_info.get("source") == "copilot" if m_info else True
+        current_mult = float(m_info.get("multiplier", 1.0)) if m_info else 1.0
+
+        if is_copilot_source:
+            epsilon = 0.0001
+            if current_mult > (eff_max + epsilon):
+                err_msg = f"Error: Model '{real_model_id}' (multiplier {current_mult}x) exceeds your allowed maximum of {eff_max}x."
+                await self._emit_debug_log(err_msg, __event_call__, debug_enabled=True)
+                return err_msg
+
+        # 4. Log the resolution result
         if real_model_id != request_model:
             log_msg = (
                 f"Using {model_source_type} model: {real_model_id} "
@@ -1801,12 +2596,6 @@ class Pipe:
         messages = body.get("messages", [])
         if not messages:
             return "No messages."
-
-        # Get Chat ID using improved helper
-        chat_ctx = self._get_chat_context(
-            body, __metadata__, __event_call__, debug_enabled=effective_debug
-        )
-        chat_id = chat_ctx.get("chat_id")
 
         # Extract system prompt from multiple sources
         system_prompt_content, system_prompt_source = await self._extract_system_prompt(
@@ -1833,167 +2622,93 @@ class Pipe:
             debug_enabled=effective_debug,
         )
 
-        last_text, attachments = self._process_images(
-            messages, __event_call__, debug_enabled=effective_debug
+        # Retrieve files (support 'copilot_files' from filter override)
+        files = body.get("copilot_files") or body.get("files")
+
+        last_text, attachments = self._process_attachments(
+            messages,
+            cwd=cwd,
+            files=files,
+            __event_call__=__event_call__,
+            debug_enabled=effective_debug,
         )
+
+        # 1. Determine user role and construct guidelines
+        user_data = (
+            __user__[0] if isinstance(__user__, (list, tuple)) else (__user__ or {})
+        )
+        is_admin = user_data.get("role") == "admin"
+
+        system_parts = []
+        if system_prompt_content:
+            system_parts.append(system_prompt_content.strip())
+        system_parts.append(BASE_GUIDELINES)
+        if is_admin:
+            system_parts.append(ADMIN_EXTENSIONS)
+        else:
+            system_parts.append(USER_RESTRICTIONS)
+        final_system_msg = "\n".join(system_parts)
 
         # Determine prompt strategy
         # If we have a chat_id, we try to resume session.
         # If resumed, we assume the session has history, so we only send the last message.
         # If new session, we send full (accumulated) messages.
 
-        # Ensure we have the latest config
-        # Determine if the currently selected model is a BYOK model or a Standard model
-        # Detection priority:
-        # 1. Check body.metadata.model.name for multiplier info (most direct)
-        # 2. Check model cache for explicit 'source' field
-        # 3. Check if model name in cache contains multiplier info
-        # 4. Fallback heuristics
+        # 1. Determine model capabilities and BYOK status
         import re
 
-        is_byok_model = False
-        model_display_name = ""
+        m_info = next(
+            (
+                m
+                for m in (self._model_cache or [])
+                if m.get("raw_id") == real_model_id
+                or m.get("id") == real_model_id
+                or m.get("id") == f"{self.id}-{real_model_id}"
+            ),
+            None,
+        )
 
-        # Method 1: Get model name from various metadata sources
-        body_metadata = body.get("metadata", {})
-        if not isinstance(body_metadata, dict):
-            body_metadata = {}
+        is_reasoning = (
+            m_info.get("meta", {}).get("capabilities", {}).get("reasoning", False)
+            if m_info
+            else False
+        )
 
-        # Priority: body.metadata.model.name > __metadata__.model.name > __metadata__.model_name
-        meta_model = body_metadata.get("model", {})
-        if isinstance(meta_model, dict):
-            model_display_name = meta_model.get("name", "")
+        # Detection priority for BYOK
+        # 1. Check metadata.model.name for multiplier (Standard Copilot format)
+        model_display_name = body.get("metadata", {}).get("model", {}).get(
+            "name", ""
+        ) or (__metadata__.get("model", {}).get("name", "") if __metadata__ else "")
+        has_multiplier = bool(
+            re.search(r"[\(（]\d+(?:\.\d+)?x[\)）]", model_display_name)
+        )
 
-        if not model_display_name and __metadata__:
-            # Check __metadata__['model'] which we saw in the logs
-            model_obj = __metadata__.get("model", {})
-            if isinstance(model_obj, dict):
-                model_display_name = model_obj.get("name", "")
-            elif isinstance(model_obj, str):
-                model_display_name = model_obj
-
-            # Further fallbacks
-            if not model_display_name:
-                model_display_name = __metadata__.get(
-                    "model_name", ""
-                ) or __metadata__.get("name", "")
-
-        if not model_display_name:
-            # Last resort: log keys and 'model' type for future debugging
-            meta_keys = list(body_metadata.keys())
-            extra_keys = list(__metadata__.keys()) if __metadata__ else []
-            model_val = __metadata__.get("model") if __metadata__ else None
-            await self._emit_debug_log(
-                f"Debug: Name not found. body.meta keys: {meta_keys}, __meta__ keys: {extra_keys}, model_type: {type(model_val)}",
-                __event_call__,
-                debug_enabled=effective_debug,
-            )
-
-        if model_display_name:
-            # Copilot models have multiplier info like "(0x)", "(1x)", "(0.5x)" or Chinese "（1x）"
-            has_multiplier = bool(re.search(r"[\(（]\d+(?:\.\d+)?x[\)）]", model_display_name))
-            
-            # Logic: If Custom Model name lacks multiplier, check the Base Model's official name
-            if not has_multiplier:
-                # Ensure cache is populated
-                if not self._model_cache:
-                    try:
-                        await self.pipes()
-                    except:
-                        pass
-                
-                # Lookup base model in cache to check its official name
-                cached_model = next(
-                    (m for m in self._model_cache if m.get("raw_id") == real_model_id or m.get("id") == real_model_id or m.get("id") == f"{self.id}-{real_model_id}"), 
-                    None
-                )
-                
-                if cached_model:
-                    cached_name = cached_model.get("name", "")
-                    if re.search(r"[\(（]\d+(?:\.\d+)?x[\)）]", cached_name):
-                        has_multiplier = True
-                        await self._emit_debug_log(
-                            f"Correction: Found multiplier in Base Model name '{cached_name}' for Custom Model '{model_display_name}'. Treated as Standard Copilot.",
-                            __event_call__,
-                            debug_enabled=effective_debug,
-                        )
-
+        if m_info and "source" in m_info:
+            is_byok_model = m_info["source"] == "byok"
+        else:
             is_byok_model = not has_multiplier and byok_active
 
-            await self._emit_debug_log(
-                f"BYOK detection via display name: '{model_display_name}' -> multiplier={has_multiplier}, is_byok={is_byok_model}",
-                __event_call__,
-                debug_enabled=effective_debug,
-            )
-        else:
-            # Fallback: lookup from cache
-            if not self._model_cache:
-                try:
-                    await self.pipes()
-                except:
-                    pass
-
-            # For custom models, use base_model_id to find the actual model info
-            base_model_id_from_meta = (
-                __metadata__.get("base_model_id", "") if __metadata__ else ""
-            )
-            lookup_model_id = (
-                base_model_id_from_meta if base_model_id_from_meta else request_model
-            )
-
-            model_info = next(
-                (m for m in (self._model_cache or []) if m["id"] == lookup_model_id),
-                None,
-            )
-
-            if model_info:
-                if "source" in model_info:
-                    is_byok_model = model_info["source"] == "byok"
-                    await self._emit_debug_log(
-                        f"BYOK detection via cache source: '{model_info.get('id')}' source='{model_info['source']}' -> is_byok={is_byok_model}",
-                        __event_call__,
-                        debug_enabled=effective_debug,
-                    )
-                else:
-                    model_name = model_info.get("name", "")
-                    has_multiplier = bool(
-                        re.search(r"[\(（]\d+(?:\.\d+)?x[\)）]", model_name)
-                    )
-                    is_byok_model = not has_multiplier and byok_active
-                    await self._emit_debug_log(
-                        f"BYOK detection via cache name: '{model_name}' -> multiplier={has_multiplier}, is_byok={is_byok_model}",
-                        __event_call__,
-                        debug_enabled=effective_debug,
-                    )
-            else:
-                # Fallback to heuristics if model not in cache
-                if byok_active:
-                    if not gh_token:
-                        is_byok_model = True
-                    elif real_model_id.startswith("copilot-"):
-                        # If ID starts with copilot-, assume it's NOT BYOK even if list is old
-                        is_byok_model = False
-                    elif real_model_id not in self._standard_model_ids:
-                        is_byok_model = True
-                await self._emit_debug_log(
-                    f"BYOK detection via heuristics: model_id='{real_model_id}', byok_active={byok_active} -> is_byok={is_byok_model}",
-                    __event_call__,
-                    debug_enabled=effective_debug,
-                )
+        await self._emit_debug_log(
+            f"Mode: {'BYOK' if is_byok_model else 'Standard'}, Reasoning: {is_reasoning}, Admin: {is_admin}",
+            __event_call__,
+            debug_enabled=effective_debug,
+        )
 
         # Ensure we have the latest config (only for standard Copilot models)
         if not is_byok_model:
             self._sync_copilot_config(effective_reasoning_effort, __event_call__)
 
         # Initialize Client
-        client = CopilotClient(self._build_client_config(body))
+        client = CopilotClient(
+            self._build_client_config(body, user_id=user_id, chat_id=chat_id)
+        )
         should_stop_client = True
         try:
             await client.start()
 
             # Initialize custom tools (Handles caching internally)
             custom_tools = await self._initialize_custom_tools(
-                __user__=__user__, __event_call__=__event_call__
+                body=body, __user__=__user__, __event_call__=__event_call__
             )
             if custom_tools:
                 tool_names = [t.name for t in custom_tools]
@@ -2003,7 +2718,9 @@ class Pipe:
                 )
 
             # Check MCP Servers
-            mcp_servers = self._parse_mcp_servers()
+            mcp_servers = self._parse_mcp_servers(
+                __event_call__, enable_mcp=effective_mcp, enable_cache=effective_cache
+            )
             mcp_server_names = list(mcp_servers.keys()) if mcp_servers else []
             if mcp_server_names:
                 await self._emit_debug_log(
@@ -2048,19 +2765,53 @@ class Pipe:
                         "model": real_model_id,
                         "streaming": is_streaming,
                         "tools": custom_tools,
-                        "available_tools": (
-                            [t.name for t in custom_tools] if custom_tools else None
-                        ),
                     }
+
+                    if is_reasoning and effective_reasoning_effort:
+                        # Re-use mapping logic or just pass it through
+                        resume_params["reasoning_effort"] = effective_reasoning_effort
+
+                    mcp_servers = self._parse_mcp_servers(
+                        __event_call__,
+                        enable_mcp=effective_mcp,
+                        enable_cache=effective_cache,
+                    )
                     if mcp_servers:
                         resume_params["mcp_servers"] = mcp_servers
+                        resume_params["available_tools"] = None
+                    else:
+                        resume_params["available_tools"] = (
+                            [t.name for t in custom_tools] if custom_tools else None
+                        )
 
                     # Always inject the latest system prompt in 'replace' mode
                     # This handles both custom models and user-defined system messages
                     system_parts = []
                     if system_prompt_content:
                         system_parts.append(system_prompt_content.strip())
-                    system_parts.append(FORMATTING_GUIDELINES)
+
+                    # Calculate and inject path context for resumed session
+                    resolved_cwd = self._get_workspace_dir(
+                        user_id=user_id, chat_id=chat_id
+                    )
+                    path_context = (
+                        f"\n[Session Context]\n"
+                        f"- **Your Isolated Workspace**: `{resolved_cwd}`\n"
+                        f"- **Active User ID**: `{user_id}`\n"
+                        f"- **Active Chat ID**: `{chat_id}`\n"
+                        "**CRITICAL INSTRUCTION**: You MUST use the above workspace for ALL file operations.\n"
+                        "- DO NOT create files in `/tmp` or any other system directories.\n"
+                        "- If a tool output is too large, save it to a file within your workspace, NOT `/tmp`.\n"
+                        "- Always interpret 'current directory' as your Isolated Workspace."
+                    )
+                    system_parts.append(path_context)
+
+                    system_parts.append(BASE_GUIDELINES)
+                    if is_admin:
+                        system_parts.append(ADMIN_EXTENSIONS)
+                    else:
+                        system_parts.append(USER_RESTRICTIONS)
+
                     final_system_msg = "\n".join(system_parts)
 
                     resume_params["system_message"] = {
@@ -2112,10 +2863,17 @@ class Pipe:
                     system_prompt_content,
                     is_streaming,
                     provider_config=provider_config,
+                    reasoning_effort=effective_reasoning_effort,
+                    is_reas_model=is_reasoning,
+                    is_admin=is_admin,
+                    user_id=user_id,
+                    enable_mcp=effective_mcp,
+                    enable_cache=effective_cache,
+                    __event_call__=__event_call__,
                 )
 
                 await self._emit_debug_log(
-                    f"Injecting system prompt into new session (len: {len(system_prompt_content or '') + len(FORMATTING_GUIDELINES)})",
+                    f"Injecting system prompt into new session (len: {len(final_system_msg)})",
                     __event_call__,
                 )
 
@@ -2157,9 +2915,7 @@ class Pipe:
             if body.get("stream", False):
                 init_msg = ""
                 if effective_debug:
-                    init_msg = (
-                        f"> [Debug] Agent working in: {self._get_workspace_dir()}\n"
-                    )
+                    init_msg = f"> [Debug] Agent working in: {self._get_workspace_dir(user_id=user_id, chat_id=chat_id)}\n"
                     if mcp_server_names:
                         init_msg += f"> [Debug] 🔌 Connected MCP Servers: {', '.join(mcp_server_names)}\n"
 
@@ -2169,8 +2925,11 @@ class Pipe:
                     client,
                     session,
                     send_payload,
-                    init_msg,
-                    __event_call__,
+                    chat_id=chat_id,
+                    user_id=user_id,
+                    init_message=init_msg,
+                    __event_call__=__event_call__,
+                    __event_emitter__=__event_emitter__,
                     reasoning_effort=effective_reasoning_effort,
                     show_thinking=show_thinking,
                     debug_enabled=effective_debug,
@@ -2211,8 +2970,11 @@ class Pipe:
         client,
         session,
         send_payload,
+        chat_id: str,
+        user_id: str = None,
         init_message: str = "",
         __event_call__=None,
+        __event_emitter__=None,
         reasoning_effort: str = "",
         show_thinking: bool = True,
         debug_enabled: bool = False,
@@ -2369,7 +3131,11 @@ class Pipe:
 
                 queue.put_nowait(tool_display)
 
-                self._emit_debug_log_sync(f"Tool Start: {tool_name}", __event_call__)
+                self._emit_debug_log_sync(
+                    f"Tool Start: {tool_name}",
+                    __event_call__,
+                    debug_enabled=debug_enabled,
+                )
 
             elif event_type == "tool.execution_complete":
                 tool_call_id = safe_get_data_attr(event, "tool_call_id", "")
@@ -2400,7 +3166,9 @@ class Pipe:
                             )
                 except Exception as e:
                     self._emit_debug_log_sync(
-                        f"Error extracting result: {e}", __event_call__
+                        f"Error extracting result: {e}",
+                        __event_call__,
+                        debug_enabled=debug_enabled,
                     )
                     result_type = "failure"
                     result_content = f"Error: {str(e)}"
@@ -2408,6 +3176,75 @@ class Pipe:
                 # Display tool result with improved formatting
                 if result_content:
                     status_icon = "✅" if result_type == "success" else "❌"
+
+                    # --- TODO Sync Logic (File + DB) ---
+                    if tool_name == "update_todo" and result_type == "success":
+                        try:
+                            # Extract todo content with fallback strategy
+                            todo_text = ""
+
+                            # 1. Try detailedContent (Best source)
+                            if isinstance(result_obj, dict) and result_obj.get(
+                                "detailedContent"
+                            ):
+                                todo_text = result_obj["detailedContent"]
+                            # 2. Try content (Second best)
+                            elif isinstance(result_obj, dict) and result_obj.get(
+                                "content"
+                            ):
+                                todo_text = result_obj["content"]
+                            elif hasattr(result_obj, "content"):
+                                todo_text = result_obj.content
+
+                            # 3. Fallback: If content is just a status message, try to recover from arguments
+                            if (
+                                not todo_text or len(todo_text) < 50
+                            ):  # Threshold to detect "TODO list updated"
+                                if tool_call_id in active_tools:
+                                    args = active_tools[tool_call_id].get(
+                                        "arguments", {}
+                                    )
+                                    if isinstance(args, dict) and "todos" in args:
+                                        todo_text = args["todos"]
+                                        self._emit_debug_log_sync(
+                                            f"Recovered TODO from arguments (Result was too short)",
+                                            __event_call__,
+                                            debug_enabled=debug_enabled,
+                                        )
+
+                            if todo_text:
+                                # Use the explicit chat_id passed to stream_response
+                                target_chat_id = chat_id or "default"
+
+                                # 1. Sync to file
+                                ws_dir = self._get_workspace_dir(
+                                    user_id=user_id, chat_id=target_chat_id
+                                )
+                                todo_path = os.path.join(ws_dir, "TODO.md")
+                                with open(todo_path, "w") as f:
+                                    f.write(todo_text)
+
+                                # 2. Sync to Database & Emit Status
+                                self._save_todo_to_db(
+                                    target_chat_id,
+                                    todo_text,
+                                    __event_emitter__=__event_emitter__,
+                                    __event_call__=__event_call__,
+                                    debug_enabled=debug_enabled,
+                                )
+
+                                self._emit_debug_log_sync(
+                                    f"Synced TODO to file and DB (Chat: {target_chat_id})",
+                                    __event_call__,
+                                    debug_enabled=debug_enabled,
+                                )
+                        except Exception as sync_err:
+                            self._emit_debug_log_sync(
+                                f"TODO Sync Failed: {sync_err}",
+                                __event_call__,
+                                debug_enabled=debug_enabled,
+                            )
+                    # ------------------------
 
                     # Try to detect content type for better formatting
                     is_json = False
@@ -2453,7 +3290,9 @@ class Pipe:
                     queue.put_nowait(progress_display)
 
                 self._emit_debug_log_sync(
-                    f"Tool Progress: {tool_name} - {progress}%", __event_call__
+                    f"Tool Progress: {tool_name} - {progress}%",
+                    __event_call__,
+                    debug_enabled=debug_enabled,
                 )
 
             elif event_type == "tool.execution_partial_result":
@@ -2471,7 +3310,9 @@ class Pipe:
                     queue.put_nowait(partial_content)
 
                 self._emit_debug_log_sync(
-                    f"Tool Partial Result: {tool_name}", __event_call__
+                    f"Tool Partial Result: {tool_name}",
+                    __event_call__,
+                    debug_enabled=debug_enabled,
                 )
 
             # === Usage Statistics Events ===
@@ -2489,7 +3330,9 @@ class Pipe:
 
             elif event_type == "session.compaction_complete":
                 self._emit_debug_log_sync(
-                    "Session Compaction Completed", __event_call__
+                    "Session Compaction Completed",
+                    __event_call__,
+                    debug_enabled=debug_enabled,
                 )
 
             elif event_type == "session.idle":
@@ -2512,17 +3355,23 @@ class Pipe:
         unsubscribe = session.on(handler)
 
         self._emit_debug_log_sync(
-            f"Subscribed to events. Sending request...", __event_call__
+            f"Subscribed to events. Sending request...",
+            __event_call__,
+            debug_enabled=debug_enabled,
         )
 
         # Use asyncio.create_task used to prevent session.send from blocking the stream reading
         # if the SDK implementation waits for completion.
         send_task = asyncio.create_task(session.send(send_payload))
-        self._emit_debug_log_sync(f"Prompt sent (async task started)", __event_call__)
+        self._emit_debug_log_sync(
+            f"Prompt sent (async task started)",
+            __event_call__,
+            debug_enabled=debug_enabled,
+        )
 
         # Safe initial yield with error handling
         try:
-            if self.valves.DEBUG and show_thinking:
+            if debug_enabled and show_thinking:
                 yield "<think>\n"
                 if init_message:
                     yield init_message
@@ -2534,7 +3383,11 @@ class Pipe:
                 state["thinking_started"] = True
         except Exception as e:
             # If initial yield fails, log but continue processing
-            self._emit_debug_log_sync(f"Initial yield warning: {e}", __event_call__)
+            self._emit_debug_log_sync(
+                f"Initial yield warning: {e}",
+                __event_call__,
+                debug_enabled=debug_enabled,
+            )
 
         try:
             while not done.is_set():
@@ -2553,6 +3406,7 @@ class Pipe:
                             self._emit_debug_log_sync(
                                 f"Yield error (client disconnected?): {yield_error}",
                                 __event_call__,
+                                debug_enabled=debug_enabled,
                             )
                             break
                 except asyncio.TimeoutError:

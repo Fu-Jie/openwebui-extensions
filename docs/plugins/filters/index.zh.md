@@ -16,7 +16,7 @@ Filter 充当消息管线中的中间件：
 
 <div class="grid cards" markdown>
 
--   :material-arrow-collapse-vertical:{ .lg .middle } **Async Context Compression**
+- :material-arrow-collapse-vertical:{ .lg .middle } **Async Context Compression**
 
     ---
 
@@ -26,7 +26,7 @@ Filter 充当消息管线中的中间件：
 
     [:octicons-arrow-right-24: 查看文档](async-context-compression.md)
 
--   :material-text-box-plus:{ .lg .middle } **Context Enhancement**
+- :material-text-box-plus:{ .lg .middle } **Context Enhancement**
 
     ---
 
@@ -36,7 +36,7 @@ Filter 充当消息管线中的中间件：
 
     [:octicons-arrow-right-24: 查看文档](context-enhancement.md)
 
--   :material-folder-refresh:{ .lg .middle } **Folder Memory**
+- :material-folder-refresh:{ .lg .middle } **Folder Memory**
 
     ---
 
@@ -46,7 +46,7 @@ Filter 充当消息管线中的中间件：
 
     [:octicons-arrow-right-24: 查看文档](folder-memory.zh.md)
 
--   :material-format-paint:{ .lg .middle } **Markdown Normalizer**
+- :material-format-paint:{ .lg .middle } **Markdown Normalizer**
 
     ---
 
@@ -55,6 +55,16 @@ Filter 充当消息管线中的中间件：
     **版本：** 1.2.4
 
     [:octicons-arrow-right-24: 查看文档](markdown_normalizer.zh.md)
+
+- :material-file-shield:{ .lg .middle } **Copilot SDK 文件过滤器**
+
+    ---
+
+    专门用于绕过 OpenWebUI 默认 RAG 机制的过滤器，针对 GitHub Copilot SDK 模型。确保 Agent 能够接收到原始文件进行自主分析。
+
+    **版本：** 0.1.2
+
+    [:octicons-arrow-right-24: 查看文档](github-copilot-sdk-files-filter.zh.md)
 
 </div>
 
