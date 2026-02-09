@@ -76,6 +76,8 @@ Located in the `plugins/` directory, containing Python-based enhancements:
 
 #### Filters
 
+- **GitHub Copilot SDK Files Filter** (`github_copilot_sdk_files_filter`): Essential companion for Copilot SDK. Bypasses RAG to ensure full file accessibility for Agents.
+- **Web Gemini Multimodal Filter** (`web_gemini_multimodel_filter`): Adds multimodal capabilities (PDF, Video, Office) to any model with intelligent routing.
 - **Async Context Compression** (`async-context-compression`): Optimizes token usage via context compression.
 - **Context Enhancement** (`context_enhancement_filter`): Enhances chat context.
 - **Folder Memory** (`folder-memory`): Automatically extracts project rules from conversations and injects them into the folder's system prompt.
@@ -83,7 +85,7 @@ Located in the `plugins/` directory, containing Python-based enhancements:
 
 #### Pipes
 
-- **GitHub Copilot SDK** (`github-copilot-sdk`): Official GitHub Copilot SDK integration. Supports dynamic models, multi-turn conversation, streaming, multimodal input, and infinite sessions.
+- **GitHub Copilot SDK** (`github-copilot-sdk`): Official GitHub Copilot SDK integration. Supports dynamic models (GPT-4o, Claude 3.5, o1), multi-turn conversation, streaming, and infinite sessions.
 
 #### Pipelines
 
@@ -94,10 +96,9 @@ Located in the `plugins/` directory, containing Python-based enhancements:
 <details>
 <summary><b>🎯 Prompts (System Prompts for various roles)</b></summary>
 
-Located in the `prompts/` directory, containing fine-tuned System Prompts:
+System Prompts are managed in the `docs/prompts/` directory:
 
-- **Coding**: Programming assistance prompts.
-- **Marketing**: Marketing and copywriting prompts.
+- **[Prompt Library](./docs/prompts/library.md)**: A curated collection of fine-tuned prompts for Coding, Marketing, and Analysis.
 
 </details>
 
