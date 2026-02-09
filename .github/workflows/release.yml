@@ -324,13 +324,13 @@ jobs:
 
       - name: Generate release notes
         id: notes
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          TITLE: ${{ github.event.inputs.release_title }}
+          NOTES: ${{ github.event.inputs.release_notes }}
+          DETECTED_CHANGES: ${{ needs.check-changes.outputs.release_notes }}
+          COMMITS: ${{ steps.commits.outputs.commits }}
         run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          TITLE="${{ github.event.inputs.release_title }}"
-          NOTES="${{ github.event.inputs.release_notes }}"
-          DETECTED_CHANGES="${{ needs.check-changes.outputs.release_notes }}"
-          COMMITS="${{ steps.commits.outputs.commits }}"
-          
           echo "# ${VERSION} Release / 发布" > release_notes.md
           echo "" >> release_notes.md
           
