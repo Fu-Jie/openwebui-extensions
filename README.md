@@ -11,11 +11,11 @@ A collection of enhancements, plugins, and prompts for [OpenWebUI](https://githu
 > 🕐 Auto-updated: 2026-02-09 21:37
 
 | 👤 Author | 👥 Followers | ⭐ Points | 🏆 Contributions |
-|:---:|:---:|:---:|:---:|
+| :---: | :---: | :---: | :---: |
 | [Fu-Jie](https://openwebui.com/u/Fu-Jie) | **211** | **261** | **44** |
 
 | 📝 Posts | ⬇️ Downloads | 👁️ Views | 👍 Upvotes | 💾 Saves |
-|:---:|:---:|:---:|:---:|:---:|
+| :---: | :---: | :---: | :---: | :---: |
 | **21** | **3950** | **46015** | **223** | **267** |
 
 ### 🔥 Top 6 Popular Plugins
@@ -23,7 +23,7 @@ A collection of enhancements, plugins, and prompts for [OpenWebUI](https://githu
 > 🕐 Auto-updated: 2026-02-09 21:37
 
 | Rank | Plugin | Version | Downloads | Views | Updated |
-|:---:|------|:---:|:---:|:---:|:---:|
+| :---: | :--- | :---: | :---: | :---: | :---: |
 | 🥇 | [Smart Mind Map](https://openwebui.com/posts/turn_any_text_into_beautiful_mind_maps_3094c59a) | 0.9.2 | 922 | 8126 | 2026-01-28 |
 | 🥈 | [Smart Infographic](https://openwebui.com/posts/smart_infographic_ad6f0c7f) | 1.5.0 | 668 | 6285 | 2026-01-30 |
 | 🥉 | [Export to Word Enhanced](https://openwebui.com/posts/export_to_word_enhanced_formatting_fca6a315) | 0.4.4 | 370 | 2877 | 2026-02-07 |
