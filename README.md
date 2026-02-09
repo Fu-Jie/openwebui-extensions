@@ -3,8 +3,6 @@
 [![All Contributors](https://img.shields.io/badge/all_contributors-5-orange.svg?style=flat-square)](#contributors-)
 <!-- ALL-CONTRIBUTORS-BADGE:END -->
 
-English | [中文](./README_CN.md)
-
 A collection of enhancements, plugins, and prompts for [OpenWebUI](https://github.com/open-webui/open-webui), developed and curated for personal use to extend functionality and improve experience.
 
 <!-- STATS_START -->
@@ -36,20 +34,29 @@ A collection of enhancements, plugins, and prompts for [OpenWebUI](https://githu
 *See full stats in [Community Stats Report](./docs/community-stats.md)*
 <!-- STATS_END -->
 
-## 🌟 Star of the Show / 明星插件
+## 🌟 Star Features
 
-### [GitHub Copilot SDK Pipe](./plugins/pipes/github-copilot-sdk/README.md)
+### 1. [GitHub Copilot SDK Pipe](./plugins/pipes/github-copilot-sdk/README.md)
 
-> **Unlock the full potential of Copilot Agents within OpenWebUI.** / **在 OpenWebUI 中释放 Copilot Agent 的全部潜力。**
+**The ultimate Agent for OpenWebUI.** Supports native code execution (Python/Pandas), raw file analysis, and interactive artifacts.
+> [!TIP]
+> **No GitHub Copilot subscription required!** Supports **BYOK (Bring Your Own Key)** mode using your own OpenAI/Anthropic API keys.
 
-![GitHub Copilot SDK](./plugins/pipes/github-copilot-sdk/github_copilot_sdk.png)
+### 2. [Smart Mind Map](./plugins/actions/smart-mind-map/README.md)
 
-- **🚀 Native Code Execution**: Runs Python/Pandas for real data analysis, not just text generation.
-- **📁 Raw File Access**: Directly reads Excel/PDF/Images without RAG interference (thanks to [Files Filter](./plugins/filters/github_copilot_sdk_files_filter/README.md)).
-- **🧠 Infinite Session**: Automatically manages context for long-running tasks.
-- **📊 Interactive Artifacts**: Generates HTML dashboards, charts, and diagrams instantly.
+**Experience interactive thinking.** Seamlessly transforms complex chat sessions into structured, clickable mind maps for better visual modeling and rapid idea extraction.
 
-[:octicons-arrow-right-24: Learn More](./plugins/pipes/github-copilot-sdk/README.md)
+### 3. [Smart Infographic](./plugins/actions/infographic/README.md)
+
+**Professional data storytelling.** Converts raw information into sleek, boardroom-ready infographics powered by AntV, perfect for summarizing long-form content instantly.
+
+### 4. [Export to Word Enhanced](./plugins/actions/export_to_docx/README.md)
+
+**High-fidelity reporting.** Export conversation history into professionally formatted Word documents with preserved headers, code blocks, and math formulas.
+
+### 5. [Async Context Compression](./plugins/filters/async-context-compression/README.md)
+
+**Maximize your context window.** Intelligently compresses chat history using LLM logic to save tokens and costs while maintaining a high-quality reasoning chain.
 
 ## 📦 Project Contents
 
