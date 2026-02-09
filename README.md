@@ -36,25 +36,25 @@ A collection of enhancements, plugins, and prompts for [OpenWebUI](https://githu
 
 ## 🌟 Star Features
 
-### 1. [GitHub Copilot SDK Pipe](./plugins/pipes/github-copilot-sdk/README.md) [![Get it now](https://img.shields.io/badge/Get%20it%20now-OpenWebUI%20Community-blue?style=flat-square&logo=openwebui)](https://openwebui.com/posts/github_copilot_official_sdk_pipe_ce96f7b4)
+### 1. [GitHub Copilot SDK Pipe](./plugins/pipes/github-copilot-sdk/README.md) [![Market](https://img.shields.io/badge/Get-Market-blue?style=flat-square&logo=openwebui)](https://openwebui.com/posts/github_copilot_official_sdk_pipe_ce96f7b4)
 
 **The ultimate Agent for OpenWebUI.** Supports native code execution (Python/Pandas), raw file analysis, and interactive artifacts.
 > [!TIP]
 > **No GitHub Copilot subscription required!** Supports **BYOK (Bring Your Own Key)** mode using your own OpenAI/Anthropic API keys.
 
-### 2. [Smart Mind Map](./plugins/actions/smart-mind-map/README.md) [![Get it now](https://img.shields.io/badge/Get%20it%20now-OpenWebUI%20Community-blue?style=flat-square&logo=openwebui)](https://openwebui.com/posts/turn_any_text_into_beautiful_mind_maps_3094c59a)
+### 2. [Smart Mind Map](./plugins/actions/smart-mind-map/README.md) [![Market](https://img.shields.io/badge/Get-Market-blue?style=flat-square&logo=openwebui)](https://openwebui.com/posts/turn_any_text_into_beautiful_mind_maps_3094c59a)
 
 **Experience interactive thinking.** Seamlessly transforms complex chat sessions into structured, clickable mind maps for better visual modeling and rapid idea extraction.
 
-### 3. [Smart Infographic](./plugins/actions/infographic/README.md) [![Get it now](https://img.shields.io/badge/Get%20it%20now-OpenWebUI%20Community-blue?style=flat-square&logo=openwebui)](https://openwebui.com/posts/smart_infographic_ad6f0c7f)
+### 3. [Smart Infographic](./plugins/actions/infographic/README.md) [![Market](https://img.shields.io/badge/Get-Market-blue?style=flat-square&logo=openwebui)](https://openwebui.com/posts/smart_infographic_ad6f0c7f)
 
 **Professional data storytelling.** Converts raw information into sleek, boardroom-ready infographics powered by AntV, perfect for summarizing long-form content instantly.
 
-### 4. [Export to Word Enhanced](./plugins/actions/export_to_docx/README.md) [![Get it now](https://img.shields.io/badge/Get%20it%20now-OpenWebUI%20Community-blue?style=flat-square&logo=openwebui)](https://openwebui.com/posts/export_to_word_enhanced_formatting_fca6a315)
+### 4. [Export to Word Enhanced](./plugins/actions/export_to_docx/README.md) [![Market](https://img.shields.io/badge/Get-Market-blue?style=flat-square&logo=openwebui)](https://openwebui.com/posts/export_to_word_enhanced_formatting_fca6a315)
 
 **High-fidelity reporting.** Export conversation history into professionally formatted Word documents with preserved headers, code blocks, and math formulas.
 
-### 5. [Async Context Compression](./plugins/filters/async-context-compression/README.md) [![Get it now](https://img.shields.io/badge/Get%20it%20now-OpenWebUI%20Community-blue?style=flat-square&logo=openwebui)](https://openwebui.com/posts/async_context_compression_b1655bc8)
+### 5. [Async Context Compression](./plugins/filters/async-context-compression/README.md) [![Market](https://img.shields.io/badge/Get-Market-blue?style=flat-square&logo=openwebui)](https://openwebui.com/posts/async_context_compression_b1655bc8)
 
 **Maximize your context window.** Intelligently compresses chat history using LLM logic to save tokens and costs while maintaining a high-quality reasoning chain.
 
