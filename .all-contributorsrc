@@ -46,6 +46,16 @@
         "ideas"
       ]
     }
+    ,
+    {
+      "login": "abaroni",
+      "name": "Alessandro Baroni",
+      "avatar_url": "https://avatars.githubusercontent.com/u/21365486?v=4",
+      "profile": "https://github.com/abaroni",
+      "contributions": [
+        "ideas"
+      ]
+    }
   ],
   "contributorsPerLine": 7,
   "skipCi": true,
