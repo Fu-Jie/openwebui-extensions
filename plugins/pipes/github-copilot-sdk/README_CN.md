@@ -1,6 +1,6 @@
 # GitHub Copilot SDK 官方管道
 
-**作者:** [Fu-Jie](https://github.com/Fu-Jie/awesome-openwebui) | **版本:** 0.6.0 | **项目:** [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui) | **许可证:** MIT
+**作者:** [Fu-Jie](https://github.com/Fu-Jie/awesome-openwebui) | **版本:** 0.6.1 | **项目:** [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui) | **许可证:** MIT
 
 这是一个用于 [OpenWebUI](https://github.com/open-webui/open-webui) 的高级 Pipe 函数，深度集成了 **GitHub Copilot SDK**。它不仅支持 **GitHub Copilot 官方模型**（如 `gpt-5.2-codex`, `claude-sonnet-4.5`, `gemini-3-pro`, `gpt-5-mini`），还支持 **BYOK (自带 Key)** 模式对接自定义服务商（OpenAI, Anthropic），并具备**严格的用户与会话级工作区隔离**能力，提供统一且安全的 Agent 交互体验。
 
@@ -14,7 +14,7 @@
 
 ---
 
-## ✨ 0.6.0 更新内容 (What's New)
+## ✨ 0.6.1 更新内容 (What's New)
 
 - **👥 多用户与会话管理**: 采用 `user_id/chat_id` 的物理隔离架构，确保资源独立与稳健管理。
 - **🤖 赋予 Agent 文件自主权**: 自动将上传的文件同步至物理工作区，支持 Python 直接分析 Excel/CSV。

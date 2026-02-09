@@ -1,6 +1,6 @@
 # GitHub Copilot SDK Pipe for OpenWebUI
 
-**Author:** [Fu-Jie](https://github.com/Fu-Jie/awesome-openwebui) | **Version:** 0.6.0 | **Project:** [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui) | **License:** MIT
+**Author:** [Fu-Jie](https://github.com/Fu-Jie/awesome-openwebui) | **Version:** 0.6.1 | **Project:** [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui) | **License:** MIT
 
 This is an advanced Pipe function for [OpenWebUI](https://github.com/open-webui/open-webui) that integrates the official [GitHub Copilot SDK](https://github.com/github/copilot-sdk). It enables you to use **GitHub Copilot models** (e.g., `gpt-5.2-codex`, `claude-sonnet-4.5`,`gemini-3-pro`, `gpt-5-mini`) **AND** your own models via **BYOK** (OpenAI, Anthropic) directly within OpenWebUI, providing a unified agentic experience with **strict User & Chat-level Workspace Isolation**.
 
@@ -14,7 +14,7 @@ This is an advanced Pipe function for [OpenWebUI](https://github.com/open-webui/
 
 ---
 
-## ✨ v0.6.0 Updates (What's New)
+## ✨ v0.6.1 Updates (What's New)
 
 - **👥 User & Chat Management**: Physical management architecture (`user_id/chat_id`) for absolute resource independence.
 - **🤖 Empowering Agent Autonomy**: Automatic synchronization of raw files to the workspace, enabling direct Python-based analysis of Excel/CSV.
