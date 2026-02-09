@@ -36,6 +36,21 @@ A collection of enhancements, plugins, and prompts for [OpenWebUI](https://githu
 *See full stats in [Community Stats Report](./docs/community-stats.md)*
 <!-- STATS_END -->
 
+## 🌟 Star of the Show / 明星插件
+
+### [GitHub Copilot SDK Pipe](./plugins/pipes/github-copilot-sdk/README.md)
+
+> **Unlock the full potential of Copilot Agents within OpenWebUI.** / **在 OpenWebUI 中释放 Copilot Agent 的全部潜力。**
+
+![GitHub Copilot SDK](./plugins/pipes/github-copilot-sdk/github_copilot_sdk.png)
+
+- **🚀 Native Code Execution**: Runs Python/Pandas for real data analysis, not just text generation.
+- **📁 Raw File Access**: Directly reads Excel/PDF/Images without RAG interference (thanks to [Files Filter](./plugins/filters/github_copilot_sdk_files_filter/README.md)).
+- **🧠 Infinite Session**: Automatically manages context for long-running tasks.
+- **📊 Interactive Artifacts**: Generates HTML dashboards, charts, and diagrams instantly.
+
+[:octicons-arrow-right-24: Learn More](./plugins/pipes/github-copilot-sdk/README.md)
+
 ## 📦 Project Contents
 
 ### 🧩 Plugins
