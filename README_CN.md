@@ -33,13 +33,39 @@ OpenWebUI 增强功能集合。包含个人开发与收集的插件、提示词�
 *完整统计请查看 [社区统计报告](./docs/community-stats.zh.md)*
 <!-- STATS_END -->
 
+## 🌟 精选功能
+
+### 1. [GitHub Copilot SDK Pipe](https://openwebui.com/posts/github_copilot_official_sdk_pipe_ce96f7b4) [![Market](https://img.shields.io/badge/Get-Market-blue?style=flat-square&logo=openwebui)](https://openwebui.com/posts/github_copilot_official_sdk_pipe_ce96f7b4)
+
+**OpenWebUI 终极 Agent 增强。** 支持原生代码执行（Python/Pandas）、原始文件直接分析以及交互式 Artifacts。
+> [!TIP]
+> **无需 GitHub Copilot 订阅！** 支持 **BYOK (Bring Your Own Key)** 模式，使用你自己的 OpenAI/Anthropic API Key。
+
+### 2. [Smart Mind Map](https://openwebui.com/posts/turn_any_text_into_beautiful_mind_maps_3094c59a) [![Market](https://img.shields.io/badge/Get-Market-blue?style=flat-square&logo=openwebui)](https://openwebui.com/posts/turn_any_text_into_beautiful_mind_maps_3094c59a)
+
+**体验浸入式思维。** 将复杂的对话瞬间转化为结构化、可点击的交互式思维导图，助力知识建模与逻辑提取。
+
+### 3. [Smart Infographic](https://openwebui.com/posts/smart_infographic_ad6f0c7f) [![Market](https://img.shields.io/badge/Get-Market-blue?style=flat-square&logo=openwebui)](https://openwebui.com/posts/smart_infographic_ad6f0c7f)
+
+**专业数据叙事。** 将零散信息转化为精美的信息图表（由 AntV 驱动），一键生成学术/汇报级的可视化总结。
+
+### 4. [Export to Word Enhanced](https://openwebui.com/posts/export_to_word_enhanced_formatting_fca6a315) [![Market](https://img.shields.io/badge/Get-Market-blue?style=flat-square&logo=openwebui)](https://openwebui.com/posts/export_to_word_enhanced_formatting_fca6a315)
+
+**高保真文档导出。** 将对话历史导出为格式完美的 Word 文档，完美保留标题、代码块、LaTeX 公式及 Mermaid 流程图。
+
+### 5. [Async Context Compression](https://openwebui.com/posts/async_context_compression_b1655bc8) [![Market](https://img.shields.io/badge/Get-Market-blue?style=flat-square&logo=openwebui)](https://openwebui.com/posts/async_context_compression_b1655bc8)
+
+**挑战 Token 極限。** 采用多专家异步压缩逻辑，在保持高吞吐量推理链的同时，大幅降低 Token 消耗。
+
 ## 📦 项目内容
 
-### 🧩 插件 (Plugins)
+<!-- markdownlint-disable MD033 -->
+<details>
+<summary><b>🧩 插件 (Actions, Filters, Pipes, Pipelines)</b></summary>
 
 位于 `plugins/` 目录，包含各类 Python 编写的功能增强插件：
 
-#### Actions (交互增强)
+### Actions (交互增强)
 
 - **Smart Mind Map** (`smart-mind-map`): 智能分析文本并生成交互式思维导图。
 - **Smart Infographic** (`infographic`): 基于 AntV 的智能信息图生成工具。
@@ -48,33 +74,36 @@ OpenWebUI 增强功能集合。包含个人开发与收集的插件、提示词�
 - **Export to Excel** (`export_to_excel`): 将对话内容导出为 Excel 文件。
 - **Export to Word** (`export_to_docx`): 将对话内容导出为 Word 文档。
 
-#### Filters (消息处理)
+### Filters (消息处理)
 
+- **GitHub Copilot SDK Files Filter** (`github_copilot_sdk_files_filter`): Copilot SDK 必备搭档。绕过 RAG，确保 Agent 能真正看到你的每一个文件。
+- **Web Gemini Multimodal Filter** (`web_gemini_multimodel_filter`): 为任意模型提供多模态能力（PDF、Office、视频等），支持智能路由。
 - **Async Context Compression** (`async-context-compression`): 异步上下文压缩，优化 Token 使用。
 - **Context Enhancement** (`context_enhancement_filter`): 上下文增强过滤器。
 - **Folder Memory** (`folder-memory`): 自动从对话中提取项目规则并注入到文件夹系统提示词中。
-- **Gemini Manifold Companion** (`gemini_manifold_companion`): Gemini Manifold 配套增强。
-- **Gemini Multimodal Filter** (`web_gemini_multimodel_filter`): 为任意模型提供多模态能力（PDF、Office、视频等），支持智能路由和字幕精修。
 - **Markdown Normalizer** (`markdown_normalizer`): 修复 LLM 输出中常见的 Markdown 格式问题。
-- **Multi-Model Context Merger** (`multi_model_context_merger`): 自动合并并注入多模型回答的上下文。
 
-#### Pipes (模型管道)
+### Pipes (模型管道)
 
 - **GitHub Copilot SDK** (`github-copilot-sdk`): GitHub Copilot SDK 官方集成。支持动态模型、多轮对话、流式输出、图片输入及无限会话。
-- **Gemini Manifold** (`gemini_mainfold`): 集成 Gemini 模型的管道。
 
-#### Pipelines (工作流管道)
+### Pipelines (工作流管道)
 
 - **MoE Prompt Refiner** (`moe_prompt_refiner`): 优化多模型 (MoE) 汇总请求的提示词，生成高质量的综合报告。
 
-### 🎯 提示词 (Prompts)
+</details>
+<!-- markdownlint-enable MD033 -->
 
-位于 `prompts/` 目录，包含精心调优的 System Prompts：
+<!-- markdownlint-disable MD033 -->
+<details>
+<summary><b>🎯 提示词 (Prompts - 多角色系统提示词)</b></summary>
 
-- **Coding**: 编程辅助类提示词。
-- **Marketing**: 营销文案类提示词。
+位于 `docs/prompts/` 目录，包含精心调优的提示词集合：
 
-每个提示词都独立保存为 Markdown 文件，可直接在 OpenWebUI 中使用。
+- **[Prompt Library](./docs/prompts/library.md)**: 编程、翻译、分析及营销等全领域提示词精选。
+
+</details>
+<!-- markdownlint-enable MD033 -->
 
 ## 🛠️ 扩展 (Extensions)
 
@@ -84,6 +113,10 @@ Open WebUI 的前端增强扩展：
 
 ## 📖 开发文档
 
+<!-- markdownlint-disable MD033 -->
+<details>
+<summary><b>📚 官方开发与运营指南</b></summary>
+
 位于 `docs/zh/` 目录：
 
 - **[插件开发权威指南](./docs/zh/plugin_development_guide.md)** - 整合了入门教程、核心 SDK 详解及最佳实践的系统化指南。 ⭐
@@ -91,36 +124,11 @@ Open WebUI 的前端增强扩展：
 
 更多示例请查看 `docs/examples/` 目录。
 
+</details>
+<!-- markdownlint-enable MD033 -->
+
 ## 🚀 快速开始
 
 本项目是一个资源集合，无需安装 Python 环境。你只需要下载对应的文件并导入到你的 OpenWebUI 实例中即可。
-
-### 使用提示词 (Prompts)
-
-1. 在 `/prompts` 目录中浏览并选择你感兴趣的提示词文件 (`.md`)。
-2. 复制文件内容。
-3. 在 OpenWebUI 聊天界面中，点击输入框上方的 "Prompt" 按钮。
-4. 粘贴内容并保存。
-
-### 使用插件 (Plugins)
-
-1. **从 OpenWebUI 社区安装 (推荐)**:
-   - 访问我的主页: [Fu-Jie's Profile](https://openwebui.com/u/Fu-Jie)
-   - 浏览插件列表，选择你喜欢的插件。
-   - 点击 "Get" 按钮，将其直接导入到你的 OpenWebUI 实例中。
-
-2. **手动安装**:
-   - 在 `/plugins` 目录中浏览并下载你需要的插件文件 (`.py`)。
-   - 打开 OpenWebUI 的 **管理员面板 (Admin Panel)** -> **设置 (Settings)** -> **插件 (Plugins)**。
-   - 点击上传按钮，选择刚才下载的 `.py` 文件。
-   - 上传成功后，刷新页面，你就可以在聊天设置或工具栏中启用该插件了。
-
-### 贡献代码
-
-如果你有优质的提示词或插件想要分享：
-
-1. Fork 本仓库。
-2. 将你的文件添加到对应的 `prompts/` 或 `plugins/` 目录。
-3. 提交 Pull Request。
 
 [贡献指南](./CONTRIBUTING_CN.md) | [更新日志](./CHANGELOG.md)
