@@ -3460,3 +3460,4 @@ class Pipe:
                 await client.stop()
             except Exception as e:
                 pass
+# Triggering release after CI fix
