@@ -60,6 +60,7 @@ A collection of enhancements, plugins, and prompts for [OpenWebUI](https://githu
 
 ## 📦 Project Contents
 
+<!-- markdownlint-disable MD033 -->
 <details>
 <summary>**🧩 Plugins (Actions, Filters, Pipes, Pipelines)**</summary>
 
@@ -92,7 +93,9 @@ Located in the `plugins/` directory, containing Python-based enhancements:
 - **MoE Prompt Refiner** (`moe_prompt_refiner`): Refines prompts for Mixture of Experts (MoE) summary requests to generate high-quality comprehensive reports.
 
 </details>
+<!-- markdownlint-enable MD033 -->
 
+<!-- markdownlint-disable MD033 -->
 <details>
 <summary>**🎯 Prompts (System Prompts for various roles)**</summary>
 
@@ -101,6 +104,7 @@ System Prompts are managed in the `docs/prompts/` directory:
 - **[Prompt Library](./docs/prompts/library.md)**: A curated collection of fine-tuned prompts for Coding, Marketing, and Analysis.
 
 </details>
+<!-- markdownlint-enable MD033 -->
 
 ## 🛠️ Extensions
 
