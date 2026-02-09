@@ -62,7 +62,7 @@ A collection of enhancements, plugins, and prompts for [OpenWebUI](https://githu
 
 <!-- markdownlint-disable MD033 -->
 <details>
-<summary>**🧩 Plugins (Actions, Filters, Pipes, Pipelines)**</summary>
+<summary><b>🧩 Plugins (Actions, Filters, Pipes, Pipelines)</b></summary>
 
 Located in the `plugins/` directory, containing Python-based enhancements:
 
@@ -97,7 +97,7 @@ Located in the `plugins/` directory, containing Python-based enhancements:
 
 <!-- markdownlint-disable MD033 -->
 <details>
-<summary>**🎯 Prompts (System Prompts for various roles)**</summary>
+<summary><b>🎯 Prompts (System Prompts for various roles)</b></summary>
 
 System Prompts are managed in the `docs/prompts/` directory:
 
