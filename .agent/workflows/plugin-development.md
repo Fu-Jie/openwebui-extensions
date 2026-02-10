@@ -46,10 +46,10 @@ When adding or updating a plugin, you **MUST** update the following documentatio
 ### Plugin Directory
 
 - `README.md`: Update version, description, and usage.
-  - **Key Capabilities**: **MUST** include ALL core functionalities and features. Do not only list new features in "What's New".
+  - **Key Capabilities**: **MUST** include ALL core functionalities and features. This is a cumulative section. Every release **MUST** verify that basic core descriptions are NOT lost or overwritten by new feature lists.
   - **What's New**: Explicitly describe only the latest changes/updates in a prominent position at the beginning. This section is dynamic and changes with versions.
 - `README_CN.md`: Update version, description, and usage.
-  - **核心功能 (Key Capabilities)**: **必须**包含所有核心功能和特性，不能只在 "What's New" 中列出。
+  - **核心功能 (Key Capabilities)**: **必须**包含所有核心功能和特性。这是一个累积性的部分，每次版本更新**必须**确认基础核心功能的描述没有丢失或被新功能列表覆盖。
   - **最新更新 (What's New)**: 在开头显眼位置明确描述最新的更改/更新。此部分是动态的，随版本变化。
 
 ### Global Documentation (`docs/`)
@@ -119,7 +119,7 @@ When the user confirms a release, the agent **MUST** follow these content standa
 2. **Release Summary (for user review)**:
    - Before committing, present a "Release Draft" containing:
      - **Title**: e.g., `Release v0.1.1: [Plugin Name] - [Brief Summary]`
-     - **Changes**: Bilingual bullet points (English/Chinese) describing the impact.
+     - **Changelog**: English-only list of commits since the last release, including hashes (e.g., `896de02 docs(config): reorder antigravity model alias example`).
      - **Verification Status**: Confirm all 8+ files have been updated and synced.
 3. **Internal Documentation**: Ensure "What's New" sections in READMEs and `docs/` match exactly the changes being released.
 
@@ -137,6 +137,7 @@ Before committing:
 - [ ] Code is bilingual and functional?
 - [ ] Docstrings have updated version?
 - [ ] READMEs are updated and bilingual?
+- [ ] **Key Capabilities** in READMEs still cover all legacy core features + new features?
 - [ ] `docs/` index and detail pages are updated?
 - [ ] Root `README.md` is updated?
 - [ ] All version numbers match exactly?

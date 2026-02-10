@@ -15,7 +15,7 @@ Pipes allow you to:
 
 ## Available Pipe Plugins
 
-- [GitHub Copilot SDK](github-copilot-sdk.md) (v0.6.2) - Official GitHub Copilot SDK integration. Features **Workspace Isolation**, **Database Persistence**, **Zero-config OpenWebUI Tool Bridge**, **BYOK** support, and **dynamic MCP discovery**. Supports streaming, multimodal, and infinite sessions.
+- [GitHub Copilot SDK](github-copilot-sdk.md) (v0.6.2) - Official GitHub Copilot SDK integration. Features **Workspace Isolation**, **Database Persistence**, **Zero-config OpenWebUI Tool Bridge**, **BYOK** support, and **dynamic MCP discovery**. Supports streaming, multimodal, and infinite sessions. [View Deep Dive](github-copilot-sdk-deep-dive.md) | [**View Advanced Tutorial**](github-copilot-sdk-tutorial.md).
 
 ---
 
