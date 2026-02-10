@@ -8,28 +8,28 @@ A collection of enhancements, plugins, and prompts for [OpenWebUI](https://githu
 <!-- STATS_START -->
 ## 📊 Community Stats
 
-> 🕐 Auto-updated: 2026-02-11 04:19
+> 🕐 Auto-updated: 2026-02-11 05:20
 
 | 👤 Author | 👥 Followers | ⭐ Points | 🏆 Contributions |
 | :---: | :---: | :---: | :---: |
-| [Fu-Jie](https://openwebui.com/u/Fu-Jie) | **219** | **268** | **47** |
+| [Fu-Jie](https://openwebui.com/u/Fu-Jie) | **220** | **269** | **47** |
 
 | 📝 Posts | ⬇️ Downloads | 👁️ Views | 👍 Upvotes | 💾 Saves |
 | :---: | :---: | :---: | :---: | :---: |
-| **22** | **4115** | **48613** | **228** | **272** |
+| **22** | **4124** | **48717** | **229** | **273** |
 
 ### 🔥 Top 6 Popular Plugins
 
-> 🕐 Auto-updated: 2026-02-11 04:19
+> 🕐 Auto-updated: 2026-02-11 05:20
 
 | Rank | Plugin | Version | Downloads | Views | Updated |
 | :---: | :--- | :---: | :---: | :---: | :---: |
-| 🥇 | [Smart Mind Map](https://openwebui.com/posts/turn_any_text_into_beautiful_mind_maps_3094c59a) | 0.9.2 | 949 | 8345 | 2026-01-28 |
-| 🥈 | [Smart Infographic](https://openwebui.com/posts/smart_infographic_ad6f0c7f) | 1.5.0 | 694 | 6601 | 2026-01-30 |
-| 🥉 | [Export to Word Enhanced](https://openwebui.com/posts/export_to_word_enhanced_formatting_fca6a315) | 0.4.4 | 380 | 3003 | 2026-02-07 |
-| 4️⃣ | [Async Context Compression](https://openwebui.com/posts/async_context_compression_b1655bc8) | 1.2.2 | 362 | 3724 | 2026-01-28 |
-| 5️⃣ | [Export to Excel](https://openwebui.com/posts/export_mulit_table_to_excel_244b8f9d) | 0.3.7 | 341 | 1660 | 2026-02-09 |
-| 6️⃣ | [Markdown Normalizer](https://openwebui.com/posts/markdown_normalizer_baaa8732) | 1.2.4 | 336 | 4671 | 2026-01-29 |
+| 🥇 | [Smart Mind Map](https://openwebui.com/posts/turn_any_text_into_beautiful_mind_maps_3094c59a) | 0.9.2 | 950 | 8353 | 2026-01-28 |
+| 🥈 | [Smart Infographic](https://openwebui.com/posts/smart_infographic_ad6f0c7f) | 1.5.0 | 696 | 6619 | 2026-01-30 |
+| 🥉 | [Export to Word Enhanced](https://openwebui.com/posts/export_to_word_enhanced_formatting_fca6a315) | 0.4.4 | 381 | 3006 | 2026-02-07 |
+| 4️⃣ | [Async Context Compression](https://openwebui.com/posts/async_context_compression_b1655bc8) | 1.2.2 | 362 | 3731 | 2026-01-28 |
+| 5️⃣ | [Export to Excel](https://openwebui.com/posts/export_mulit_table_to_excel_244b8f9d) | 0.3.7 | 341 | 1661 | 2026-02-09 |
+| 6️⃣ | [Markdown Normalizer](https://openwebui.com/posts/markdown_normalizer_baaa8732) | 1.2.4 | 337 | 4678 | 2026-01-29 |
 
 *See full stats in [Community Stats Report](./docs/community-stats.md)*
 <!-- STATS_END -->
