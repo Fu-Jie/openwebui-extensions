@@ -42,6 +42,10 @@ A collection of enhancements, plugins, and prompts for [OpenWebUI](https://githu
 > [!TIP]
 > **No GitHub Copilot subscription required!** Supports **BYOK (Bring Your Own Key)** mode using your own OpenAI/Anthropic API keys.
 
+#### 🌟 Featured Real-World Cases:
+- **[GitHub Star Forecasting](./docs/plugins/pipes/star-prediction-example.md)**: Automatically parsing CSV data, writing analysis scripts, and generating interactive growth dashboards.
+- **[Video Optimization](./docs/plugins/pipes/video-processing-example.md)**: Direct control of system-level tools (FFmpeg) to accelerate and compress media with professional color optimization.
+
 ### 2. [Smart Mind Map](https://openwebui.com/posts/turn_any_text_into_beautiful_mind_maps_3094c59a) [![Market](https://img.shields.io/badge/Get-Market-blue?style=flat-square&logo=openwebui)](https://openwebui.com/posts/turn_any_text_into_beautiful_mind_maps_3094c59a)
 
 **Experience interactive thinking.** Seamlessly transforms complex chat sessions into structured, clickable mind maps for better visual modeling and rapid idea extraction.

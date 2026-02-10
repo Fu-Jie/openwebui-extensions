@@ -41,6 +41,10 @@ OpenWebUI 增强功能集合。包含个人开发与收集的插件、提示词�
 > [!TIP]
 > **无需 GitHub Copilot 订阅！** 支持 **BYOK (Bring Your Own Key)** 模式，使用你自己的 OpenAI/Anthropic API Key。
 
+#### 🌟 核心实战案例：
+- **[GitHub Star 增长预测](./docs/plugins/pipes/star-prediction-example.zh.md)**：自动解析 CSV 数据，编写 Python 分析脚本并生成动态增长看板。
+- **[视频高质量转换与压缩](./docs/plugins/pipes/video-processing-example.zh.md)**：直接调用系统级 FFmpeg 工具，实现录屏的加速、缩放及双阶段色彩优化。
+
 ### 2. [Smart Mind Map](https://openwebui.com/posts/turn_any_text_into_beautiful_mind_maps_3094c59a) [![Market](https://img.shields.io/badge/Get-Market-blue?style=flat-square&logo=openwebui)](https://openwebui.com/posts/turn_any_text_into_beautiful_mind_maps_3094c59a)
 
 **体验浸入式思维。** 将复杂的对话瞬间转化为结构化、可点击的交互式思维导图，助力知识建模与逻辑提取。
