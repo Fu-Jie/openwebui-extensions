@@ -4,7 +4,7 @@ author: Fu-Jie
 author_url: https://github.com/Fu-Jie/awesome-openwebui
 funding_url: https://github.com/open-webui
 description: 集成 GitHub Copilot SDK。支持动态模型、多选提供商、流式输出、多模态 input、无限会话及前端调试日志。
-version: 0.6.1
+version: 0.6.2
 requirements: github-copilot-sdk==0.1.23
 """
 
@@ -35,6 +35,11 @@ from open_webui.config import (
 from open_webui.utils.tools import get_tools as get_openwebui_tools, get_builtin_tools
 from open_webui.models.tools import Tools
 from open_webui.models.users import Users
+from open_webui.models.files import Files, FileForm
+from open_webui.config import UPLOAD_DIR, DATA_DIR
+import mimetypes
+import uuid
+import shutil
 
 # Setup logger
 logger = logging.getLogger(__name__)
@@ -58,6 +63,10 @@ FORMATTING_GUIDELINES = (
     "1. **Markdown & 多媒体**：自由使用粗体、斜体、表格和列表。\n"
     "2. **Mermaid 图表**：请务必使用标准的 ```mermaid 代码块。\n"
     "3. **交互式 HTML/JS**：你可以输出完整的 ```html 代码块（含 CSS/JS），将在 iframe 中渲染。\n"
+    "4. **文件交付与发布 (关键规范)**：\n"
+    "     - **隐式请求**：若用户要求“发布这个”、“导出刚才的内容”或“给我一个链接”，你必须：1. 将内容写入当前目录 (`.`) 下的 `.md` (或其他合适) 文件。2. 调用 `publish_file_from_workspace(filename='name.md')` 获取链接。\n"
+    "     - **标准流程**：1. **本地写入**：使用 Python 在**当前目录 (`.`)** 创建文件。这是你的唯一工作区。**严禁**使用 `/tmp` 等绝对路径。2. **显式发布**：调用 `publish_file_from_workspace(filename='your_file.ext')`。该工具会自动同步至 S3 并绕过 RAG。3. **呈现链接**：从工具返回的 JSON 中提取 `download_url`，并以 Markdown 链接 `[点击下载描述](url)` 展示。\n"
+    "     - **规则**：只有当前目录 (`.`) 下的文件可以发布。调用时必须传入 `filename` 参数，严禁空调用。\n"
     "7. **主动与自主**: 你是专家工程师。对于显而易见的步骤，**不要**请求许可。**不要**停下来问“我通过吗？”或“是否继续？”。\n"
     "   - **行为模式**: 分析用户请求 -> 制定计划 -> **立即执行**计划。\n"
     "   - **澄清**: 仅当请求模棱两可或具有高风险（例如破坏性操作）时才提出问题。\n"
@@ -230,6 +239,7 @@ class Pipe:
         )
 
     _model_cache: List[dict] = []
+    _last_byok_config_hash: str = ""  # 跟踪配置状态以失效缓存
     _standard_model_ids: set = set()
     _tool_cache = None
     _mcp_server_cache = None
@@ -256,13 +266,24 @@ class Pipe:
         __user__=None,
         __event_emitter__=None,
         __event_call__=None,
+        __request__=None,
     ) -> Union[str, AsyncGenerator]:
         return await self._pipe_impl(
-            body, __metadata__, __user__, __event_emitter__, __event_call__
+            body,
+            __metadata__=__metadata__,
+            __user__=__user__,
+            __event_emitter__=__event_emitter__,
+            __event_call__=__event_call__,
+            __request__=__request__,
         )
 
     async def _initialize_custom_tools(
-        self, __user__=None, __event_call__=None, body: dict = None
+        self,
+        body: dict = None,
+        __user__=None,
+        __event_call__=None,
+        __request__=None,
+        __metadata__=None,
     ):
         """基于配置初始化自定义工具"""
         # 1. 确定有效设置 (用户覆盖 > 全局)
@@ -275,13 +296,22 @@ class Pipe:
         if not enable_tools and not enable_openapi:
             return []
 
+        # 提取 Chat ID 以对齐工作空间
+        chat_ctx = self._get_chat_context(body, __metadata__)
+        chat_id = chat_ctx.get("chat_id")
+
         # 3. 检查缓存
         if enable_cache and self._tool_cache is not None:
             await self._emit_debug_log("ℹ️ 使用缓存的 OpenWebUI 工具。", __event_call__)
-            return self._tool_cache
+            tools = list(self._tool_cache)
+            # 注入文件发布工具
+            file_tool = self._get_publish_file_tool(__user__, chat_id, __request__)
+            if file_tool:
+                tools.append(file_tool)
+            return tools
 
         # 动态加载 OpenWebUI 工具
-        tools = await self._load_openwebui_tools(
+        openwebui_tools = await self._load_openwebui_tools(
             __user__=__user__,
             __event_call__=__event_call__,
             body=body,
@@ -291,12 +321,194 @@ class Pipe:
 
         # 更新缓存
         if enable_cache:
-            self._tool_cache = tools
+            self._tool_cache = openwebui_tools
             await self._emit_debug_log(
                 "✅ OpenWebUI 工具已缓存，供后续请求使用。", __event_call__
             )
 
-        return tools
+        final_tools = list(openwebui_tools)
+        # 注入文件发布工具
+        file_tool = self._get_publish_file_tool(__user__, chat_id, __request__)
+        if file_tool:
+            final_tools.append(file_tool)
+
+        return final_tools
+
+    def _get_publish_file_tool(self, __user__, chat_id, __request__=None):
+        """创建发布工作区文件为下载链接的工具"""
+        if isinstance(__user__, (list, tuple)):
+            user_data = __user__[0] if __user__ else {}
+        elif isinstance(__user__, dict):
+            user_data = __user__
+        else:
+            user_data = {}
+
+        user_id = user_data.get("id") or user_data.get("user_id")
+        if not user_id:
+            return None
+
+        # 锁定当前聊天的隔离工作空间
+        workspace_dir = Path(self._get_workspace_dir(user_id=user_id, chat_id=chat_id))
+
+        # 为 SDK 定义参数 Schema
+        class PublishFileParams(BaseModel):
+            filename: str = Field(
+                ...,
+                description="你在当前目录创建的文件的确切名称（如 'report.csv'）。必填。",
+            )
+
+        async def publish_file_from_workspace(filename: Any) -> dict:
+            """将本地聊天工作区的文件发布为可下载的 URL。"""
+            try:
+                # 1. 参数鲁棒提取
+                if hasattr(filename, "model_dump"):  # Pydantic v2
+                    filename = filename.model_dump().get("filename")
+                elif hasattr(filename, "dict"):  # Pydantic v1
+                    filename = filename.dict().get("filename")
+
+                if isinstance(filename, dict):
+                    filename = (
+                        filename.get("filename")
+                        or filename.get("file")
+                        or filename.get("file_path")
+                    )
+
+                if isinstance(filename, str):
+                    filename = filename.strip()
+                    if filename.startswith("{"):
+                        try:
+                            import json
+
+                            data = json.loads(filename)
+                            if isinstance(data, dict):
+                                filename = (
+                                    data.get("filename") or data.get("file") or filename
+                                )
+                        except:
+                            pass
+
+                if (
+                    not filename
+                    or not isinstance(filename, str)
+                    or filename.strip() in ("", "{}", "None", "null")
+                ):
+                    return {
+                        "error": "缺少必填参数: 'filename'。",
+                        "hint": "请以字符串形式提供文件名，例如 'report.md'。",
+                    }
+
+                filename = filename.strip()
+
+                # 2. 路径解析（锁定当前聊天工作区）
+                target_path = workspace_dir / filename
+                try:
+                    target_path = target_path.resolve()
+                    if not str(target_path).startswith(str(workspace_dir.resolve())):
+                        return {"error": "拒绝访问：文件必须位于当前聊天工作区内。"}
+                except Exception as e:
+                    return {"error": f"路径校验失败: {e}"}
+
+                if not target_path.exists() or not target_path.is_file():
+                    return {
+                        "error": f"在聊天工作区未找到文件 '{filename}'。请确保你已将其保存到当前目录 (.)。"
+                    }
+
+                # 3. 通过 API 上传 (兼容 S3)
+                api_success = False
+                file_id = None
+                safe_filename = filename
+
+                token = None
+                if __request__:
+                    auth_header = __request__.headers.get("Authorization")
+                    if auth_header and auth_header.startswith("Bearer "):
+                        token = auth_header.split(" ")[1]
+                    if not token and "token" in __request__.cookies:
+                        token = __request__.cookies.get("token")
+
+                if token:
+                    try:
+                        import aiohttp
+
+                        base_url = str(__request__.base_url).rstrip("/")
+                        upload_url = f"{base_url}/api/v1/files/"
+
+                        async with aiohttp.ClientSession() as session:
+                            with open(target_path, "rb") as f:
+                                data = aiohttp.FormData()
+                                data.add_field("file", f, filename=target_path.name)
+                                import json
+
+                                data.add_field(
+                                    "metadata",
+                                    json.dumps(
+                                        {
+                                            "source": "copilot_workspace_publish",
+                                            "skip_rag": True,
+                                        }
+                                    ),
+                                )
+
+                                async with session.post(
+                                    upload_url,
+                                    data=data,
+                                    headers={"Authorization": f"Bearer {token}"},
+                                ) as resp:
+                                    if resp.status == 200:
+                                        api_res = await resp.json()
+                                        file_id = api_res.get("id")
+                                        safe_filename = api_res.get(
+                                            "filename", target_path.name
+                                        )
+                                        api_success = True
+                    except Exception as e:
+                        logger.error(f"API 上传失败: {e}")
+
+                # 4. 兜底：手动插入数据库 (仅限本地存储)
+                if not api_success:
+                    file_id = str(uuid.uuid4())
+                    safe_filename = target_path.name
+                    dest_path = Path(UPLOAD_DIR) / f"{file_id}_{safe_filename}"
+                    await asyncio.to_thread(shutil.copy2, target_path, dest_path)
+
+                    try:
+                        db_path = str(os.path.relpath(dest_path, DATA_DIR))
+                    except:
+                        db_path = str(dest_path)
+
+                    file_form = FileForm(
+                        id=file_id,
+                        filename=safe_filename,
+                        path=db_path,
+                        data={"status": "completed", "skip_rag": True},
+                        meta={
+                            "name": safe_filename,
+                            "content_type": mimetypes.guess_type(safe_filename)[0]
+                            or "text/plain",
+                            "size": os.path.getsize(dest_path),
+                            "source": "copilot_workspace_publish",
+                            "skip_rag": True,
+                        },
+                    )
+                    await asyncio.to_thread(Files.insert_new_file, user_id, file_form)
+
+                # 5. 返回结果
+                download_url = f"/api/v1/files/{file_id}/content"
+                return {
+                    "file_id": file_id,
+                    "filename": safe_filename,
+                    "download_url": download_url,
+                    "message": "文件发布成功。",
+                    "hint": f"链接: [下载 {safe_filename}]({download_url})",
+                }
+            except Exception as e:
+                return {"error": str(e)}
+
+        return define_tool(
+            name="publish_file_from_workspace",
+            description="将你在本地工作区创建的文件转换为可下载的 URL。请在完成文件写入当前目录后再使用此工具。",
+            params_type=PublishFileParams,
+        )(publish_file_from_workspace)
 
     def _json_schema_to_python_type(self, schema: dict) -> Any:
         if not isinstance(schema, dict):
@@ -782,12 +994,16 @@ class Pipe:
     async def _fetch_byok_models(self, uv: "Pipe.UserValves" = None) -> List[dict]:
         """从配置的提供商获取 BYOK 模型。"""
         model_list = []
-        
+
         # 确定有效配置 (用户 > 全局)
-        effective_base_url = (uv.BYOK_BASE_URL if uv else "") or self.valves.BYOK_BASE_URL
+        effective_base_url = (
+            uv.BYOK_BASE_URL if uv else ""
+        ) or self.valves.BYOK_BASE_URL
         effective_type = (uv.BYOK_TYPE if uv else "") or self.valves.BYOK_TYPE
         effective_api_key = (uv.BYOK_API_KEY if uv else "") or self.valves.BYOK_API_KEY
-        effective_bearer_token = (uv.BYOK_BEARER_TOKEN if uv else "") or self.valves.BYOK_BEARER_TOKEN
+        effective_bearer_token = (
+            uv.BYOK_BEARER_TOKEN if uv else ""
+        ) or self.valves.BYOK_BEARER_TOKEN
         effective_models = (uv.BYOK_MODELS if uv else "") or self.valves.BYOK_MODELS
 
         if effective_base_url:
@@ -803,9 +1019,7 @@ class Pipe:
                     headers["anthropic-version"] = "2023-06-01"
                 else:
                     if effective_bearer_token:
-                        headers["Authorization"] = (
-                            f"Bearer {effective_bearer_token}"
-                        )
+                        headers["Authorization"] = f"Bearer {effective_bearer_token}"
                     elif effective_api_key:
                         headers["Authorization"] = f"Bearer {effective_api_key}"
 
@@ -828,7 +1042,7 @@ class Pipe:
                                         for item in data:
                                             if isinstance(item, dict) and "id" in item:
                                                 model_list.append(item["id"])
-                                    
+
                                     await self._emit_debug_log(
                                         f"BYOK: 从 {url} 获取了 {len(model_list)} 个模型"
                                     )
@@ -838,8 +1052,10 @@ class Pipe:
                                         f"BYOK: 获取模型失败 {url} (尝试 {attempt+1}/3). 状态码: {resp.status}"
                                     )
                         except Exception as e:
-                            await self._emit_debug_log(f"BYOK: 模型获取错误 (尝试 {attempt+1}/3): {e}")
-                        
+                            await self._emit_debug_log(
+                                f"BYOK: 模型获取错误 (尝试 {attempt+1}/3): {e}"
+                            )
+
                         if attempt < 2:
                             await asyncio.sleep(1)
 
@@ -1001,6 +1217,7 @@ class Pipe:
         __user__=None,
         __event_emitter__=None,
         __event_call__=None,
+        __request__=None,
     ) -> Union[str, AsyncGenerator]:
         ud = __user__[0] if isinstance(__user__, (list, tuple)) else (__user__ or {})
         uid = ud.get("id") or ud.get("user_id") or "default_user"
@@ -1057,7 +1274,14 @@ class Pipe:
         client = CopilotClient(self._build_client_config(body, uid, cid))
         try:
             await client.start()
-            tools = await self._initialize_custom_tools(__user__, __event_call__, body)
+            # 同步更新工具初始化参数
+            tools = await self._initialize_custom_tools(
+                body=body,
+                __user__=__user__,
+                __event_call__=__event_call__,
+                __request__=__request__,
+                __metadata__=__metadata__,
+            )
             prov = (
                 {
                     "type": (uv.BYOK_TYPE or self.valves.BYOK_TYPE).lower() or "openai",
@@ -1162,8 +1386,11 @@ class Pipe:
 
         # 环境初始化 (带有 24 小时冷却时间)
         from datetime import datetime
+
         now = datetime.now().timestamp()
-        if not self.__class__._env_setup_done or (now - self.__class__._last_update_check > 86400):
+        if not self.__class__._env_setup_done or (
+            now - self.__class__._last_update_check > 86400
+        ):
             self._setup_env(debug_enabled=uv.DEBUG or self.valves.DEBUG, token=token)
         elif token:
             os.environ["GH_TOKEN"] = os.environ["GITHUB_TOKEN"] = token
@@ -1174,17 +1401,48 @@ class Pipe:
             eff_max = uv.MAX_MULTIPLIER
 
         # 确定关键词和提供商过滤
-        ex_kw = [k.strip().lower() for k in (self.valves.EXCLUDE_KEYWORDS + "," + uv.EXCLUDE_KEYWORDS).split(",") if k.strip()]
-        allowed_p = [p.strip().lower() for p in (uv.PROVIDERS if uv.PROVIDERS else self.valves.PROVIDERS).split(",") if p.strip()]
+        ex_kw = [
+            k.strip().lower()
+            for k in (self.valves.EXCLUDE_KEYWORDS + "," + uv.EXCLUDE_KEYWORDS).split(
+                ","
+            )
+            if k.strip()
+        ]
+        allowed_p = [
+            p.strip().lower()
+            for p in (uv.PROVIDERS if uv.PROVIDERS else self.valves.PROVIDERS).split(
+                ","
+            )
+            if p.strip()
+        ]
+
+        # --- 新增：配置感知缓存刷新 ---
+        # 计算当前配置指纹以检测变化
+        current_config_str = f"{token}|{(uv.BYOK_BASE_URL if uv else '') or self.valves.BYOK_BASE_URL}|{(uv.BYOK_API_KEY if uv else '') or self.valves.BYOK_API_KEY}|{(uv.BYOK_BEARER_TOKEN if uv else '') or self.valves.BYOK_BEARER_TOKEN}"
+        import hashlib
+
+        current_config_hash = hashlib.md5(current_config_str.encode()).hexdigest()
+
+        if (
+            self._model_cache
+            and self.__class__._last_byok_config_hash != current_config_hash
+        ):
+            self.__class__._model_cache = []
+            self.__class__._last_byok_config_hash = current_config_hash
 
         # 如果缓存为空，刷新模型列表
         if not self._model_cache:
+            self.__class__._last_byok_config_hash = current_config_hash
             byok_models = []
             standard_models = []
 
             # 1. 获取 BYOK 模型 (优先使用个人设置)
-            if ((uv.BYOK_BASE_URL if uv else "") or self.valves.BYOK_BASE_URL) and \
-               ((uv.BYOK_API_KEY if uv else "") or self.valves.BYOK_API_KEY or (uv.BYOK_BEARER_TOKEN if uv else "") or self.valves.BYOK_BEARER_TOKEN):
+            if ((uv.BYOK_BASE_URL if uv else "") or self.valves.BYOK_BASE_URL) and (
+                (uv.BYOK_API_KEY if uv else "")
+                or self.valves.BYOK_API_KEY
+                or (uv.BYOK_BEARER_TOKEN if uv else "")
+                or self.valves.BYOK_BEARER_TOKEN
+            ):
                 byok_models = await self._fetch_byok_models(uv=uv)
 
             # 2. 获取标准 Copilot 模型
@@ -1194,55 +1452,91 @@ class Pipe:
                     raw_models = await c.list_models()
                     raw = raw_models if isinstance(raw_models, list) else []
                     processed = []
-                    
+
                     for m in raw:
                         try:
                             m_is_dict = isinstance(m, dict)
                             mid = m.get("id") if m_is_dict else getattr(m, "id", str(m))
-                            bill = m.get("billing") if m_is_dict else getattr(m, "billing", None)
+                            bill = (
+                                m.get("billing")
+                                if m_is_dict
+                                else getattr(m, "billing", None)
+                            )
                             if bill and not isinstance(bill, dict):
-                                bill = bill.to_dict() if hasattr(bill, "to_dict") else vars(bill)
-                            
-                            pol = m.get("policy") if m_is_dict else getattr(m, "policy", None)
+                                bill = (
+                                    bill.to_dict()
+                                    if hasattr(bill, "to_dict")
+                                    else vars(bill)
+                                )
+
+                            pol = (
+                                m.get("policy")
+                                if m_is_dict
+                                else getattr(m, "policy", None)
+                            )
                             if pol and not isinstance(pol, dict):
-                                pol = pol.to_dict() if hasattr(pol, "to_dict") else vars(pol)
-                            
+                                pol = (
+                                    pol.to_dict()
+                                    if hasattr(pol, "to_dict")
+                                    else vars(pol)
+                                )
+
                             if (pol or {}).get("state") == "disabled":
                                 continue
-                                
-                            cap = m.get("capabilities") if m_is_dict else getattr(m, "capabilities", None)
+
+                            cap = (
+                                m.get("capabilities")
+                                if m_is_dict
+                                else getattr(m, "capabilities", None)
+                            )
                             vis, reas, ctx, supp = False, False, None, []
                             if cap:
                                 if not isinstance(cap, dict):
-                                    cap = cap.to_dict() if hasattr(cap, "to_dict") else vars(cap)
+                                    cap = (
+                                        cap.to_dict()
+                                        if hasattr(cap, "to_dict")
+                                        else vars(cap)
+                                    )
                                 s = cap.get("supports", {})
-                                vis, reas = s.get("vision", False), s.get("reasoning_effort", False)
+                                vis, reas = s.get("vision", False), s.get(
+                                    "reasoning_effort", False
+                                )
                                 l = cap.get("limits", {})
                                 ctx = l.get("max_context_window_tokens")
-                            
-                            raw_eff = (m.get("supported_reasoning_efforts") if m_is_dict else getattr(m, "supported_reasoning_efforts", [])) or []
+
+                            raw_eff = (
+                                m.get("supported_reasoning_efforts")
+                                if m_is_dict
+                                else getattr(m, "supported_reasoning_efforts", [])
+                            ) or []
                             supp = [str(e).lower() for e in raw_eff if e]
                             mult = (bill or {}).get("multiplier", 1)
                             cid = self._clean_model_id(mid)
-                            processed.append({
-                                "id": f"{self.id}-{mid}",
-                                "name": f"-{cid} ({mult}x)" if mult > 0 else f"-🔥 {cid} (0x)",
-                                "multiplier": mult,
-                                "raw_id": mid,
-                                "source": "copilot",
-                                "provider": self._get_provider_name(m),
-                                "meta": {
-                                    "capabilities": {
-                                        "vision": vis,
-                                        "reasoning": reas,
-                                        "supported_reasoning_efforts": supp,
+                            processed.append(
+                                {
+                                    "id": f"{self.id}-{mid}",
+                                    "name": (
+                                        f"-{cid} ({mult}x)"
+                                        if mult > 0
+                                        else f"-🔥 {cid} (0x)"
+                                    ),
+                                    "multiplier": mult,
+                                    "raw_id": mid,
+                                    "source": "copilot",
+                                    "provider": self._get_provider_name(m),
+                                    "meta": {
+                                        "capabilities": {
+                                            "vision": vis,
+                                            "reasoning": reas,
+                                            "supported_reasoning_efforts": supp,
+                                        },
+                                        "context_length": ctx,
                                     },
-                                    "context_length": ctx,
-                                },
-                            })
+                                }
+                            )
                         except:
                             continue
-                            
+
                     processed.sort(key=lambda x: (x["multiplier"], x["raw_id"]))
                     standard_models = processed
                     self._standard_model_ids = {m["raw_id"] for m in processed}
@@ -1254,7 +1548,9 @@ class Pipe:
             self._model_cache = standard_models + byok_models
 
         if not self._model_cache:
-            return [{"id": "error", "name": "未找到任何模型。请检查 Token 或 BYOK 配置。"}]
+            return [
+                {"id": "error", "name": "未找到任何模型。请检查 Token 或 BYOK 配置。"}
+            ]
 
         # 3. 实时过滤结果
         res = []
@@ -1262,19 +1558,21 @@ class Pipe:
             # 提供商过滤
             if allowed_p and m.get("provider", "Unknown").lower() not in allowed_p:
                 continue
-            
-            mid, mname = (m.get("raw_id") or m.get("id", "")).lower(), m.get("name", "").lower()
+
+            mid, mname = (m.get("raw_id") or m.get("id", "")).lower(), m.get(
+                "name", ""
+            ).lower()
             # 关键词过滤
             if any(kw in mid or kw in mname for kw in ex_kw):
                 continue
-            
+
             # 倍率限制 (仅限 Copilot 官方模型)
             if m.get("source") == "copilot":
                 if float(m.get("multiplier", 1)) > (float(eff_max) + 0.0001):
                     continue
-            
+
             res.append(m)
-            
+
         return res if res else [{"id": "none", "name": "没有匹配当前过滤条件的模型"}]
 
     async def stream_response(

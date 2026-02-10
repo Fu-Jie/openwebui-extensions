@@ -4,7 +4,7 @@ description: OpenWebUI Plugin Development & Release Workflow
 
 # OpenWebUI Plugin Development Workflow
 
-This workflow outlines the standard process for developing, documenting, and releasing plugins for OpenWebUI, ensuring compliance with project standards and CI/CD requirements.
+This workflow outlines the standard process for developing, documenting, and releasing plugins for OpenWebUI. **Crucially, the default goal of this workflow is "Preparation" (updating all relevant files) rather than automatic "Submission" (git commit/push), unless a release is explicitly requested.**
 
 ## 1. Development Standards
 
@@ -77,7 +77,9 @@ Reference: `.github/workflows/release.yml`
 - **When to Bump**: Only update the version when:
   - User says "发布" / "release" / "bump version"
   - User explicitly asks to prepare for release
-- **Agent Initiative**: After completing significant changes (new features, bug fixes, or multiple code modifications), the agent **SHOULD proactively ask** the user if they want to release a new version. If confirmed, update all version-related files.
+- **Agent Initiative**: After completing significant changes (new features, bug fixes, or multiple code modifications), the agent **SHOULD proactively ask** the user if they want to **prepare a new version** for release.
+- **Release Information Compliance**: When a release is requested, the agent must generate a standard release summary (English commit title + bilingual bullet points) as defined in Section 3 & 5.
+- **Default Action (Prepare Only)**: When performing a version bump or update, the agent should update all files locally but **STOP** before committing. Present the changes and the **proposed Release/Commit Message** to the user and wait for explicit confirmation to commit/push.
 - **Consistency**: When bumping, update version in **ALL** locations:
   1. English Code (`.py`)
   2. Chinese Code (`.py`)
@@ -106,6 +108,21 @@ Reference: `.github/workflows/release.yml`
       - Format: `https://github.com/Fu-Jie/awesome-openwebui/blob/main/plugins/{type}/{name}/README.md`
       - Example: `https://github.com/Fu-Jie/awesome-openwebui/blob/main/plugins/filters/folder-memory/README.md`
 
+### Release Content Standard
+
+When the user confirms a release, the agent **MUST** follow these content standards:
+
+1. **Commit Message**:
+   - **Language**: English ONLY.
+   - **Format**: `type(scope): description` (e.g., `feat(pipes): add streaming support for Copilot SDK`).
+   - **Body**: List 1-3 key changes in bullet points.
+2. **Release Summary (for user review)**:
+   - Before committing, present a "Release Draft" containing:
+     - **Title**: e.g., `Release v0.1.1: [Plugin Name] - [Brief Summary]`
+     - **Changes**: Bilingual bullet points (English/Chinese) describing the impact.
+     - **Verification Status**: Confirm all 8+ files have been updated and synced.
+3. **Internal Documentation**: Ensure "What's New" sections in READMEs and `docs/` match exactly the changes being released.
+
 ### Pull Request Check
 
 - Workflow: `.github/workflows/plugin-version-check.yml`
@@ -126,4 +143,7 @@ Before committing:
 
 ## 5. Git Operations (Agent Rules)
 
-Strictly follow the rules defined in `.github/copilot-instructions.md` → **Git Operations (Agent Rules)** section.
+1. **Prepare-on-Demand**: Focus on file modifications and local verification first.
+2. **No Auto-Commit**: Never `git commit`, `git push`, or `create_pull_request` automatically after file updates unless the user explicitly says "commit this" or "release now".
+3. **Draft Mode**: If available, use PRs as drafts first.
+4. **Reference**: Strictly follow the rules defined in `.github/copilot-instructions.md` → **Git Operations (Agent Rules)** section.

@@ -1,6 +1,6 @@
 # GitHub Copilot SDK 官方管道
 
-**作者:** [Fu-Jie](https://github.com/Fu-Jie/awesome-openwebui) | **版本:** 0.6.1 | **项目:** [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui) | **许可证:** MIT
+**作者:** [Fu-Jie](https://github.com/Fu-Jie/awesome-openwebui) | **版本:** 0.6.2 | **项目:** [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui) | **许可证:** MIT
 
 这是一个用于 [OpenWebUI](https://github.com/open-webui/open-webui) 的高级 Pipe 函数，深度集成了 **GitHub Copilot SDK**。它不仅支持 **GitHub Copilot 官方模型**（如 `gpt-5.2-codex`, `claude-sonnet-4.5`, `gemini-3-pro`, `gpt-5-mini`），还支持 **BYOK (自带 Key)** 模式对接自定义服务商（OpenAI, Anthropic），并具备**严格的用户与会话级工作区隔离**能力，提供统一且安全的 Agent 交互体验。
 
@@ -14,13 +14,12 @@
 
 ---
 
-## ✨ 0.6.1 更新内容 (What's New)
+## ✨ 0.6.2 更新内容 (What's New)
 
-- **👥 多用户与会话管理**: 采用 `user_id/chat_id` 的物理隔离架构，确保资源独立与稳健管理。
-- **🤖 赋予 Agent 文件自主权**: 自动将上传的文件同步至物理工作区，支持 Python 直接分析 Excel/CSV。
-- **🔧 OpenAPI & 外部工具修复**: 完美支持通过 OpenAPI 服务器挂载的工具调用。
-- **📊 计费与成本控制**: 增强的**计费倍率限制** (`MAX_MULTIPLIER`，例如设为 0 即仅限免费模型) 和**模型关键词过滤** (`EXCLUDE_KEYWORDS`)，实现更精准的成本管控。
-- **🧠 数据库持久化 TODO**: 任务进度跨会话保存，Agent 拥有更持久的任务记忆。
+- **🛠️ 新增工作区产物工具**: 引入 `publish_file_from_workspace`。Agent 现在可以生成物理文件（如使用 Python 生成的 Excel/CSV 报表），并直接在聊天界面提供点击下载链接。
+- **⚙️ 工作流优化**: 提升了内部 Agent 物理工作区管理的可靠性与原子性。
+- **🛡️ 安全增强**: 精细化了隔离环境下系统资源的访问控制策略。
+- **🔧 性能微调**: 针对大上下文窗口优化了流式数据处理性能。
 
 ---
 
@@ -33,7 +32,7 @@
 - **🧠 深度数据库集成**: 实时持久化 TOD·O 列表到 UI 进度条。
 - **🌊 深度推理展示**: 完整支持模型思考过程 (Thinking Process) 的流式渲染。
 - **🖼️ 智能多模态**: 完整支持图像识别与附件上传分析。
-- **⚡ 交互式伪影 (Artifacts)**: 自动渲染 Agent 生成的 HTML/JS 应用程序，直接在聊天界面交互。
+- **⚡ 全生命周期文件 Agent**: 支持接收上传文件进行绕过 RAG 的深度分析，并将处理结果（如分析后的 Excel/报告）发布为可下载链接，实现完整的闭环 Agent 工作流。
 
 ---
 

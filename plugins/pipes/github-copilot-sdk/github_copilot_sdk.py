@@ -5,7 +5,7 @@ author_url: https://github.com/Fu-Jie/awesome-openwebui
 funding_url: https://github.com/open-webui
 openwebui_id: ce96f7b4-12fc-4ac3-9a01-875713e69359
 description: Integrate GitHub Copilot SDK. Supports dynamic models, multi-turn conversation, streaming, multimodal input, infinite sessions, and frontend debug logging.
-version: 0.6.1
+version: 0.6.2
 requirements: github-copilot-sdk==0.1.23
 """
 
@@ -44,6 +44,11 @@ from open_webui.config import (
 from open_webui.utils.tools import get_tools as get_openwebui_tools, get_builtin_tools
 from open_webui.models.tools import Tools
 from open_webui.models.users import Users
+from open_webui.models.files import Files, FileForm
+from open_webui.config import UPLOAD_DIR, DATA_DIR
+import mimetypes
+import uuid
+import shutil
 
 # Open WebUI internal database (re-use shared connection)
 try:
@@ -129,18 +134,22 @@ BASE_GUIDELINES = (
     "   - 2. **Render**: Immediately output the SAME code in a ` ```html ` block so the user can interact with it.\n"
     "   - **Result**: The user gets both a saved file AND a live app. Never force the user to choose one over the other.\n"
     "4. **Images & Files**: ALWAYS embed generated images/files directly using `![caption](url)`. Never provide plain text links.\n"
-    "5. **TODO Visibility**: Every time you call the `update_todo` tool, you **MUST** immediately follow up with a beautifully formatted **Markdown summary** of the current TODO list. Use task checkboxes (`- [ ]`), progress indicators, and clear headings so the user can see the status directly in the chat.\n"
-    "6. **Python Execution Standard**: For ANY task requiring Python logic (not just data analysis), you **MUST NOT** embed multi-line code directly in a shell command (e.g., using `python -c` or `<< 'EOF'`).\n"
+    "5. **File Delivery & Publishing (CRITICAL)**:\n"
+    "     - **Implicit Requests**: If the user says 'publish this', 'export your response', or 'give me a link to this content', you MUST: 1. Write the relevant content to a `.md` (or other appropriate) file in the current directory (`.`). 2. Call `publish_file_from_workspace(filename='name.md')` to get a link.\n"
+    "     - **Manual Sequence**: 1. **Write Local**: Create the file in `.` (your only workspace). 2. **Publish**: Call `publish_file_from_workspace(filename='your_file.ext')`. **WARNING**: You MUST provide the filename argument; never call this tool with empty parentheses.\n"
+    "     - *Rule*: Only files in the current directory (`.`) can be published. The tool bypasses RAG and handles S3/Local storage automatically.\n"
+    "6. **TODO Visibility**: Every time you call the `update_todo` tool, you **MUST** immediately follow up with a beautifully formatted **Markdown summary** of the current TODO list. Use task checkboxes (`- [ ]`), progress indicators, and clear headings so the user can see the status directly in the chat.\n"
+    "7. **Python Execution Standard**: For ANY task requiring Python logic (not just data analysis), you **MUST NOT** embed multi-line code directly in a shell command (e.g., using `python -c` or `<< 'EOF'`).\n"
     '   - **Exception**: Trivial one-liners (e.g., `python -c "print(1+1)"`) are permitted.\n'
     "   - **Protocol**: For everything else, you MUST:\n"
     "     1. **Create** a `.py` file in the workspace (e.g., `script.py`).\n"
     "     2. **Run** it using `python3 script.py`.\n"
     "   - **Reason**: This ensures code is debuggable, readable, and persistent.\n"
-    "7. **Active & Autonomous**: You are an expert engineer. **DO NOT** ask for permission to proceed with obvious steps. **DO NOT** stop to ask 'Shall I continue?'.\n"
+    "8. **Active & Autonomous**: You are an expert engineer. **DO NOT** ask for permission to proceed with obvious steps. **DO NOT** stop to ask 'Shall I continue?'.\n"
     "   - **Behavior**: Analyze the user's request -> Formulate a plan -> **EXECUTE** the plan immediately.\n"
     "   - **Clarification**: Only ask questions if the request is ambiguous or carries high risk (e.g., destructive actions).\n"
     "   - **Goal**: Minimize user friction. Deliver results, not questions.\n"
-    "8. **Large Output Management**: If a tool execution output is truncated or saved to a temporary file (e.g., `/tmp/...`), DO NOT worry. The system will automatically move it to your workspace and notify you of the new filename. You can then read it directly.\n"
+    "9. **Large Output Management**: If a tool execution output is truncated or saved to a temporary file (e.g., `/tmp/...`), DO NOT worry. The system will automatically move it to your workspace and notify you of the new filename. You can then read it directly.\n"
 )
 
 # Sensitive extensions only for Administrators
@@ -343,6 +352,7 @@ class Pipe:
     # =============================================================
     _model_cache: List[dict] = []  # Model list cache
     _standard_model_ids: set = set()  # Track standard model IDs
+    _last_byok_config_hash: str = ""  # Track BYOK config for cache invalidation
     _tool_cache = None  # Cache for converted OpenWebUI tools
     _mcp_server_cache = None  # Cache for MCP server config
     _env_setup_done = False  # Track if env setup has been completed
@@ -488,6 +498,7 @@ class Pipe:
         __user__: Optional[dict] = None,
         __event_emitter__=None,
         __event_call__=None,
+        __request__=None,
     ) -> Union[str, AsyncGenerator]:
         return await self._pipe_impl(
             body,
@@ -495,6 +506,7 @@ class Pipe:
             __user__=__user__,
             __event_emitter__=__event_emitter__,
             __event_call__=__event_call__,
+            __request__=__request__,
         )
 
     # ==================== Functional Areas ====================
@@ -507,7 +519,12 @@ class Pipe:
     # Tool registration: Add @define_tool decorated functions at module level,
     # then register them in _initialize_custom_tools() -> all_tools dict.
     async def _initialize_custom_tools(
-        self, body: dict = None, __user__=None, __event_call__=None
+        self,
+        body: dict = None,
+        __user__=None,
+        __event_call__=None,
+        __request__=None,
+        __metadata__=None,
     ):
         """Initialize custom tools based on configuration"""
         # 1. Determine effective settings (User override > Global)
@@ -525,7 +542,17 @@ class Pipe:
             await self._emit_debug_log(
                 "ℹ️ Using cached OpenWebUI tools.", __event_call__
             )
-            return self._tool_cache
+            # Create a shallow copy to append user-specific tools without polluting cache
+            tools = list(self._tool_cache)
+
+            # Inject File Publish Tool
+            chat_ctx = self._get_chat_context(body, __metadata__)
+            chat_id = chat_ctx.get("chat_id")
+            file_tool = self._get_publish_file_tool(__user__, chat_id, __request__)
+            if file_tool:
+                tools.append(file_tool)
+
+            return tools
 
         # Load OpenWebUI tools dynamically
         openwebui_tools = await self._load_openwebui_tools(
@@ -557,7 +584,204 @@ class Pipe:
                         __event_call__,
                     )
 
-        return openwebui_tools
+        # Create a shallow copy to append user-specific tools without polluting cache
+        final_tools = list(openwebui_tools)
+
+        # Inject File Publish Tool
+        chat_ctx = self._get_chat_context(body, __metadata__)
+        chat_id = chat_ctx.get("chat_id")
+        file_tool = self._get_publish_file_tool(__user__, chat_id, __request__)
+        if file_tool:
+            final_tools.append(file_tool)
+
+        return final_tools
+
+    def _get_publish_file_tool(self, __user__, chat_id, __request__=None):
+        """
+        Create a tool to publish files from the workspace to a downloadable URL.
+        """
+        # Resolve user_id
+        if isinstance(__user__, (list, tuple)):
+            user_data = __user__[0] if __user__ else {}
+        elif isinstance(__user__, dict):
+            user_data = __user__
+        else:
+            user_data = {}
+
+        user_id = user_data.get("id") or user_data.get("user_id")
+        if not user_id:
+            return None
+
+        # Resolve workspace directory
+        workspace_dir = Path(self._get_workspace_dir(user_id=user_id, chat_id=chat_id))
+
+        # Define parameter schema explicitly for the SDK
+        class PublishFileParams(BaseModel):
+            filename: str = Field(
+                ...,
+                description="The EXACT name of the file you just created in the current directory (e.g., 'report.csv'). REQUIRED.",
+            )
+
+        async def publish_file_from_workspace(filename: Any) -> dict:
+            """
+            Publishes a file from the local chat workspace to a downloadable URL.
+            """
+            try:
+                # 1. Robust Parameter Extraction
+                # Case A: filename is a Pydantic model (common when using params_type)
+                if hasattr(filename, "model_dump"):  # Pydantic v2
+                    filename = filename.model_dump().get("filename")
+                elif hasattr(filename, "dict"):  # Pydantic v1
+                    filename = filename.dict().get("filename")
+
+                # Case B: filename is a dict
+                if isinstance(filename, dict):
+                    filename = (
+                        filename.get("filename")
+                        or filename.get("file")
+                        or filename.get("file_path")
+                    )
+
+                # Case C: filename is a JSON string or wrapped string
+                if isinstance(filename, str):
+                    filename = filename.strip()
+                    if filename.startswith("{"):
+                        try:
+                            import json
+
+                            data = json.loads(filename)
+                            if isinstance(data, dict):
+                                filename = (
+                                    data.get("filename") or data.get("file") or filename
+                                )
+                        except:
+                            pass
+
+                # 2. Final String Validation
+                if (
+                    not filename
+                    or not isinstance(filename, str)
+                    or filename.strip() in ("", "{}", "None", "null")
+                ):
+                    return {
+                        "error": "Missing or invalid required argument: 'filename'.",
+                        "hint": f"Received value: {type(filename).__name__}. Please provide the filename as a simple string like 'report.md'.",
+                    }
+
+                filename = filename.strip()
+
+                # 2. Path Resolution (Lock to current chat workspace)
+                target_path = workspace_dir / filename
+                try:
+                    target_path = target_path.resolve()
+                    if not str(target_path).startswith(str(workspace_dir.resolve())):
+                        return {
+                            "error": f"Access denied: File must be within the current chat workspace."
+                        }
+                except Exception as e:
+                    return {"error": f"Path validation failed: {e}"}
+
+                if not target_path.exists() or not target_path.is_file():
+                    return {
+                        "error": f"File '{filename}' not found in chat workspace. Ensure you saved it to the CURRENT DIRECTORY (.)."
+                    }
+
+                # 3. Upload via API (S3 Compatible)
+                api_success = False
+                file_id = None
+                safe_filename = filename
+
+                token = None
+                if __request__:
+                    auth_header = __request__.headers.get("Authorization")
+                    if auth_header and auth_header.startswith("Bearer "):
+                        token = auth_header.split(" ")[1]
+                    if not token and "token" in __request__.cookies:
+                        token = __request__.cookies.get("token")
+
+                if token:
+                    try:
+                        import aiohttp
+
+                        base_url = str(__request__.base_url).rstrip("/")
+                        upload_url = f"{base_url}/api/v1/files/"
+
+                        async with aiohttp.ClientSession() as session:
+                            with open(target_path, "rb") as f:
+                                data = aiohttp.FormData()
+                                data.add_field("file", f, filename=target_path.name)
+                                import json
+
+                                data.add_field(
+                                    "metadata",
+                                    json.dumps(
+                                        {
+                                            "source": "copilot_workspace_publish",
+                                            "skip_rag": True,
+                                        }
+                                    ),
+                                )
+
+                                async with session.post(
+                                    upload_url,
+                                    data=data,
+                                    headers={"Authorization": f"Bearer {token}"},
+                                ) as resp:
+                                    if resp.status == 200:
+                                        api_result = await resp.json()
+                                        file_id = api_result.get("id")
+                                        safe_filename = api_result.get(
+                                            "filename", target_path.name
+                                        )
+                                        api_success = True
+                    except Exception as e:
+                        logger.error(f"API upload failed: {e}")
+
+                # 4. Fallback: Manual DB Insert (Local only)
+                if not api_success:
+                    file_id = str(uuid.uuid4())
+                    safe_filename = target_path.name
+                    dest_path = Path(UPLOAD_DIR) / f"{file_id}_{safe_filename}"
+                    await asyncio.to_thread(shutil.copy2, target_path, dest_path)
+
+                    try:
+                        db_path = str(os.path.relpath(dest_path, DATA_DIR))
+                    except:
+                        db_path = str(dest_path)
+
+                    file_form = FileForm(
+                        id=file_id,
+                        filename=safe_filename,
+                        path=db_path,
+                        data={"status": "completed", "skip_rag": True},
+                        meta={
+                            "name": safe_filename,
+                            "content_type": mimetypes.guess_type(safe_filename)[0]
+                            or "text/plain",
+                            "size": os.path.getsize(dest_path),
+                            "source": "copilot_workspace_publish",
+                            "skip_rag": True,
+                        },
+                    )
+                    await asyncio.to_thread(Files.insert_new_file, user_id, file_form)
+
+                # 5. Result
+                download_url = f"/api/v1/files/{file_id}/content"
+                return {
+                    "file_id": file_id,
+                    "filename": safe_filename,
+                    "download_url": download_url,
+                    "message": "File published successfully.",
+                    "hint": f"Link: [Download {safe_filename}]({download_url})",
+                }
+            except Exception as e:
+                return {"error": str(e)}
+
+        return define_tool(
+            name="publish_file_from_workspace",
+            description="Converts a file created in your local workspace into a downloadable URL. Use this tool AFTER writing a file to the current directory.",
+            params_type=PublishFileParams,
+        )(publish_file_from_workspace)
 
     def _json_schema_to_python_type(self, schema: dict) -> Any:
         """Convert JSON Schema type to Python type for Pydantic models."""
@@ -1756,13 +1980,17 @@ class Pipe:
     async def _fetch_byok_models(self, uv: "Pipe.UserValves" = None) -> List[dict]:
         """Fetch BYOK models from configured provider."""
         model_list = []
-        
+
         # Resolve effective settings (User > Global)
         # Note: We handle the case where uv might be None
-        effective_base_url = (uv.BYOK_BASE_URL if uv else "") or self.valves.BYOK_BASE_URL
+        effective_base_url = (
+            uv.BYOK_BASE_URL if uv else ""
+        ) or self.valves.BYOK_BASE_URL
         effective_type = (uv.BYOK_TYPE if uv else "") or self.valves.BYOK_TYPE
         effective_api_key = (uv.BYOK_API_KEY if uv else "") or self.valves.BYOK_API_KEY
-        effective_bearer_token = (uv.BYOK_BEARER_TOKEN if uv else "") or self.valves.BYOK_BEARER_TOKEN
+        effective_bearer_token = (
+            uv.BYOK_BEARER_TOKEN if uv else ""
+        ) or self.valves.BYOK_BEARER_TOKEN
         effective_models = (uv.BYOK_MODELS if uv else "") or self.valves.BYOK_MODELS
 
         if effective_base_url:
@@ -1778,9 +2006,7 @@ class Pipe:
                     headers["anthropic-version"] = "2023-06-01"
                 else:
                     if effective_bearer_token:
-                        headers["Authorization"] = (
-                            f"Bearer {effective_bearer_token}"
-                        )
+                        headers["Authorization"] = f"Bearer {effective_bearer_token}"
                     elif effective_api_key:
                         headers["Authorization"] = f"Bearer {effective_api_key}"
 
@@ -1813,7 +2039,9 @@ class Pipe:
                                         f"BYOK: Failed to fetch models from {url} (Attempt {attempt+1}/3). Status: {resp.status}"
                                     )
                         except Exception as e:
-                            await self._emit_debug_log(f"BYOK: Model fetch error (Attempt {attempt+1}/3): {e}")
+                            await self._emit_debug_log(
+                                f"BYOK: Model fetch error (Attempt {attempt+1}/3): {e}"
+                            )
 
                         if attempt < 2:
                             await asyncio.sleep(1)
@@ -1941,7 +2169,25 @@ class Pipe:
             if k.strip()
         ]
 
+        # --- NEW: CONFIG-AWARE CACHE INVALIDATION ---
+        # Calculate current config fingerprint to detect changes
+        current_config_str = f"{token}|{uv.BYOK_BASE_URL or self.valves.BYOK_BASE_URL}|{uv.BYOK_API_KEY or self.valves.BYOK_API_KEY}|{self.valves.BYOK_BEARER_TOKEN}"
+        current_config_hash = hashlib.md5(current_config_str.encode()).hexdigest()
+
+        if (
+            self._model_cache
+            and self.__class__._last_byok_config_hash != current_config_hash
+        ):
+            if self.valves.DEBUG:
+                logger.info(
+                    f"[Pipes] Configuration change detected. Invalidating model cache."
+                )
+            self.__class__._model_cache = []
+            self.__class__._last_byok_config_hash = current_config_hash
+
         if not self._model_cache:
+            # Update the hash when we refresh the cache
+            self.__class__._last_byok_config_hash = current_config_hash
             if self.valves.DEBUG:
                 logger.info("[Pipes] Refreshing model cache...")
             try:
@@ -2437,6 +2683,7 @@ class Pipe:
         __user__: Optional[dict] = None,
         __event_emitter__=None,
         __event_call__=None,
+        __request__=None,
     ) -> Union[str, AsyncGenerator]:
         # --- PROBE LOG ---
         if __event_call__:
@@ -2716,7 +2963,11 @@ class Pipe:
 
             # Initialize custom tools (Handles caching internally)
             custom_tools = await self._initialize_custom_tools(
-                body=body, __user__=__user__, __event_call__=__event_call__
+                body=body,
+                __user__=__user__,
+                __event_call__=__event_call__,
+                __request__=__request__,
+                __metadata__=__metadata__,
             )
             if custom_tools:
                 tool_names = [t.name for t in custom_tools]
@@ -3468,4 +3719,6 @@ class Pipe:
                 await client.stop()
             except Exception as e:
                 pass
+
+
 # Triggering release after CI fix
