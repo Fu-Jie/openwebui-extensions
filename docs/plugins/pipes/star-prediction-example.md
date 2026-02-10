@@ -16,16 +16,17 @@ This case study demonstrates how to use the **GitHub Copilot SDK Pipe** with the
 
 - **Plugin Type**: Pipe (GitHub Copilot SDK)
 - **Base Model**: Minimax 2.1 (via Pipe integration)
-- **Key Capabilities**: 
-    - **File Processing**: Automatically reads and parses multiple CSV data files.
-    - **Code Generation & Execution**: On-the-fly Python scripting to calculate growth rates, conversion rates, and median trends.
-    - **Multimodal Output**: Generates Markdown reports, interactive HTML dashboards, and Mermaid timeline charts.
+- **Key Capabilities**:
+  - **File Processing**: Automatically reads and parses multiple CSV data files.
+  - **Code Generation & Execution**: On-the-fly Python scripting to calculate growth rates, conversion rates, and median trends.
+  - **Multimodal Output**: Generates Markdown reports, interactive HTML dashboards, and Mermaid timeline charts.
 
 ---
 
 ## 💬 Conversation Highlights
 
 ### 📥 Import Conversation
+
 You can download the raw chat data and import it into your Open WebUI to see the full tool calls and analysis logic:
 [:material-download: Download Chat JSON](./star-prediction-chat.json)
 
@@ -33,22 +34,28 @@ You can download the raw chat data and import it into your Open WebUI to see the
 > In Open WebUI, click your **User Avatar** (bottom of left sidebar) -> **Settings** -> **Data** -> **Import Chats**, then select the downloaded file.
 
 ### 1. Data Submission
+
 The **User** provided traffic source distribution and uploaded:
+
 - `Unique visitors in last 14 days.csv`
 - `Total views in last 14 days.csv`
 - `star-history.csv`
 
 ### 2. Analysis Execution
+
 **Minimax 2.1** received the data and immediately formulated an analysis plan:
+
 1. Calculate star growth trajectory and rates.
 2. Analyze visitor-to-star conversion rates.
 3. Build linear and median projection models.
 4. Generate a milestone timeline.
 
 ### 3. Report Generation
+
 The model produced a comprehensive report. Here are the core projections:
 
 #### 🎯 Key Projections
+
 | Metric | Value | Insight |
 | :--- | :--- | :--- |
 | **Current Stars** | 62 | 62% of the goal reached |
@@ -88,4 +95,4 @@ gantt
 
 ---
 
-> [View GitHub Copilot SDK Pipe Source Code](../../../plugins/pipes/github-copilot-sdk/README.md)
+> [View GitHub Copilot SDK Pipe Documentation](./github-copilot-sdk.md)

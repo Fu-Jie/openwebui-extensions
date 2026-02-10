@@ -16,18 +16,19 @@ This case study demonstrates how to use the **GitHub Copilot SDK Pipe** with **M
 
 - **Plugin Type**: Pipe (GitHub Copilot SDK)
 - **Base Model**: Minimax 2.1
-- **Key Capabilities**: 
-    - **System Tool Access**: Automatically detects and invokes `ffmpeg` within the container.
-    - **Two-Pass Optimization**:
+- **Key Capabilities**:
+  - **System Tool Access**: Automatically detects and invokes `ffmpeg` within the container.
+  - **Two-Pass Optimization**:
         1. **Pass 1**: Analyzes all frames to generate a custom 256-color palette (`palettegen`).
         2. **Pass 2**: Applies the palette for superior quantization and dithering (`paletteuse`).
-    - **Precision Parameters**: Implements 1.4x PTS scaling, Lanczos scaling, and 20fps rate control.
+  - **Precision Parameters**: Implements 1.4x PTS scaling, Lanczos scaling, and 20fps rate control.
 
 ---
 
 ## 💬 Conversation Highlights
 
 ### 📥 Import Conversation
+
 You can download the raw chat data and import it into your Open WebUI to see how the model debugs and optimizes the FFmpeg parameters:
 [:material-download: Download Chat JSON](./video-processing-chat.json)
 
@@ -35,14 +36,18 @@ You can download the raw chat data and import it into your Open WebUI to see how
 > In Open WebUI, click your **User Avatar** (bottom of left sidebar) -> **Settings** -> **Data** -> **Import Chats**, then select the downloaded file.
 
 ### 1. Processing Requirements
+
 The **User** provided an input file and specific parameters:
+
 - Speed: 1.4x (setpts=PTS/1.4)
 - Resolution: 1280px width, auto height
 - Optimization: Must use palette generation technology
 - Constraint: File size < 20MB
 
 ### 2. Analysis Execution
+
 **Minimax 2.1** generated and executed the following core logic:
+
 ```bash
 # Pass 1: Generate optimal palette
 ffmpeg -i input.mov -vf "fps=20,scale=1280:-1:flags=lanczos,setpts=PTS/1.4,palettegen" palette.png
@@ -51,6 +56,7 @@ ffmpeg -i input.mov -i palette.png -lavfi "[0:v]fps=20,scale=1280:-1:flags=lancz
 ```
 
 ### 3. Result Summary
+
 | Metric | Original Video | Processed GIF | Status |
 | :--- | :--- | :--- | :--- |
 | **File Size** | 38 MB | **14 MB** | ✅ Success |
@@ -63,6 +69,7 @@ ffmpeg -i input.mov -i palette.png -lavfi "[0:v]fps=20,scale=1280:-1:flags=lancz
 ## 💡 Why This Case Matters
 
 Standard LLMs can only "tell you" how to use FFmpeg. However, a Pipe powered by the **GitHub Copilot SDK** can:
+
 1. **Interpret** complex multimedia processing parameters.
 2. **Access** raw files within the filesystem.
 3. **Execute** resource-intensive binary tool tasks.
@@ -70,4 +77,4 @@ Standard LLMs can only "tell you" how to use FFmpeg. However, a Pipe powered by 
 
 ---
 
-> [View GitHub Copilot SDK Pipe Source Code](../../../plugins/pipes/github-copilot-sdk/README.md)
+> [View GitHub Copilot SDK Pipe Documentation](./github-copilot-sdk.md)
