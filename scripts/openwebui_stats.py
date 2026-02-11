@@ -269,31 +269,59 @@ class OpenWebUIStats:
             print(f"⚠️ 无法从 Token 解析用户 ID: {e}")
             return ""
 
-    def generate_mermaid_chart(self) -> str:
-        """生成 Mermaid 增长趋势图"""
+    def generate_mermaid_chart(self, stats: dict = None) -> str:
+        """生成多维度的 Mermaid 可视化图表集"""
         history = self.load_history()
-        if len(history) < 3:  # 数据太少不显示图表
-            return ""
+        charts = []
 
-        # 只取最近 14 天的数据用于展示
-        data = history[-14:]
-        dates = [item["date"][-5:] for item in data]  # 只取 MM-DD
-        dates_str = ", ".join([f'"{d}"' for d in dates])
-        downloads = [str(item["total_downloads"]) for item in data]
-        downloads_str = ", ".join(downloads)
+        # 1. 增长趋势图 (XY Chart)
+        if len(history) >= 3:
+            # 只取最近 14 天
+            data = history[-14:]
+            dates = [item["date"][-5:] for item in data]
+            dates_str = ", ".join([f'"{d}"' for d in dates])
+            dls = [str(item["total_downloads"]) for item in data]
+            vws = [str(item["total_views"]) for item in data]
 
-        mm = []
-        mm.append("### 📈 增长趋势 (14天)")
-        mm.append("")
-        mm.append("```mermaid")
-        mm.append("xychart-beta")
-        mm.append(f'    title "Downloads Trend"')
-        mm.append(f"    x-axis [{dates_str}]")
-        mm.append(f'    y-axis "Downloads"')
-        mm.append(f"    line [{downloads_str}]")
-        mm.append("```")
-        mm.append("")
-        return "\n".join(mm)
+            charts.append("### 📈 增长与趋势 (Last 14 Days)")
+            charts.append("```mermaid")
+            charts.append("xychart-beta")
+            charts.append('    title "Engagement & Downloads Trend"')
+            charts.append(f"    x-axis [{dates_str}]")
+            charts.append(f'    y-axis "Total Counts"')
+            charts.append(f"    line [{', '.join(dls)}]")
+            charts.append(f"    line [{', '.join(vws)}]")
+            charts.append("```")
+            charts.append("\n> *蓝色: 总下载量 | 紫色: 总浏览量*")
+            charts.append("")
+
+        # 2. 插件类型分布 (Pie Chart)
+        if stats and stats.get("by_type"):
+            charts.append("### 📂 内容分类占比 (Distribution)")
+            charts.append("```mermaid")
+            charts.append("pie title Plugin Types")
+            for p_type, count in stats["by_type"].items():
+                charts.append(f'    "{p_type}" : {count}')
+            charts.append("```")
+            charts.append("")
+
+        # 3. 影响力分析 (Bar Chart for Top 6)
+        if stats and stats.get("posts"):
+            top6 = stats["posts"][:6]
+            labels = [f'"{p["title"][:15]}..."' for p in top6]
+            values = [str(p["downloads"]) for p in top6]
+
+            charts.append("### 🏆 影响力排行 (Top 6 Downloads)")
+            charts.append("```mermaid")
+            charts.append("xychart-beta")
+            charts.append('    title "Top 6 Plugins Comparison"')
+            charts.append(f"    x-axis [{', '.join(labels)}]")
+            charts.append(f'    y-axis "Downloads"')
+            charts.append(f"    bar [{', '.join(values)}]")
+            charts.append("```")
+            charts.append("")
+
+        return "\n".join(charts)
 
     def get_user_posts(self, sort: str = "new", page: int = 1) -> list:
         """
@@ -514,7 +542,7 @@ class OpenWebUIStats:
         md.append("")
 
         # 插入趋势图
-        chart = self.generate_mermaid_chart()
+        chart = self.generate_mermaid_chart(stats)
         if chart:
             md.append(chart)
             md.append("")
