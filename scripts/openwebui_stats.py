@@ -22,6 +22,8 @@ import json
 import requests
 import zlib
 import base64
+import re
+import subprocess
 from datetime import datetime, timezone, timedelta
 from typing import Optional
 from pathlib import Path
@@ -94,6 +96,7 @@ class OpenWebUIStats:
 
     def load_history(self) -> list:
         """加载历史记录 (优先尝试 Gist, 其次本地文件)"""
+        history = []
         # 尝试从 Gist 加载
         if self.gist_token and self.gist_id:
             try:
@@ -106,18 +109,67 @@ class OpenWebUIStats:
                     if file_info:
                         content = file_info.get("content")
                         print(f"✅ 已从 Gist 加载历史记录 ({self.gist_id})")
-                        return json.loads(content)
+                        history = json.loads(content)
             except Exception as e:
                 print(f"⚠️ 无法从 Gist 加载历史: {e}")
 
         # 降级：从本地加载
-        if self.history_file.exists():
+        if not history and self.history_file.exists():
             try:
                 with open(self.history_file, "r", encoding="utf-8") as f:
-                    return json.load(f)
+                    history = json.load(f)
             except Exception as e:
                 print(f"⚠️ 无法加载本地历史记录: {e}")
-        return []
+
+        # 如果历史记录太少 (< 5条)，尝试从 Git 历史重建
+        if len(history) < 5 and os.path.isdir(".git"):
+            print("📉 History too short, attempting Git rebuild...")
+            git_history = self.rebuild_history_from_git()
+
+            if len(git_history) > len(history):
+                print(f"✅ Rebuilt history from Git: {len(git_history)} records")
+
+                # 转成 dict以便合并
+                hist_dict = {item["date"]: item for item in git_history}
+                for item in history:
+                    hist_dict[item["date"]] = item  # 覆盖/新增
+
+                # 转回 list 并排序
+                new_history = list(hist_dict.values())
+                new_history.sort(key=lambda x: x["date"])
+
+                history = new_history
+
+                # 立即保存到本地
+                with open(self.history_file, "w", encoding="utf-8") as f:
+                    json.dump(history, f, ensure_ascii=False, indent=2)
+                print(f"✅ Rebuilt history saved to local file ({self.history_file})")
+
+                # 如果有 Gist 配置，也同步到 Gist
+                if self.gist_token and self.gist_id:
+                    try:
+                        url = f"https://api.github.com/gists/{self.gist_id}"
+                        headers = {"Authorization": f"token {self.gist_token}"}
+                        payload = {
+                            "files": {
+                                self.history_filename: {
+                                    "content": json.dumps(
+                                        history, ensure_ascii=False, indent=2
+                                    )
+                                }
+                            }
+                        }
+                        resp = requests.patch(url, headers=headers, json=payload)
+                        if resp.status_code == 200:
+                            print(f"✅ Rebuilt history synced to Gist ({self.gist_id})")
+                        else:
+                            print(
+                                f"⚠️ Failed to sync rebuilt history to Gist: {resp.status_code} - {resp.text}"
+                            )
+                    except Exception as e:
+                        print(f"⚠️ Error syncing rebuilt history to Gist: {e}")
+
+        return history
 
     def save_history(self, stats: dict):
         """保存当前快照到历史记录 (优先保存到 Gist, 其次本地)"""
@@ -253,6 +305,106 @@ class OpenWebUIStats:
                 post_type = "toolkit"
 
         return post_type
+
+    def rebuild_history_from_git(self) -> list:
+        """从 Git 历史提交中重建统计数据"""
+        history = []
+        try:
+            # 获取所有修改了 docs/stats-history.json 的 commit
+            # 格式: hash date
+            cmd = [
+                "git",
+                "log",
+                "--pretty=format:%H %ad",
+                "--date=short",
+                str(self.history_file),
+            ]
+            result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+
+            commits = result.stdout.strip().splitlines()
+            print(f"🔍 Found {len(commits)} commits modifying stats file")
+
+            seen_dates = set()
+
+            # 从旧到新处理（git log 默认是从新到旧，所以我们要反转或者用 reverse）
+            # 其实顺序无所谓，只要最后 sort 一下就行
+            for line in reversed(commits):  # Process from oldest to newest
+                parts = line.split()
+                if len(parts) < 2:
+                    continue
+
+                commit_hash = parts[0]
+                commit_date = parts[1]  # YYYY-MM-DD
+
+                if commit_date in seen_dates:
+                    continue
+                seen_dates.add(commit_date)
+
+                # 读取该 commit 时的文件内容
+                # Note: The file name in git show needs to be relative to the repo root
+                show_cmd = ["git", "show", f"{commit_hash}:{self.history_file}"]
+                show_res = subprocess.run(
+                    show_cmd, capture_output=True, text=True, check=True
+                )
+
+                if show_res.returncode == 0:
+                    try:
+                        # Git history might contain the full history JSON, or just a single snapshot.
+                        # We need to handle both cases.
+                        content = show_res.stdout.strip()
+                        if content.startswith("[") and content.endswith("]"):
+                            # It's a full history list, take the last item
+                            data_list = json.loads(content)
+                            if data_list:
+                                data = data_list[-1]
+                            else:
+                                continue
+                        else:
+                            # It's a single snapshot
+                            data = json.loads(content)
+
+                        # Ensure the date matches the commit date, or use the one from data if available
+                        entry_date = data.get("date", commit_date)
+                        if entry_date != commit_date:
+                            print(
+                                f"⚠️ Date mismatch for commit {commit_hash}: file date {entry_date}, commit date {commit_date}. Using commit date."
+                            )
+                            entry_date = commit_date
+
+                        history.append(
+                            {
+                                "date": entry_date,
+                                "total_downloads": data.get("total_downloads", 0),
+                                "total_views": data.get("total_views", 0),
+                                "total_upvotes": data.get("total_upvotes", 0),
+                                "total_saves": data.get("total_saves", 0),
+                                "followers": data.get("followers", 0),
+                                "points": data.get("points", 0),
+                                "contributions": data.get("contributions", 0),
+                                "posts": data.get(
+                                    "posts", {}
+                                ),  # Include individual post stats
+                            }
+                        )
+                    except json.JSONDecodeError:
+                        print(
+                            f"⚠️ Could not decode JSON from commit {commit_hash} for {self.history_file}"
+                        )
+                    except Exception as e:
+                        print(f"⚠️ Error processing commit {commit_hash}: {e}")
+
+            # Sort by date to ensure chronological order
+            history.sort(key=lambda x: x["date"])
+            return history
+
+        except subprocess.CalledProcessError as e:
+            print(
+                f"⚠️ Git command failed: {e.cmd}\nStdout: {e.stdout}\nStderr: {e.stderr}"
+            )
+            return []
+        except Exception as e:
+            print(f"⚠️ Error rebuilding history from git: {e}")
+            return []
 
     def _parse_user_id_from_token(self, token: str) -> str:
         """从 JWT Token 中解析用户 ID"""
