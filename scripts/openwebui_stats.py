@@ -1244,19 +1244,21 @@ class OpenWebUIStats:
         }
 
         try:
-            # 1. 生成 Kroki URL
+            # 1. 使用 POST 请求 Kroki (避免 URL 过长问题)
             json_spec = json.dumps(vl_spec)
-            compressed = zlib.compress(json_spec.encode("utf-8"), level=9)
-            encoded = base64.urlsafe_b64encode(compressed).decode("utf-8")
-            kroki_url = f"https://kroki.io/vegalite/svg/{encoded}"
+            kroki_url = "https://kroki.io/vegalite/svg"
 
-            # 2. 从 Kroki 下载 SVG
-            print(f"📥 Generating chart via Kroki...")
-            resp = requests.get(kroki_url)
+            print(f"📥 Generating chart via Kroki (POST)...")
+            resp = requests.post(kroki_url, data=json_spec)
+
             if resp.status_code != 200:
                 print(f"⚠️ Kroki request failed: {resp.status_code}")
+                # 尝试打印一点错误信息
+                print(f"Response: {resp.text[:200]}")
                 return
+
             svg_content = resp.text
+            print(f"✅ Kroki SVG generated ({len(svg_content)} bytes)")
 
             # 3. 上传到 Gist
             url = f"https://api.github.com/gists/{self.gist_id}"
@@ -1266,7 +1268,7 @@ class OpenWebUIStats:
             if resp.status_code == 200:
                 print(f"✅ 图表 SVG 已同步至 Gist: chart.svg")
             else:
-                print(f"⚠️ Gist upload failed: {resp.status_code} {resp.text}")
+                print(f"⚠️ Gist upload failed: {resp.status_code} {resp.text[:200]}")
 
         except Exception as e:
             print(f"⚠️ 上传图表失败: {e}")
