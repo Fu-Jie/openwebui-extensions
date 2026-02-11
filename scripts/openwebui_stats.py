@@ -1198,8 +1198,8 @@ class OpenWebUIStats:
         history = self.load_history()
         print(f"📊 History records loaded: {len(history)}")
 
-        if len(history) < 3:
-            print("⚠️ Skipping chart upload: not enough history (<3 records)")
+        if len(history) < 1:
+            print("⚠️ Skipping chart upload: no history")
             return
 
         # 准备数据点
