@@ -800,20 +800,15 @@ class OpenWebUIStats:
         lines.append("")
 
         # 定义徽章 URL (使用 Gist ID)
-        # 注意: 这里使用 shields.io 的 endpoint 功能，直接读取 Gist Raw URL
-        # URL 格式: https://gist.githubusercontent.com/{gist_user}/{gist_id}/raw/badge_{key}.json
-        # 由于我们不知道 gist_user，但 Gist ID 是全局唯一的，我们可以用 shields.io 的兼容性或者假设用户名为 Fu-Jie (根据 user request)
-        # 为了通用性，我们这里使用 requests 获取一次 final URL 或者直接硬编码 Fu-Jie (因为 Gist 是私有的或者为了简单)
-        # 用户明确提到: https://gist.github.com/Fu-Jie/db3d95687075a880af6f1fba76d679c6
-        gist_user = "Fu-Jie"
-        if self.gist_id:
-            base_badge_url = f"https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/{gist_user}/{self.gist_id}/raw"
-        else:
-            base_badge_url = ""
+        import urllib.parse
 
-        def get_badge(key: str, style: str = "flat") -> str:
-            if not base_badge_url:
+        gist_user = "Fu-Jie"
+
+        def get_badge(key: str, is_post: bool = False, style: str = "flat") -> str:
+            if not self.gist_id:
                 # 降级：如果没有 Gist，显示静态文本
+                if is_post:
+                    return "**-**"
                 val = stats.get(f"total_{key}", 0)
                 if key == "followers":
                     val = user.get("followers", 0)
@@ -827,7 +822,10 @@ class OpenWebUIStats:
                     val = stats.get("total_saves", 0)
                 return f"**{val}**{fmt_delta(key)}"
 
-            return f"![{key}]({base_badge_url}/badge_{key}.json?style={style})"
+            # 对 Gist Raw URL 进行转义，确保 Shields.io 正确处理
+            raw_url = f"https://gist.githubusercontent.com/{gist_user}/{self.gist_id}/raw/badge_{key}.json"
+            encoded_url = urllib.parse.quote(raw_url, safe="")
+            return f"![{key}](https://img.shields.io/endpoint?url={encoded_url}&style={style})"
 
         # 作者信息表格
         if user:
@@ -860,12 +858,8 @@ class OpenWebUIStats:
             idx = i + 1
             medal = medals[i] if i < len(medals) else str(idx)
 
-            # 如果有 Gist，使用动态徽章
-            dl_cell = f"{post['downloads']}"
-            vw_cell = f"{post['views']}"
-            if base_badge_url:
-                dl_cell = f"![dl]({base_badge_url}/badge_p{idx}_dl.json)"
-                vw_cell = f"![vw]({base_badge_url}/badge_p{idx}_vw.json)"
+            dl_cell = get_badge(f"p{idx}_dl", is_post=True)
+            vw_cell = get_badge(f"p{idx}_vw", is_post=True)
 
             lines.append(
                 f"| {medal} | [{post['title']}]({post['url']}) | {post['version']} | {dl_cell} | {vw_cell} | {post['updated_at']} |"
