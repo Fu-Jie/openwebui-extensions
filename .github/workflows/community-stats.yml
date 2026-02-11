@@ -8,9 +8,13 @@
 name: Community Stats
 
 on:
-  # 每小时整点运行
+  # 定时任务
   schedule:
     - cron: '0 * * * *'
+  # 推送时触发（用于测试任务分支）
+  push:
+    branches:
+      - feat/stats-history-and-refactor
   # 手动触发
   workflow_dispatch:
 
@@ -56,6 +60,8 @@ jobs:
         env:
           OPENWEBUI_API_KEY: ${{ secrets.OPENWEBUI_API_KEY }}
           OPENWEBUI_USER_ID: ${{ secrets.OPENWEBUI_USER_ID }}
+          GIST_TOKEN: ${{ secrets.GIST_TOKEN }}
+          GIST_ID: ${{ secrets.GIST_ID }}
         run: |
           python scripts/openwebui_stats.py
 

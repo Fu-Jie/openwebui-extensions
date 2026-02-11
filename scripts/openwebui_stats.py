@@ -47,16 +47,28 @@ class OpenWebUIStats:
 
     BASE_URL = "https://api.openwebui.com/api/v1"
 
-    def __init__(self, api_key: str, user_id: Optional[str] = None):
+    def __init__(
+        self,
+        api_key: str,
+        user_id: Optional[str] = None,
+        gist_token: Optional[str] = None,
+        gist_id: Optional[str] = None,
+    ):
         """
         初始化统计工具
 
         Args:
             api_key: OpenWebUI API Key (JWT Token)
             user_id: 用户 ID，如果为 None 则从 token 中解析
+            gist_token: GitHub Personal Access Token (用于读写 Gist)
+            gist_id: GitHub Gist ID
         """
         self.api_key = api_key
         self.user_id = user_id or self._parse_user_id_from_token(api_key)
+        self.gist_token = gist_token
+        self.gist_id = gist_id
+        self.history_filename = "community-stats-history.json"
+
         self.session = requests.Session()
         self.session.headers.update(
             {
@@ -79,17 +91,34 @@ class OpenWebUIStats:
     ]
 
     def load_history(self) -> list:
-        """从文件加载历史记录"""
+        """加载历史记录 (优先尝试 Gist, 其次本地文件)"""
+        # 尝试从 Gist 加载
+        if self.gist_token and self.gist_id:
+            try:
+                url = f"https://api.github.com/gists/{self.gist_id}"
+                headers = {"Authorization": f"token {self.gist_token}"}
+                resp = requests.get(url, headers=headers)
+                if resp.status_code == 200:
+                    gist_data = resp.json()
+                    file_info = gist_data.get("files", {}).get(self.history_filename)
+                    if file_info:
+                        content = file_info.get("content")
+                        print(f"✅ 已从 Gist 加载历史记录 ({self.gist_id})")
+                        return json.loads(content)
+            except Exception as e:
+                print(f"⚠️ 无法从 Gist 加载历史: {e}")
+
+        # 降级：从本地加载
         if self.history_file.exists():
             try:
                 with open(self.history_file, "r", encoding="utf-8") as f:
                     return json.load(f)
             except Exception as e:
-                print(f"⚠️ 无法加载历史记录: {e}")
+                print(f"⚠️ 无法加载本地历史记录: {e}")
         return []
 
     def save_history(self, stats: dict):
-        """保存当前快照到历史记录"""
+        """保存当前快照到历史记录 (优先保存到 Gist, 其次本地)"""
         history = self.load_history()
         today = get_beijing_time().strftime("%Y-%m-%d")
 
@@ -104,31 +133,53 @@ class OpenWebUIStats:
             "points": stats.get("user", {}).get("total_points", 0),
         }
 
-        # 如果今天已存在，则更新；否则追加
+        # 更新或追加数据点
+        updated = False
         for i, item in enumerate(history):
             if item.get("date") == today:
                 history[i] = snapshot
+                updated = True
                 break
-        else:
+        if not updated:
             history.append(snapshot)
 
-        # 只保留最近 90 天的历史
+        # 限制长度 (90天)
         history = history[-90:]
 
+        # 尝试保存到 Gist
+        if self.gist_token and self.gist_id:
+            try:
+                url = f"https://api.github.com/gists/{self.gist_id}"
+                headers = {"Authorization": f"token {self.gist_token}"}
+                payload = {
+                    "files": {
+                        self.history_filename: {
+                            "content": json.dumps(history, ensure_ascii=False, indent=2)
+                        }
+                    }
+                }
+                resp = requests.patch(url, headers=headers, json=payload)
+                if resp.status_code == 200:
+                    print(f"✅ 历史记录已同步至 Gist ({self.gist_id})")
+                    return
+            except Exception as e:
+                print(f"⚠️ 同步至 Gist 失败: {e}")
+
+        # 降级：保存到本地
         with open(self.history_file, "w", encoding="utf-8") as f:
             json.dump(history, f, ensure_ascii=False, indent=2)
-        print(f"✅ 历史快照已更新 ({today})")
+        print(f"✅ 历史记录已更新至本地 ({today})")
 
     def get_stat_delta(self, stats: dict) -> dict:
-        """计算相对于上次记录的增长"""
+        """计算相对于上次记录的增长 (24h)"""
         history = self.load_history()
-        if len(history) < 2:
+        if not history:
             return {}
 
-        # 获取上一次的快照（倒数第二个，因为当前可能已经存入倒数第一个）
-        # 或者如果还没存入，就是倒数第一个
         today = get_beijing_time().strftime("%Y-%m-%d")
         prev = None
+
+        # 查找非今天的最后一笔数据作为基准
         for item in reversed(history):
             if item.get("date") != today:
                 prev = item
@@ -754,9 +805,15 @@ def main():
         print("     例如: b15d1348-4347-42b4-b815-e053342d6cb0")
         return 1
 
+    # 获取 Gist 配置 (用于存储历史记录)
+    gist_token = os.getenv("GIST_TOKEN")
+    gist_id = os.getenv("GIST_ID")
+
     # 初始化
-    stats_client = OpenWebUIStats(api_key, user_id)
+    stats_client = OpenWebUIStats(api_key, user_id, gist_token, gist_id)
     print(f"🔍 用户 ID: {stats_client.user_id}")
+    if gist_id:
+        print(f"📦 Gist 存储已启用: {gist_id}")
 
     # 获取所有帖子
     print("📥 正在获取帖子数据...")
