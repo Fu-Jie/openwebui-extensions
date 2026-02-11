@@ -1187,23 +1187,24 @@ class OpenWebUIStats:
                 f.write(content)
             print(f"✅ 文档图表已更新: {doc_path}")
 
-    def generate_activity_chart(self, lang: str = "zh") -> str:
-        """生成 Vega-Lite 趋势图 (内嵌数据，Kroki 服务端渲染不支持外部 URL)"""
+    def upload_chart_svg(self):
+        """生成 Vega-Lite SVG 并上传到 Gist (作为独立文件)"""
+        if not (self.gist_token and self.gist_id):
+            return
+
         history = self.load_history()
         if len(history) < 3:
-            return ""
+            return
 
         # 准备数据点
         values = []
         for item in history:
             values.append({"date": item["date"], "downloads": item["total_downloads"]})
 
-        title = "Total Downloads Trend" if lang == "en" else "总下载量累计趋势"
-
-        # Vega-Lite Spec (内嵌数据，Kroki 服务端渲染必须内嵌)
+        # Vega-Lite Spec
         vl_spec = {
             "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
-            "description": title,
+            "description": "Total Downloads Trend",
             "width": 800,
             "height": 200,
             "padding": 5,
@@ -1243,14 +1244,63 @@ class OpenWebUIStats:
         }
 
         try:
-            # Kroki encoding for Vega-Lite
+            # 1. 生成 Kroki URL
             json_spec = json.dumps(vl_spec)
             compressed = zlib.compress(json_spec.encode("utf-8"), level=9)
             encoded = base64.urlsafe_b64encode(compressed).decode("utf-8")
-            url = f"https://kroki.io/vegalite/svg/{encoded}"
-            return f"### 📈 {title}\n![Activity]({url})"
-        except Exception:
+            kroki_url = f"https://kroki.io/vegalite/svg/{encoded}"
+
+            # 2. 从 Kroki 下载 SVG
+            print(f"📥 Generating chart via Kroki...")
+            resp = requests.get(kroki_url)
+            if resp.status_code != 200:
+                print(f"⚠️ Kroki request failed: {resp.status_code}")
+                return
+            svg_content = resp.text
+
+            # 3. 上传到 Gist
+            url = f"https://api.github.com/gists/{self.gist_id}"
+            headers = {"Authorization": f"token {self.gist_token}"}
+            payload = {"files": {"chart.svg": {"content": svg_content}}}
+            resp = requests.patch(url, headers=headers, json=payload)
+            if resp.status_code == 200:
+                print(f"✅ 图表 SVG 已同步至 Gist: chart.svg")
+            else:
+                print(f"⚠️ Gist upload failed: {resp.status_code} {resp.text}")
+
+        except Exception as e:
+            print(f"⚠️ 上传图表失败: {e}")
+
+    def generate_activity_chart(self, lang: str = "zh") -> str:
+        """生成 Markdown 图表链接 (使用 Gist Raw URL，固定链接)"""
+        if not self.gist_id:
             return ""
+
+        title = "Total Downloads Trend" if lang == "en" else "总下载量累计趋势"
+
+        # 使用不带 commit hash 的 raw 链接 (指向最新版)
+        # 添加时间戳参数避免 GitHub 缓存太久
+        # 注意：README 中如果不加时间戳，GitHub 可能会缓存图片。
+        # 但我们希望 README 不变。GitHub 的 camo 缓存机制比较激进。
+        # 这里的权衡是：要么每天 commit 改时间戳，要么忍受一定的缓存延迟。
+        # 实际上 GitHub 对 raw.githubusercontent.com 的缓存大概是 5 分钟 (对于 gist)。
+        # 而 camo (github user content proxy) 可能会缓存更久。
+        # 我们可以用 purge 缓存的方法，或者接受这个延迟。
+        # 对用户来说，昨天的图表和今天的图表区别不大，延迟一天都无所谓。
+
+        # 使用 cache-control: no-cache 的策略通常对 camo 无效。
+        # 最佳策略是：链接本身不带 query param (保证 README 文本不变)
+        # 相信 GitHub 会最终更新它。
+
+        gist_user = (
+            "Fu-Jie"  # Replace with actual username if needed, or parse from somewhere
+        )
+        # 更好的方式是用 gist_id 直接访问 (不需要用户名，但 Raw 需要)
+        # 格式: https://gist.githubusercontent.com/<user>/<id>/raw/chart.svg
+
+        url = f"https://gist.githubusercontent.com/{gist_user}/{self.gist_id}/raw/chart.svg"
+
+        return f"### 📈 {title}\n![Activity]({url})"
 
 
 def main():
@@ -1323,6 +1373,9 @@ def main():
 
     # 生成徽章
     stats_client.generate_shields_endpoints(stats, str(badges_dir))
+
+    # 生成并上传 SVG 图表 (每日更新 Gist, README URL 保持不变)
+    stats_client.upload_chart_svg()
 
     # 更新 README 文件
     readme_path = script_dir / "README.md"
