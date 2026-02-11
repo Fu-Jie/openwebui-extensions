@@ -20,10 +20,36 @@
   {
     "date": "2026-02-11",
     "total_posts": 22,
-    "total_downloads": 4154,
-    "total_views": 45888,
+    "total_downloads": 4156,
+    "total_views": 45911,
     "total_upvotes": 231,
+    "total_saves": 274,
     "followers": 220,
-    "points": 271
+    "points": 271,
+    "contributions": 48,
+    "posts": {
+      "turn_any_text_into_beautiful_mind_maps_3094c59a": 954,
+      "smart_infographic_ad6f0c7f": 707,
+      "export_to_word_enhanced_formatting_fca6a315": 383,
+      "async_context_compression_b1655bc8": 363,
+      "export_mulit_table_to_excel_244b8f9d": 342,
+      "markdown_normalizer_baaa8732": 341,
+      "flash_card_65a2ea8f": 226,
+      "ai_task_instruction_generator_9bab8b37": 200,
+      "deep_dive_c0b846e4": 147,
+      "导出为_word_支持公式流程图表格和代码块_8a6306c0": 128,
+      "github_copilot_official_sdk_pipe_ce96f7b4": 107,
+      "folder_memory_auto_evolving_project_context_4a9875b2": 61,
+      "智能信息图_e04a48ff": 58,
+      "智能生成交互式思维导图帮助用户可视化知识_8d4b097b": 39,
+      "异步上下文压缩_5c0617cb": 33,
+      "闪记卡生成插件_4a31eac3": 27,
+      "精读_99830b0f": 24,
+      "github_copilot_sdk_files_filter_403a62ee": 16,
+      "github_copilot_sdk_for_openwebui_elevate_your_ai_t_a140f293": 0,
+      "open_webui_prompt_plus_ai_powered_prompt_manager_s_15fa060e": 0,
+      "review_of_claude_haiku_45_41b0db39": 0,
+      "debug_open_webui_plugins_in_your_browser_81bf7960": 0
+    }
   }
 ]

@@ -7,31 +7,27 @@ A collection of enhancements, plugins, and prompts for [OpenWebUI](https://githu
 
 <!-- STATS_START -->
 ## 📊 Community Stats
-
-> 🕐 Auto-updated: 2026-02-11 11:40
+> 🕐 Auto-updated: 2026-02-11 12:09
 
 | 👤 Author | 👥 Followers | ⭐ Points | 🏆 Contributions |
 | :---: | :---: | :---: | :---: |
-| [Fu-Jie](https://openwebui.com/u/Fu-Jie) | **220** | **271** | **48** |
+| [Fu-Jie](https://openwebui.com/u/Fu-Jie) | ![followers](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/Fu-Jie/db3d95687075a880af6f1fba76d679c6/raw/badge_followers.json?style=flat) | ![points](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/Fu-Jie/db3d95687075a880af6f1fba76d679c6/raw/badge_points.json?style=flat) | ![contributions](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/Fu-Jie/db3d95687075a880af6f1fba76d679c6/raw/badge_contributions.json?style=flat) |
 
 | 📝 Posts | ⬇️ Downloads | 👁️ Views | 👍 Upvotes | 💾 Saves |
 | :---: | :---: | :---: | :---: | :---: |
-| **22** | **4154** | **45888** | **231** | **274** |
+| ![posts](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/Fu-Jie/db3d95687075a880af6f1fba76d679c6/raw/badge_posts.json?style=flat) | ![downloads](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/Fu-Jie/db3d95687075a880af6f1fba76d679c6/raw/badge_downloads.json?style=flat) | ![views](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/Fu-Jie/db3d95687075a880af6f1fba76d679c6/raw/badge_views.json?style=flat) | ![upvotes](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/Fu-Jie/db3d95687075a880af6f1fba76d679c6/raw/badge_upvotes.json?style=flat) | ![saves](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/Fu-Jie/db3d95687075a880af6f1fba76d679c6/raw/badge_saves.json?style=flat) |
 
 ### 🔥 Top 6 Popular Plugins
-
-> 🕐 Auto-updated: 2026-02-11 11:40
-
 | Rank | Plugin | Version | Downloads | Views | Updated |
 | :---: | :--- | :---: | :---: | :---: | :---: |
-| 🥇 | [Smart Mind Map](https://openwebui.com/posts/turn_any_text_into_beautiful_mind_maps_3094c59a) | 0.9.2 | 953 | 8381 | 2026-01-29 |
-| 🥈 | [Smart Infographic](https://openwebui.com/posts/smart_infographic_ad6f0c7f) | 1.5.0 | 706 | 6698 | 2026-01-31 |
+| 🥇 | [Smart Mind Map](https://openwebui.com/posts/turn_any_text_into_beautiful_mind_maps_3094c59a) | 0.9.2 | 954 | 8385 | 2026-01-29 |
+| 🥈 | [Smart Infographic](https://openwebui.com/posts/smart_infographic_ad6f0c7f) | 1.5.0 | 707 | 6701 | 2026-01-31 |
 | 🥉 | [Export to Word Enhanced](https://openwebui.com/posts/export_to_word_enhanced_formatting_fca6a315) | 0.4.4 | 383 | 3026 | 2026-02-07 |
 | 4️⃣ | [Async Context Compression](https://openwebui.com/posts/async_context_compression_b1655bc8) | 1.2.2 | 363 | 3754 | 2026-01-29 |
-| 5️⃣ | [Export to Excel](https://openwebui.com/posts/export_mulit_table_to_excel_244b8f9d) | 0.3.7 | 342 | 1670 | 2026-02-10 |
-| 6️⃣ | [Markdown Normalizer](https://openwebui.com/posts/markdown_normalizer_baaa8732) | 1.2.4 | 341 | 4710 | 2026-01-29 |
+| 5️⃣ | [Export to Excel](https://openwebui.com/posts/export_mulit_table_to_excel_244b8f9d) | 0.3.7 | 342 | 1671 | 2026-02-10 |
+| 6️⃣ | [Markdown Normalizer](https://openwebui.com/posts/markdown_normalizer_baaa8732) | 1.2.4 | 341 | 4711 | 2026-01-29 |
 
-*See full stats in [Community Stats Report](./docs/community-stats.md)*
+*See full stats and charts in [Community Stats Report](./docs/community-stats.md)*
 <!-- STATS_END -->
 
 ## 🌟 Star Features
