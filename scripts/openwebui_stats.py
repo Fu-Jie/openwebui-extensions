@@ -979,7 +979,7 @@ class OpenWebUIStats:
                 "author_header": "| 👤 作者 | 👥 粉丝 | ⭐ 积分 | 🏆 贡献 |",
                 "header": "| 📝 发布 | ⬇️ 下载 | 👁️ 浏览 | 👍 点赞 | 💾 收藏 |",
                 "top6_title": "### 🔥 热门插件 Top 6",
-                "top6_header": "| 排名 | 插件 | 版本 | 下载 | 浏览 |",
+                "top6_header": "| 排名 | 插件 | 版本 | 下载 | 浏览 | 📅 更新 |",
                 "full_stats": "*完整统计与趋势图请查看 [社区统计报告](./docs/community-stats.zh.md)*",
             },
             "en": {
@@ -987,7 +987,7 @@ class OpenWebUIStats:
                 "author_header": "| 👤 Author | 👥 Followers | ⭐ Points | 🏆 Contributions |",
                 "header": "| 📝 Posts | ⬇️ Downloads | 👁️ Views | 👍 Upvotes | 💾 Saves |",
                 "top6_title": "### 🔥 Top 6 Popular Plugins",
-                "top6_header": "| Rank | Plugin | Version | Downloads | Views |",
+                "top6_header": "| Rank | Plugin | Version | Downloads | Views | 📅 Updated |",
                 "full_stats": "*See full stats and charts in [Community Stats Report](./docs/community-stats.md)*",
             },
         }
@@ -1027,16 +1027,10 @@ class OpenWebUIStats:
         lines.append("")
         lines.append("")
 
-        # 插入全量趋势图 (Vega-Lite)
-        activity_chart = self.generate_activity_chart(lang)
-        if activity_chart:
-            lines.append(activity_chart)
-            lines.append("")
-
         # Top 6 热门插件
         lines.append(t["top6_title"])
         lines.append(t["top6_header"])
-        lines.append("| :---: | :--- | :---: | :---: | :---: |")
+        lines.append("| :---: | :--- | :---: | :---: | :---: | :---: |")
 
         medals = ["🥇", "🥈", "🥉", "4️⃣", "5️⃣", "6️⃣"]
         for i, post in enumerate(top_plugins):
@@ -1053,11 +1047,25 @@ class OpenWebUIStats:
                 f"![v](https://img.shields.io/badge/v-{ver}-{ver_color}?style=flat)"
             )
 
+            # 更新时间使用静态 Shields.io 徽章
+            updated_str = post.get("updated_at", "")
+            updated_badge = ""
+            if updated_str:
+                # 替换 - 为 -- 用于 shields.io url
+                safe_date = updated_str.replace("-", "--")
+                updated_badge = f"![updated](https://img.shields.io/badge/{safe_date}-gray?style=flat)"
+
             lines.append(
-                f"| {medal} | [{post['title']}]({post['url']}) | {ver_badge} | {dl_cell} | {vw_cell} |"
+                f"| {medal} | [{post['title']}]({post['url']}) | {ver_badge} | {dl_cell} | {vw_cell} | {updated_badge} |"
             )
 
         lines.append("")
+
+        # 插入全量趋势图 (Vega-Lite)
+        activity_chart = self.generate_activity_chart(lang)
+        if activity_chart:
+            lines.append(activity_chart)
+            lines.append("")
         lines.append(t["full_stats"])
         lines.append("<!-- STATS_END -->")
 
