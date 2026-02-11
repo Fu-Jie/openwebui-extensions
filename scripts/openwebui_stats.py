@@ -1159,22 +1159,14 @@ class OpenWebUIStats:
         if not new_chart:
             return
 
-        # 查找并在 "### 📈" 开头的段落替换图表
-        # 假设图表是在 "### 📈 Total Downloads Trend" 或 "### 📈 总下载量累计趋势" 之后
-        # 并且是以 ![Activity](...) 格式存在
-
-        # 简单起见，我们查找整个图表块并替换
-        # 匹配 ### 📈 ... \n\n![Activity](...)
-        pattern = r"(### 📈.*?\n)(!\[Activity\]\(.*?\))"
-
-        def replace_chart(match):
-            title_line = match.group(1)  # 保留标题行
-            # new_chart 包含了标题行，所以我们需要提取 url 部分或者直接用 new_chart 替换整个块
-            # generate_activity_chart 返回的是: ### 📈 Title\n![Activity](url)
-            return new_chart
+        # 匹配 ### 📈 ... \n\n![...](...)
+        # 兼容 docs 中使用 Trend 或 Activity 作为 alt text
+        pattern = r"(### 📈.*?\n)(!\[.*?\]\(.*?\))"
 
         if re.search(pattern, content, re.DOTALL):
-            content = re.sub(pattern, replace_chart, content, flags=re.DOTALL)
+            # generate_activity_chart 返回的是完整块: ### 📈 Title\n![Activity](url)
+            # 我们直接用新块替换整个旧块
+            content = re.sub(pattern, new_chart, content, flags=re.DOTALL)
 
             with open(doc_path, "w", encoding="utf-8") as f:
                 f.write(content)
