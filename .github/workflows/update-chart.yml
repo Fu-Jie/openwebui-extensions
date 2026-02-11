@@ -1,0 +1,46 @@
+name: Update Activity Chart
+
+on:
+  schedule:
+    # 每天北京时间 01:10 运行 (UTC 17:10)
+    - cron: '10 17 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-chart:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install requests python-dotenv
+
+      - name: Generate stats and update chart
+        env:
+          OPENWEBUI_API_KEY: ${{ secrets.OPENWEBUI_API_KEY }}
+          OPENWEBUI_USER_ID: ${{ secrets.OPENWEBUI_USER_ID }}
+          GIST_TOKEN: ${{ secrets.GIST_TOKEN }}
+          GIST_ID: ${{ secrets.GIST_ID }}
+        run: |
+          python scripts/openwebui_stats.py
+
+      - name: Commit chart updates
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add README.md README_CN.md docs/community-stats.md docs/community-stats.zh.md
+          git diff --staged --quiet || git commit -m "chore: daily update activity chart [skip ci]"
+          git push
