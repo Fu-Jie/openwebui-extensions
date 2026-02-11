@@ -3,7 +3,7 @@
 > ![updated](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_updated.json&style=flat)
 
 ### 📈 Total Downloads Trend
-![Activity](https://kroki.io/vegalite/svg/eNqNlsFu2zAMhl8l8Nbb0liULdu9bo_Q27CDEiuxVsXybCVpEeTdR6lN0IU0sEsgSp9Iir8s5px9nTad2evsaZF1IQzT02p1NDv9uLOhO6wfrV-9A2l26Wwwq2P5-HvyffZtkbVm2ox2CBZN9PDsg3aLH_7UO6_bafE8mr6N3Mm2oUOiznO0OmN3XUATkjnotrX9Du0SrbXevOxGf8CN6DGMup8GjX5C9LPx_dZG8pwdrTmlwRRG_2Lu4QvS-tVOCWn9XtuY4Va7yeDKbrTt1bxEtNVBv7vV7mDirp_nOJn8Qg5qmYtlXqYzX4-HS1VR426GVPdkLXOerO7JRpQ8WROyAp5s7kmRC8WiIqdoXfGoIKio-QQEEBTKmQQkQWUhebQgaKH4qgqilChh5liKog2vqiBaCaVmUCKWqNRMBahatSxYFKhaDfASAFWrmTkWELUgn8kViFowdweAqAVQ8hIAUQvkXAWIWlDMfINA1IJSzqBELVDQ8ChRC6qav4SSqAV1xVdAErWgqbgEAOl7VObs24IoEVYK9r4iSoSVIBWPEmGlrAoeJcLKkr2vwLyYUinJo0RYWc0Viwgr62omASKsbBq-AvTRLIQUPCooim_Wr9hz9np8ST0nvA1pE3YuHXFne5MWNt75Ma58wedTmnXqatfJc_Yq4meNU2_XwStcZ-IgT51OtzY2xKd3v3qMEabgh48m57fbyYQP-hbw1GGnz9KRboD4DNwy-pX6p-k3_qOJY17pd2uNSz081QSZ6zGD2Q9-1C773KK3ftzrlOXDfvmQ_jQEG1zc0B-ci1XRa-O-3-IrpbIU-u0u2q3Wn0L-Oege3elgj-afsP8T43L5C23qg4U=)
+![Activity](https://kroki.io/vegalite/svg/eNqNls2S2yAMx18l43ZvTWKEje1c20fYW2cPJCYxDTGuTb4mk3cvkI_ZRvLMXjIIfkhCf4xySb4Pq0btZLKYJI1z3bCYzw9qI2cb7Zr9cqbt_AbE2anRTs0P-ezPYNvkxySp1bDqdee0N72Hd-ukmfyyx9ZYWQ-T9161deCOunaNJ8o09Vaj9KZx3oRodrKudbvxdu6tpVxtN73d-43eo-tlO3TS-3HBz8q2ax3IS3LQ6hgHg-vtVr3CV0_Lkx4iUtud1CHDtTSD8iubXtcP8xrQWjp5cyvNXoVdvy9hMvqFFMQ0ZdM0j2d-HM8vFVnpdxOkeCVLntJk8UpWLKfJEpEF0GT1SrKUCRJlKUbLgkYZQllJJ8AAoZCPJMARyjNOoxlCM0FXlSGlWA4jxxIYrWhVGdKKCTGCIrFYIUYqgNUqeUaigNWqgJYAsFrVyLEAqQXpSK6A1IKxOwBILYCclgCQWsDHKoDUgmzkGwSkFuR8BEVqgYCKRpFaUJT0JeRILSgLugIcqQVVQSUAnn5FeUq-LR5FwnJG3lePImE5cEGjSFjOi4xGkbA8J-8rEC8mF4LTKBKWF2PFQsLyshhJAAnLq4quAH40M8YZjTKMCnb9CD1nJ_tt7Dnu3MVNvnPJgBvdqriwssb2YeWbfz65Wsau9pi8JCcWPms_dX4MTvCYCYM0djpZ69AQFze_sg8RBme7e5Oz6_Wg3J1-Bjw2vtMn8UhPgH0Gnhl9xP6p2pW9N3GfV_xda2ViD4818czjmE7tOttLk3xu0Wvb72TM8m03fYt_Gpx2Jmxo98aEqsilMj-f8YUQSQx9fon2rPWnkH_3svXupNMH9V_Yr8S4Xv8Bb5uDhg==)
 
 > *Blue: Downloads | Purple: Views (Real-time dynamic)*
 
@@ -25,12 +25,12 @@
 
 ## 📂 By Type
 
-- **post**: 3
-- **filter**: 4
-- **pipe**: 1
-- **action**: 12
-- **prompt**: 1
-- **review**: 1
+- ![post](https://img.shields.io/badge/post-3-blue)
+- ![filter](https://img.shields.io/badge/filter-4-brightgreen)
+- ![pipe](https://img.shields.io/badge/pipe-1-blueviolet)
+- ![action](https://img.shields.io/badge/action-12-orange)
+- ![prompt](https://img.shields.io/badge/prompt-1-lightgrey)
+- ![review](https://img.shields.io/badge/review-1-yellow)
 
 ## 📋 Posts List
 

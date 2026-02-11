@@ -3,7 +3,7 @@
 > ![updated_zh](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_updated_zh.json&style=flat)
 
 ### 📈 总下载量累计趋势
-![Activity](https://kroki.io/vegalite/svg/eNqNlsFy2yAQhl8loza3OoZFAinXPkadAxLIopGFKiE7GY_fvUBiT-pFM70wWvjYXfbHrM_Z97np9EFmzw9Z59w4P2-3R72XT3vjuqV-Mnb7AcTZTW-c3h6Lp9-zHbIfD5nSczOZ0Rlveg-7hRNW75ZcEz-WrVC7paJNu1uEAj-WtaR-VKVfLaBug4uTUa7zm0tCvNVps--cNyGao1TKDHtvF96qZfO6n-wyqBDMTXKYRznpwQU_jR1aE8hzdjT6FD9mN9lXfQ9fPC3fzBwRZQ_ShORb2c_ar-wno67mJaBKOvnhVvaLDrt-ncNk9AsE-IbQDSliOexp6K1UARJ56XcnSH5PloykSXFPVrRIkyUiBaTJ6p6khPIkSglGS5FGKUJpmU6AAkKhWEmAIZTlLI3mCM15uqoUKUULWDkWx2iVVpUirSjnKygSiwq-UgGsVsnyJApYrQrSEgBWq1o5FiC1gKzkCkgtWLsDgNQCKNISAFIL2FoFkFqQr_wGAakFBVtBkVrAoUqjSC0QZfoSMqQWlCJdAYbUgkqkEgBP36OMJN8WjyJhGU3eV48iYRkwnkaRsIyJPI0iYVmRvK-QeDEZ5yyNImGZWCsWEpaVYiUBJCyrqnQF8KOZU0bTKMWof7NeQs85yOk19hz3PsZNvnPJgPdm0HGhsb2dwso3_3wyXceudp08Z280_Kz91Pv14w2uM-GDxE4nlQkN8fnDr5xChNnZ8bPJ2badtfukbwFPnf8TkMUj3QD6Fbhl9BL7px4a-9nEfV5xbI3uYw-PNfHM9ZhOH0Y7yT772qJbOx1kzPLxsHlUkTeuDxuGpe9DVWSt-5-3-JzzLIZ-v4t2q_WXkH8WOXh30pmj_ifs_8S4XP4CD5SLdw==)
+![Activity](https://kroki.io/vegalite/svg/eNqNlsFy2yAQhl8loza3OhaLBCjXPkadAxLIopGFKiE7GY_fvUBiT-pFM70wWvjYXfbHrM_Z97np9EFmzw9Z59w4P2-3R72XT3vjuqV-Mnb7AcTZTW-c3h7Lp9-zHbIfD5nSczOZ0Rlveg-7heW03i2Fzv0oWq52S0WadrdwBX4UtSR-VMKvllC3wcXJKNf5zSLPvdVps--cNyGao1TKDHtvl96qZfO6n-wyqBDMTXKYRznpwQU_jR1aE8hzdjT6FD9mN9lXfQ9fPC3fzBwRZQ_ShORb2c_ar-wno67mJaBKOvnhVvaLDrt-ncNk9As5sE1ONnkZy2FPQ2-lChAvhN-dINk9KWieJvk9WZEyTQpEckiT1T1JcsKSKMkxKngaJQglIp0AAYRCuZIARSgtaBotEFqwdFUJUoqUsHIshtEqrSpBWhHGVlAkFuFspQJYLUGLJApYrQrSEgBWq1o5FiC1IF_JFZBasHYHAKkFUKYlAKQW0LUKILWgWPkNAlILSrqCIrWAQZVGkVrARfoSUqQWCJ6uAEVqQcVTCYCn71GaJ98WjyJhKUneV48iYSlQlkaRsJTyIo0iYWmZvK-QeDEpYzSNImEpXysWEpYKvpIAEpZWVboC-NEsCCVplGCUkctL6DkHOb3GnuPex7jJdy4Z8N4MOi40trdTWPnmn0-q69jVrpPn7I2En7Wfer9-vMF1JnzksdNJZUJDfP7wK6cQYXZ2_Gxytm1n7T7pW8BT5_8EZPFIN4B8BW4ZvcT-qYfGfjZxn1ccW6P72MNjTTxzPabTh9FOss--tujWTgcZs3w8bB5V5I3rw4Zh6ftQFVnr_uctPmMsi6Hf76Ldav0l5J9FDt6ddOao_wn7PzEul78RRYt4)
 
 > *蓝色: 总下载量 | 紫色: 总浏览量 (实时动态生成)*
 
@@ -25,12 +25,12 @@
 
 ## 📂 按类型分类
 
-- **post**: 3
-- **filter**: 4
-- **pipe**: 1
-- **action**: 12
-- **prompt**: 1
-- **review**: 1
+- ![post](https://img.shields.io/badge/post-3-blue)
+- ![filter](https://img.shields.io/badge/filter-4-brightgreen)
+- ![pipe](https://img.shields.io/badge/pipe-1-blueviolet)
+- ![action](https://img.shields.io/badge/action-12-orange)
+- ![prompt](https://img.shields.io/badge/prompt-1-lightgrey)
+- ![review](https://img.shields.io/badge/review-1-yellow)
 
 ## 📋 发布列表
 
