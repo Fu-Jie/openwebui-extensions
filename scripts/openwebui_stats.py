@@ -1189,11 +1189,17 @@ class OpenWebUIStats:
 
     def upload_chart_svg(self):
         """生成 Vega-Lite SVG 并上传到 Gist (作为独立文件)"""
+        print("🚀 Starting chart SVG generation process...")
+
         if not (self.gist_token and self.gist_id):
+            print("⚠️ Skipping chart upload: GIST_TOKEN or GIST_ID missing")
             return
 
         history = self.load_history()
+        print(f"📊 History records loaded: {len(history)}")
+
         if len(history) < 3:
+            print("⚠️ Skipping chart upload: not enough history (<3 records)")
             return
 
         # 准备数据点
