@@ -6,7 +6,7 @@ OpenWebUI 增强功能集合。包含个人开发与收集的插件、提示词�
 
 <!-- STATS_START -->
 ## 📊 社区统计
-> 🕐 自动更新于 2026-02-11 12:35
+> 🕐 自动更新于 2026-02-11 12:41
 
 | 👤 作者 | 👥 粉丝 | ⭐ 积分 | 🏆 贡献 |
 | :---: | :---: | :---: | :---: |
@@ -15,6 +15,8 @@ OpenWebUI 增强功能集合。包含个人开发与收集的插件、提示词�
 | 📝 发布 | ⬇️ 下载 | 👁️ 浏览 | 👍 点赞 | 💾 收藏 |
 | :---: | :---: | :---: | :---: | :---: |
 | ![posts](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_posts.json&style=flat) | ![downloads](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_downloads.json&style=flat) | ![views](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_views.json&style=flat) | ![upvotes](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_upvotes.json&style=flat) | ![saves](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_saves.json&style=flat) |
+
+![Downloads Trend](https://kroki.io/mermaid/svg/eNo9zr1qAkEQwPHepxi2SuAOdnfO_eh9hHRisTEHOTg80AXPLl1AC59BsLExTZBAkLxMNJe3cO50nOLPj2GKqRfj1zCN6XMeQw9oYhHLHMT57fv3a9Ucj__v67_Pj2a_aQ6r0_IHHlR22u4eRXdcp6EuZjAUUqXaiwRaoGSoDjqVd2gGMjJGn2EYluEY_gYlGUqMuk8W10_EUxVDCYNqPimr8DK7vlkWkxyG2jqZgHbWUr31CaBE2qAyjqrRUNFm1L7WVGOQartLZ9uN93STKVRtjRxdAOxIUHs=)
 
 ### 🔥 热门插件 Top 6
 | 排名 | 插件 | 版本 | 下载 | 浏览 | 更新日期 |

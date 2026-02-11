@@ -7,7 +7,7 @@ A collection of enhancements, plugins, and prompts for [OpenWebUI](https://githu
 
 <!-- STATS_START -->
 ## 📊 Community Stats
-> 🕐 Auto-updated: 2026-02-11 12:35
+> 🕐 Auto-updated: 2026-02-11 12:41
 
 | 👤 Author | 👥 Followers | ⭐ Points | 🏆 Contributions |
 | :---: | :---: | :---: | :---: |
@@ -16,6 +16,8 @@ A collection of enhancements, plugins, and prompts for [OpenWebUI](https://githu
 | 📝 Posts | ⬇️ Downloads | 👁️ Views | 👍 Upvotes | 💾 Saves |
 | :---: | :---: | :---: | :---: | :---: |
 | ![posts](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_posts.json&style=flat) | ![downloads](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_downloads.json&style=flat) | ![views](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_views.json&style=flat) | ![upvotes](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_upvotes.json&style=flat) | ![saves](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_saves.json&style=flat) |
+
+![Downloads Trend](https://kroki.io/mermaid/svg/eNpdzr8KgzAQx_G9T3FkakEhydn82X0EN3FIa6BCUNBA9e17aq9DM3z5EG74rdvzFeZcPmIOF6CXh5wiiGbKIUE9vcc0hX6BZo5jD1dVQR225SaO27UM67BAK6QqtRcF7EDJUAd0KX_QDGRUjDvDMCzDMfwXSjKU6I4l27nkf_Y5Mw1jhFZbJwvQzlqqt74AlEg_qIyjajRUtBX1rjXVGKTa49LZ_cd7uqkUqr1Gdh_PIkZl)
 
 ### 🔥 Top 6 Popular Plugins
 | Rank | Plugin | Version | Downloads | Views | Updated |

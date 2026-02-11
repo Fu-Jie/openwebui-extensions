@@ -504,6 +504,12 @@ class OpenWebUIStats:
 
         print("=" * 60)
 
+    def _safe_key(self, key: str) -> str:
+        """生成安全的文件名 Key (MD5 hash) 以避免中文字符问题"""
+        import hashlib
+
+        return hashlib.md5(key.encode("utf-8")).hexdigest()
+
     def generate_markdown(self, stats: dict, lang: str = "zh") -> str:
         """
         生成 Markdown 格式报告 (全动态徽章与 Kroki 图表)
@@ -582,7 +588,6 @@ class OpenWebUIStats:
             f"| {t['upvotes']} | {self.get_badge('upvotes', stats, user, delta)} |"
         )
         md.append(f"| {t['saves']} | {self.get_badge('saves', stats, user, delta)} |")
-        md.append(f"| {t['saves']} | {self.get_badge('saves', stats, user, delta)} |")
 
         # 作者信息
         if user:
@@ -610,20 +615,33 @@ class OpenWebUIStats:
 
         for i, post in enumerate(stats["posts"], 1):
             title_link = f"[{post['title']}]({post['url']})"
-            slug = post["slug"]
+            slug_hash = self._safe_key(post["slug"])
 
-            # 使用针对每个帖子的动态徽章
+            # 使用针对每个帖子的动态徽章 (使用 Hash 保证文件名安全)
             dl_badge = self.get_badge(
-                f"post_{slug}_dl", stats, user, delta, is_post=True
+                f"post_{slug_hash}_dl", stats, user, delta, is_post=True
             )
             vw_badge = self.get_badge(
-                f"post_{slug}_vw", stats, user, delta, is_post=True
+                f"post_{slug_hash}_vw", stats, user, delta, is_post=True
+            )
+            up_badge = self.get_badge(
+                f"post_{slug_hash}_up", stats, user, delta, is_post=True
+            )
+            sv_badge = self.get_badge(
+                f"post_{slug_hash}_sv", stats, user, delta, is_post=True
+            )
+
+            # 版本号使用静态 Shields.io 徽章
+            ver = post["version"] if post["version"] else "N/A"
+            ver_color = "blue" if post["version"] else "gray"
+            ver_badge = (
+                f"![v](https://img.shields.io/badge/v-{ver}-{ver_color}?style=flat)"
             )
 
             md.append(
-                f"| {i} | {title_link} | {post['type']} | {post['version']} | "
-                f"{dl_badge} | {vw_badge} | {post['upvotes']} | "
-                f"{post['saves']} | {post['updated_at']} |"
+                f"| {i} | {title_link} | {post['type']} | {ver_badge} | "
+                f"{dl_badge} | {vw_badge} | {up_badge} | "
+                f"{sv_badge} | {post['updated_at']} |"
             )
 
         md.append("")
@@ -794,15 +812,17 @@ class OpenWebUIStats:
             }
 
         # 生成所有帖子的个体徽章 (用于详细报表)
+        # 生成所有帖子的个体徽章 (用于详细报表)
         for post in stats.get("posts", []):
-            slug = post["slug"]
-            diff = post_deltas.get(slug, 0)
+            slug_hash = self._safe_key(post["slug"])
+            diff = post_deltas.get(post["slug"], 0)
 
+            # 1. Downloads
             dl_msg = f"{post['downloads']}"
             if diff > 0:
                 dl_msg += f" (+{diff}🚀)"
 
-            files_payload[f"badge_post_{slug}_dl.json"] = {
+            files_payload[f"badge_post_{slug_hash}_dl.json"] = {
                 "content": json.dumps(
                     {
                         "schemaVersion": 1,
@@ -812,13 +832,39 @@ class OpenWebUIStats:
                     }
                 )
             }
-            files_payload[f"badge_post_{slug}_vw.json"] = {
+
+            # 2. Views
+            files_payload[f"badge_post_{slug_hash}_vw.json"] = {
                 "content": json.dumps(
                     {
                         "schemaVersion": 1,
                         "label": "Views",
                         "message": f"{post['views']}",
                         "color": "blue",
+                    }
+                )
+            }
+
+            # 3. Upvotes
+            files_payload[f"badge_post_{slug_hash}_up.json"] = {
+                "content": json.dumps(
+                    {
+                        "schemaVersion": 1,
+                        "label": "Upvotes",
+                        "message": f"{post['upvotes']}",
+                        "color": "orange",
+                    }
+                )
+            }
+
+            # 4. Saves
+            files_payload[f"badge_post_{slug_hash}_sv.json"] = {
+                "content": json.dumps(
+                    {
+                        "schemaVersion": 1,
+                        "label": "Saves",
+                        "message": f"{post['saves']}",
+                        "color": "lightgrey",
                     }
                 )
             }
