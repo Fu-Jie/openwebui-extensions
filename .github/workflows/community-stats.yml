@@ -8,14 +8,8 @@
 name: Community Stats
 
 on:
-  # 定时任务
   schedule:
     - cron: '0 * * * *'
-  # 推送时触发（用于测试任务分支）
-  push:
-    branches:
-      - feat/stats-history-and-refactor
-  # 手动触发
   workflow_dispatch:
 
 permissions:
