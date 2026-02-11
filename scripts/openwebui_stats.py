@@ -534,6 +534,8 @@ class OpenWebUIStats:
         }
 
         t = texts.get(lang, texts["en"])
+        user = stats.get("user", {})
+        delta = self.get_stat_delta(stats)
 
         md = []
         md.append(t["title"])
@@ -558,25 +560,30 @@ class OpenWebUIStats:
         md.append("")
         md.append(t["overview_header"])
         md.append("|------|------|:---:|")
-        md.append(f"| {t['posts']} | {stats['total_posts']} | - |")
         md.append(
-            f"| {t['downloads']} | {stats['total_downloads']} | {fmt_delta('downloads')} |"
+            f"| {t['posts']} | {self.get_badge('posts', stats, user, delta)} | - |"
         )
-        md.append(f"| {t['views']} | {stats['total_views']} | {fmt_delta('views')} |")
         md.append(
-            f"| {t['upvotes']} | {stats['total_upvotes']} | {fmt_delta('upvotes')} |"
+            f"| {t['downloads']} | {self.get_badge('downloads', stats, user, delta)} | {fmt_delta('downloads')} |"
         )
-        md.append(f"| {t['saves']} | {stats['total_saves']} | - |")
+        md.append(
+            f"| {t['views']} | {self.get_badge('views', stats, user, delta)} | {fmt_delta('views')} |"
+        )
+        md.append(
+            f"| {t['upvotes']} | {self.get_badge('upvotes', stats, user, delta)} | {fmt_delta('upvotes')} |"
+        )
+        md.append(
+            f"| {t['saves']} | {self.get_badge('saves', stats, user, delta)} | - |"
+        )
         md.append(f"| {t['comments']} | {stats['total_comments']} | - |")
 
         # 作者信息
-        user = stats.get("user", {})
         if user:
             md.append(
-                f"| {t['author_points']} | {user.get('total_points', 0)} | {fmt_delta('points')} |"
+                f"| {t['author_points']} | {self.get_badge('points', stats, user, delta)} | {fmt_delta('points')} |"
             )
             md.append(
-                f"| {t['author_followers']} | {user.get('followers', 0)} | {fmt_delta('followers')} |"
+                f"| {t['author_followers']} | {self.get_badge('followers', stats, user, delta)} | {fmt_delta('followers')} |"
             )
 
         md.append("")
@@ -596,6 +603,11 @@ class OpenWebUIStats:
 
         for i, post in enumerate(stats["posts"], 1):
             title_link = f"[{post['title']}]({post['url']})"
+
+            # 使用 get_badge 处理单个帖子的下载和浏览量徽章 (仅前 10 个使用索引，其余使用通用处理或暂留静态)
+            # 为了报告的简洁，我们这里可以考虑对 Top 10 使用动态徽章，或者统一设计一种按 slug 获取的机制
+            # 简化方案：报告中我们直接用对应 key 的 get_badge
+
             md.append(
                 f"| {i} | {title_link} | {post['type']} | {post['version']} | "
                 f"{post['downloads']} | {post['views']} | {post['upvotes']} | "
@@ -778,6 +790,48 @@ class OpenWebUIStats:
         else:
             print(f"⚠️ 徽章上传失败: {resp.status_code} {resp.text}")
 
+    def get_badge(
+        self,
+        key: str,
+        stats: dict,
+        user: dict,
+        delta: dict,
+        is_post: bool = False,
+        style: str = "flat",
+    ) -> str:
+        """获取 Shields.io 徽章 URL (包含增量显示)"""
+        import urllib.parse
+
+        gist_user = "Fu-Jie"
+
+        def _fmt_delta(k: str) -> str:
+            val = delta.get(k, 0)
+            if val > 0:
+                return f" <br><sub>(+{val}🚀)</sub>"
+            return ""
+
+        if not self.gist_id:
+            if is_post:
+                return "**-**"
+            val = stats.get(f"total_{key}", 0)
+            if key == "followers":
+                val = user.get("followers", 0)
+            if key == "points":
+                val = user.get("total_points", 0)
+            if key == "contributions":
+                val = user.get("contributions", 0)
+            if key == "posts":
+                val = stats.get("total_posts", 0)
+            if key == "saves":
+                val = stats.get("total_saves", 0)
+            return f"**{val}**{_fmt_delta(key)}"
+
+        raw_url = f"https://gist.githubusercontent.com/{gist_user}/{self.gist_id}/raw/badge_{key}.json"
+        encoded_url = urllib.parse.quote(raw_url, safe="")
+        return (
+            f"![{key}](https://img.shields.io/endpoint?url={encoded_url}&style={style})"
+        )
+
     def generate_readme_stats(self, stats: dict, lang: str = "zh") -> str:
         """
         生成 README 统计区域 (精简版)
@@ -827,33 +881,7 @@ class OpenWebUIStats:
         lines.append(f"> {t['updated']}")
         lines.append("")
 
-        # 定义徽章 URL (使用 Gist ID)
-        import urllib.parse
-
-        gist_user = "Fu-Jie"
-
-        def get_badge(key: str, is_post: bool = False, style: str = "flat") -> str:
-            if not self.gist_id:
-                # 降级：如果没有 Gist，显示静态文本
-                if is_post:
-                    return "**-**"
-                val = stats.get(f"total_{key}", 0)
-                if key == "followers":
-                    val = user.get("followers", 0)
-                if key == "points":
-                    val = user.get("total_points", 0)
-                if key == "contributions":
-                    val = user.get("contributions", 0)
-                if key == "posts":
-                    val = stats.get("total_posts", 0)
-                if key == "saves":
-                    val = stats.get("total_saves", 0)
-                return f"**{val}**{fmt_delta(key)}"
-
-            # 对 Gist Raw URL 进行转义，确保 Shields.io 正确处理
-            raw_url = f"https://gist.githubusercontent.com/{gist_user}/{self.gist_id}/raw/badge_{key}.json"
-            encoded_url = urllib.parse.quote(raw_url, safe="")
-            return f"![{key}](https://img.shields.io/endpoint?url={encoded_url}&style={style})"
+        delta = self.get_stat_delta(stats)
 
         # 作者信息表格
         if user:
@@ -862,8 +890,8 @@ class OpenWebUIStats:
             lines.append(t["author_header"])
             lines.append("| :---: | :---: | :---: | :---: |")
             lines.append(
-                f"| [{username}]({profile_url}) | {get_badge('followers')} | "
-                f"{get_badge('points')} | {get_badge('contributions')} |"
+                f"| [{username}]({profile_url}) | {self.get_badge('followers', stats, user, delta)} | "
+                f"{self.get_badge('points', stats, user, delta)} | {self.get_badge('contributions', stats, user, delta)} |"
             )
             lines.append("")
 
@@ -871,8 +899,8 @@ class OpenWebUIStats:
         lines.append(t["header"])
         lines.append("| :---: | :---: | :---: | :---: | :---: |")
         lines.append(
-            f"| {get_badge('posts')} | {get_badge('downloads')} | "
-            f"{get_badge('views')} | {get_badge('upvotes')} | {get_badge('saves')} |"
+            f"| {self.get_badge('posts', stats, user, delta)} | {self.get_badge('downloads', stats, user, delta)} | "
+            f"{self.get_badge('views', stats, user, delta)} | {self.get_badge('upvotes', stats, user, delta)} | {self.get_badge('saves', stats, user, delta)} |"
         )
         lines.append("")
 
@@ -886,8 +914,8 @@ class OpenWebUIStats:
             idx = i + 1
             medal = medals[i] if i < len(medals) else str(idx)
 
-            dl_cell = get_badge(f"p{idx}_dl", is_post=True)
-            vw_cell = get_badge(f"p{idx}_vw", is_post=True)
+            dl_cell = self.get_badge(f"p{idx}_dl", stats, user, delta, is_post=True)
+            vw_cell = self.get_badge(f"p{idx}_vw", stats, user, delta, is_post=True)
 
             lines.append(
                 f"| {medal} | [{post['title']}]({post['url']}) | {post['version']} | {dl_cell} | {vw_cell} | {post['updated_at']} |"
