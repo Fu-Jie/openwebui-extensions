@@ -582,7 +582,7 @@ class OpenWebUIStats:
             f"| {t['upvotes']} | {self.get_badge('upvotes', stats, user, delta)} |"
         )
         md.append(f"| {t['saves']} | {self.get_badge('saves', stats, user, delta)} |")
-        md.append(f"| {t['comments']} | {stats['total_comments']} |")
+        md.append(f"| {t['saves']} | {self.get_badge('saves', stats, user, delta)} |")
 
         # 作者信息
         if user:
@@ -952,6 +952,39 @@ class OpenWebUIStats:
             f"{self.get_badge('views', stats, user, delta)} | {self.get_badge('upvotes', stats, user, delta)} | {self.get_badge('saves', stats, user, delta)} |"
         )
         lines.append("")
+
+        # 插入总下载量趋势图 (仅 README 使用)
+        history = self.load_history()
+        if len(history) >= 3:
+            # 辅助函数：Kroki 渲染
+            def kroki_render(mermaid_code: str) -> str:
+                try:
+                    compressed = zlib.compress(mermaid_code.encode("utf-8"), level=9)
+                    encoded = base64.urlsafe_b64encode(compressed).decode("utf-8")
+                    return f"https://kroki.io/mermaid/svg/{encoded}"
+                except:
+                    return ""
+
+            data = history[-14:]  # 取最近14天
+            dates = [item["date"][-5:] for item in data]
+            dates_str = ", ".join([f'"{d}"' for d in dates])
+            dls = [str(item["total_downloads"]) for item in data]
+
+            # 多语言标题
+            chart_titles = {
+                "zh": "总下载量累计趋势 (14天)",
+                "en": "Total Downloads Trend (14 Days)",
+            }
+            c_title = chart_titles.get(lang, chart_titles["en"])
+
+            mm = f"""xychart-beta
+    title "{c_title}"
+    x-axis [{dates_str}]
+    y-axis "Total Downloads"
+    line [{', '.join(dls)}]"""
+
+            lines.append(f"![Downloads Trend]({kroki_render(mm)})")
+            lines.append("")
 
         # Top 6 热门插件
         lines.append(t["top6_title"])
