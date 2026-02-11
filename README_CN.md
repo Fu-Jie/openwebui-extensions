@@ -6,7 +6,7 @@ OpenWebUI 增强功能集合。包含个人开发与收集的插件、提示词�
 
 <!-- STATS_START -->
 ## 📊 社区统计
-> 🕐 自动更新于 2026-02-11 12:51
+> ![updated_zh](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_updated_zh.json&style=flat)
 
 | 👤 作者 | 👥 粉丝 | ⭐ 积分 | 🏆 贡献 |
 | :---: | :---: | :---: | :---: |

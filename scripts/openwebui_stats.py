@@ -525,7 +525,7 @@ class OpenWebUIStats:
         texts = {
             "zh": {
                 "title": "# 📊 OpenWebUI 社区统计报告",
-                "updated": f"> 📅 更新时间: {get_beijing_time().strftime('%Y-%m-%d %H:%M')}",
+                "updated_label": "更新时间",
                 "overview_title": "## 📈 总览",
                 "overview_header": "| 指标 | 数值 |",
                 "posts": "📝 发布数量",
@@ -542,7 +542,7 @@ class OpenWebUIStats:
             },
             "en": {
                 "title": "# 📊 OpenWebUI Community Stats Report",
-                "updated": f"> 📅 Updated: {get_beijing_time().strftime('%Y-%m-%d %H:%M')}",
+                "updated_label": "Updated",
                 "overview_title": "## 📈 Overview",
                 "overview_header": "| Metric | Value |",
                 "posts": "📝 Total Posts",
@@ -565,7 +565,9 @@ class OpenWebUIStats:
         md = []
         md.append(t["title"])
         md.append("")
-        md.append(t["updated"])
+
+        updated_key = "updated_zh" if lang == "zh" else "updated"
+        md.append(f"> {self.get_badge(updated_key, stats, user, delta)}")
         md.append("")
 
         # 插入趋势图 (使用 Kroki SVG 链接)
@@ -869,6 +871,29 @@ class OpenWebUIStats:
                 )
             }
 
+        # 生成更新时间徽章
+        now_str = get_beijing_time().strftime("%Y-%m-%d %H:%M")
+        files_payload["badge_updated.json"] = {
+            "content": json.dumps(
+                {
+                    "schemaVersion": 1,
+                    "label": "Auto-updated",
+                    "message": now_str,
+                    "color": "gray",
+                }
+            )
+        }
+        files_payload["badge_updated_zh.json"] = {
+            "content": json.dumps(
+                {
+                    "schemaVersion": 1,
+                    "label": "自动更新于",
+                    "message": now_str,
+                    "color": "gray",
+                }
+            )
+        }
+
         # 将生成的 Markdown 报告也作为一个普通 JSON 文件上传到 Gist
         for lang in ["zh", "en"]:
             report_content = self.generate_markdown(stats, lang=lang)
@@ -919,6 +944,8 @@ class OpenWebUIStats:
                 val = stats.get("total_posts", 0)
             if key == "saves":
                 val = stats.get("total_saves", 0)
+            if key.startswith("updated"):
+                return f"🕐 {get_beijing_time().strftime('%Y-%m-%d %H:%M')}"
             return f"**{val}**{_fmt_delta(key)}"
 
         raw_url = f"https://gist.githubusercontent.com/{gist_user}/{self.gist_id}/raw/badge_{key}.json"
@@ -949,7 +976,6 @@ class OpenWebUIStats:
         texts = {
             "zh": {
                 "title": "## 📊 社区统计",
-                "updated": f"🕐 自动更新于 {get_beijing_time().strftime('%Y-%m-%d %H:%M')}",
                 "author_header": "| 👤 作者 | 👥 粉丝 | ⭐ 积分 | 🏆 贡献 |",
                 "header": "| 📝 发布 | ⬇️ 下载 | 👁️ 浏览 | 👍 点赞 | 💾 收藏 |",
                 "top6_title": "### 🔥 热门插件 Top 6",
@@ -958,7 +984,6 @@ class OpenWebUIStats:
             },
             "en": {
                 "title": "## 📊 Community Stats",
-                "updated": f"🕐 Auto-updated: {get_beijing_time().strftime('%Y-%m-%d %H:%M')}",
                 "author_header": "| 👤 Author | 👥 Followers | ⭐ Points | 🏆 Contributions |",
                 "header": "| 📝 Posts | ⬇️ Downloads | 👁️ Views | 👍 Upvotes | 💾 Saves |",
                 "top6_title": "### 🔥 Top 6 Popular Plugins",
@@ -973,7 +998,9 @@ class OpenWebUIStats:
         lines = []
         lines.append("<!-- STATS_START -->")
         lines.append(t["title"])
-        lines.append(f"> {t['updated']}")
+
+        updated_key = "updated_zh" if lang == "zh" else "updated"
+        lines.append(f"> {self.get_badge(updated_key, stats, user, delta)}")
         lines.append("")
 
         delta = self.get_stat_delta(stats)

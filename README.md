@@ -7,7 +7,7 @@ A collection of enhancements, plugins, and prompts for [OpenWebUI](https://githu
 
 <!-- STATS_START -->
 ## 📊 Community Stats
-> 🕐 Auto-updated: 2026-02-11 12:51
+> ![updated](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_updated.json&style=flat)
 
 | 👤 Author | 👥 Followers | ⭐ Points | 🏆 Contributions |
 | :---: | :---: | :---: | :---: |
