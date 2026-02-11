@@ -129,8 +129,10 @@ class OpenWebUIStats:
             "total_downloads": stats["total_downloads"],
             "total_views": stats["total_views"],
             "total_upvotes": stats["total_upvotes"],
+            "total_saves": stats["total_saves"],
             "followers": stats.get("user", {}).get("followers", 0),
             "points": stats.get("user", {}).get("total_points", 0),
+            "contributions": stats.get("user", {}).get("contributions", 0),
             "posts": {p["slug"]: p["downloads"] for p in stats.get("posts", [])},
         }
 
@@ -193,10 +195,13 @@ class OpenWebUIStats:
             "downloads": stats["total_downloads"] - prev.get("total_downloads", 0),
             "views": stats["total_views"] - prev.get("total_views", 0),
             "upvotes": stats["total_upvotes"] - prev.get("total_upvotes", 0),
+            "saves": stats["total_saves"] - prev.get("total_saves", 0),
             "followers": stats.get("user", {}).get("followers", 0)
             - prev.get("followers", 0),
             "points": stats.get("user", {}).get("total_points", 0)
             - prev.get("points", 0),
+            "contributions": stats.get("user", {}).get("contributions", 0)
+            - prev.get("contributions", 0),
         }
 
     def _resolve_post_type(self, post: dict) -> str:
@@ -653,6 +658,7 @@ class OpenWebUIStats:
             "downloads": ("Downloads", stats["total_downloads"], "brightgreen"),
             "views": ("Views", stats["total_views"], "blue"),
             "upvotes": ("Upvotes", stats["total_upvotes"], "orange"),
+            "saves": ("Saves", stats["total_saves"], "lightgrey"),
             "followers": (
                 "Followers",
                 stats.get("user", {}).get("followers", 0),
@@ -662,6 +668,11 @@ class OpenWebUIStats:
                 "Points",
                 stats.get("user", {}).get("total_points", 0),
                 "yellow",
+            ),
+            "contributions": (
+                "Contributions",
+                stats.get("user", {}).get("contributions", 0),
+                "green",
             ),
             "posts": ("Posts", stats["total_posts"], "informational"),
         }
@@ -770,8 +781,12 @@ class OpenWebUIStats:
                     val = user.get("followers", 0)
                 if key == "points":
                     val = user.get("total_points", 0)
+                if key == "contributions":
+                    val = user.get("contributions", 0)
                 if key == "posts":
                     val = stats.get("total_posts", 0)
+                if key == "saves":
+                    val = stats.get("total_saves", 0)
                 return f"**{val}**{fmt_delta(key)}"
 
             return f"![{key}]({base_badge_url}/badge_{key}.json?style={style})"
@@ -784,7 +799,7 @@ class OpenWebUIStats:
             lines.append("| :---: | :---: | :---: | :---: |")
             lines.append(
                 f"| [{username}]({profile_url}) | {get_badge('followers')} | "
-                f"{get_badge('points')} | **{user.get('contributions', 0)}** |"
+                f"{get_badge('points')} | {get_badge('contributions')} |"
             )
             lines.append("")
 
@@ -793,7 +808,7 @@ class OpenWebUIStats:
         lines.append("| :---: | :---: | :---: | :---: | :---: |")
         lines.append(
             f"| {get_badge('posts')} | {get_badge('downloads')} | "
-            f"{get_badge('views')} | {get_badge('upvotes')} | **{stats['total_saves']}** |"
+            f"{get_badge('views')} | {get_badge('upvotes')} | {get_badge('saves')} |"
         )
         lines.append("")
 
