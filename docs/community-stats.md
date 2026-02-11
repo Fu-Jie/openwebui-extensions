@@ -1,14 +1,14 @@
 # 📊 OpenWebUI Community Stats Report
 
-> 📅 Updated: 2026-02-11 12:29
+> 📅 Updated: 2026-02-11 12:35
 
-### 📈 增长与趋势 (Last 14 Days)
-![Trend](https://kroki.io/mermaid/svg/eNpNjj1uwzAMhfeeQvDQyQYkkvqb294gW-BBbYTUgCMDsYo6ty9pV0U1PH18oh65PT4-070O77mmJ8WnTnXOqnsr13TNt1yqelavy3eZl3RZ1emey6XbG7chbdOqzp02A8SuVwKoG5gdYNB_AA2wATWwDVwD3yA0iL9gdAPTjfsmj2OT7rTUNKuX5avU9dhxnkpWZ_BB9wqC96zRx16hRnbQuMAK6FjRE6sFYHUOWf3eGbw4MXIPGTSi1o3_0hFCkBh-PRJIKhu0lQwCMYNBSYxEPJZ0dGwSGi9xhFYqC5Y_kHMkVwheBtoIOP4A7RJaKQ==)
+### 📈 Growth & Trends (Last 14 Days)
+![Trend](https://kroki.io/mermaid/svg/eNpNjj1uwzAMhfeegvDQyQYkkfqb294gW-BBbYTUgCMDsYo6ty9pV0U1PH18oh65PT4-070O77mmJ-BTpzpn6N7KNV3zLZcKz_C6fJd5SZcVTvdcLt3euA1pm1Y4d0oPJnY9CKBqoHcwg_oD0wAbUAPbwDXwDUKD-AtaNdDduG_yODbpTktNM7wsX6Wux47zVDKcjQ-qBxO8Z40-9oAK2UHtAqtBx4qeWK0xrM4hq987gxcnRu4hjVrUqfFfOpoQJIZfjwSSygZlJYOMmEGjJEYiHksqOjYJtZc4QiuVNZY_kHMkVwheBtpIavwB6u1aIw==)
 
-> *蓝色: 总下载量 | 紫色: 总浏览量 (实时动态生成)*
+> *Blue: Downloads | Purple: Views (Real-time dynamic)*
 
-### 📂 内容分类占比 (Distribution)
-![Distribution](https://kroki.io/mermaid/svg/eNoryExVKMksyUlVCMgpTc_MUwipLEgt5lIAAqWC_OISJQUrBWMINy0zpyS1CCRgApXPLEgFcQ0h3MTkksz8PLCAEVRBUX5uQQmSkqLUsszUcrAAAN7zHv4=)
+### 📂 Content Distribution
+![Distribution](https://kroki.io/mermaid/svg/eNpNi7sNgDAQQ3umOGUDPhU1A1CwAKADWQrklFxAbA-BFLh7z7aASaGWyfQ2rthpuIQDdQjqMUWF201BT4y4oIZaqj9cYJV9Ek3uIZyw_HCc328SVR54t4n-Jp4P8PmKG5ZLJGI=)
 
 
 ## 📈 Overview

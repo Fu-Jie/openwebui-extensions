@@ -272,22 +272,34 @@ class OpenWebUIStats:
             print(f"⚠️ 无法从 Token 解析用户 ID: {e}")
             return ""
 
-    def generate_mermaid_chart(self, stats: dict = None) -> str:
+    def generate_mermaid_chart(self, stats: dict = None, lang: str = "zh") -> str:
         """生成支持 Kroki 服务端渲染的动态 Mermaid 图表链接 (零 Commit)"""
         history = self.load_history()
         if not history:
             return ""
 
+        # 多语言标签
+        labels = {
+            "zh": {
+                "trend_title": "增长与趋势 (Last 14 Days)",
+                "trend_subtitle": "Engagement & Downloads Trend",
+                "legend": "蓝色: 总下载量 | 紫色: 总浏览量 (实时动态生成)",
+                "dist_title": "内容分类占比 (Distribution)",
+                "dist_subtitle": "Plugin Types Distribution",
+            },
+            "en": {
+                "trend_title": "Growth & Trends (Last 14 Days)",
+                "trend_subtitle": "Engagement & Downloads Trend",
+                "legend": "Blue: Downloads | Purple: Views (Real-time dynamic)",
+                "dist_title": "Content Distribution",
+                "dist_subtitle": "Plugin Types Distribution",
+            },
+        }
+        l = labels.get(lang, labels["en"])
+
         def kroki_render(mermaid_code: str) -> str:
             """将 Mermaid 代码压缩并编码为 Kroki 链接"""
             try:
-                # 实际上由于我们要实现零 Commit，Markdown 文件里的链接必须是固定的
-                # 但 Mermaid 数据是动态的。为了完全不改动 md 文件就能变，
-                # 只有一种办法：使用外部服务读取 Gist 原始数据并生成图片。
-                # 由于 Mermaid 本身不支持这种外部数据引用，我们采取折中方案：
-                # 在 generate_markdown 时生成最新的 Kroki 链接。
-                # 只要这个方法被调用并写回 md，它本质上还是改了 md。
-                # 如果要完全不改 md，只能在 md 里放一个固定链接，比如指向一个会自动更新图片的 API。
                 compressed = zlib.compress(mermaid_code.encode("utf-8"), level=9)
                 encoded = base64.urlsafe_b64encode(compressed).decode("utf-8")
                 return f"https://kroki.io/mermaid/svg/{encoded}"
@@ -305,15 +317,15 @@ class OpenWebUIStats:
             vws = [str(item["total_views"]) for item in data]
 
             mm = f"""xychart-beta
-    title "Engagement & Downloads Trend"
+    title "{l['trend_subtitle']}"
     x-axis [{dates_str}]
     y-axis "Total Counts"
     line [{', '.join(dls)}]
     line [{', '.join(vws)}]"""
 
-            charts.append("### 📈 增长与趋势 (Last 14 Days)")
+            charts.append(f"### 📈 {l['trend_title']}")
             charts.append(f"![Trend]({kroki_render(mm)})")
-            charts.append("\n> *蓝色: 总下载量 | 紫色: 总浏览量 (实时动态生成)*")
+            charts.append(f"\n> *{l['legend']}*")
             charts.append("")
 
         # 2. 插件类型分布 (Pie Chart)
@@ -324,8 +336,8 @@ class OpenWebUIStats:
                     for p_type, count in stats["by_type"].items()
                 ]
             )
-            mm = f"pie title Plugin Types\n{pie_data}"
-            charts.append("### 📂 内容分类占比 (Distribution)")
+            mm = f"pie title \"{l['dist_subtitle']}\"\n{pie_data}"
+            charts.append(f"### 📂 {l['dist_title']}")
             charts.append(f"![Distribution]({kroki_render(mm)})")
             charts.append("")
 
@@ -550,8 +562,8 @@ class OpenWebUIStats:
         md.append(t["updated"])
         md.append("")
 
-        # 插入趋势图 (使用 Kroki SVG 链接，理论上每次生成内容都随数据变)
-        chart = self.generate_mermaid_chart(stats)
+        # 插入趋势图 (使用 Kroki SVG 链接)
+        chart = self.generate_mermaid_chart(stats, lang=lang)
         if chart:
             md.append(chart)
             md.append("")
@@ -725,6 +737,8 @@ class OpenWebUIStats:
         files_payload = {}
         for key, (label, val, color) in badges_config.items():
             diff = delta.get(key, 0)
+            if isinstance(diff, dict):
+                diff = 0  # 避免 'posts' key 导致的 dict vs int 比较错误
 
             message = f"{val}"
             if diff > 0:
