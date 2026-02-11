@@ -636,7 +636,7 @@ class OpenWebUIStats:
 
     def generate_readme_stats(self, stats: dict, lang: str = "zh") -> str:
         """
-        生成 README 统计徽章区域
+        生成 README 统计区域 (精简版)
 
         Args:
             stats: 统计数据
@@ -644,28 +644,33 @@ class OpenWebUIStats:
         """
         # 获取 Top 6 插件
         top_plugins = stats["posts"][:6]
+        delta = self.get_stat_delta(stats)
+
+        def fmt_delta(key: str) -> str:
+            val = delta.get(key, 0)
+            if val > 0:
+                return f" <br><sub>(+{val}🚀)</sub>"
+            return ""
 
         # 中英文文本
         texts = {
             "zh": {
                 "title": "## 📊 社区统计",
-                "updated": f"> 🕐 自动更新于 {get_beijing_time().strftime('%Y-%m-%d %H:%M')}",
+                "updated": f"🕐 自动更新于 {get_beijing_time().strftime('%Y-%m-%d %H:%M')}",
                 "author_header": "| 👤 作者 | 👥 粉丝 | ⭐ 积分 | 🏆 贡献 |",
                 "header": "| 📝 发布 | ⬇️ 下载 | 👁️ 浏览 | 👍 点赞 | 💾 收藏 |",
                 "top6_title": "### 🔥 热门插件 Top 6",
-                "top6_updated": f"> 🕐 自动更新于 {get_beijing_time().strftime('%Y-%m-%d %H:%M')}",
                 "top6_header": "| 排名 | 插件 | 版本 | 下载 | 浏览 | 更新日期 |",
-                "full_stats": "*完整统计请查看 [社区统计报告](./docs/community-stats.zh.md)*",
+                "full_stats": "*完整统计与趋势图请查看 [社区统计报告](./docs/community-stats.zh.md)*",
             },
             "en": {
                 "title": "## 📊 Community Stats",
-                "updated": f"> 🕐 Auto-updated: {get_beijing_time().strftime('%Y-%m-%d %H:%M')}",
+                "updated": f"🕐 Auto-updated: {get_beijing_time().strftime('%Y-%m-%d %H:%M')}",
                 "author_header": "| 👤 Author | 👥 Followers | ⭐ Points | 🏆 Contributions |",
                 "header": "| 📝 Posts | ⬇️ Downloads | 👁️ Views | 👍 Upvotes | 💾 Saves |",
                 "top6_title": "### 🔥 Top 6 Popular Plugins",
-                "top6_updated": f"> 🕐 Auto-updated: {get_beijing_time().strftime('%Y-%m-%d %H:%M')}",
                 "top6_header": "| Rank | Plugin | Version | Downloads | Views | Updated |",
-                "full_stats": "*See full stats in [Community Stats Report](./docs/community-stats.md)*",
+                "full_stats": "*See full stats and charts in [Community Stats Report](./docs/community-stats.md)*",
             },
         }
 
@@ -675,8 +680,7 @@ class OpenWebUIStats:
         lines = []
         lines.append("<!-- STATS_START -->")
         lines.append(t["title"])
-        lines.append("")
-        lines.append(t["updated"])
+        lines.append(f"> {t['updated']}")
         lines.append("")
 
         # 作者信息表格
@@ -686,25 +690,22 @@ class OpenWebUIStats:
             lines.append(t["author_header"])
             lines.append("| :---: | :---: | :---: | :---: |")
             lines.append(
-                f"| [{username}]({profile_url}) | **{user.get('followers', 0)}** | "
-                f"**{user.get('total_points', 0)}** | **{user.get('contributions', 0)}** |"
+                f"| [{username}]({profile_url}) | **{user.get('followers', 0)}**{fmt_delta('followers')} | "
+                f"**{user.get('total_points', 0)}**{fmt_delta('points')} | **{user.get('contributions', 0)}** |"
             )
             lines.append("")
 
-        # 统计徽章表格
+        # 统计面板
         lines.append(t["header"])
         lines.append("| :---: | :---: | :---: | :---: | :---: |")
         lines.append(
-            f"| **{stats['total_posts']}** | **{stats['total_downloads']}** | "
-            f"**{stats['total_views']}** | **{stats['total_upvotes']}** | **{stats['total_saves']}** |"
+            f"| **{stats['total_posts']}** | **{stats['total_downloads']}**{fmt_delta('downloads')} | "
+            f"**{stats['total_views']}**{fmt_delta('views')} | **{stats['total_upvotes']}**{fmt_delta('upvotes')} | **{stats['total_saves']}** |"
         )
         lines.append("")
 
         # Top 6 热门插件
         lines.append(t["top6_title"])
-        lines.append("")
-        lines.append(t["top6_updated"])
-        lines.append("")
         lines.append(t["top6_header"])
         lines.append("| :---: | :--- | :---: | :---: | :---: | :---: |")
 
