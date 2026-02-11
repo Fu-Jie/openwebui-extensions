@@ -1134,6 +1134,42 @@ class OpenWebUIStats:
 
         print(f"✅ README 已更新: {readme_path}")
 
+    def update_docs_chart(self, doc_path: str, lang: str = "zh"):
+        """更新文档中的图表"""
+        import re
+
+        if not os.path.exists(doc_path):
+            return
+
+        with open(doc_path, "r", encoding="utf-8") as f:
+            content = f.read()
+
+        # 生成新的图表 Markdown
+        new_chart = self.generate_activity_chart(lang)
+        if not new_chart:
+            return
+
+        # 查找并在 "### 📈" 开头的段落替换图表
+        # 假设图表是在 "### 📈 Total Downloads Trend" 或 "### 📈 总下载量累计趋势" 之后
+        # 并且是以 ![Activity](...) 格式存在
+
+        # 简单起见，我们查找整个图表块并替换
+        # 匹配 ### 📈 ... \n\n![Activity](...)
+        pattern = r"(### 📈.*?\n)(!\[Activity\]\(.*?\))"
+
+        def replace_chart(match):
+            title_line = match.group(1)  # 保留标题行
+            # new_chart 包含了标题行，所以我们需要提取 url 部分或者直接用 new_chart 替换整个块
+            # generate_activity_chart 返回的是: ### 📈 Title\n![Activity](url)
+            return new_chart
+
+        if re.search(pattern, content, re.DOTALL):
+            content = re.sub(pattern, replace_chart, content, flags=re.DOTALL)
+
+            with open(doc_path, "w", encoding="utf-8") as f:
+                f.write(content)
+            print(f"✅ 文档图表已更新: {doc_path}")
+
     def upload_chart_data(self, stats: dict):
         """上传图表数据到 Gist (独立于徽章数据)"""
         if not (self.gist_token and self.gist_id):
@@ -1309,6 +1345,10 @@ def main():
     readme_cn_path = script_dir / "README_CN.md"
     stats_client.update_readme(stats, str(readme_path), lang="en")
     stats_client.update_readme(stats, str(readme_cn_path), lang="zh")
+
+    # 更新 docs 中的图表
+    stats_client.update_docs_chart(str(md_en_path), lang="en")
+    stats_client.update_docs_chart(str(md_zh_path), lang="zh")
 
     return 0
 
