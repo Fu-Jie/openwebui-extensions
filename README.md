@@ -7,7 +7,7 @@ A collection of enhancements, plugins, and prompts for [OpenWebUI](https://githu
 
 <!-- STATS_START -->
 ## 📊 Community Stats
-> 🕐 Auto-updated: 2026-02-11 12:41
+> 🕐 Auto-updated: 2026-02-11 12:46
 
 | 👤 Author | 👥 Followers | ⭐ Points | 🏆 Contributions |
 | :---: | :---: | :---: | :---: |
@@ -16,8 +16,6 @@ A collection of enhancements, plugins, and prompts for [OpenWebUI](https://githu
 | 📝 Posts | ⬇️ Downloads | 👁️ Views | 👍 Upvotes | 💾 Saves |
 | :---: | :---: | :---: | :---: | :---: |
 | ![posts](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_posts.json&style=flat) | ![downloads](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_downloads.json&style=flat) | ![views](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_views.json&style=flat) | ![upvotes](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_upvotes.json&style=flat) | ![saves](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_saves.json&style=flat) |
-
-![Downloads Trend](https://kroki.io/mermaid/svg/eNpdzr8KgzAQx_G9T3FkakEhydn82X0EN3FIa6BCUNBA9e17aq9DM3z5EG74rdvzFeZcPmIOF6CXh5wiiGbKIUE9vcc0hX6BZo5jD1dVQR225SaO27UM67BAK6QqtRcF7EDJUAd0KX_QDGRUjDvDMCzDMfwXSjKU6I4l27nkf_Y5Mw1jhFZbJwvQzlqqt74AlEg_qIyjajRUtBX1rjXVGKTa49LZ_cd7uqkUqr1Gdh_PIkZl)
 
 ### 🔥 Top 6 Popular Plugins
 | Rank | Plugin | Version | Downloads | Views | Updated |
@@ -155,6 +153,12 @@ If you have great prompts or plugins to share:
 3. Submit a Pull Request.
 
 [Contributing](./CONTRIBUTING.md)
+
+
+<!-- ACTIVITY_CHART_START -->
+### 📈 Total Downloads Trend (14 Days)
+![Activity](https://kroki.io/vegalite/svg/eNqNk82O2yAQgF_FcnelVmoSgxNs59p9hL1Ve5gYbNNg8AL5U5R3L5A4SoNX6sVmhm9-mTmnL6buWA_pOkk7awezXiz2rIV5y22328y5WlyBoJ0Jbtliv5r_MUqmP5OUMlNrPljuROfhXVkQyZs6SKGAmuRdM0mT72iZvMHJ_PAWB05t59gyy5zUMd521ok4iANQymXr5JWTNlBvW612knrfVoM0AziP1vuplWy4J8_pnrNDOBir1ZY9wxdHw5GbgFDVA_e5NiAMczet5nQULx6lYOHqFsSOeavfZ68MfnGGySxDM1yF6sdCfQFFmTnzGM2zCC2LYhpFEVoV1QSKHf2M5lmeTaM4QhEpp9E8QnFOptFlhObFchpdRegK42mURCgh-TRaRGjxVbPKCC2LLxKIHjavqukOoOhhlyhH0yiKUZJdPvy89aC3Yd7saQhGbmrB44JLFi5qJZT2N9_wiuRsEyZ6VJ7TI3I_5FSn8XDEo8YfsjDlQLlfhvXVL2gfwVg13AZcNY1h9kbfAx46t-9pKOkOoEfgntFH2B0ma3VbYJdX-DacibC_oSeOGcu0rB-UBpE-rmejdA8hy9d-9koDz63wBnInhO8KbJj4dY9PCElD6NNTtHuvH0J-7kA6d2D5nv0T9n9iXC5_AX_keeA=)
+<!-- ACTIVITY_CHART_END -->
 
 ## Contributors ✨
 

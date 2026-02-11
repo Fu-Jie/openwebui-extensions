@@ -999,39 +999,6 @@ class OpenWebUIStats:
         )
         lines.append("")
 
-        # 插入总下载量趋势图 (仅 README 使用)
-        history = self.load_history()
-        if len(history) >= 3:
-            # 辅助函数：Kroki 渲染
-            def kroki_render(mermaid_code: str) -> str:
-                try:
-                    compressed = zlib.compress(mermaid_code.encode("utf-8"), level=9)
-                    encoded = base64.urlsafe_b64encode(compressed).decode("utf-8")
-                    return f"https://kroki.io/mermaid/svg/{encoded}"
-                except:
-                    return ""
-
-            data = history[-14:]  # 取最近14天
-            dates = [item["date"][-5:] for item in data]
-            dates_str = ", ".join([f'"{d}"' for d in dates])
-            dls = [str(item["total_downloads"]) for item in data]
-
-            # 多语言标题
-            chart_titles = {
-                "zh": "总下载量累计趋势 (14天)",
-                "en": "Total Downloads Trend (14 Days)",
-            }
-            c_title = chart_titles.get(lang, chart_titles["en"])
-
-            mm = f"""xychart-beta
-    title "{c_title}"
-    x-axis [{dates_str}]
-    y-axis "Total Downloads"
-    line [{', '.join(dls)}]"""
-
-            lines.append(f"![Downloads Trend]({kroki_render(mm)})")
-            lines.append("")
-
         # Top 6 热门插件
         lines.append(t["top6_title"])
         lines.append(t["top6_header"])
@@ -1077,49 +1044,133 @@ class OpenWebUIStats:
         pattern = r"<!-- STATS_START -->.*?<!-- STATS_END -->"
         if re.search(pattern, content, re.DOTALL):
             # 替换现有区域
-            new_content = re.sub(pattern, new_stats, content, flags=re.DOTALL)
+            content = re.sub(pattern, new_stats, content, flags=re.DOTALL)
         else:
             # 在简介段落之后插入统计区域
-            # 查找模式：标题 -> 语言切换行 -> 简介段落 -> 插入位置
             lines = content.split("\n")
             insert_pos = 0
             found_intro = False
 
             for i, line in enumerate(lines):
-                # 跳过标题
                 if line.startswith("# "):
                     continue
-                # 跳过空行
                 if line.strip() == "":
                     continue
-                # 跳过语言切换行 (如 "English | [中文]" 或 "[English] | 中文")
                 if ("English" in line or "中文" in line) and "|" in line:
                     continue
-                # 找到第一个非空、非标题、非语言切换的段落（简介）
                 if not found_intro:
                     found_intro = True
-                    # 继续到这个段落结束
                     continue
-                # 简介段落后的空行或下一个标题就是插入位置
                 if line.strip() == "" or line.startswith("#"):
                     insert_pos = i
                     break
 
-            # 如果没找到合适位置，就放在第3行（标题和语言切换后）
             if insert_pos == 0:
                 insert_pos = 3
-
-            # 在适当位置插入
             lines.insert(insert_pos, "")
             lines.insert(insert_pos + 1, new_stats)
             lines.insert(insert_pos + 2, "")
-            new_content = "\n".join(lines)
+            content = "\n".join(lines)
+
+        # 生成并插入/更新底部趋势图 (Vega-Lite)
+        activity_chart = self.generate_activity_chart(lang)
+        if activity_chart:
+            chart_pattern = (
+                r"<!-- ACTIVITY_CHART_START -->.*?<!-- ACTIVITY_CHART_END -->"
+            )
+            chart_section = f"<!-- ACTIVITY_CHART_START -->\n{activity_chart}\n<!-- ACTIVITY_CHART_END -->"
+
+            if re.search(chart_pattern, content, re.DOTALL):
+                content = re.sub(chart_pattern, chart_section, content, flags=re.DOTALL)
+            else:
+                # 尝试插入到 Contributors 之前
+                contributors_pattern = r"(## .*Contributors.*)"
+                match = re.search(contributors_pattern, content, re.IGNORECASE)
+                if match:
+                    content = (
+                        content[: match.start()]
+                        + f"\n{chart_section}\n\n"
+                        + content[match.start() :]
+                    )
+                else:
+                    content += f"\n\n{chart_section}"
 
         # 写回文件
         with open(readme_path, "w", encoding="utf-8") as f:
-            f.write(new_content)
+            f.write(content)
 
         print(f"✅ README 已更新: {readme_path}")
+
+    def generate_activity_chart(self, lang: str = "zh") -> str:
+        """生成 Vega-Lite 趋势图 (更美观)"""
+        history = self.load_history()
+        if len(history) < 3:
+            return ""
+
+        data = history[-14:]
+
+        # 准备数据点
+        values = []
+        for item in data:
+            values.append({"date": item["date"], "downloads": item["total_downloads"]})
+
+        title = (
+            "Total Downloads Trend (14 Days)"
+            if lang == "en"
+            else "总下载量累计趋势 (14天)"
+        )
+
+        # Vega-Lite Spec
+        vl_spec = {
+            "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+            "description": title,
+            "width": 800,
+            "height": 200,
+            "padding": 5,
+            "background": "transparent",
+            "config": {
+                "view": {"stroke": "transparent"},
+                "axis": {"domain": False, "grid": False},
+            },
+            "data": {"values": values},
+            "mark": {
+                "type": "area",
+                "line": {"color": "#2563eb"},
+                "color": {
+                    "x1": 1,
+                    "y1": 1,
+                    "x2": 1,
+                    "y2": 0,
+                    "gradient": "linear",
+                    "stops": [
+                        {"offset": 0, "color": "white"},
+                        {"offset": 1, "color": "#2563eb"},
+                    ],
+                },
+            },
+            "encoding": {
+                "x": {
+                    "field": "date",
+                    "type": "temporal",
+                    "axis": {"format": "%m-%d", "title": None, "labelColor": "#666"},
+                },
+                "y": {
+                    "field": "downloads",
+                    "type": "quantitative",
+                    "axis": {"title": None, "labelColor": "#666"},
+                },
+            },
+        }
+
+        try:
+            # Kroki encoding for Vega-Lite
+            json_spec = json.dumps(vl_spec)
+            compressed = zlib.compress(json_spec.encode("utf-8"), level=9)
+            encoded = base64.urlsafe_b64encode(compressed).decode("utf-8")
+            url = f"https://kroki.io/vegalite/svg/{encoded}"
+            return f"### 📈 {title}\n![Activity]({url})"
+        except Exception:
+            return ""
 
 
 def main():

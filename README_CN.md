@@ -6,7 +6,7 @@ OpenWebUI 增强功能集合。包含个人开发与收集的插件、提示词�
 
 <!-- STATS_START -->
 ## 📊 社区统计
-> 🕐 自动更新于 2026-02-11 12:41
+> 🕐 自动更新于 2026-02-11 12:46
 
 | 👤 作者 | 👥 粉丝 | ⭐ 积分 | 🏆 贡献 |
 | :---: | :---: | :---: | :---: |
@@ -15,8 +15,6 @@ OpenWebUI 增强功能集合。包含个人开发与收集的插件、提示词�
 | 📝 发布 | ⬇️ 下载 | 👁️ 浏览 | 👍 点赞 | 💾 收藏 |
 | :---: | :---: | :---: | :---: | :---: |
 | ![posts](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_posts.json&style=flat) | ![downloads](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_downloads.json&style=flat) | ![views](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_views.json&style=flat) | ![upvotes](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_upvotes.json&style=flat) | ![saves](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_saves.json&style=flat) |
-
-![Downloads Trend](https://kroki.io/mermaid/svg/eNo9zr1qAkEQwPHepxi2SuAOdnfO_eh9hHRisTEHOTg80AXPLl1AC59BsLExTZBAkLxMNJe3cO50nOLPj2GKqRfj1zCN6XMeQw9oYhHLHMT57fv3a9Ucj__v67_Pj2a_aQ6r0_IHHlR22u4eRXdcp6EuZjAUUqXaiwRaoGSoDjqVd2gGMjJGn2EYluEY_gYlGUqMuk8W10_EUxVDCYNqPimr8DK7vlkWkxyG2jqZgHbWUr31CaBE2qAyjqrRUNFm1L7WVGOQartLZ9uN93STKVRtjRxdAOxIUHs=)
 
 ### 🔥 热门插件 Top 6
 | 排名 | 插件 | 版本 | 下载 | 浏览 | 更新日期 |
@@ -134,3 +132,9 @@ Open WebUI 的前端增强扩展：
 本项目是一个资源集合，无需安装 Python 环境。你只需要下载对应的文件并导入到你的 OpenWebUI 实例中即可。
 
 [贡献指南](./CONTRIBUTING_CN.md) | [更新日志](./CHANGELOG.md)
+
+
+<!-- ACTIVITY_CHART_START -->
+### 📈 总下载量累计趋势 (14天)
+![Activity](https://kroki.io/vegalite/svg/eNqNlN2ymyAQx1_ljO2ZaWeaBDCi5raP0ZyLVVBpUKxiPiaTd-9CPiYNnpneILv82D8su56jr2PZyBaizVvUWNuPm9VqL2tY1so2U7FUZnUFvHehlZWrfbL8PZou-vEWCTmWg-qtQhMjbCdO4mI7rSXBMatSsZ1yWlbbKRUMx6wAiqPIcDVhRfX2ja5xlrP8u4t2UMI2GCcjBK1GqrqxaDJv9iCE6mq0E7QKKHf1YKZOOF07QDf2MMjOujil6SrlyHO0V_LgJ6MdzE6-whek4ahGjwjTgnL3qECPElfqQYm7eXGoAAvXsKAn6Xb9Ojunj8sI4wtCFyz3mTGHThsQDmJpRnB7iMYkQLM0nUdpgOZpPoMypF_RmMRkHmUBSnk2j8YBymI-j64DNE7X82gSoAlj8ygPUM7jeTQN0PSzZGUBmqWfHCB42DjP5zNAg4dd05jOozREObl8uHprYdj5erOn3m_CqgWHa9VJv1AabQa38oUlPJaFr-i78xwdKX4ouk73yZHdPW5CfJWDUK4ZNte4MDiF0Zr-VuCmqkZpb_RD8NDgvyDyV3oA9Bl4nOjD947sSnNrYDyXHyslte9fnxNk7te0su3NADp6bs_KDC34U763i3fheWW129BNWrusQCH1z4c-5zzy0qcXtUeunyT_TNBhOLBqL_-R_R-Ny-Uvk9GByw==)
+<!-- ACTIVITY_CHART_END -->
