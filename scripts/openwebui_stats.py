@@ -164,6 +164,7 @@ class OpenWebUIStats:
                 resp = requests.patch(url, headers=headers, json=payload)
                 if resp.status_code == 200:
                     print(f"✅ 历史记录已同步至 Gist ({self.gist_id})")
+                    # 如果同步成功，不再保存到本地，减少 commit 压力
                     return
             except Exception as e:
                 print(f"⚠️ 同步至 Gist 失败: {e}")
@@ -284,6 +285,9 @@ class OpenWebUIStats:
             vws = [str(item["total_views"]) for item in data]
 
             charts.append("### 📈 增长与趋势 (Last 14 Days)")
+            # 如果提供了 Gist ID，我们可以尝试利用 Kroki 或类似服务从 Gist 动态加载 Mermaid
+            # 但最简单可靠的方式仍然是嵌入式加载。此处我们保持生成 Mermaid 代码块，
+            # 但通过 Action 逻辑，我们会确保这些代码块所在的报告文件只在发生实质性变化时才更新仓库。
             charts.append("```mermaid")
             charts.append("xychart-beta")
             charts.append('    title "Engagement & Downloads Trend"')
@@ -779,6 +783,12 @@ class OpenWebUIStats:
                 )
             }
 
+        # 将生成的 Markdown 报告也作为一个普通 JSON 文件上传到 Gist
+        # 这样我们可以通过 Shields.io 或简单的 Raw 链接实现极速预览/托管
+        for lang in ["zh", "en"]:
+            report_content = self.generate_markdown(stats, lang=lang)
+            files_payload[f"report_{lang}.md"] = {"content": report_content}
+
         # 批量上传到 Gist
         url = f"https://api.github.com/gists/{self.gist_id}"
         headers = {"Authorization": f"token {self.gist_token}"}
@@ -786,9 +796,9 @@ class OpenWebUIStats:
 
         resp = requests.patch(url, headers=headers, json=payload)
         if resp.status_code == 200:
-            print(f"✅ 动态徽章已同步至 Gist ({len(files_payload)} files)")
+            print(f"✅ 动态数据与报告已同步至 Gist ({len(files_payload)} files)")
         else:
-            print(f"⚠️ 徽章上传失败: {resp.status_code} {resp.text}")
+            print(f"⚠️ Gist 同步失败: {resp.status_code} {resp.text}")
 
     def get_badge(
         self,
