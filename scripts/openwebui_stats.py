@@ -602,11 +602,24 @@ class OpenWebUIStats:
 
         md.append("")
 
-        # 按类型分类
+        # 按类型分类 (使用徽章)
         md.append(t["type_title"])
         md.append("")
+
+        type_colors = {
+            "post": "blue",
+            "filter": "brightgreen",
+            "action": "orange",
+            "pipe": "blueviolet",
+            "pipeline": "purple",
+            "review": "yellow",
+            "prompt": "lightgrey",
+        }
+
         for post_type, count in stats["by_type"].items():
-            md.append(f"- **{post_type}**: {count}")
+            color = type_colors.get(post_type, "gray")
+            badge = f"![{post_type}](https://img.shields.io/badge/{post_type}-{count}-{color})"
+            md.append(f"- {badge}")
         md.append("")
 
         # 详细列表
@@ -633,7 +646,9 @@ class OpenWebUIStats:
                 f"post_{slug_hash}_sv", stats, user, delta, is_post=True
             )
 
-            # 版本号使用静态 Shields.io 徽章
+            # 版本号使用动态 Shields.io 徽章 (由于列表太长，我们这次没给所有 post 生成单独的 version json)
+            # 不过实际上 upload_gist_badges 是给 top 6 生成的。
+            # 对于完整列表，还是暂时用静态吧，避免要把几百个 version json 都生成出来传到 Gist
             ver = post["version"] if post["version"] else "N/A"
             ver_color = "blue" if post["version"] else "gray"
             ver_badge = (
