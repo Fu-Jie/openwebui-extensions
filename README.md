@@ -3,10 +3,13 @@
 [![All Contributors](https://img.shields.io/badge/all_contributors-5-orange.svg?style=flat-square)](#contributors-)
 <!-- ALL-CONTRIBUTORS-BADGE:END -->
 
+English | [中文](./README_CN.md)
+
 A collection of enhancements, plugins, and prompts for [OpenWebUI](https://github.com/open-webui/open-webui), developed and curated for personal use to extend functionality and improve experience.
 
 <!-- STATS_START -->
 ## 📊 Community Stats
+>
 > ![updated](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_updated.json&style=flat)
 
 | 👤 Author | 👥 Followers | ⭐ Points | 🏆 Contributions |
@@ -17,8 +20,8 @@ A collection of enhancements, plugins, and prompts for [OpenWebUI](https://githu
 | :---: | :---: | :---: | :---: | :---: |
 | ![posts](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_posts.json&style=flat) | ![downloads](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_downloads.json&style=flat) | ![views](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_views.json&style=flat) | ![upvotes](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_upvotes.json&style=flat) | ![saves](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_saves.json&style=flat) |
 
-
 ### 🔥 Top 6 Popular Plugins
+
 | Rank | Plugin | Version | Downloads | Views | 📅 Updated |
 | :---: | :--- | :---: | :---: | :---: | :---: |
 | 🥇 | [Smart Mind Map](https://openwebui.com/posts/turn_any_text_into_beautiful_mind_maps_3094c59a) | ![v](https://img.shields.io/badge/v-0.9.2-blue?style=flat) | ![p1_dl](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p1_dl.json&style=flat) | ![p1_vw](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p1_vw.json&style=flat) | ![updated](https://img.shields.io/badge/2026--01--29-gray?style=flat) |
@@ -29,6 +32,7 @@ A collection of enhancements, plugins, and prompts for [OpenWebUI](https://githu
 | 6️⃣ | [Markdown Normalizer](https://openwebui.com/posts/markdown_normalizer_baaa8732) | ![v](https://img.shields.io/badge/v-1.2.4-blue?style=flat) | ![p6_dl](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p6_dl.json&style=flat) | ![p6_vw](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p6_vw.json&style=flat) | ![updated](https://img.shields.io/badge/2026--01--29-gray?style=flat) |
 
 ### 📈 Total Downloads Trend
+
 ![Activity](https://kroki.io/vegalite/svg/eNqNlsFu2zAMhl8l8Nbb0liULdu9bo_Q27CDEiuxVsXybCVpEeTdR6lN0IU0sEsgSp9Iir8s5px9nTad2evsaZF1IQzT02p1NDv9uLOhO6wfrV-9A2l26Wwwq2P5-HvyffZtkbVm2ox2CBZN9PDsg3aLH_7UO6_bafE8mr6N3Mm2oUOiznO0OmN3XUATkjnotrX9Du0SrbXevOxGf8CN6DGMup8GjX5C9LPx_dZG8pwdrTmlwRRG_2Lu4QvS-tVOCWn9XtuY4Va7yeDKbrTt1bxEtNVBv7vV7mDirp_nOJn8Qg5qmYtlXqYzX4-HS1VR426GVPdkLXOerO7JRpQ8WROyAp5s7kmRC8WiIqdoXfGoIKio-QQEEBTKmQQkQWUhebQgaKH4qgqilChh5liKog2vqiBaCaVmUCKWqNRMBahatSxYFKhaDfASAFWrmTkWELUgn8kViFowdweAqAVQ8hIAUQvkXAWIWlDMfINA1IJSzqBELVDQ8ChRC6qav4SSqAV1xVdAErWgqbgEAOl7VObs24IoEVYK9r4iSoSVIBWPEmGlrAoeJcLKkr2vwLyYUinJo0RYWc0Viwgr62omASKsbBq-AvTRLIQUPCooim_Wr9hz9np8ST0nvA1pE3YuHXFne5MWNt75Ma58wedTmnXqatfJc_Yq4meNU2_XwStcZ-IgT51OtzY2xKd3v3qMEabgh48m57fbyYQP-hbw1GGnz9KRboD4DNwy-pX6p-k3_qOJY17pd2uNSz081QSZ6zGD2Q9-1C773KK3ftzrlOXDfvmQ_jQEG1zc0B-ci1XRa-O-3-IrpbIU-u0u2q3Wn0L-Oege3elgj-afsP8T43L5C23qg4U=)
 
 *See full stats and charts in [Community Stats Report](./docs/community-stats.md)*
@@ -42,7 +46,8 @@ A collection of enhancements, plugins, and prompts for [OpenWebUI](https://githu
 > [!TIP]
 > **No GitHub Copilot subscription required!** Supports **BYOK (Bring Your Own Key)** mode using your own OpenAI/Anthropic API keys.
 
-#### 🌟 Featured Real-World Cases:
+#### 🌟 Featured Real-World Cases
+
 - **[GitHub Star Forecasting](./docs/plugins/pipes/star-prediction-example.md)**: Automatically parsing CSV data, writing analysis scripts, and generating interactive growth dashboards.
 - **[Video Optimization](./docs/plugins/pipes/video-processing-example.md)**: Direct control of system-level tools (FFmpeg) to accelerate and compress media with professional color optimization.
 
