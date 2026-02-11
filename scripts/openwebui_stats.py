@@ -632,7 +632,74 @@ class OpenWebUIStats:
                 json.dump(data, f, indent=2)
             print(f"  📊 Generated badge: {name}.json")
 
+        if self.gist_token and self.gist_id:
+            try:
+                # 构造并上传 Shields.io 徽章数据
+                self.upload_gist_badges(stats)
+            except Exception as e:
+                print(f"⚠️ 徽章生成失败: {e}")
+
         print(f"✅ Shields.io endpoints saved to: {output_dir}/")
+
+    def upload_gist_badges(self, stats: dict):
+        """生成并上传 Gist 徽章数据 (用于 Shields.io Endpoint)"""
+        if not (self.gist_token and self.gist_id):
+            return
+
+        delta = self.get_stat_delta(stats)
+
+        # 定义徽章配置 {key: (label, value, color)}
+        badges_config = {
+            "downloads": ("Downloads", stats["total_downloads"], "brightgreen"),
+            "views": ("Views", stats["total_views"], "blue"),
+            "upvotes": ("Upvotes", stats["total_upvotes"], "orange"),
+            "followers": (
+                "Followers",
+                stats.get("user", {}).get("followers", 0),
+                "blueviolet",
+            ),
+            "points": (
+                "Points",
+                stats.get("user", {}).get("total_points", 0),
+                "yellow",
+            ),
+            "posts": ("Posts", stats["total_posts"], "informational"),
+        }
+
+        files_payload = {}
+        for key, (label, val, color) in badges_config.items():
+            diff = delta.get(key, 0)
+
+            message = f"{val}"
+            if diff > 0:
+                message += f" (+{diff}🚀)"
+            elif diff < 0:
+                message += f" ({diff})"
+
+            # 构造 Shields.io endpoint JSON
+            # 参考: https://shields.io/badges/endpoint-badge
+            badge_data = {
+                "schemaVersion": 1,
+                "label": label,
+                "message": message,
+                "color": color,
+            }
+
+            filename = f"badge_{key}.json"
+            files_payload[filename] = {
+                "content": json.dumps(badge_data, ensure_ascii=False)
+            }
+
+        # 批量上传到 Gist
+        url = f"https://api.github.com/gists/{self.gist_id}"
+        headers = {"Authorization": f"token {self.gist_token}"}
+        payload = {"files": files_payload}
+
+        resp = requests.patch(url, headers=headers, json=payload)
+        if resp.status_code == 200:
+            print(f"✅ 动态徽章已同步至 Gist ({len(files_payload)} files)")
+        else:
+            print(f"⚠️ 徽章上传失败: {resp.status_code} {resp.text}")
 
     def generate_readme_stats(self, stats: dict, lang: str = "zh") -> str:
         """
@@ -683,6 +750,32 @@ class OpenWebUIStats:
         lines.append(f"> {t['updated']}")
         lines.append("")
 
+        # 定义徽章 URL (使用 Gist ID)
+        # 注意: 这里使用 shields.io 的 endpoint 功能，直接读取 Gist Raw URL
+        # URL 格式: https://gist.githubusercontent.com/{gist_user}/{gist_id}/raw/badge_{key}.json
+        # 由于我们不知道 gist_user，但 Gist ID 是全局唯一的，我们可以用 shields.io 的兼容性或者假设用户名为 Fu-Jie (根据 user request)
+        # 为了通用性，我们这里使用 requests 获取一次 final URL 或者直接硬编码 Fu-Jie (因为 Gist 是私有的或者为了简单)
+        # 用户明确提到: https://gist.github.com/Fu-Jie/db3d95687075a880af6f1fba76d679c6
+        gist_user = "Fu-Jie"
+        if self.gist_id:
+            base_badge_url = f"https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/{gist_user}/{self.gist_id}/raw"
+        else:
+            base_badge_url = ""
+
+        def get_badge(key: str, style: str = "flat") -> str:
+            if not base_badge_url:
+                # 降级：如果没有 Gist，显示静态文本
+                val = stats.get(f"total_{key}", 0)
+                if key == "followers":
+                    val = user.get("followers", 0)
+                if key == "points":
+                    val = user.get("total_points", 0)
+                if key == "posts":
+                    val = stats.get("total_posts", 0)
+                return f"**{val}**{fmt_delta(key)}"
+
+            return f"![{key}]({base_badge_url}/badge_{key}.json?style={style})"
+
         # 作者信息表格
         if user:
             username = user.get("username", "")
@@ -690,8 +783,8 @@ class OpenWebUIStats:
             lines.append(t["author_header"])
             lines.append("| :---: | :---: | :---: | :---: |")
             lines.append(
-                f"| [{username}]({profile_url}) | **{user.get('followers', 0)}**{fmt_delta('followers')} | "
-                f"**{user.get('total_points', 0)}**{fmt_delta('points')} | **{user.get('contributions', 0)}** |"
+                f"| [{username}]({profile_url}) | {get_badge('followers')} | "
+                f"{get_badge('points')} | **{user.get('contributions', 0)}** |"
             )
             lines.append("")
 
@@ -699,8 +792,8 @@ class OpenWebUIStats:
         lines.append(t["header"])
         lines.append("| :---: | :---: | :---: | :---: | :---: |")
         lines.append(
-            f"| **{stats['total_posts']}** | **{stats['total_downloads']}**{fmt_delta('downloads')} | "
-            f"**{stats['total_views']}**{fmt_delta('views')} | **{stats['total_upvotes']}**{fmt_delta('upvotes')} | **{stats['total_saves']}** |"
+            f"| {get_badge('posts')} | {get_badge('downloads')} | "
+            f"{get_badge('views')} | {get_badge('upvotes')} | **{stats['total_saves']}** |"
         )
         lines.append("")
 
