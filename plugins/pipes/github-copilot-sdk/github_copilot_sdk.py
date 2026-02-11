@@ -1762,10 +1762,15 @@ class Pipe:
         user_id: str = None,
         enable_mcp: bool = True,
         enable_cache: bool = True,
+        custom_agent: Optional[dict] = None,
         __event_call__=None,
     ):
         """Build SessionConfig for Copilot SDK."""
-        from copilot.types import SessionConfig, InfiniteSessionConfig
+        try:
+            from copilot.types import SessionConfig, InfiniteSessionConfig, CustomAgentConfig
+        except ImportError:
+            # Fallback for older SDK versions
+            from copilot.types import SessionConfig, InfiniteSessionConfig
 
         infinite_session_config = None
         if self.valves.INFINITE_SESSION:
@@ -1823,6 +1828,9 @@ class Pipe:
             "infinite_sessions": infinite_session_config,
             "working_directory": resolved_cwd,
         }
+
+        if custom_agent:
+            session_params["custom_agents"] = [custom_agent]
 
         if is_reas_model and reasoning_effort:
             # Map requested effort to supported efforts if possible
@@ -2872,6 +2880,55 @@ class Pipe:
                 debug_enabled=effective_debug,
             )
 
+        # Construct Custom Agent from OpenWebUI Model Metadata
+        custom_agent = None
+        if system_prompt_content:
+            try:
+                # 1. Extract Display Name and Description
+                agent_display_name = ""
+                agent_description = ""
+
+                # Prefer metadata if available
+                if __metadata__:
+                    agent_display_name = __metadata__.get("model", {}).get("name", "")
+                    # Try to get description from metadata.model.info.meta.description
+                    agent_description = __metadata__.get("model", {}).get("info", {}).get("meta", {}).get("description", "")
+
+                # Fallback to body
+                if not agent_display_name:
+                    agent_display_name = body.get("metadata", {}).get("model", {}).get("name", "")
+
+                # If still empty, use model ID
+                if not agent_display_name:
+                    agent_display_name = real_model_id
+
+                # 2. Slugify Name
+                agent_name = re.sub(r"[^a-zA-Z0-9_-]", "-", agent_display_name).lower()
+                # Remove leading/trailing dashes and multiple dashes
+                agent_name = re.sub(r"-+", "-", agent_name).strip("-")
+                if not agent_name:
+                    agent_name = "custom-agent"
+
+                # 3. Build Agent Config
+                custom_agent = {
+                    "name": agent_name,
+                    "display_name": agent_display_name,
+                    "description": agent_description or f"Custom Agent based on {agent_display_name}",
+                    "prompt": system_prompt_content,
+                }
+
+                await self._emit_debug_log(
+                    f"Identified Custom Agent: {agent_name} ({agent_display_name})",
+                    __event_call__,
+                    debug_enabled=effective_debug,
+                )
+            except Exception as e:
+                await self._emit_debug_log(
+                    f"Error constructing custom agent: {e}",
+                    __event_call__,
+                    debug_enabled=effective_debug,
+                )
+
         is_streaming = body.get("stream", False)
         await self._emit_debug_log(
             f"Streaming request: {is_streaming}",
@@ -3028,6 +3085,9 @@ class Pipe:
                         "tools": custom_tools,
                     }
 
+                    if custom_agent:
+                        resume_params["custom_agents"] = [custom_agent]
+
                     if is_reasoning and effective_reasoning_effort:
                         # Re-use mapping logic or just pass it through
                         resume_params["reasoning_effort"] = effective_reasoning_effort
@@ -3130,6 +3190,7 @@ class Pipe:
                     user_id=user_id,
                     enable_mcp=effective_mcp,
                     enable_cache=effective_cache,
+                    custom_agent=custom_agent,
                     __event_call__=__event_call__,
                 )
 
