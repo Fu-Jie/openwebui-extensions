@@ -65,6 +65,129 @@ class OpenWebUIStats:
                 "Content-Type": "application/json",
             }
         )
+        self.history_file = Path("docs/stats-history.json")
+
+    # 定义下载类别的判定（这些类别会计入总浏览量/下载量统计）
+    DOWNLOADABLE_TYPES = [
+        "action",
+        "filter",
+        "pipe",
+        "toolkit",
+        "function",
+        "prompt",
+        "model",
+    ]
+
+    def load_history(self) -> list:
+        """从文件加载历史记录"""
+        if self.history_file.exists():
+            try:
+                with open(self.history_file, "r", encoding="utf-8") as f:
+                    return json.load(f)
+            except Exception as e:
+                print(f"⚠️ 无法加载历史记录: {e}")
+        return []
+
+    def save_history(self, stats: dict):
+        """保存当前快照到历史记录"""
+        history = self.load_history()
+        today = get_beijing_time().strftime("%Y-%m-%d")
+
+        # 构造快照
+        snapshot = {
+            "date": today,
+            "total_posts": stats["total_posts"],
+            "total_downloads": stats["total_downloads"],
+            "total_views": stats["total_views"],
+            "total_upvotes": stats["total_upvotes"],
+            "followers": stats.get("user", {}).get("followers", 0),
+            "points": stats.get("user", {}).get("total_points", 0),
+        }
+
+        # 如果今天已存在，则更新；否则追加
+        for i, item in enumerate(history):
+            if item.get("date") == today:
+                history[i] = snapshot
+                break
+        else:
+            history.append(snapshot)
+
+        # 只保留最近 90 天的历史
+        history = history[-90:]
+
+        with open(self.history_file, "w", encoding="utf-8") as f:
+            json.dump(history, f, ensure_ascii=False, indent=2)
+        print(f"✅ 历史快照已更新 ({today})")
+
+    def get_stat_delta(self, stats: dict) -> dict:
+        """计算相对于上次记录的增长"""
+        history = self.load_history()
+        if len(history) < 2:
+            return {}
+
+        # 获取上一次的快照（倒数第二个，因为当前可能已经存入倒数第一个）
+        # 或者如果还没存入，就是倒数第一个
+        today = get_beijing_time().strftime("%Y-%m-%d")
+        prev = None
+        for item in reversed(history):
+            if item.get("date") != today:
+                prev = item
+                break
+
+        if not prev:
+            return {}
+
+        return {
+            "downloads": stats["total_downloads"] - prev.get("total_downloads", 0),
+            "views": stats["total_views"] - prev.get("total_views", 0),
+            "upvotes": stats["total_upvotes"] - prev.get("total_upvotes", 0),
+            "followers": stats.get("user", {}).get("followers", 0)
+            - prev.get("followers", 0),
+            "points": stats.get("user", {}).get("total_points", 0)
+            - prev.get("points", 0),
+        }
+
+    def _resolve_post_type(self, post: dict) -> str:
+        """解析帖子类别"""
+        top_type = post.get("type")
+        function_data = post.get("data", {}) or {}
+        function_obj = function_data.get("function", {}) or {}
+        meta = function_obj.get("meta", {}) or {}
+        manifest = meta.get("manifest", {}) or {}
+
+        # 类别识别优先级：
+        if top_type == "review":
+            return "review"
+
+        post_type = "unknown"
+        if meta.get("type"):
+            post_type = meta.get("type")
+        elif function_obj.get("type"):
+            post_type = function_obj.get("type")
+        elif top_type:
+            post_type = top_type
+        elif not meta and not function_obj:
+            post_type = "post"
+
+        # 统一和启发式识别逻辑
+        if post_type == "unknown" and function_obj:
+            post_type = "action"
+
+        if post_type == "action" or post_type == "unknown":
+            all_metadata = (
+                post.get("title", "")
+                + json.dumps(meta, ensure_ascii=False)
+                + json.dumps(manifest, ensure_ascii=False)
+            ).lower()
+
+            if "filter" in all_metadata:
+                post_type = "filter"
+            elif "pipe" in all_metadata:
+                post_type = "pipe"
+            elif "toolkit" in all_metadata:
+                post_type = "toolkit"
+
+        return post_type
 
     def _parse_user_id_from_token(self, token: str) -> str:
         """从 JWT Token 中解析用户 ID"""
@@ -83,6 +206,30 @@ class OpenWebUIStats:
         except Exception as e:
             print(f"⚠️ 无法从 Token 解析用户 ID: {e}")
             return ""
+
+    def generate_mermaid_chart(self) -> str:
+        """生成 Mermaid 增长趋势图"""
+        history = self.load_history()
+        if len(history) < 3:  # 数据太少不显示图表
+            return ""
+
+        # 只取最近 14 天的数据用于展示
+        data = history[-14:]
+        dates = [item["date"][-5:] for item in data]  # 只取 MM-DD
+        downloads = [str(item["total_downloads"]) for item in data]
+
+        mm = []
+        mm.append("### 📈 增长趋势 (14天)")
+        mm.append("")
+        mm.append("```mermaid")
+        mm.append("xychart-beta")
+        mm.append(f'    title "Downloads Trend"')
+        mm.append(f"    x-axis [{', '.join(f'\"{d}\"' for d in dates)}]")
+        mm.append(f'    y-axis "Downloads"')
+        mm.append(f"    line [{', '.join(downloads)}]")
+        mm.append("```")
+        mm.append("")
+        return "\n".join(mm)
 
     def get_user_posts(self, sort: str = "new", page: int = 1) -> list:
         """
@@ -148,22 +295,26 @@ class OpenWebUIStats:
             }
 
         for post in posts:
+            post_type = self._resolve_post_type(post)
+
+            function_data = post.get("data", {}) or {}
+            function_obj = function_data.get("function", {}) or {}
+            meta = function_obj.get("meta", {}) or {}
+            manifest = meta.get("manifest", {}) or {}
+
             # 累计统计
-            stats["total_downloads"] += post.get("downloads", 0)
-            stats["total_views"] += post.get("views", 0)
+            post_downloads = post.get("downloads", 0)
+            post_views = post.get("views", 0)
+
+            stats["total_downloads"] += post_downloads
             stats["total_upvotes"] += post.get("upvotes", 0)
             stats["total_downvotes"] += post.get("downvotes", 0)
             stats["total_saves"] += post.get("saveCount", 0)
             stats["total_comments"] += post.get("commentCount", 0)
 
-            # 解析 data 字段 - 正确路径: data.function.meta
-            function_data = post.get("data", {})
-            if function_data is None:
-                function_data = {}
-            function_data = function_data.get("function", {})
-            meta = function_data.get("meta", {})
-            manifest = meta.get("manifest", {})
-            post_type = meta.get("type", function_data.get("type", "unknown"))
+            # 关键：总浏览量不包括不可以下载的类型 (如 post, review)
+            if post_type in self.DOWNLOADABLE_TYPES or post_downloads > 0:
+                stats["total_views"] += post_views
 
             if post_type not in stats["by_type"]:
                 stats["by_type"][post_type] = 0
@@ -249,19 +400,24 @@ class OpenWebUIStats:
             stats: 统计数据
             lang: 语言 ("zh" 中文, "en" 英文)
         """
+        # 获取增量数据
+        delta = self.get_stat_delta(stats)
+
         # 中英文文本
         texts = {
             "zh": {
                 "title": "# 📊 OpenWebUI 社区统计报告",
                 "updated": f"> 📅 更新时间: {get_beijing_time().strftime('%Y-%m-%d %H:%M')}",
                 "overview_title": "## 📈 总览",
-                "overview_header": "| 指标 | 数值 |",
+                "overview_header": "| 指标 | 数值 | 增长 (24h) |",
                 "posts": "📝 发布数量",
                 "downloads": "⬇️ 总下载量",
                 "views": "👁️ 总浏览量",
                 "upvotes": "👍 总点赞数",
                 "saves": "💾 总收藏数",
                 "comments": "💬 总评论数",
+                "author_points": "⭐ 作者总积分",
+                "author_followers": "👥 粉丝数量",
                 "type_title": "## 📂 按类型分类",
                 "list_title": "## 📋 发布列表",
                 "list_header": "| 排名 | 标题 | 类型 | 版本 | 下载 | 浏览 | 点赞 | 收藏 | 更新日期 |",
@@ -270,13 +426,15 @@ class OpenWebUIStats:
                 "title": "# 📊 OpenWebUI Community Stats Report",
                 "updated": f"> 📅 Updated: {get_beijing_time().strftime('%Y-%m-%d %H:%M')}",
                 "overview_title": "## 📈 Overview",
-                "overview_header": "| Metric | Value |",
+                "overview_header": "| Metric | Value | Growth (24h) |",
                 "posts": "📝 Total Posts",
                 "downloads": "⬇️ Total Downloads",
                 "views": "👁️ Total Views",
                 "upvotes": "👍 Total Upvotes",
                 "saves": "💾 Total Saves",
                 "comments": "💬 Total Comments",
+                "author_points": "⭐ Author Points",
+                "author_followers": "👥 Followers",
                 "type_title": "## 📂 By Type",
                 "list_title": "## 📋 Posts List",
                 "list_header": "| Rank | Title | Type | Version | Downloads | Views | Upvotes | Saves | Updated |",
@@ -291,17 +449,44 @@ class OpenWebUIStats:
         md.append(t["updated"])
         md.append("")
 
+        # 插入趋势图
+        chart = self.generate_mermaid_chart()
+        if chart:
+            md.append(chart)
+            md.append("")
+
         # 总览
+        def fmt_delta(key: str) -> str:
+            val = delta.get(key, 0)
+            if val > 0:
+                return f"**+{val}** 🚀"
+            return "-"
+
         md.append(t["overview_title"])
         md.append("")
         md.append(t["overview_header"])
-        md.append("|------|------|")
-        md.append(f"| {t['posts']} | {stats['total_posts']} |")
-        md.append(f"| {t['downloads']} | {stats['total_downloads']} |")
-        md.append(f"| {t['views']} | {stats['total_views']} |")
-        md.append(f"| {t['upvotes']} | {stats['total_upvotes']} |")
-        md.append(f"| {t['saves']} | {stats['total_saves']} |")
-        md.append(f"| {t['comments']} | {stats['total_comments']} |")
+        md.append("|------|------|:---:|")
+        md.append(f"| {t['posts']} | {stats['total_posts']} | - |")
+        md.append(
+            f"| {t['downloads']} | {stats['total_downloads']} | {fmt_delta('downloads')} |"
+        )
+        md.append(f"| {t['views']} | {stats['total_views']} | {fmt_delta('views')} |")
+        md.append(
+            f"| {t['upvotes']} | {stats['total_upvotes']} | {fmt_delta('upvotes')} |"
+        )
+        md.append(f"| {t['saves']} | {stats['total_saves']} | - |")
+        md.append(f"| {t['comments']} | {stats['total_comments']} | - |")
+
+        # 作者信息
+        user = stats.get("user", {})
+        if user:
+            md.append(
+                f"| {t['author_points']} | {user.get('total_points', 0)} | {fmt_delta('points')} |"
+            )
+            md.append(
+                f"| {t['author_followers']} | {user.get('followers', 0)} | {fmt_delta('followers')} |"
+            )
+
         md.append("")
 
         # 按类型分类
@@ -580,6 +765,9 @@ def main():
 
     # 生成统计
     stats = stats_client.generate_stats(posts)
+
+    # 保存历史快照
+    stats_client.save_history(stats)
 
     # 打印到终端
     stats_client.print_stats(stats)

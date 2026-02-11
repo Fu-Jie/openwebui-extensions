@@ -1,0 +1,29 @@
+[
+  {
+    "date": "2026-02-09",
+    "total_posts": 20,
+    "total_downloads": 3800,
+    "total_views": 42000,
+    "total_upvotes": 200,
+    "followers": 215,
+    "points": 48000
+  },
+  {
+    "date": "2026-02-10",
+    "total_posts": 21,
+    "total_downloads": 4000,
+    "total_views": 44000,
+    "total_upvotes": 220,
+    "followers": 218,
+    "points": 50000
+  },
+  {
+    "date": "2026-02-11",
+    "total_posts": 22,
+    "total_downloads": 4154,
+    "total_views": 45888,
+    "total_upvotes": 231,
+    "followers": 220,
+    "points": 271
+  }
+]
