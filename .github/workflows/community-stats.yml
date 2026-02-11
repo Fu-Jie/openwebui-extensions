@@ -102,19 +102,7 @@ jobs:
             echo "🔄 Plugin version changed"
           fi
           
-          # 检查积分增加
-          if [ "$NEW_POINTS" -gt "$OLD_POINTS" ]; then
-            SHOULD_COMMIT="true"
-            CHANGE_REASON="${CHANGE_REASON:+$CHANGE_REASON, }points increased ($OLD_POINTS -> $NEW_POINTS)"
-            echo "⭐ Points increased: $OLD_POINTS -> $NEW_POINTS"
-          fi
-          
-          # 检查粉丝增加
-          if [ "$NEW_FOLLOWERS" -gt "$OLD_FOLLOWERS" ]; then
-            SHOULD_COMMIT="true"
-            CHANGE_REASON="${CHANGE_REASON:+$CHANGE_REASON, }followers increased ($OLD_FOLLOWERS -> $NEW_FOLLOWERS)"
-            echo "👥 Followers increased: $OLD_FOLLOWERS -> $NEW_FOLLOWERS"
-          fi
+
           
           echo "should_commit=$SHOULD_COMMIT" >> $GITHUB_OUTPUT
           echo "change_reason=$CHANGE_REASON" >> $GITHUB_OUTPUT
