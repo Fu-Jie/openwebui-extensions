@@ -1,9 +1,9 @@
 # 📊 OpenWebUI Community Stats Report
 
-> 📅 Updated: 2026-02-11 12:40
+> ![updated](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_updated.json&style=flat)
 
 ### 📈 Growth & Trends (Last 14 Days)
-![Trend](https://kroki.io/mermaid/svg/eNpNjkFuxCAMRfc9Bcqiq0QCbMCs295gdqMsaAdNI2WINKFq5va1k1KVxef5Y769PT4-070O77mmJ8WnTnXOqnsr13TNt1yqelavy3eZl3RZ1emey6XbG7chbdOqzp02g41drwRANzA72EH_gW0ADbCBa-AbhAbUIP6C0Q1MN-6bPI5NutNS06xelq9S12PHeSpZnW0g3StLIbDGEHsFGtgB44nVgmeFgKzOWlbvgTXsnRTEiZF70IAR9Xr8lw6WSGL49UhAqRxpJxloxSQDkhgReSzq6NlEMEHiEJxUzjr-gN6jXERBBrqINP4A6v1aKw==)
+![Trend](https://kroki.io/mermaid/svg/eNpNjkFuxCAMRfc9Bcqiq0QCbMCs295gdqMsaAdNI2WINKFq5va1k1KVxef5Y769PT4-070O77mmJ8WnTnXOqnsr13TNt1yqelavy3eZl3RZ1emey6XbG7chbdOqzp02g41drwRANzA72EH_gW0ADbCBa-AbhAbUIP6C0Q1MN-6bPI5NutNS06xelq9S12PHeSpZnW0g3StLIbDGEHsFGtgB44nVgmeFgKzOWlbvgTXsnRTEiZF70IAR9Xr8lw6WSGL49UhAqRxpJxloxSQDkhgReSzq6NlEMEHiEJxUzjr-gN6jXERBBroYaPwB6wZaLg==)
 
 > *Blue: Downloads | Purple: Views (Real-time dynamic)*
 
