@@ -267,7 +267,9 @@ class OpenWebUIStats:
         # 只取最近 14 天的数据用于展示
         data = history[-14:]
         dates = [item["date"][-5:] for item in data]  # 只取 MM-DD
+        dates_str = ", ".join([f'"{d}"' for d in dates])
         downloads = [str(item["total_downloads"]) for item in data]
+        downloads_str = ", ".join(downloads)
 
         mm = []
         mm.append("### 📈 增长趋势 (14天)")
@@ -275,9 +277,9 @@ class OpenWebUIStats:
         mm.append("```mermaid")
         mm.append("xychart-beta")
         mm.append(f'    title "Downloads Trend"')
-        mm.append(f"    x-axis [{', '.join(f'\"{d}\"' for d in dates)}]")
+        mm.append(f"    x-axis [{dates_str}]")
         mm.append(f'    y-axis "Downloads"')
-        mm.append(f"    line [{', '.join(downloads)}]")
+        mm.append(f"    line [{downloads_str}]")
         mm.append("```")
         mm.append("")
         return "\n".join(mm)
