@@ -7,7 +7,7 @@ A collection of enhancements, plugins, and prompts for [OpenWebUI](https://githu
 
 <!-- STATS_START -->
 ## 📊 Community Stats
-> 🕐 Auto-updated: 2026-02-11 12:46
+> 🕐 Auto-updated: 2026-02-11 12:51
 
 | 👤 Author | 👥 Followers | ⭐ Points | 🏆 Contributions |
 | :---: | :---: | :---: | :---: |
@@ -17,15 +17,19 @@ A collection of enhancements, plugins, and prompts for [OpenWebUI](https://githu
 | :---: | :---: | :---: | :---: | :---: |
 | ![posts](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_posts.json&style=flat) | ![downloads](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_downloads.json&style=flat) | ![views](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_views.json&style=flat) | ![upvotes](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_upvotes.json&style=flat) | ![saves](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_saves.json&style=flat) |
 
+
+### 📈 Total Downloads Trend
+![Activity](https://kroki.io/vegalite/svg/eNqNlsFu2zAMhl8l8Nbb0liULdu9bo_Q27CDEiuxVsXybCVpEeTdR6lN0IU0sEsgSp9Iir8s5px9nTad2evsaZF1IQzT02p1NDv9uLOhO6wfrV-9A2l26Wwwq2P5-HvyffZtkbVm2ox2CBZN9PDsg3aLH_7UO6_bafE8mr6N3Mm2oUOiznO0OmN3XUATkjnotrX9Du0SrbXevOxGf8CN6DGMup8GjX5C9LPx_dZG8pwdrTmlwRRG_2Lu4QvS-tVOCWn9XtuY4Va7yeDKbrTt1bxEtNVBv7vV7mDirp_nOJn8Qg5qmYtlXqYzX4-HS1VR426GVPdkLXOerO7JRpQ8WROyAp5s7kmRC8WiIqdoXfGoIKio-QQEEBTKmQQkQWUhebQgaKH4qgqilChh5liKog2vqiBaCaVmUCKWqNRMBahatSxYFKhaDfASAFWrmTkWELUgn8kViFowdweAqAVQ8hIAUQvkXAWIWlDMfINA1IJSzqBELVDQ8ChRC6qav4SSqAV1xVdAErWgqbgEAOl7VObs24IoEVYK9r4iSoSVIBWPEmGlrAoeJcLKkr2vwLyYUinJo0RYWc0Viwgr62omASKsbBq-AvTRLIQUPCooim_Wr9hz9np8ST0nvA1pE3YuHXFne5MWNt75Ma58wedTmnXqatfJc_Yq4meNU2_XwStcZ-IgT51OtzY2xKd3v3qMEabgh48m57fbyYQP-hbw1GGnz9KRboD4DNwy-pX6p-k3_qOJY17pd2uNSz081QSZ6zGD2Q9-1C773KK3ftzrlOXDfvmQ_jQEG1zc0B-ci1XRa-O-3-IrpbIU-u0u2q3Wn0L-Oege3elgj-afsP8T43L5C23qg4U=)
+
 ### 🔥 Top 6 Popular Plugins
-| Rank | Plugin | Version | Downloads | Views | Updated |
-| :---: | :--- | :---: | :---: | :---: | :---: |
-| 🥇 | [Smart Mind Map](https://openwebui.com/posts/turn_any_text_into_beautiful_mind_maps_3094c59a) | 0.9.2 | ![p1_dl](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p1_dl.json&style=flat) | ![p1_vw](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p1_vw.json&style=flat) | 2026-01-29 |
-| 🥈 | [Smart Infographic](https://openwebui.com/posts/smart_infographic_ad6f0c7f) | 1.5.0 | ![p2_dl](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p2_dl.json&style=flat) | ![p2_vw](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p2_vw.json&style=flat) | 2026-01-31 |
-| 🥉 | [Export to Word Enhanced](https://openwebui.com/posts/export_to_word_enhanced_formatting_fca6a315) | 0.4.4 | ![p3_dl](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p3_dl.json&style=flat) | ![p3_vw](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p3_vw.json&style=flat) | 2026-02-07 |
-| 4️⃣ | [Async Context Compression](https://openwebui.com/posts/async_context_compression_b1655bc8) | 1.2.2 | ![p4_dl](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p4_dl.json&style=flat) | ![p4_vw](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p4_vw.json&style=flat) | 2026-01-29 |
-| 5️⃣ | [Export to Excel](https://openwebui.com/posts/export_mulit_table_to_excel_244b8f9d) | 0.3.7 | ![p5_dl](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p5_dl.json&style=flat) | ![p5_vw](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p5_vw.json&style=flat) | 2026-02-10 |
-| 6️⃣ | [Markdown Normalizer](https://openwebui.com/posts/markdown_normalizer_baaa8732) | 1.2.4 | ![p6_dl](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p6_dl.json&style=flat) | ![p6_vw](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p6_vw.json&style=flat) | 2026-01-29 |
+| Rank | Plugin | Version | Downloads | Views |
+| :---: | :--- | :---: | :---: | :---: |
+| 🥇 | [Smart Mind Map](https://openwebui.com/posts/turn_any_text_into_beautiful_mind_maps_3094c59a) | ![v](https://img.shields.io/badge/v-0.9.2-blue?style=flat) | ![p1_dl](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p1_dl.json&style=flat) | ![p1_vw](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p1_vw.json&style=flat) |
+| 🥈 | [Smart Infographic](https://openwebui.com/posts/smart_infographic_ad6f0c7f) | ![v](https://img.shields.io/badge/v-1.5.0-blue?style=flat) | ![p2_dl](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p2_dl.json&style=flat) | ![p2_vw](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p2_vw.json&style=flat) |
+| 🥉 | [Export to Word Enhanced](https://openwebui.com/posts/export_to_word_enhanced_formatting_fca6a315) | ![v](https://img.shields.io/badge/v-0.4.4-blue?style=flat) | ![p3_dl](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p3_dl.json&style=flat) | ![p3_vw](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p3_vw.json&style=flat) |
+| 4️⃣ | [Async Context Compression](https://openwebui.com/posts/async_context_compression_b1655bc8) | ![v](https://img.shields.io/badge/v-1.2.2-blue?style=flat) | ![p4_dl](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p4_dl.json&style=flat) | ![p4_vw](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p4_vw.json&style=flat) |
+| 5️⃣ | [Export to Excel](https://openwebui.com/posts/export_mulit_table_to_excel_244b8f9d) | ![v](https://img.shields.io/badge/v-0.3.7-blue?style=flat) | ![p5_dl](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p5_dl.json&style=flat) | ![p5_vw](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p5_vw.json&style=flat) |
+| 6️⃣ | [Markdown Normalizer](https://openwebui.com/posts/markdown_normalizer_baaa8732) | ![v](https://img.shields.io/badge/v-1.2.4-blue?style=flat) | ![p6_dl](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p6_dl.json&style=flat) | ![p6_vw](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p6_vw.json&style=flat) |
 
 *See full stats and charts in [Community Stats Report](./docs/community-stats.md)*
 <!-- STATS_END -->
@@ -153,12 +157,6 @@ If you have great prompts or plugins to share:
 3. Submit a Pull Request.
 
 [Contributing](./CONTRIBUTING.md)
-
-
-<!-- ACTIVITY_CHART_START -->
-### 📈 Total Downloads Trend (14 Days)
-![Activity](https://kroki.io/vegalite/svg/eNqNk82O2yAQgF_FcnelVmoSgxNs59p9hL1Ve5gYbNNg8AL5U5R3L5A4SoNX6sVmhm9-mTmnL6buWA_pOkk7awezXiz2rIV5y22328y5WlyBoJ0Jbtliv5r_MUqmP5OUMlNrPljuROfhXVkQyZs6SKGAmuRdM0mT72iZvMHJ_PAWB05t59gyy5zUMd521ok4iANQymXr5JWTNlBvW612knrfVoM0AziP1vuplWy4J8_pnrNDOBir1ZY9wxdHw5GbgFDVA_e5NiAMczet5nQULx6lYOHqFsSOeavfZ68MfnGGySxDM1yF6sdCfQFFmTnzGM2zCC2LYhpFEVoV1QSKHf2M5lmeTaM4QhEpp9E8QnFOptFlhObFchpdRegK42mURCgh-TRaRGjxVbPKCC2LLxKIHjavqukOoOhhlyhH0yiKUZJdPvy89aC3Yd7saQhGbmrB44JLFi5qJZT2N9_wiuRsEyZ6VJ7TI3I_5FSn8XDEo8YfsjDlQLlfhvXVL2gfwVg13AZcNY1h9kbfAx46t-9pKOkOoEfgntFH2B0ma3VbYJdX-DacibC_oSeOGcu0rB-UBpE-rmejdA8hy9d-9koDz63wBnInhO8KbJj4dY9PCElD6NNTtHuvH0J-7kA6d2D5nv0T9n9iXC5_AX_keeA=)
-<!-- ACTIVITY_CHART_END -->
 
 ## Contributors ✨
 

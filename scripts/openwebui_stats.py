@@ -953,7 +953,7 @@ class OpenWebUIStats:
                 "author_header": "| 👤 作者 | 👥 粉丝 | ⭐ 积分 | 🏆 贡献 |",
                 "header": "| 📝 发布 | ⬇️ 下载 | 👁️ 浏览 | 👍 点赞 | 💾 收藏 |",
                 "top6_title": "### 🔥 热门插件 Top 6",
-                "top6_header": "| 排名 | 插件 | 版本 | 下载 | 浏览 | 更新日期 |",
+                "top6_header": "| 排名 | 插件 | 版本 | 下载 | 浏览 |",
                 "full_stats": "*完整统计与趋势图请查看 [社区统计报告](./docs/community-stats.zh.md)*",
             },
             "en": {
@@ -962,7 +962,7 @@ class OpenWebUIStats:
                 "author_header": "| 👤 Author | 👥 Followers | ⭐ Points | 🏆 Contributions |",
                 "header": "| 📝 Posts | ⬇️ Downloads | 👁️ Views | 👍 Upvotes | 💾 Saves |",
                 "top6_title": "### 🔥 Top 6 Popular Plugins",
-                "top6_header": "| Rank | Plugin | Version | Downloads | Views | Updated |",
+                "top6_header": "| Rank | Plugin | Version | Downloads | Views |",
                 "full_stats": "*See full stats and charts in [Community Stats Report](./docs/community-stats.md)*",
             },
         }
@@ -998,11 +998,18 @@ class OpenWebUIStats:
             f"{self.get_badge('views', stats, user, delta)} | {self.get_badge('upvotes', stats, user, delta)} | {self.get_badge('saves', stats, user, delta)} |"
         )
         lines.append("")
+        lines.append("")
+
+        # 插入全量趋势图 (Vega-Lite)
+        activity_chart = self.generate_activity_chart(lang)
+        if activity_chart:
+            lines.append(activity_chart)
+            lines.append("")
 
         # Top 6 热门插件
         lines.append(t["top6_title"])
         lines.append(t["top6_header"])
-        lines.append("| :---: | :--- | :---: | :---: | :---: | :---: |")
+        lines.append("| :---: | :--- | :---: | :---: | :---: |")
 
         medals = ["🥇", "🥈", "🥉", "4️⃣", "5️⃣", "6️⃣"]
         for i, post in enumerate(top_plugins):
@@ -1012,8 +1019,15 @@ class OpenWebUIStats:
             dl_cell = self.get_badge(f"p{idx}_dl", stats, user, delta, is_post=True)
             vw_cell = self.get_badge(f"p{idx}_vw", stats, user, delta, is_post=True)
 
+            # 版本号使用静态 Shields.io 徽章
+            ver = post["version"] if post["version"] else "N/A"
+            ver_color = "blue" if post["version"] else "gray"
+            ver_badge = (
+                f"![v](https://img.shields.io/badge/v-{ver}-{ver_color}?style=flat)"
+            )
+
             lines.append(
-                f"| {medal} | [{post['title']}]({post['url']}) | {post['version']} | {dl_cell} | {vw_cell} | {post['updated_at']} |"
+                f"| {medal} | [{post['title']}]({post['url']}) | {ver_badge} | {dl_cell} | {vw_cell} |"
             )
 
         lines.append("")
@@ -1072,28 +1086,12 @@ class OpenWebUIStats:
             lines.insert(insert_pos + 2, "")
             content = "\n".join(lines)
 
-        # 生成并插入/更新底部趋势图 (Vega-Lite)
-        activity_chart = self.generate_activity_chart(lang)
-        if activity_chart:
-            chart_pattern = (
-                r"<!-- ACTIVITY_CHART_START -->.*?<!-- ACTIVITY_CHART_END -->"
-            )
-            chart_section = f"<!-- ACTIVITY_CHART_START -->\n{activity_chart}\n<!-- ACTIVITY_CHART_END -->"
-
-            if re.search(chart_pattern, content, re.DOTALL):
-                content = re.sub(chart_pattern, chart_section, content, flags=re.DOTALL)
-            else:
-                # 尝试插入到 Contributors 之前
-                contributors_pattern = r"(## .*Contributors.*)"
-                match = re.search(contributors_pattern, content, re.IGNORECASE)
-                if match:
-                    content = (
-                        content[: match.start()]
-                        + f"\n{chart_section}\n\n"
-                        + content[match.start() :]
-                    )
-                else:
-                    content += f"\n\n{chart_section}"
+        # 移除旧的底部图表 (如果有的话)
+        chart_pattern = r"<!-- ACTIVITY_CHART_START -->.*?<!-- ACTIVITY_CHART_END -->"
+        if re.search(chart_pattern, content, re.DOTALL):
+            content = re.sub(chart_pattern, "", content, flags=re.DOTALL)
+            # 清理可能产生的多余空行
+            content = re.sub(r"\n{3,}", "\n\n", content)
 
         # 写回文件
         with open(readme_path, "w", encoding="utf-8") as f:
@@ -1107,18 +1105,14 @@ class OpenWebUIStats:
         if len(history) < 3:
             return ""
 
-        data = history[-14:]
+        data = history  # 使用全量历史数据
 
         # 准备数据点
         values = []
         for item in data:
             values.append({"date": item["date"], "downloads": item["total_downloads"]})
 
-        title = (
-            "Total Downloads Trend (14 Days)"
-            if lang == "en"
-            else "总下载量累计趋势 (14天)"
-        )
+        title = "Total Downloads Trend" if lang == "en" else "总下载量累计趋势"
 
         # Vega-Lite Spec
         vl_spec = {
