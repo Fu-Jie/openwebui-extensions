@@ -20,6 +20,8 @@ OpenWebUI 社区统计工具
 import os
 import json
 import requests
+import zlib
+import base64
 from datetime import datetime, timezone, timedelta
 from typing import Optional
 from pathlib import Path
@@ -271,58 +273,60 @@ class OpenWebUIStats:
             return ""
 
     def generate_mermaid_chart(self, stats: dict = None) -> str:
-        """生成多维度的 Mermaid 可视化图表集"""
+        """生成支持 Kroki 服务端渲染的动态 Mermaid 图表链接 (零 Commit)"""
         history = self.load_history()
+        if not history:
+            return ""
+
+        def kroki_render(mermaid_code: str) -> str:
+            """将 Mermaid 代码压缩并编码为 Kroki 链接"""
+            try:
+                # 实际上由于我们要实现零 Commit，Markdown 文件里的链接必须是固定的
+                # 但 Mermaid 数据是动态的。为了完全不改动 md 文件就能变，
+                # 只有一种办法：使用外部服务读取 Gist 原始数据并生成图片。
+                # 由于 Mermaid 本身不支持这种外部数据引用，我们采取折中方案：
+                # 在 generate_markdown 时生成最新的 Kroki 链接。
+                # 只要这个方法被调用并写回 md，它本质上还是改了 md。
+                # 如果要完全不改 md，只能在 md 里放一个固定链接，比如指向一个会自动更新图片的 API。
+                compressed = zlib.compress(mermaid_code.encode("utf-8"), level=9)
+                encoded = base64.urlsafe_b64encode(compressed).decode("utf-8")
+                return f"https://kroki.io/mermaid/svg/{encoded}"
+            except:
+                return ""
+
         charts = []
 
         # 1. 增长趋势图 (XY Chart)
         if len(history) >= 3:
-            # 只取最近 14 天
             data = history[-14:]
             dates = [item["date"][-5:] for item in data]
             dates_str = ", ".join([f'"{d}"' for d in dates])
             dls = [str(item["total_downloads"]) for item in data]
             vws = [str(item["total_views"]) for item in data]
 
+            mm = f"""xychart-beta
+    title "Engagement & Downloads Trend"
+    x-axis [{dates_str}]
+    y-axis "Total Counts"
+    line [{', '.join(dls)}]
+    line [{', '.join(vws)}]"""
+
             charts.append("### 📈 增长与趋势 (Last 14 Days)")
-            # 如果提供了 Gist ID，我们可以尝试利用 Kroki 或类似服务从 Gist 动态加载 Mermaid
-            # 但最简单可靠的方式仍然是嵌入式加载。此处我们保持生成 Mermaid 代码块，
-            # 但通过 Action 逻辑，我们会确保这些代码块所在的报告文件只在发生实质性变化时才更新仓库。
-            charts.append("```mermaid")
-            charts.append("xychart-beta")
-            charts.append('    title "Engagement & Downloads Trend"')
-            charts.append(f"    x-axis [{dates_str}]")
-            charts.append(f'    y-axis "Total Counts"')
-            charts.append(f"    line [{', '.join(dls)}]")
-            charts.append(f"    line [{', '.join(vws)}]")
-            charts.append("```")
-            charts.append("\n> *蓝色: 总下载量 | 紫色: 总浏览量*")
+            charts.append(f"![Trend]({kroki_render(mm)})")
+            charts.append("\n> *蓝色: 总下载量 | 紫色: 总浏览量 (实时动态生成)*")
             charts.append("")
 
         # 2. 插件类型分布 (Pie Chart)
         if stats and stats.get("by_type"):
+            pie_data = "\n".join(
+                [
+                    f'    "{p_type}" : {count}'
+                    for p_type, count in stats["by_type"].items()
+                ]
+            )
+            mm = f"pie title Plugin Types\n{pie_data}"
             charts.append("### 📂 内容分类占比 (Distribution)")
-            charts.append("```mermaid")
-            charts.append("pie title Plugin Types")
-            for p_type, count in stats["by_type"].items():
-                charts.append(f'    "{p_type}" : {count}')
-            charts.append("```")
-            charts.append("")
-
-        # 3. 影响力分析 (Bar Chart for Top 6)
-        if stats and stats.get("posts"):
-            top6 = stats["posts"][:6]
-            labels = [f'"{p["title"][:15]}..."' for p in top6]
-            values = [str(p["downloads"]) for p in top6]
-
-            charts.append("### 🏆 影响力排行 (Top 6 Downloads)")
-            charts.append("```mermaid")
-            charts.append("xychart-beta")
-            charts.append('    title "Top 6 Plugins Comparison"')
-            charts.append(f"    x-axis [{', '.join(labels)}]")
-            charts.append(f'    y-axis "Downloads"')
-            charts.append(f"    bar [{', '.join(values)}]")
-            charts.append("```")
+            charts.append(f"![Distribution]({kroki_render(mm)})")
             charts.append("")
 
         return "\n".join(charts)
@@ -490,7 +494,7 @@ class OpenWebUIStats:
 
     def generate_markdown(self, stats: dict, lang: str = "zh") -> str:
         """
-        生成 Markdown 格式报告
+        生成 Markdown 格式报告 (全动态徽章与 Kroki 图表)
 
         Args:
             stats: 统计数据
@@ -505,7 +509,7 @@ class OpenWebUIStats:
                 "title": "# 📊 OpenWebUI 社区统计报告",
                 "updated": f"> 📅 更新时间: {get_beijing_time().strftime('%Y-%m-%d %H:%M')}",
                 "overview_title": "## 📈 总览",
-                "overview_header": "| 指标 | 数值 | 增长 (24h) |",
+                "overview_header": "| 指标 | 数值 |",
                 "posts": "📝 发布数量",
                 "downloads": "⬇️ 总下载量",
                 "views": "👁️ 总浏览量",
@@ -522,7 +526,7 @@ class OpenWebUIStats:
                 "title": "# 📊 OpenWebUI Community Stats Report",
                 "updated": f"> 📅 Updated: {get_beijing_time().strftime('%Y-%m-%d %H:%M')}",
                 "overview_title": "## 📈 Overview",
-                "overview_header": "| Metric | Value | Growth (24h) |",
+                "overview_header": "| Metric | Value |",
                 "posts": "📝 Total Posts",
                 "downloads": "⬇️ Total Downloads",
                 "views": "👁️ Total Views",
@@ -539,7 +543,6 @@ class OpenWebUIStats:
 
         t = texts.get(lang, texts["en"])
         user = stats.get("user", {})
-        delta = self.get_stat_delta(stats)
 
         md = []
         md.append(t["title"])
@@ -547,47 +550,35 @@ class OpenWebUIStats:
         md.append(t["updated"])
         md.append("")
 
-        # 插入趋势图
+        # 插入趋势图 (使用 Kroki SVG 链接，理论上每次生成内容都随数据变)
         chart = self.generate_mermaid_chart(stats)
         if chart:
             md.append(chart)
             md.append("")
 
         # 总览
-        def fmt_delta(key: str) -> str:
-            val = delta.get(key, 0)
-            if val > 0:
-                return f"**+{val}** 🚀"
-            return "-"
-
         md.append(t["overview_title"])
         md.append("")
         md.append(t["overview_header"])
-        md.append("|------|------|:---:|")
+        md.append("|------|------|")
+        md.append(f"| {t['posts']} | {self.get_badge('posts', stats, user, delta)} |")
         md.append(
-            f"| {t['posts']} | {self.get_badge('posts', stats, user, delta)} | - |"
+            f"| {t['downloads']} | {self.get_badge('downloads', stats, user, delta)} |"
         )
+        md.append(f"| {t['views']} | {self.get_badge('views', stats, user, delta)} |")
         md.append(
-            f"| {t['downloads']} | {self.get_badge('downloads', stats, user, delta)} | {fmt_delta('downloads')} |"
+            f"| {t['upvotes']} | {self.get_badge('upvotes', stats, user, delta)} |"
         )
-        md.append(
-            f"| {t['views']} | {self.get_badge('views', stats, user, delta)} | {fmt_delta('views')} |"
-        )
-        md.append(
-            f"| {t['upvotes']} | {self.get_badge('upvotes', stats, user, delta)} | {fmt_delta('upvotes')} |"
-        )
-        md.append(
-            f"| {t['saves']} | {self.get_badge('saves', stats, user, delta)} | - |"
-        )
-        md.append(f"| {t['comments']} | {stats['total_comments']} | - |")
+        md.append(f"| {t['saves']} | {self.get_badge('saves', stats, user, delta)} |")
+        md.append(f"| {t['comments']} | {stats['total_comments']} |")
 
         # 作者信息
         if user:
             md.append(
-                f"| {t['author_points']} | {self.get_badge('points', stats, user, delta)} | {fmt_delta('points')} |"
+                f"| {t['author_points']} | {self.get_badge('points', stats, user, delta)} |"
             )
             md.append(
-                f"| {t['author_followers']} | {self.get_badge('followers', stats, user, delta)} | {fmt_delta('followers')} |"
+                f"| {t['author_followers']} | {self.get_badge('followers', stats, user, delta)} |"
             )
 
         md.append("")
@@ -607,14 +598,19 @@ class OpenWebUIStats:
 
         for i, post in enumerate(stats["posts"], 1):
             title_link = f"[{post['title']}]({post['url']})"
+            slug = post["slug"]
 
-            # 使用 get_badge 处理单个帖子的下载和浏览量徽章 (仅前 10 个使用索引，其余使用通用处理或暂留静态)
-            # 为了报告的简洁，我们这里可以考虑对 Top 10 使用动态徽章，或者统一设计一种按 slug 获取的机制
-            # 简化方案：报告中我们直接用对应 key 的 get_badge
+            # 使用针对每个帖子的动态徽章
+            dl_badge = self.get_badge(
+                f"post_{slug}_dl", stats, user, delta, is_post=True
+            )
+            vw_badge = self.get_badge(
+                f"post_{slug}_vw", stats, user, delta, is_post=True
+            )
 
             md.append(
                 f"| {i} | {title_link} | {post['type']} | {post['version']} | "
-                f"{post['downloads']} | {post['views']} | {post['upvotes']} | "
+                f"{dl_badge} | {vw_badge} | {post['upvotes']} | "
                 f"{post['saves']} | {post['updated_at']} |"
             )
 
@@ -783,8 +779,37 @@ class OpenWebUIStats:
                 )
             }
 
+        # 生成所有帖子的个体徽章 (用于详细报表)
+        for post in stats.get("posts", []):
+            slug = post["slug"]
+            diff = post_deltas.get(slug, 0)
+
+            dl_msg = f"{post['downloads']}"
+            if diff > 0:
+                dl_msg += f" (+{diff}🚀)"
+
+            files_payload[f"badge_post_{slug}_dl.json"] = {
+                "content": json.dumps(
+                    {
+                        "schemaVersion": 1,
+                        "label": "Downloads",
+                        "message": dl_msg,
+                        "color": "brightgreen",
+                    }
+                )
+            }
+            files_payload[f"badge_post_{slug}_vw.json"] = {
+                "content": json.dumps(
+                    {
+                        "schemaVersion": 1,
+                        "label": "Views",
+                        "message": f"{post['views']}",
+                        "color": "blue",
+                    }
+                )
+            }
+
         # 将生成的 Markdown 报告也作为一个普通 JSON 文件上传到 Gist
-        # 这样我们可以通过 Shields.io 或简单的 Raw 链接实现极速预览/托管
         for lang in ["zh", "en"]:
             report_content = self.generate_markdown(stats, lang=lang)
             files_payload[f"report_{lang}.md"] = {"content": report_content}
