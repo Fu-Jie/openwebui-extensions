@@ -6,31 +6,31 @@ OpenWebUI 增强功能集合。包含个人开发与收集的插件、提示词�
 
 <!-- STATS_START -->
 ## 📊 社区统计
-
-> 🕐 自动更新于 2026-02-11 11:11
+> ![updated_zh](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_updated_zh.json&style=flat)
 
 | 👤 作者 | 👥 粉丝 | ⭐ 积分 | 🏆 贡献 |
 | :---: | :---: | :---: | :---: |
-| [Fu-Jie](https://openwebui.com/u/Fu-Jie) | **220** | **271** | **48** |
+| [Fu-Jie](https://openwebui.com/u/Fu-Jie) | ![followers](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_followers.json&style=flat) | ![points](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_points.json&style=flat) | ![contributions](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_contributions.json&style=flat) |
 
 | 📝 发布 | ⬇️ 下载 | 👁️ 浏览 | 👍 点赞 | 💾 收藏 |
 | :---: | :---: | :---: | :---: | :---: |
-| **22** | **4154** | **49223** | **231** | **274** |
+| ![posts](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_posts.json&style=flat) | ![downloads](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_downloads.json&style=flat) | ![views](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_views.json&style=flat) | ![upvotes](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_upvotes.json&style=flat) | ![saves](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_saves.json&style=flat) |
+
 
 ### 🔥 热门插件 Top 6
-
-> 🕐 自动更新于 2026-02-11 11:11
-
-| 排名 | 插件 | 版本 | 下载 | 浏览 | 更新日期 |
+| 排名 | 插件 | 版本 | 下载 | 浏览 | 📅 更新 |
 | :---: | :--- | :---: | :---: | :---: | :---: |
-| 🥇 | [Smart Mind Map](https://openwebui.com/posts/turn_any_text_into_beautiful_mind_maps_3094c59a) | 0.9.2 | 953 | 8381 | 2026-01-28 |
-| 🥈 | [Smart Infographic](https://openwebui.com/posts/smart_infographic_ad6f0c7f) | 1.5.0 | 706 | 6695 | 2026-01-30 |
-| 🥉 | [Export to Word Enhanced](https://openwebui.com/posts/export_to_word_enhanced_formatting_fca6a315) | 0.4.4 | 383 | 3022 | 2026-02-07 |
-| 4️⃣ | [Async Context Compression](https://openwebui.com/posts/async_context_compression_b1655bc8) | 1.2.2 | 363 | 3750 | 2026-01-28 |
-| 5️⃣ | [Export to Excel](https://openwebui.com/posts/export_mulit_table_to_excel_244b8f9d) | 0.3.7 | 342 | 1670 | 2026-02-09 |
-| 6️⃣ | [Markdown Normalizer](https://openwebui.com/posts/markdown_normalizer_baaa8732) | 1.2.4 | 341 | 4706 | 2026-01-29 |
+| 🥇 | [Smart Mind Map](https://openwebui.com/posts/turn_any_text_into_beautiful_mind_maps_3094c59a) | ![p1_version](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p1_version.json&style=flat) | ![p1_dl](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p1_dl.json&style=flat) | ![p1_vw](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p1_vw.json&style=flat) | ![updated](https://img.shields.io/badge/2026--01--29-gray?style=flat) |
+| 🥈 | [Smart Infographic](https://openwebui.com/posts/smart_infographic_ad6f0c7f) | ![p2_version](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p2_version.json&style=flat) | ![p2_dl](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p2_dl.json&style=flat) | ![p2_vw](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p2_vw.json&style=flat) | ![updated](https://img.shields.io/badge/2026--01--31-gray?style=flat) |
+| 🥉 | [Export to Word Enhanced](https://openwebui.com/posts/export_to_word_enhanced_formatting_fca6a315) | ![p3_version](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p3_version.json&style=flat) | ![p3_dl](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p3_dl.json&style=flat) | ![p3_vw](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p3_vw.json&style=flat) | ![updated](https://img.shields.io/badge/2026--02--07-gray?style=flat) |
+| 4️⃣ | [Async Context Compression](https://openwebui.com/posts/async_context_compression_b1655bc8) | ![p4_version](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p4_version.json&style=flat) | ![p4_dl](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p4_dl.json&style=flat) | ![p4_vw](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p4_vw.json&style=flat) | ![updated](https://img.shields.io/badge/2026--01--29-gray?style=flat) |
+| 5️⃣ | [Export to Excel](https://openwebui.com/posts/export_mulit_table_to_excel_244b8f9d) | ![p5_version](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p5_version.json&style=flat) | ![p5_dl](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p5_dl.json&style=flat) | ![p5_vw](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p5_vw.json&style=flat) | ![updated](https://img.shields.io/badge/2026--02--10-gray?style=flat) |
+| 6️⃣ | [Markdown Normalizer](https://openwebui.com/posts/markdown_normalizer_baaa8732) | ![p6_version](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p6_version.json&style=flat) | ![p6_dl](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p6_dl.json&style=flat) | ![p6_vw](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p6_vw.json&style=flat) | ![updated](https://img.shields.io/badge/2026--01--29-gray?style=flat) |
 
-*完整统计请查看 [社区统计报告](./docs/community-stats.zh.md)*
+### 📈 总下载量累计趋势
+![Activity](https://gist.githubusercontent.com/Fu-Jie/db3d95687075a880af6f1fba76d679c6/raw/chart.svg)
+
+*完整统计与趋势图请查看 [社区统计报告](./docs/community-stats.zh.md)*
 <!-- STATS_END -->
 
 ## 🌟 精选功能
@@ -136,3 +136,4 @@ Open WebUI 的前端增强扩展：
 本项目是一个资源集合，无需安装 Python 环境。你只需要下载对应的文件并导入到你的 OpenWebUI 实例中即可。
 
 [贡献指南](./CONTRIBUTING_CN.md) | [更新日志](./CHANGELOG.md)
+

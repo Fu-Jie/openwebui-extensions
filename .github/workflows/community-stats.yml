@@ -8,9 +8,13 @@
 name: Community Stats
 
 on:
-  # 每小时整点运行
+  # 定时任务
   schedule:
     - cron: '0 * * * *'
+  # 推送时触发（用于测试任务分支）
+  push:
+    branches:
+      - feat/stats-history-and-refactor
   # 手动触发
   workflow_dispatch:
 
@@ -26,6 +30,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
       
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -56,6 +61,8 @@ jobs:
         env:
           OPENWEBUI_API_KEY: ${{ secrets.OPENWEBUI_API_KEY }}
           OPENWEBUI_USER_ID: ${{ secrets.OPENWEBUI_USER_ID }}
+          GIST_TOKEN: ${{ secrets.GIST_TOKEN }}
+          GIST_ID: ${{ secrets.GIST_ID }}
         run: |
           python scripts/openwebui_stats.py
 
@@ -89,26 +96,9 @@ jobs:
             echo "📦 New plugin detected: $OLD_POSTS -> $NEW_POSTS"
           fi
           
-          # 检查版本变更
-          if [ "$OLD_VERSIONS" != "$NEW_VERSIONS" ]; then
-            SHOULD_COMMIT="true"
-            CHANGE_REASON="${CHANGE_REASON:+$CHANGE_REASON, }plugin version updated"
-            echo "🔄 Plugin version changed"
-          fi
+
           
-          # 检查积分增加
-          if [ "$NEW_POINTS" -gt "$OLD_POINTS" ]; then
-            SHOULD_COMMIT="true"
-            CHANGE_REASON="${CHANGE_REASON:+$CHANGE_REASON, }points increased ($OLD_POINTS -> $NEW_POINTS)"
-            echo "⭐ Points increased: $OLD_POINTS -> $NEW_POINTS"
-          fi
-          
-          # 检查粉丝增加
-          if [ "$NEW_FOLLOWERS" -gt "$OLD_FOLLOWERS" ]; then
-            SHOULD_COMMIT="true"
-            CHANGE_REASON="${CHANGE_REASON:+$CHANGE_REASON, }followers increased ($OLD_FOLLOWERS -> $NEW_FOLLOWERS)"
-            echo "👥 Followers increased: $OLD_FOLLOWERS -> $NEW_FOLLOWERS"
-          fi
+
           
           echo "should_commit=$SHOULD_COMMIT" >> $GITHUB_OUTPUT
           echo "change_reason=$CHANGE_REASON" >> $GITHUB_OUTPUT

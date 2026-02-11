@@ -3,35 +3,37 @@
 [![All Contributors](https://img.shields.io/badge/all_contributors-5-orange.svg?style=flat-square)](#contributors-)
 <!-- ALL-CONTRIBUTORS-BADGE:END -->
 
+English | [中文](./README_CN.md)
+
 A collection of enhancements, plugins, and prompts for [OpenWebUI](https://github.com/open-webui/open-webui), developed and curated for personal use to extend functionality and improve experience.
 
 <!-- STATS_START -->
 ## 📊 Community Stats
-
-> 🕐 Auto-updated: 2026-02-11 11:11
+> ![updated](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_updated.json&style=flat)
 
 | 👤 Author | 👥 Followers | ⭐ Points | 🏆 Contributions |
 | :---: | :---: | :---: | :---: |
-| [Fu-Jie](https://openwebui.com/u/Fu-Jie) | **220** | **271** | **48** |
+| [Fu-Jie](https://openwebui.com/u/Fu-Jie) | ![followers](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_followers.json&style=flat) | ![points](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_points.json&style=flat) | ![contributions](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_contributions.json&style=flat) |
 
 | 📝 Posts | ⬇️ Downloads | 👁️ Views | 👍 Upvotes | 💾 Saves |
 | :---: | :---: | :---: | :---: | :---: |
-| **22** | **4154** | **49223** | **231** | **274** |
+| ![posts](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_posts.json&style=flat) | ![downloads](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_downloads.json&style=flat) | ![views](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_views.json&style=flat) | ![upvotes](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_upvotes.json&style=flat) | ![saves](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_saves.json&style=flat) |
+
 
 ### 🔥 Top 6 Popular Plugins
-
-> 🕐 Auto-updated: 2026-02-11 11:11
-
-| Rank | Plugin | Version | Downloads | Views | Updated |
+| Rank | Plugin | Version | Downloads | Views | 📅 Updated |
 | :---: | :--- | :---: | :---: | :---: | :---: |
-| 🥇 | [Smart Mind Map](https://openwebui.com/posts/turn_any_text_into_beautiful_mind_maps_3094c59a) | 0.9.2 | 953 | 8381 | 2026-01-28 |
-| 🥈 | [Smart Infographic](https://openwebui.com/posts/smart_infographic_ad6f0c7f) | 1.5.0 | 706 | 6695 | 2026-01-30 |
-| 🥉 | [Export to Word Enhanced](https://openwebui.com/posts/export_to_word_enhanced_formatting_fca6a315) | 0.4.4 | 383 | 3022 | 2026-02-07 |
-| 4️⃣ | [Async Context Compression](https://openwebui.com/posts/async_context_compression_b1655bc8) | 1.2.2 | 363 | 3750 | 2026-01-28 |
-| 5️⃣ | [Export to Excel](https://openwebui.com/posts/export_mulit_table_to_excel_244b8f9d) | 0.3.7 | 342 | 1670 | 2026-02-09 |
-| 6️⃣ | [Markdown Normalizer](https://openwebui.com/posts/markdown_normalizer_baaa8732) | 1.2.4 | 341 | 4706 | 2026-01-29 |
+| 🥇 | [Smart Mind Map](https://openwebui.com/posts/turn_any_text_into_beautiful_mind_maps_3094c59a) | ![p1_version](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p1_version.json&style=flat) | ![p1_dl](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p1_dl.json&style=flat) | ![p1_vw](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p1_vw.json&style=flat) | ![updated](https://img.shields.io/badge/2026--01--29-gray?style=flat) |
+| 🥈 | [Smart Infographic](https://openwebui.com/posts/smart_infographic_ad6f0c7f) | ![p2_version](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p2_version.json&style=flat) | ![p2_dl](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p2_dl.json&style=flat) | ![p2_vw](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p2_vw.json&style=flat) | ![updated](https://img.shields.io/badge/2026--01--31-gray?style=flat) |
+| 🥉 | [Export to Word Enhanced](https://openwebui.com/posts/export_to_word_enhanced_formatting_fca6a315) | ![p3_version](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p3_version.json&style=flat) | ![p3_dl](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p3_dl.json&style=flat) | ![p3_vw](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p3_vw.json&style=flat) | ![updated](https://img.shields.io/badge/2026--02--07-gray?style=flat) |
+| 4️⃣ | [Async Context Compression](https://openwebui.com/posts/async_context_compression_b1655bc8) | ![p4_version](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p4_version.json&style=flat) | ![p4_dl](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p4_dl.json&style=flat) | ![p4_vw](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p4_vw.json&style=flat) | ![updated](https://img.shields.io/badge/2026--01--29-gray?style=flat) |
+| 5️⃣ | [Export to Excel](https://openwebui.com/posts/export_mulit_table_to_excel_244b8f9d) | ![p5_version](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p5_version.json&style=flat) | ![p5_dl](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p5_dl.json&style=flat) | ![p5_vw](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p5_vw.json&style=flat) | ![updated](https://img.shields.io/badge/2026--02--10-gray?style=flat) |
+| 6️⃣ | [Markdown Normalizer](https://openwebui.com/posts/markdown_normalizer_baaa8732) | ![p6_version](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p6_version.json&style=flat) | ![p6_dl](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p6_dl.json&style=flat) | ![p6_vw](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p6_vw.json&style=flat) | ![updated](https://img.shields.io/badge/2026--01--29-gray?style=flat) |
 
-*See full stats in [Community Stats Report](./docs/community-stats.md)*
+### 📈 Total Downloads Trend
+![Activity](https://gist.githubusercontent.com/Fu-Jie/db3d95687075a880af6f1fba76d679c6/raw/chart.svg)
+
+*See full stats and charts in [Community Stats Report](./docs/community-stats.md)*
 <!-- STATS_END -->
 
 ## 🌟 Star Features
@@ -42,7 +44,8 @@ A collection of enhancements, plugins, and prompts for [OpenWebUI](https://githu
 > [!TIP]
 > **No GitHub Copilot subscription required!** Supports **BYOK (Bring Your Own Key)** mode using your own OpenAI/Anthropic API keys.
 
-#### 🌟 Featured Real-World Cases:
+#### 🌟 Featured Real-World Cases
+
 - **[GitHub Star Forecasting](./docs/plugins/pipes/star-prediction-example.md)**: Automatically parsing CSV data, writing analysis scripts, and generating interactive growth dashboards.
 - **[Video Optimization](./docs/plugins/pipes/video-processing-example.md)**: Direct control of system-level tools (FFmpeg) to accelerate and compress media with professional color optimization.
 

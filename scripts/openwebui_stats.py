@@ -20,6 +20,10 @@ OpenWebUI 社区统计工具
 import os
 import json
 import requests
+import zlib
+import base64
+import re
+import subprocess
 from datetime import datetime, timezone, timedelta
 from typing import Optional
 from pathlib import Path
@@ -47,16 +51,28 @@ class OpenWebUIStats:
 
     BASE_URL = "https://api.openwebui.com/api/v1"
 
-    def __init__(self, api_key: str, user_id: Optional[str] = None):
+    def __init__(
+        self,
+        api_key: str,
+        user_id: Optional[str] = None,
+        gist_token: Optional[str] = None,
+        gist_id: Optional[str] = None,
+    ):
         """
         初始化统计工具
 
         Args:
             api_key: OpenWebUI API Key (JWT Token)
             user_id: 用户 ID，如果为 None 则从 token 中解析
+            gist_token: GitHub Personal Access Token (用于读写 Gist)
+            gist_id: GitHub Gist ID
         """
         self.api_key = api_key
         self.user_id = user_id or self._parse_user_id_from_token(api_key)
+        self.gist_token = gist_token
+        self.gist_id = gist_id
+        self.history_filename = "community-stats-history.json"
+
         self.session = requests.Session()
         self.session.headers.update(
             {
@@ -65,6 +81,328 @@ class OpenWebUIStats:
                 "Content-Type": "application/json",
             }
         )
+        self.history_file = Path("docs/stats-history.json")
+
+    # 定义下载类别的判定（这些类别会计入总浏览量/下载量统计）
+    DOWNLOADABLE_TYPES = [
+        "action",
+        "filter",
+        "pipe",
+        "toolkit",
+        "function",
+        "prompt",
+        "model",
+    ]
+
+    def load_history(self) -> list:
+        """加载历史记录 (合并 Gist + 本地文件, 取记录更多的)"""
+        gist_history = []
+        local_history = []
+
+        # 1. 尝试从 Gist 加载
+        if self.gist_token and self.gist_id:
+            try:
+                url = f"https://api.github.com/gists/{self.gist_id}"
+                headers = {"Authorization": f"token {self.gist_token}"}
+                resp = requests.get(url, headers=headers)
+                if resp.status_code == 200:
+                    gist_data = resp.json()
+                    file_info = gist_data.get("files", {}).get(self.history_filename)
+                    if file_info:
+                        content = file_info.get("content")
+                        gist_history = json.loads(content)
+                        print(f"✅ 已从 Gist 加载历史记录 ({len(gist_history)} 条)")
+            except Exception as e:
+                print(f"⚠️ 无法从 Gist 加载历史: {e}")
+
+        # 2. 同时从本地文件加载
+        if self.history_file.exists():
+            try:
+                with open(self.history_file, "r", encoding="utf-8") as f:
+                    local_history = json.load(f)
+                    print(f"✅ 已从本地加载历史记录 ({len(local_history)} 条)")
+            except Exception as e:
+                print(f"⚠️ 无法加载本地历史记录: {e}")
+
+        # 3. 合并两个来源 (以日期为 key, 有冲突时保留更新的)
+        hist_dict = {}
+        for item in gist_history:
+            hist_dict[item["date"]] = item
+        for item in local_history:
+            hist_dict[item["date"]] = item  # 本地数据覆盖 Gist (更可能是最新的)
+
+        history = sorted(hist_dict.values(), key=lambda x: x["date"])
+        print(f"📊 合并后历史记录: {len(history)} 条")
+
+        # 4. 如果合并后仍然太少, 尝试从 Git 历史重建
+        if len(history) < 5 and os.path.isdir(".git"):
+            print("📉 History too short, attempting Git rebuild...")
+            git_history = self.rebuild_history_from_git()
+
+            if len(git_history) > len(history):
+                print(f"✅ Rebuilt history from Git: {len(git_history)} records")
+                for item in git_history:
+                    if item["date"] not in hist_dict:
+                        hist_dict[item["date"]] = item
+                history = sorted(hist_dict.values(), key=lambda x: x["date"])
+
+        # 5. 如果有新数据, 同步回 Gist
+        if len(history) > len(gist_history) and self.gist_token and self.gist_id:
+            try:
+                url = f"https://api.github.com/gists/{self.gist_id}"
+                headers = {"Authorization": f"token {self.gist_token}"}
+                payload = {
+                    "files": {
+                        self.history_filename: {
+                            "content": json.dumps(history, ensure_ascii=False, indent=2)
+                        }
+                    }
+                }
+                resp = requests.patch(url, headers=headers, json=payload)
+                if resp.status_code == 200:
+                    print(f"✅ 历史记录已同步至 Gist ({len(history)} 条)")
+                else:
+                    print(f"⚠️ Gist sync failed: {resp.status_code}")
+            except Exception as e:
+                print(f"⚠️ Error syncing history to Gist: {e}")
+
+        return history
+
+    def save_history(self, stats: dict):
+        """保存当前快照到历史记录 (优先保存到 Gist, 其次本地)"""
+        history = self.load_history()
+        today = get_beijing_time().strftime("%Y-%m-%d")
+
+        # 构造详细快照 (包含每个插件的下载量)
+        snapshot = {
+            "date": today,
+            "total_posts": stats["total_posts"],
+            "total_downloads": stats["total_downloads"],
+            "total_views": stats["total_views"],
+            "total_upvotes": stats["total_upvotes"],
+            "total_saves": stats["total_saves"],
+            "followers": stats.get("user", {}).get("followers", 0),
+            "points": stats.get("user", {}).get("total_points", 0),
+            "contributions": stats.get("user", {}).get("contributions", 0),
+            "posts": {p["slug"]: p["downloads"] for p in stats.get("posts", [])},
+        }
+
+        # 更新或追加数据点
+        updated = False
+        for i, item in enumerate(history):
+            if item.get("date") == today:
+                history[i] = snapshot
+                updated = True
+                break
+        if not updated:
+            history.append(snapshot)
+
+        # 限制长度 (90天)
+        history = history[-90:]
+
+        # 尝试保存到 Gist
+        if self.gist_token and self.gist_id:
+            try:
+                url = f"https://api.github.com/gists/{self.gist_id}"
+                headers = {"Authorization": f"token {self.gist_token}"}
+                payload = {
+                    "files": {
+                        self.history_filename: {
+                            "content": json.dumps(history, ensure_ascii=False, indent=2)
+                        }
+                    }
+                }
+                resp = requests.patch(url, headers=headers, json=payload)
+                if resp.status_code == 200:
+                    print(f"✅ 历史记录已同步至 Gist ({self.gist_id})")
+                    # 如果同步成功，不再保存到本地，减少 commit 压力
+                    return
+            except Exception as e:
+                print(f"⚠️ 同步至 Gist 失败: {e}")
+
+        # 降级：保存到本地
+        with open(self.history_file, "w", encoding="utf-8") as f:
+            json.dump(history, f, ensure_ascii=False, indent=2)
+        print(f"✅ 历史记录已更新至本地 ({today})")
+
+    def get_stat_delta(self, stats: dict) -> dict:
+        """计算相对于上次记录的增长 (24h)"""
+        history = self.load_history()
+        if not history:
+            return {}
+
+        today = get_beijing_time().strftime("%Y-%m-%d")
+        prev = None
+
+        # 查找非今天的最后一笔数据作为基准
+        for item in reversed(history):
+            if item.get("date") != today:
+                prev = item
+                break
+
+        if not prev:
+            return {}
+
+        return {
+            "downloads": stats["total_downloads"] - prev.get("total_downloads", 0),
+            "views": stats["total_views"] - prev.get("total_views", 0),
+            "upvotes": stats["total_upvotes"] - prev.get("total_upvotes", 0),
+            "saves": stats["total_saves"] - prev.get("total_saves", 0),
+            "followers": stats.get("user", {}).get("followers", 0)
+            - prev.get("followers", 0),
+            "points": stats.get("user", {}).get("total_points", 0)
+            - prev.get("points", 0),
+            "contributions": stats.get("user", {}).get("contributions", 0)
+            - prev.get("contributions", 0),
+            "posts": {
+                p["slug"]: p["downloads"]
+                - prev.get("posts", {}).get(p["slug"], p["downloads"])
+                for p in stats.get("posts", [])
+            },
+        }
+
+    def _resolve_post_type(self, post: dict) -> str:
+        """解析帖子类别"""
+        top_type = post.get("type")
+        function_data = post.get("data", {}) or {}
+        function_obj = function_data.get("function", {}) or {}
+        meta = function_obj.get("meta", {}) or {}
+        manifest = meta.get("manifest", {}) or {}
+
+        # 类别识别优先级：
+        if top_type == "review":
+            return "review"
+
+        post_type = "unknown"
+        if meta.get("type"):
+            post_type = meta.get("type")
+        elif function_obj.get("type"):
+            post_type = function_obj.get("type")
+        elif top_type:
+            post_type = top_type
+        elif not meta and not function_obj:
+            post_type = "post"
+
+        # 统一和启发式识别逻辑
+        if post_type == "unknown" and function_obj:
+            post_type = "action"
+
+        if post_type == "action" or post_type == "unknown":
+            all_metadata = (
+                post.get("title", "")
+                + json.dumps(meta, ensure_ascii=False)
+                + json.dumps(manifest, ensure_ascii=False)
+            ).lower()
+
+            if "filter" in all_metadata:
+                post_type = "filter"
+            elif "pipe" in all_metadata:
+                post_type = "pipe"
+            elif "toolkit" in all_metadata:
+                post_type = "toolkit"
+
+        return post_type
+
+    def rebuild_history_from_git(self) -> list:
+        """从 Git 历史提交中重建统计数据"""
+        history = []
+        try:
+            # 从 docs/community-stats.json 的 Git 历史重建 (该文件历史最丰富)
+            # 格式: hash date
+            target = "docs/community-stats.json"
+            cmd = [
+                "git",
+                "log",
+                "--pretty=format:%H %ad",
+                "--date=short",
+                target,
+            ]
+            result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+
+            commits = result.stdout.strip().splitlines()
+            print(f"🔍 Found {len(commits)} commits modifying stats file")
+
+            seen_dates = set()
+
+            # 从旧到新处理（git log 默认是从新到旧，所以我们要反转或者用 reverse）
+            # 其实顺序无所谓，只要最后 sort 一下就行
+            for line in reversed(commits):  # Process from oldest to newest
+                parts = line.split()
+                if len(parts) < 2:
+                    continue
+
+                commit_hash = parts[0]
+                commit_date = parts[1]  # YYYY-MM-DD
+
+                if commit_date in seen_dates:
+                    continue
+                seen_dates.add(commit_date)
+
+                # 读取该 commit 时的文件内容
+                # Note: The file name in git show needs to be relative to the repo root
+                show_cmd = ["git", "show", f"{commit_hash}:{target}"]
+                show_res = subprocess.run(
+                    show_cmd, capture_output=True, text=True, check=True
+                )
+
+                if show_res.returncode == 0:
+                    try:
+                        # Git history might contain the full history JSON, or just a single snapshot.
+                        # We need to handle both cases.
+                        content = show_res.stdout.strip()
+                        if content.startswith("[") and content.endswith("]"):
+                            # It's a full history list, take the last item
+                            data_list = json.loads(content)
+                            if data_list:
+                                data = data_list[-1]
+                            else:
+                                continue
+                        else:
+                            # It's a single snapshot
+                            data = json.loads(content)
+
+                        # Ensure the date matches the commit date, or use the one from data if available
+                        entry_date = data.get("date", commit_date)
+                        if entry_date != commit_date:
+                            print(
+                                f"⚠️ Date mismatch for commit {commit_hash}: file date {entry_date}, commit date {commit_date}. Using commit date."
+                            )
+                            entry_date = commit_date
+
+                        history.append(
+                            {
+                                "date": entry_date,
+                                "total_downloads": data.get("total_downloads", 0),
+                                "total_views": data.get("total_views", 0),
+                                "total_upvotes": data.get("total_upvotes", 0),
+                                "total_saves": data.get("total_saves", 0),
+                                "followers": data.get("followers", 0),
+                                "points": data.get("points", 0),
+                                "contributions": data.get("contributions", 0),
+                                "posts": data.get(
+                                    "posts", {}
+                                ),  # Include individual post stats
+                            }
+                        )
+                    except json.JSONDecodeError:
+                        print(
+                            f"⚠️ Could not decode JSON from commit {commit_hash} for {self.history_file}"
+                        )
+                    except Exception as e:
+                        print(f"⚠️ Error processing commit {commit_hash}: {e}")
+
+            # Sort by date to ensure chronological order
+            history.sort(key=lambda x: x["date"])
+            return history
+
+        except subprocess.CalledProcessError as e:
+            print(
+                f"⚠️ Git command failed: {e.cmd}\nStdout: {e.stdout}\nStderr: {e.stderr}"
+            )
+            return []
+        except Exception as e:
+            print(f"⚠️ Error rebuilding history from git: {e}")
+            return []
 
     def _parse_user_id_from_token(self, token: str) -> str:
         """从 JWT Token 中解析用户 ID"""
@@ -83,6 +421,77 @@ class OpenWebUIStats:
         except Exception as e:
             print(f"⚠️ 无法从 Token 解析用户 ID: {e}")
             return ""
+
+    def generate_mermaid_chart(self, stats: dict = None, lang: str = "zh") -> str:
+        """生成支持 Kroki 服务端渲染的动态 Mermaid 图表链接 (零 Commit)"""
+        history = self.load_history()
+        if not history:
+            return ""
+
+        # 多语言标签
+        labels = {
+            "zh": {
+                "trend_title": "增长与趋势 (Last 14 Days)",
+                "trend_subtitle": "Engagement & Downloads Trend",
+                "legend": "蓝色: 总下载量 | 紫色: 总浏览量 (实时动态生成)",
+                "dist_title": "内容分类占比 (Distribution)",
+                "dist_subtitle": "Plugin Types Distribution",
+            },
+            "en": {
+                "trend_title": "Growth & Trends (Last 14 Days)",
+                "trend_subtitle": "Engagement & Downloads Trend",
+                "legend": "Blue: Downloads | Purple: Views (Real-time dynamic)",
+                "dist_title": "Content Distribution",
+                "dist_subtitle": "Plugin Types Distribution",
+            },
+        }
+        l = labels.get(lang, labels["en"])
+
+        def kroki_render(mermaid_code: str) -> str:
+            """将 Mermaid 代码压缩并编码为 Kroki 链接"""
+            try:
+                compressed = zlib.compress(mermaid_code.encode("utf-8"), level=9)
+                encoded = base64.urlsafe_b64encode(compressed).decode("utf-8")
+                return f"https://kroki.io/mermaid/svg/{encoded}"
+            except:
+                return ""
+
+        charts = []
+
+        # 1. 增长趋势图 (XY Chart)
+        if len(history) >= 3:
+            data = history[-14:]
+            dates = [item["date"][-5:] for item in data]
+            dates_str = ", ".join([f'"{d}"' for d in dates])
+            dls = [str(item["total_downloads"]) for item in data]
+            vws = [str(item["total_views"]) for item in data]
+
+            mm = f"""xychart-beta
+    title "{l['trend_subtitle']}"
+    x-axis [{dates_str}]
+    y-axis "Total Counts"
+    line [{', '.join(dls)}]
+    line [{', '.join(vws)}]"""
+
+            charts.append(f"### 📈 {l['trend_title']}")
+            charts.append(f"![Trend]({kroki_render(mm)})")
+            charts.append(f"\n> *{l['legend']}*")
+            charts.append("")
+
+        # 2. 插件类型分布 (Pie Chart)
+        if stats and stats.get("by_type"):
+            pie_data = "\n".join(
+                [
+                    f'    "{p_type}" : {count}'
+                    for p_type, count in stats["by_type"].items()
+                ]
+            )
+            mm = f"pie title \"{l['dist_subtitle']}\"\n{pie_data}"
+            charts.append(f"### 📂 {l['dist_title']}")
+            charts.append(f"![Distribution]({kroki_render(mm)})")
+            charts.append("")
+
+        return "\n".join(charts)
 
     def get_user_posts(self, sort: str = "new", page: int = 1) -> list:
         """
@@ -148,22 +557,26 @@ class OpenWebUIStats:
             }
 
         for post in posts:
+            post_type = self._resolve_post_type(post)
+
+            function_data = post.get("data", {}) or {}
+            function_obj = function_data.get("function", {}) or {}
+            meta = function_obj.get("meta", {}) or {}
+            manifest = meta.get("manifest", {}) or {}
+
             # 累计统计
-            stats["total_downloads"] += post.get("downloads", 0)
-            stats["total_views"] += post.get("views", 0)
+            post_downloads = post.get("downloads", 0)
+            post_views = post.get("views", 0)
+
+            stats["total_downloads"] += post_downloads
             stats["total_upvotes"] += post.get("upvotes", 0)
             stats["total_downvotes"] += post.get("downvotes", 0)
             stats["total_saves"] += post.get("saveCount", 0)
             stats["total_comments"] += post.get("commentCount", 0)
 
-            # 解析 data 字段 - 正确路径: data.function.meta
-            function_data = post.get("data", {})
-            if function_data is None:
-                function_data = {}
-            function_data = function_data.get("function", {})
-            meta = function_data.get("meta", {})
-            manifest = meta.get("manifest", {})
-            post_type = meta.get("type", function_data.get("type", "unknown"))
+            # 关键：总浏览量不包括不可以下载的类型 (如 post, review)
+            if post_type in self.DOWNLOADABLE_TYPES or post_downloads > 0:
+                stats["total_views"] += post_views
 
             if post_type not in stats["by_type"]:
                 stats["by_type"][post_type] = 0
@@ -241,19 +654,28 @@ class OpenWebUIStats:
 
         print("=" * 60)
 
+    def _safe_key(self, key: str) -> str:
+        """生成安全的文件名 Key (MD5 hash) 以避免中文字符问题"""
+        import hashlib
+
+        return hashlib.md5(key.encode("utf-8")).hexdigest()
+
     def generate_markdown(self, stats: dict, lang: str = "zh") -> str:
         """
-        生成 Markdown 格式报告
+        生成 Markdown 格式报告 (全动态徽章与 Kroki 图表)
 
         Args:
             stats: 统计数据
             lang: 语言 ("zh" 中文, "en" 英文)
         """
+        # 获取增量数据
+        delta = self.get_stat_delta(stats)
+
         # 中英文文本
         texts = {
             "zh": {
                 "title": "# 📊 OpenWebUI 社区统计报告",
-                "updated": f"> 📅 更新时间: {get_beijing_time().strftime('%Y-%m-%d %H:%M')}",
+                "updated_label": "更新时间",
                 "overview_title": "## 📈 总览",
                 "overview_header": "| 指标 | 数值 |",
                 "posts": "📝 发布数量",
@@ -262,13 +684,15 @@ class OpenWebUIStats:
                 "upvotes": "👍 总点赞数",
                 "saves": "💾 总收藏数",
                 "comments": "💬 总评论数",
+                "author_points": "⭐ 作者总积分",
+                "author_followers": "👥 粉丝数量",
                 "type_title": "## 📂 按类型分类",
                 "list_title": "## 📋 发布列表",
                 "list_header": "| 排名 | 标题 | 类型 | 版本 | 下载 | 浏览 | 点赞 | 收藏 | 更新日期 |",
             },
             "en": {
                 "title": "# 📊 OpenWebUI Community Stats Report",
-                "updated": f"> 📅 Updated: {get_beijing_time().strftime('%Y-%m-%d %H:%M')}",
+                "updated_label": "Updated",
                 "overview_title": "## 📈 Overview",
                 "overview_header": "| Metric | Value |",
                 "posts": "📝 Total Posts",
@@ -277,6 +701,8 @@ class OpenWebUIStats:
                 "upvotes": "👍 Total Upvotes",
                 "saves": "💾 Total Saves",
                 "comments": "💬 Total Comments",
+                "author_points": "⭐ Author Points",
+                "author_followers": "👥 Followers",
                 "type_title": "## 📂 By Type",
                 "list_title": "## 📋 Posts List",
                 "list_header": "| Rank | Title | Type | Version | Downloads | Views | Upvotes | Saves | Updated |",
@@ -284,31 +710,66 @@ class OpenWebUIStats:
         }
 
         t = texts.get(lang, texts["en"])
+        user = stats.get("user", {})
 
         md = []
         md.append(t["title"])
         md.append("")
-        md.append(t["updated"])
+
+        updated_key = "updated_zh" if lang == "zh" else "updated"
+        md.append(f"> {self.get_badge(updated_key, stats, user, delta)}")
         md.append("")
+
+        # 插入趋势图 (使用 Kroki SVG 链接)
+        chart = self.generate_mermaid_chart(stats, lang=lang)
+        if chart:
+            md.append(chart)
+            md.append("")
 
         # 总览
         md.append(t["overview_title"])
         md.append("")
         md.append(t["overview_header"])
         md.append("|------|------|")
-        md.append(f"| {t['posts']} | {stats['total_posts']} |")
-        md.append(f"| {t['downloads']} | {stats['total_downloads']} |")
-        md.append(f"| {t['views']} | {stats['total_views']} |")
-        md.append(f"| {t['upvotes']} | {stats['total_upvotes']} |")
-        md.append(f"| {t['saves']} | {stats['total_saves']} |")
-        md.append(f"| {t['comments']} | {stats['total_comments']} |")
+        md.append(f"| {t['posts']} | {self.get_badge('posts', stats, user, delta)} |")
+        md.append(
+            f"| {t['downloads']} | {self.get_badge('downloads', stats, user, delta)} |"
+        )
+        md.append(f"| {t['views']} | {self.get_badge('views', stats, user, delta)} |")
+        md.append(
+            f"| {t['upvotes']} | {self.get_badge('upvotes', stats, user, delta)} |"
+        )
+        md.append(f"| {t['saves']} | {self.get_badge('saves', stats, user, delta)} |")
+
+        # 作者信息
+        if user:
+            md.append(
+                f"| {t['author_points']} | {self.get_badge('points', stats, user, delta)} |"
+            )
+            md.append(
+                f"| {t['author_followers']} | {self.get_badge('followers', stats, user, delta)} |"
+            )
+
         md.append("")
 
-        # 按类型分类
+        # 按类型分类 (使用徽章)
         md.append(t["type_title"])
         md.append("")
+
+        type_colors = {
+            "post": "blue",
+            "filter": "brightgreen",
+            "action": "orange",
+            "pipe": "blueviolet",
+            "pipeline": "purple",
+            "review": "yellow",
+            "prompt": "lightgrey",
+        }
+
         for post_type, count in stats["by_type"].items():
-            md.append(f"- **{post_type}**: {count}")
+            color = type_colors.get(post_type, "gray")
+            badge = f"![{post_type}](https://img.shields.io/badge/{post_type}-{count}-{color})"
+            md.append(f"- {badge}")
         md.append("")
 
         # 详细列表
@@ -319,10 +780,35 @@ class OpenWebUIStats:
 
         for i, post in enumerate(stats["posts"], 1):
             title_link = f"[{post['title']}]({post['url']})"
+            slug_hash = self._safe_key(post["slug"])
+
+            # 使用针对每个帖子的动态徽章 (使用 Hash 保证文件名安全)
+            dl_badge = self.get_badge(
+                f"post_{slug_hash}_dl", stats, user, delta, is_post=True
+            )
+            vw_badge = self.get_badge(
+                f"post_{slug_hash}_vw", stats, user, delta, is_post=True
+            )
+            up_badge = self.get_badge(
+                f"post_{slug_hash}_up", stats, user, delta, is_post=True
+            )
+            sv_badge = self.get_badge(
+                f"post_{slug_hash}_sv", stats, user, delta, is_post=True
+            )
+
+            # 版本号使用动态 Shields.io 徽章 (由于列表太长，我们这次没给所有 post 生成单独的 version json)
+            # 不过实际上 upload_gist_badges 是给 top 6 生成的。
+            # 对于完整列表，还是暂时用静态吧，避免要把几百个 version json 都生成出来传到 Gist
+            ver = post["version"] if post["version"] else "N/A"
+            ver_color = "blue" if post["version"] else "gray"
+            ver_badge = (
+                f"![v](https://img.shields.io/badge/v-{ver}-{ver_color}?style=flat)"
+            )
+
             md.append(
-                f"| {i} | {title_link} | {post['type']} | {post['version']} | "
-                f"{post['downloads']} | {post['views']} | {post['upvotes']} | "
-                f"{post['saves']} | {post['updated_at']} |"
+                f"| {i} | {title_link} | {post['type']} | {ver_badge} | "
+                f"{dl_badge} | {vw_badge} | {up_badge} | "
+                f"{sv_badge} | {post['updated_at']} |"
             )
 
         md.append("")
@@ -393,11 +879,261 @@ class OpenWebUIStats:
                 json.dump(data, f, indent=2)
             print(f"  📊 Generated badge: {name}.json")
 
+        if self.gist_token and self.gist_id:
+            try:
+                # 构造并上传 Shields.io 徽章数据
+                self.upload_gist_badges(stats)
+            except Exception as e:
+                print(f"⚠️ 徽章生成失败: {e}")
+
         print(f"✅ Shields.io endpoints saved to: {output_dir}/")
+
+    def upload_gist_badges(self, stats: dict):
+        """生成并上传 Gist 徽章数据 (用于 Shields.io Endpoint)"""
+        if not (self.gist_token and self.gist_id):
+            return
+
+        delta = self.get_stat_delta(stats)
+
+        # 定义徽章配置 {key: (label, value, color)}
+        badges_config = {
+            "downloads": ("Downloads", stats["total_downloads"], "brightgreen"),
+            "views": ("Views", stats["total_views"], "blue"),
+            "upvotes": ("Upvotes", stats["total_upvotes"], "orange"),
+            "saves": ("Saves", stats["total_saves"], "lightgrey"),
+            "followers": (
+                "Followers",
+                stats.get("user", {}).get("followers", 0),
+                "blueviolet",
+            ),
+            "points": (
+                "Points",
+                stats.get("user", {}).get("total_points", 0),
+                "yellow",
+            ),
+            "contributions": (
+                "Contributions",
+                stats.get("user", {}).get("contributions", 0),
+                "green",
+            ),
+            "posts": ("Posts", stats["total_posts"], "informational"),
+        }
+
+        files_payload = {}
+        for key, (label, val, color) in badges_config.items():
+            diff = delta.get(key, 0)
+            if isinstance(diff, dict):
+                diff = 0  # 避免 'posts' key 导致的 dict vs int 比较错误
+
+            message = f"{val}"
+            if diff > 0:
+                message += f" (+{diff}🚀)"
+            elif diff < 0:
+                message += f" ({diff})"
+
+            # 构造 Shields.io endpoint JSON
+            # 参考: https://shields.io/badges/endpoint-badge
+            badge_data = {
+                "schemaVersion": 1,
+                "label": label,
+                "message": message,
+                "color": color,
+            }
+
+            filename = f"badge_{key}.json"
+            files_payload[filename] = {
+                "content": json.dumps(badge_data, ensure_ascii=False)
+            }
+
+        # 生成 Top 6 插件徽章 (基于槽位 p1, p2...)
+        post_deltas = delta.get("posts", {})
+        for i, post in enumerate(stats.get("posts", [])[:6]):
+            idx = i + 1
+            diff = post_deltas.get(post["slug"], 0)
+
+            # 下载量徽章
+            dl_msg = f"{post['downloads']}"
+            if diff > 0:
+                dl_msg += f" (+{diff}🚀)"
+
+            files_payload[f"badge_p{idx}_dl.json"] = {
+                "content": json.dumps(
+                    {
+                        "schemaVersion": 1,
+                        "label": "Downloads",
+                        "message": dl_msg,
+                        "color": "brightgreen",
+                    }
+                )
+            }
+            # 浏览量徽章 (由于历史记录没记单个 post 浏览量，暂时只显总数)
+            files_payload[f"badge_p{idx}_vw.json"] = {
+                "content": json.dumps(
+                    {
+                        "schemaVersion": 1,
+                        "label": "Views",
+                        "message": f"{post['views']}",
+                        "color": "blue",
+                    }
+                )
+            }
+            # 版本号徽章
+            ver = post.get("version", "N/A") or "N/A"
+            ver_color = "blue" if post.get("version") else "gray"
+            files_payload[f"badge_p{idx}_version.json"] = {
+                "content": json.dumps(
+                    {
+                        "schemaVersion": 1,
+                        "label": "v",
+                        "message": ver,
+                        "color": ver_color,
+                    }
+                )
+            }
+
+        # 生成所有帖子的个体徽章 (用于详细报表)
+        # 生成所有帖子的个体徽章 (用于详细报表)
+        for post in stats.get("posts", []):
+            slug_hash = self._safe_key(post["slug"])
+            diff = post_deltas.get(post["slug"], 0)
+
+            # 1. Downloads
+            dl_msg = f"{post['downloads']}"
+            if diff > 0:
+                dl_msg += f" (+{diff}🚀)"
+
+            files_payload[f"badge_post_{slug_hash}_dl.json"] = {
+                "content": json.dumps(
+                    {
+                        "schemaVersion": 1,
+                        "label": "Downloads",
+                        "message": dl_msg,
+                        "color": "brightgreen",
+                    }
+                )
+            }
+            # 2. Views
+            files_payload[f"badge_post_{slug_hash}_vw.json"] = {
+                "content": json.dumps(
+                    {
+                        "schemaVersion": 1,
+                        "label": "Views",
+                        "message": f"{post['views']}",
+                        "color": "blue",
+                    }
+                )
+            }
+
+            # 3. Upvotes
+            files_payload[f"badge_post_{slug_hash}_up.json"] = {
+                "content": json.dumps(
+                    {
+                        "schemaVersion": 1,
+                        "label": "Upvotes",
+                        "message": f"{post['upvotes']}",
+                        "color": "orange",
+                    }
+                )
+            }
+
+            # 4. Saves
+            files_payload[f"badge_post_{slug_hash}_sv.json"] = {
+                "content": json.dumps(
+                    {
+                        "schemaVersion": 1,
+                        "label": "Saves",
+                        "message": f"{post['saves']}",
+                        "color": "lightgrey",
+                    }
+                )
+            }
+
+        # 生成更新时间徽章
+        now_str = get_beijing_time().strftime("%Y-%m-%d %H:%M")
+        files_payload["badge_updated.json"] = {
+            "content": json.dumps(
+                {
+                    "schemaVersion": 1,
+                    "label": "Auto-updated",
+                    "message": now_str,
+                    "color": "gray",
+                }
+            )
+        }
+        files_payload["badge_updated_zh.json"] = {
+            "content": json.dumps(
+                {
+                    "schemaVersion": 1,
+                    "label": "自动更新于",
+                    "message": now_str,
+                    "color": "gray",
+                }
+            )
+        }
+
+        # 将生成的 Markdown 报告也作为一个普通 JSON 文件上传到 Gist
+        for lang in ["zh", "en"]:
+            report_content = self.generate_markdown(stats, lang=lang)
+            files_payload[f"report_{lang}.md"] = {"content": report_content}
+
+        # 批量上传到 Gist
+        url = f"https://api.github.com/gists/{self.gist_id}"
+        headers = {"Authorization": f"token {self.gist_token}"}
+        payload = {"files": files_payload}
+
+        resp = requests.patch(url, headers=headers, json=payload)
+        if resp.status_code == 200:
+            print(f"✅ 动态数据与报告已同步至 Gist ({len(files_payload)} files)")
+        else:
+            print(f"⚠️ Gist 同步失败: {resp.status_code} {resp.text}")
+
+    def get_badge(
+        self,
+        key: str,
+        stats: dict,
+        user: dict,
+        delta: dict,
+        is_post: bool = False,
+        style: str = "flat",
+    ) -> str:
+        """获取 Shields.io 徽章 URL (包含增量显示)"""
+        import urllib.parse
+
+        gist_user = "Fu-Jie"
+
+        def _fmt_delta(k: str) -> str:
+            val = delta.get(k, 0)
+            if val > 0:
+                return f" <br><sub>(+{val}🚀)</sub>"
+            return ""
+
+        if not self.gist_id:
+            if is_post:
+                return "**-**"
+            val = stats.get(f"total_{key}", 0)
+            if key == "followers":
+                val = user.get("followers", 0)
+            if key == "points":
+                val = user.get("total_points", 0)
+            if key == "contributions":
+                val = user.get("contributions", 0)
+            if key == "posts":
+                val = stats.get("total_posts", 0)
+            if key == "saves":
+                val = stats.get("total_saves", 0)
+            if key.startswith("updated"):
+                return f"🕐 {get_beijing_time().strftime('%Y-%m-%d %H:%M')}"
+            return f"**{val}**{_fmt_delta(key)}"
+
+        raw_url = f"https://gist.githubusercontent.com/{gist_user}/{self.gist_id}/raw/badge_{key}.json"
+        encoded_url = urllib.parse.quote(raw_url, safe="")
+        return (
+            f"![{key}](https://img.shields.io/endpoint?url={encoded_url}&style={style})"
+        )
 
     def generate_readme_stats(self, stats: dict, lang: str = "zh") -> str:
         """
-        生成 README 统计徽章区域
+        生成 README 统计区域 (精简版)
 
         Args:
             stats: 统计数据
@@ -405,28 +1141,31 @@ class OpenWebUIStats:
         """
         # 获取 Top 6 插件
         top_plugins = stats["posts"][:6]
+        delta = self.get_stat_delta(stats)
+
+        def fmt_delta(key: str) -> str:
+            val = delta.get(key, 0)
+            if val > 0:
+                return f" <br><sub>(+{val}🚀)</sub>"
+            return ""
 
         # 中英文文本
         texts = {
             "zh": {
                 "title": "## 📊 社区统计",
-                "updated": f"> 🕐 自动更新于 {get_beijing_time().strftime('%Y-%m-%d %H:%M')}",
                 "author_header": "| 👤 作者 | 👥 粉丝 | ⭐ 积分 | 🏆 贡献 |",
                 "header": "| 📝 发布 | ⬇️ 下载 | 👁️ 浏览 | 👍 点赞 | 💾 收藏 |",
                 "top6_title": "### 🔥 热门插件 Top 6",
-                "top6_updated": f"> 🕐 自动更新于 {get_beijing_time().strftime('%Y-%m-%d %H:%M')}",
-                "top6_header": "| 排名 | 插件 | 版本 | 下载 | 浏览 | 更新日期 |",
-                "full_stats": "*完整统计请查看 [社区统计报告](./docs/community-stats.zh.md)*",
+                "top6_header": "| 排名 | 插件 | 版本 | 下载 | 浏览 | 📅 更新 |",
+                "full_stats": "*完整统计与趋势图请查看 [社区统计报告](./docs/community-stats.zh.md)*",
             },
             "en": {
                 "title": "## 📊 Community Stats",
-                "updated": f"> 🕐 Auto-updated: {get_beijing_time().strftime('%Y-%m-%d %H:%M')}",
                 "author_header": "| 👤 Author | 👥 Followers | ⭐ Points | 🏆 Contributions |",
                 "header": "| 📝 Posts | ⬇️ Downloads | 👁️ Views | 👍 Upvotes | 💾 Saves |",
                 "top6_title": "### 🔥 Top 6 Popular Plugins",
-                "top6_updated": f"> 🕐 Auto-updated: {get_beijing_time().strftime('%Y-%m-%d %H:%M')}",
-                "top6_header": "| Rank | Plugin | Version | Downloads | Views | Updated |",
-                "full_stats": "*See full stats in [Community Stats Report](./docs/community-stats.md)*",
+                "top6_header": "| Rank | Plugin | Version | Downloads | Views | 📅 Updated |",
+                "full_stats": "*See full stats and charts in [Community Stats Report](./docs/community-stats.md)*",
             },
         }
 
@@ -436,9 +1175,12 @@ class OpenWebUIStats:
         lines = []
         lines.append("<!-- STATS_START -->")
         lines.append(t["title"])
+
+        updated_key = "updated_zh" if lang == "zh" else "updated"
+        lines.append(f"> {self.get_badge(updated_key, stats, user, delta)}")
         lines.append("")
-        lines.append(t["updated"])
-        lines.append("")
+
+        delta = self.get_stat_delta(stats)
 
         # 作者信息表格
         if user:
@@ -447,36 +1189,58 @@ class OpenWebUIStats:
             lines.append(t["author_header"])
             lines.append("| :---: | :---: | :---: | :---: |")
             lines.append(
-                f"| [{username}]({profile_url}) | **{user.get('followers', 0)}** | "
-                f"**{user.get('total_points', 0)}** | **{user.get('contributions', 0)}** |"
+                f"| [{username}]({profile_url}) | {self.get_badge('followers', stats, user, delta)} | "
+                f"{self.get_badge('points', stats, user, delta)} | {self.get_badge('contributions', stats, user, delta)} |"
             )
             lines.append("")
 
-        # 统计徽章表格
+        # 统计面板
         lines.append(t["header"])
         lines.append("| :---: | :---: | :---: | :---: | :---: |")
         lines.append(
-            f"| **{stats['total_posts']}** | **{stats['total_downloads']}** | "
-            f"**{stats['total_views']}** | **{stats['total_upvotes']}** | **{stats['total_saves']}** |"
+            f"| {self.get_badge('posts', stats, user, delta)} | {self.get_badge('downloads', stats, user, delta)} | "
+            f"{self.get_badge('views', stats, user, delta)} | {self.get_badge('upvotes', stats, user, delta)} | {self.get_badge('saves', stats, user, delta)} |"
         )
+        lines.append("")
         lines.append("")
 
         # Top 6 热门插件
         lines.append(t["top6_title"])
-        lines.append("")
-        lines.append(t["top6_updated"])
-        lines.append("")
         lines.append(t["top6_header"])
         lines.append("| :---: | :--- | :---: | :---: | :---: | :---: |")
 
         medals = ["🥇", "🥈", "🥉", "4️⃣", "5️⃣", "6️⃣"]
         for i, post in enumerate(top_plugins):
-            medal = medals[i] if i < len(medals) else str(i + 1)
+            idx = i + 1
+            medal = medals[i] if i < len(medals) else str(idx)
+
+            dl_cell = self.get_badge(f"p{idx}_dl", stats, user, delta, is_post=True)
+            vw_cell = self.get_badge(f"p{idx}_vw", stats, user, delta, is_post=True)
+
+            # 版本号使用动态 Shields.io 徽章
+            ver_badge = self.get_badge(
+                f"p{idx}_version", stats, user, delta, is_post=True
+            )
+
+            # 更新时间使用静态 Shields.io 徽章
+            updated_str = post.get("updated_at", "")
+            updated_badge = ""
+            if updated_str:
+                # 替换 - 为 -- 用于 shields.io url
+                safe_date = updated_str.replace("-", "--")
+                updated_badge = f"![updated](https://img.shields.io/badge/{safe_date}-gray?style=flat)"
+
             lines.append(
-                f"| {medal} | [{post['title']}]({post['url']}) | {post['version']} | {post['downloads']} | {post['views']} | {post['updated_at']} |"
+                f"| {medal} | [{post['title']}]({post['url']}) | {ver_badge} | {dl_cell} | {vw_cell} | {updated_badge} |"
             )
 
         lines.append("")
+
+        # 插入全量趋势图 (Vega-Lite)
+        activity_chart = self.generate_activity_chart(lang)
+        if activity_chart:
+            lines.append(activity_chart)
+            lines.append("")
         lines.append(t["full_stats"])
         lines.append("<!-- STATS_END -->")
 
@@ -504,49 +1268,197 @@ class OpenWebUIStats:
         pattern = r"<!-- STATS_START -->.*?<!-- STATS_END -->"
         if re.search(pattern, content, re.DOTALL):
             # 替换现有区域
-            new_content = re.sub(pattern, new_stats, content, flags=re.DOTALL)
+            content = re.sub(pattern, new_stats, content, flags=re.DOTALL)
         else:
             # 在简介段落之后插入统计区域
-            # 查找模式：标题 -> 语言切换行 -> 简介段落 -> 插入位置
             lines = content.split("\n")
             insert_pos = 0
             found_intro = False
 
             for i, line in enumerate(lines):
-                # 跳过标题
                 if line.startswith("# "):
                     continue
-                # 跳过空行
                 if line.strip() == "":
                     continue
-                # 跳过语言切换行 (如 "English | [中文]" 或 "[English] | 中文")
                 if ("English" in line or "中文" in line) and "|" in line:
                     continue
-                # 找到第一个非空、非标题、非语言切换的段落（简介）
                 if not found_intro:
                     found_intro = True
-                    # 继续到这个段落结束
                     continue
-                # 简介段落后的空行或下一个标题就是插入位置
                 if line.strip() == "" or line.startswith("#"):
                     insert_pos = i
                     break
 
-            # 如果没找到合适位置，就放在第3行（标题和语言切换后）
             if insert_pos == 0:
                 insert_pos = 3
-
-            # 在适当位置插入
             lines.insert(insert_pos, "")
             lines.insert(insert_pos + 1, new_stats)
             lines.insert(insert_pos + 2, "")
-            new_content = "\n".join(lines)
+            content = "\n".join(lines)
+
+        # 移除旧的底部图表 (如果有的话)
+        chart_pattern = r"<!-- ACTIVITY_CHART_START -->.*?<!-- ACTIVITY_CHART_END -->"
+        if re.search(chart_pattern, content, re.DOTALL):
+            content = re.sub(chart_pattern, "", content, flags=re.DOTALL)
+            # 清理可能产生的多余空行
+            content = re.sub(r"\n{3,}", "\n\n", content)
 
         # 写回文件
         with open(readme_path, "w", encoding="utf-8") as f:
-            f.write(new_content)
+            f.write(content)
 
         print(f"✅ README 已更新: {readme_path}")
+
+    def update_docs_chart(self, doc_path: str, lang: str = "zh"):
+        """更新文档中的图表"""
+        import re
+
+        if not os.path.exists(doc_path):
+            return
+
+        with open(doc_path, "r", encoding="utf-8") as f:
+            content = f.read()
+
+        # 生成新的图表 Markdown
+        new_chart = self.generate_activity_chart(lang)
+        if not new_chart:
+            return
+
+        # 匹配 ### 📈 ... \n\n![...](...)
+        # 兼容 docs 中使用 Trend 或 Activity 作为 alt text
+        pattern = r"(### 📈.*?\n)(!\[.*?\]\(.*?\))"
+
+        if re.search(pattern, content, re.DOTALL):
+            # generate_activity_chart 返回的是完整块: ### 📈 Title\n![Activity](url)
+            # 我们直接用新块替换整个旧块
+            content = re.sub(pattern, new_chart, content, flags=re.DOTALL)
+
+            with open(doc_path, "w", encoding="utf-8") as f:
+                f.write(content)
+            print(f"✅ 文档图表已更新: {doc_path}")
+
+    def upload_chart_svg(self):
+        """生成 Vega-Lite SVG 并上传到 Gist (作为独立文件)"""
+        print("🚀 Starting chart SVG generation process...")
+
+        if not (self.gist_token and self.gist_id):
+            print("⚠️ Skipping chart upload: GIST_TOKEN or GIST_ID missing")
+            return
+
+        history = self.load_history()
+        print(f"📊 History records loaded: {len(history)}")
+
+        if len(history) < 1:
+            print("⚠️ Skipping chart upload: no history")
+            return
+
+        # 准备数据点
+        values = []
+        for item in history:
+            values.append({"date": item["date"], "downloads": item["total_downloads"]})
+
+        # Vega-Lite Spec
+        vl_spec = {
+            "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+            "description": "Total Downloads Trend",
+            "width": 800,
+            "height": 200,
+            "padding": 5,
+            "background": "transparent",
+            "config": {
+                "view": {"stroke": "transparent"},
+                "axis": {"domain": False, "grid": False},
+            },
+            "data": {"values": values},
+            "mark": {
+                "type": "area",
+                "line": {"color": "#2563eb"},
+                "color": {
+                    "x1": 1,
+                    "y1": 1,
+                    "x2": 1,
+                    "y2": 0,
+                    "gradient": "linear",
+                    "stops": [
+                        {"offset": 0, "color": "white"},
+                        {"offset": 1, "color": "#2563eb"},
+                    ],
+                },
+            },
+            "encoding": {
+                "x": {
+                    "field": "date",
+                    "type": "temporal",
+                    "axis": {"format": "%m-%d", "title": None, "labelColor": "#666"},
+                },
+                "y": {
+                    "field": "downloads",
+                    "type": "quantitative",
+                    "axis": {"title": None, "labelColor": "#666"},
+                },
+            },
+        }
+
+        try:
+            # 1. 使用 POST 请求 Kroki (避免 URL 过长问题)
+            json_spec = json.dumps(vl_spec)
+            kroki_url = "https://kroki.io/vegalite/svg"
+
+            print(f"📥 Generating chart via Kroki (POST)...")
+            resp = requests.post(kroki_url, data=json_spec)
+
+            if resp.status_code != 200:
+                print(f"⚠️ Kroki request failed: {resp.status_code}")
+                # 尝试打印一点错误信息
+                print(f"Response: {resp.text[:200]}")
+                return
+
+            svg_content = resp.text
+            print(f"✅ Kroki SVG generated ({len(svg_content)} bytes)")
+
+            # 3. 上传到 Gist
+            url = f"https://api.github.com/gists/{self.gist_id}"
+            headers = {"Authorization": f"token {self.gist_token}"}
+            payload = {"files": {"chart.svg": {"content": svg_content}}}
+            resp = requests.patch(url, headers=headers, json=payload)
+            if resp.status_code == 200:
+                print(f"✅ 图表 SVG 已同步至 Gist: chart.svg")
+            else:
+                print(f"⚠️ Gist upload failed: {resp.status_code} {resp.text[:200]}")
+
+        except Exception as e:
+            print(f"⚠️ 上传图表失败: {e}")
+
+    def generate_activity_chart(self, lang: str = "zh") -> str:
+        """生成 Markdown 图表链接 (使用 Gist Raw URL，固定链接)"""
+        if not self.gist_id:
+            return ""
+
+        title = "Total Downloads Trend" if lang == "en" else "总下载量累计趋势"
+
+        # 使用不带 commit hash 的 raw 链接 (指向最新版)
+        # 添加时间戳参数避免 GitHub 缓存太久
+        # 注意：README 中如果不加时间戳，GitHub 可能会缓存图片。
+        # 但我们希望 README 不变。GitHub 的 camo 缓存机制比较激进。
+        # 这里的权衡是：要么每天 commit 改时间戳，要么忍受一定的缓存延迟。
+        # 实际上 GitHub 对 raw.githubusercontent.com 的缓存大概是 5 分钟 (对于 gist)。
+        # 而 camo (github user content proxy) 可能会缓存更久。
+        # 我们可以用 purge 缓存的方法，或者接受这个延迟。
+        # 对用户来说，昨天的图表和今天的图表区别不大，延迟一天都无所谓。
+
+        # 使用 cache-control: no-cache 的策略通常对 camo 无效。
+        # 最佳策略是：链接本身不带 query param (保证 README 文本不变)
+        # 相信 GitHub 会最终更新它。
+
+        gist_user = (
+            "Fu-Jie"  # Replace with actual username if needed, or parse from somewhere
+        )
+        # 更好的方式是用 gist_id 直接访问 (不需要用户名，但 Raw 需要)
+        # 格式: https://gist.githubusercontent.com/<user>/<id>/raw/chart.svg
+
+        url = f"https://gist.githubusercontent.com/{gist_user}/{self.gist_id}/raw/chart.svg"
+
+        return f"### 📈 {title}\n![Activity]({url})"
 
 
 def main():
@@ -569,9 +1481,15 @@ def main():
         print("     例如: b15d1348-4347-42b4-b815-e053342d6cb0")
         return 1
 
+    # 获取 Gist 配置 (用于存储历史记录)
+    gist_token = os.getenv("GIST_TOKEN")
+    gist_id = os.getenv("GIST_ID")
+
     # 初始化
-    stats_client = OpenWebUIStats(api_key, user_id)
+    stats_client = OpenWebUIStats(api_key, user_id, gist_token, gist_id)
     print(f"🔍 用户 ID: {stats_client.user_id}")
+    if gist_id:
+        print(f"📦 Gist 存储已启用: {gist_id}")
 
     # 获取所有帖子
     print("📥 正在获取帖子数据...")
@@ -580,6 +1498,9 @@ def main():
 
     # 生成统计
     stats = stats_client.generate_stats(posts)
+
+    # 保存历史快照
+    stats_client.save_history(stats)
 
     # 打印到终端
     stats_client.print_stats(stats)
@@ -607,13 +1528,22 @@ def main():
 
     # 生成 Shields.io endpoint JSON (用于动态徽章)
     badges_dir = script_dir / "docs" / "badges"
+
+    # 生成徽章
     stats_client.generate_shields_endpoints(stats, str(badges_dir))
+
+    # 生成并上传 SVG 图表 (每日更新 Gist, README URL 保持不变)
+    stats_client.upload_chart_svg()
 
     # 更新 README 文件
     readme_path = script_dir / "README.md"
     readme_cn_path = script_dir / "README_CN.md"
     stats_client.update_readme(stats, str(readme_path), lang="en")
     stats_client.update_readme(stats, str(readme_cn_path), lang="zh")
+
+    # 更新 docs 中的图表
+    stats_client.update_docs_chart(str(md_en_path), lang="en")
+    stats_client.update_docs_chart(str(md_zh_path), lang="zh")
 
     return 0
 
