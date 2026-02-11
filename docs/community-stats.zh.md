@@ -1,15 +1,37 @@
 # 📊 OpenWebUI 社区统计报告
 
-> 📅 更新时间: 2026-02-11 12:09
+> 📅 更新时间: 2026-02-11 12:15
 
-### 📈 增长趋势 (14天)
-
+### 📈 增长与趋势 (Last 14 Days)
 ```mermaid
 xychart-beta
-    title "Downloads Trend"
-    x-axis ["02-09", "02-10", "02-11"]
+    title "Engagement & Downloads Trend"
+    x-axis ["01-29", "01-30", "01-31", "02-01", "02-02", "02-03", "02-04", "02-05", "02-06", "02-07", "02-08", "02-09", "02-10", "02-11"]
+    y-axis "Total Counts"
+    line [2780, 2877, 2979, 3030, 3168, 3236, 3374, 3522, 3663, 3779, 3872, 3996, 4131, 4156]
+    line [32888, 34134, 35248, 35805, 37424, 38133, 39440, 40964, 43171, 44354, 45255, 46645, 48876, 45912]
+```
+
+> *蓝色: 总下载量 | 紫色: 总浏览量*
+
+### 📂 内容分类占比 (Distribution)
+```mermaid
+pie title Plugin Types
+    "post" : 3
+    "filter" : 4
+    "pipe" : 1
+    "action" : 12
+    "prompt" : 1
+    "review" : 1
+```
+
+### 🏆 影响力排行 (Top 6 Downloads)
+```mermaid
+xychart-beta
+    title "Top 6 Plugins Comparison"
+    x-axis ["Smart Mind Map...", "Smart Infograph...", "Export to Word ...", "Async Context C...", "Export to Excel...", "Markdown Normal..."]
     y-axis "Downloads"
-    line [3800, 4000, 4156]
+    bar [954, 707, 383, 363, 342, 341]
 ```
 
 
@@ -18,13 +40,13 @@ xychart-beta
 | 指标 | 数值 | 增长 (24h) |
 |------|------|:---:|
 | 📝 发布数量 | 22 | - |
-| ⬇️ 总下载量 | 4156 | **+156** 🚀 |
-| 👁️ 总浏览量 | 45911 | **+1911** 🚀 |
-| 👍 总点赞数 | 231 | **+11** 🚀 |
+| ⬇️ 总下载量 | 4156 | **+25** 🚀 |
+| 👁️ 总浏览量 | 45912 | - |
+| 👍 总点赞数 | 231 | **+1** 🚀 |
 | 💾 总收藏数 | 274 | - |
 | 💬 总评论数 | 55 | - |
-| ⭐ 作者总积分 | 271 | - |
-| 👥 粉丝数量 | 220 | **+2** 🚀 |
+| ⭐ 作者总积分 | 271 | **+1** 🚀 |
+| 👥 粉丝数量 | 220 | - |
 
 ## 📂 按类型分类
 
@@ -42,7 +64,7 @@ xychart-beta
 | 1 | [Smart Mind Map](https://openwebui.com/posts/turn_any_text_into_beautiful_mind_maps_3094c59a) | action | 0.9.2 | 954 | 8385 | 22 | 50 | 2026-01-29 |
 | 2 | [Smart Infographic](https://openwebui.com/posts/smart_infographic_ad6f0c7f) | action | 1.5.0 | 707 | 6701 | 24 | 34 | 2026-01-31 |
 | 3 | [Export to Word Enhanced](https://openwebui.com/posts/export_to_word_enhanced_formatting_fca6a315) | action | 0.4.4 | 383 | 3026 | 14 | 26 | 2026-02-07 |
-| 4 | [Async Context Compression](https://openwebui.com/posts/async_context_compression_b1655bc8) | filter | 1.2.2 | 363 | 3754 | 14 | 34 | 2026-01-29 |
+| 4 | [Async Context Compression](https://openwebui.com/posts/async_context_compression_b1655bc8) | filter | 1.2.2 | 363 | 3755 | 14 | 34 | 2026-01-29 |
 | 5 | [Export to Excel](https://openwebui.com/posts/export_mulit_table_to_excel_244b8f9d) | action | 0.3.7 | 342 | 1671 | 7 | 6 | 2026-02-10 |
 | 6 | [Markdown Normalizer](https://openwebui.com/posts/markdown_normalizer_baaa8732) | filter | 1.2.4 | 341 | 4711 | 17 | 30 | 2026-01-29 |
 | 7 | [Flash Card](https://openwebui.com/posts/flash_card_65a2ea8f) | action | 0.2.4 | 226 | 3387 | 13 | 14 | 2026-01-29 |
@@ -57,7 +79,7 @@ xychart-beta
 | 16 | [闪记卡 (Flash Card)](https://openwebui.com/posts/闪记卡生成插件_4a31eac3) | action | 0.2.4 | 27 | 690 | 8 | 1 | 2026-01-29 |
 | 17 | [精读](https://openwebui.com/posts/精读_99830b0f) | action | 1.0.0 | 24 | 444 | 5 | 1 | 2026-01-08 |
 | 18 | [GitHub Copilot SDK Files Filter](https://openwebui.com/posts/github_copilot_sdk_files_filter_403a62ee) | filter | 0.1.2 | 16 | 851 | 3 | 0 | 2026-02-10 |
-| 19 | [🚀 GitHub Copilot SDK Pipe: AI That Executes, Not Just Talks](https://openwebui.com/posts/github_copilot_sdk_for_openwebui_elevate_your_ai_t_a140f293) | post |  | 0 | 276 | 5 | 0 | 2026-02-10 |
+| 19 | [🚀 GitHub Copilot SDK Pipe: AI That Executes, Not Just Talks](https://openwebui.com/posts/github_copilot_sdk_for_openwebui_elevate_your_ai_t_a140f293) | post |  | 0 | 277 | 5 | 0 | 2026-02-10 |
 | 20 | [🚀 Open WebUI Prompt Plus: AI-Powered Prompt Manager](https://openwebui.com/posts/open_webui_prompt_plus_ai_powered_prompt_manager_s_15fa060e) | post |  | 0 | 1525 | 12 | 19 | 2026-01-29 |
 | 21 | [Review of Claude Haiku 4.5](https://openwebui.com/posts/review_of_claude_haiku_45_41b0db39) | review |  | 0 | 161 | 2 | 0 | 2026-01-14 |
 | 22 | [ 🛠️ Debug Open WebUI Plugins in Your Browser](https://openwebui.com/posts/debug_open_webui_plugins_in_your_browser_81bf7960) | post |  | 0 | 1421 | 14 | 10 | 2026-01-10 |
