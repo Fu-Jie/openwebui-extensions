@@ -812,6 +812,19 @@ class OpenWebUIStats:
                     }
                 )
             }
+            # 版本号徽章
+            ver = post.get("version", "N/A") or "N/A"
+            ver_color = "blue" if post.get("version") else "gray"
+            files_payload[f"badge_p{idx}_version.json"] = {
+                "content": json.dumps(
+                    {
+                        "schemaVersion": 1,
+                        "label": "v",
+                        "message": ver,
+                        "color": ver_color,
+                    }
+                )
+            }
 
         # 生成所有帖子的个体徽章 (用于详细报表)
         # 生成所有帖子的个体徽章 (用于详细报表)
@@ -834,7 +847,6 @@ class OpenWebUIStats:
                     }
                 )
             }
-
             # 2. Views
             files_payload[f"badge_post_{slug_hash}_vw.json"] = {
                 "content": json.dumps(
@@ -1040,11 +1052,9 @@ class OpenWebUIStats:
             dl_cell = self.get_badge(f"p{idx}_dl", stats, user, delta, is_post=True)
             vw_cell = self.get_badge(f"p{idx}_vw", stats, user, delta, is_post=True)
 
-            # 版本号使用静态 Shields.io 徽章
-            ver = post["version"] if post["version"] else "N/A"
-            ver_color = "blue" if post["version"] else "gray"
-            ver_badge = (
-                f"![v](https://img.shields.io/badge/v-{ver}-{ver_color}?style=flat)"
+            # 版本号使用动态 Shields.io 徽章
+            ver_badge = self.get_badge(
+                f"p{idx}_version", stats, user, delta, is_post=True
             )
 
             # 更新时间使用静态 Shields.io 徽章

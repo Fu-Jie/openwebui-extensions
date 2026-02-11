@@ -95,12 +95,7 @@ jobs:
             echo "📦 New plugin detected: $OLD_POSTS -> $NEW_POSTS"
           fi
           
-          # 检查版本变更
-          if [ "$OLD_VERSIONS" != "$NEW_VERSIONS" ]; then
-            SHOULD_COMMIT="true"
-            CHANGE_REASON="${CHANGE_REASON:+$CHANGE_REASON, }plugin version updated"
-            echo "🔄 Plugin version changed"
-          fi
+
           
 
           
