@@ -1170,50 +1170,20 @@ class OpenWebUIStats:
                 f.write(content)
             print(f"✅ 文档图表已更新: {doc_path}")
 
-    def upload_chart_data(self, stats: dict):
-        """上传图表数据到 Gist (独立于徽章数据)"""
-        if not (self.gist_token and self.gist_id):
-            return
-
+    def generate_activity_chart(self, lang: str = "zh") -> str:
+        """生成 Vega-Lite 趋势图 (内嵌数据，Kroki 服务端渲染不支持外部 URL)"""
         history = self.load_history()
         if len(history) < 3:
-            return
-
-        # 准备图表数据点
-        chart_data = []
-        for item in history:
-            chart_data.append(
-                {"date": item["date"], "downloads": item["total_downloads"]}
-            )
-
-        try:
-            url = f"https://api.github.com/gists/{self.gist_id}"
-            headers = {"Authorization": f"token {self.gist_token}"}
-            payload = {
-                "files": {
-                    "chart-data.json": {
-                        "content": json.dumps(chart_data, ensure_ascii=False, indent=2)
-                    }
-                }
-            }
-            resp = requests.patch(url, headers=headers, json=payload)
-            if resp.status_code == 200:
-                print(f"✅ 图表数据已同步至 Gist")
-        except Exception as e:
-            print(f"⚠️ 图表数据同步失败: {e}")
-
-    def generate_activity_chart(self, lang: str = "zh") -> str:
-        """生成 Vega-Lite 趋势图 (使用外部数据源，URL 固定)"""
-        if not (self.gist_token and self.gist_id):
             return ""
+
+        # 准备数据点
+        values = []
+        for item in history:
+            values.append({"date": item["date"], "downloads": item["total_downloads"]})
 
         title = "Total Downloads Trend" if lang == "en" else "总下载量累计趋势"
 
-        # 使用 Gist Raw URL 作为数据源
-        gist_user = "Fu-Jie"  # Replace with your GitHub username
-        data_url = f"https://gist.githubusercontent.com/{gist_user}/{self.gist_id}/raw/chart-data.json"
-
-        # Vega-Lite Spec (数据从外部 URL 加载)
+        # Vega-Lite Spec (内嵌数据，Kroki 服务端渲染必须内嵌)
         vl_spec = {
             "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
             "description": title,
@@ -1225,7 +1195,7 @@ class OpenWebUIStats:
                 "view": {"stroke": "transparent"},
                 "axis": {"domain": False, "grid": False},
             },
-            "data": {"url": data_url},  # 外部数据源
+            "data": {"values": values},
             "mark": {
                 "type": "area",
                 "line": {"color": "#2563eb"},
@@ -1333,9 +1303,6 @@ def main():
 
     # 生成 Shields.io endpoint JSON (用于动态徽章)
     badges_dir = script_dir / "docs" / "badges"
-
-    # 上传图表数据到 Gist (独立存储)
-    stats_client.upload_chart_data(stats)
 
     # 生成徽章
     stats_client.generate_shields_endpoints(stats, str(badges_dir))
