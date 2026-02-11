@@ -122,7 +122,7 @@ class OpenWebUIStats:
         history = self.load_history()
         today = get_beijing_time().strftime("%Y-%m-%d")
 
-        # 构造快照
+        # 构造详细快照 (包含每个插件的下载量)
         snapshot = {
             "date": today,
             "total_posts": stats["total_posts"],
@@ -131,6 +131,7 @@ class OpenWebUIStats:
             "total_upvotes": stats["total_upvotes"],
             "followers": stats.get("user", {}).get("followers", 0),
             "points": stats.get("user", {}).get("total_points", 0),
+            "posts": {p["slug"]: p["downloads"] for p in stats.get("posts", [])},
         }
 
         # 更新或追加数据点
