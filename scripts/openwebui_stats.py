@@ -202,6 +202,11 @@ class OpenWebUIStats:
             - prev.get("points", 0),
             "contributions": stats.get("user", {}).get("contributions", 0)
             - prev.get("contributions", 0),
+            "posts": {
+                p["slug"]: p["downloads"]
+                - prev.get("posts", {}).get(p["slug"], p["downloads"])
+                for p in stats.get("posts", [])
+            },
         }
 
     def _resolve_post_type(self, post: dict) -> str:
@@ -701,6 +706,39 @@ class OpenWebUIStats:
                 "content": json.dumps(badge_data, ensure_ascii=False)
             }
 
+        # 生成 Top 6 插件徽章 (基于槽位 p1, p2...)
+        post_deltas = delta.get("posts", {})
+        for i, post in enumerate(stats.get("posts", [])[:6]):
+            idx = i + 1
+            diff = post_deltas.get(post["slug"], 0)
+
+            # 下载量徽章
+            dl_msg = f"{post['downloads']}"
+            if diff > 0:
+                dl_msg += f" (+{diff}🚀)"
+
+            files_payload[f"badge_p{idx}_dl.json"] = {
+                "content": json.dumps(
+                    {
+                        "schemaVersion": 1,
+                        "label": "Downloads",
+                        "message": dl_msg,
+                        "color": "brightgreen",
+                    }
+                )
+            }
+            # 浏览量徽章 (由于历史记录没记单个 post 浏览量，暂时只显总数)
+            files_payload[f"badge_p{idx}_vw.json"] = {
+                "content": json.dumps(
+                    {
+                        "schemaVersion": 1,
+                        "label": "Views",
+                        "message": f"{post['views']}",
+                        "color": "blue",
+                    }
+                )
+            }
+
         # 批量上传到 Gist
         url = f"https://api.github.com/gists/{self.gist_id}"
         headers = {"Authorization": f"token {self.gist_token}"}
@@ -819,9 +857,18 @@ class OpenWebUIStats:
 
         medals = ["🥇", "🥈", "🥉", "4️⃣", "5️⃣", "6️⃣"]
         for i, post in enumerate(top_plugins):
-            medal = medals[i] if i < len(medals) else str(i + 1)
+            idx = i + 1
+            medal = medals[i] if i < len(medals) else str(idx)
+
+            # 如果有 Gist，使用动态徽章
+            dl_cell = f"{post['downloads']}"
+            vw_cell = f"{post['views']}"
+            if base_badge_url:
+                dl_cell = f"![dl]({base_badge_url}/badge_p{idx}_dl.json)"
+                vw_cell = f"![vw]({base_badge_url}/badge_p{idx}_vw.json)"
+
             lines.append(
-                f"| {medal} | [{post['title']}]({post['url']}) | {post['version']} | {post['downloads']} | {post['views']} | {post['updated_at']} |"
+                f"| {medal} | [{post['title']}]({post['url']}) | {post['version']} | {dl_cell} | {vw_cell} | {post['updated_at']} |"
             )
 
         lines.append("")
