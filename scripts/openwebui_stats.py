@@ -95,9 +95,11 @@ class OpenWebUIStats:
     ]
 
     def load_history(self) -> list:
-        """加载历史记录 (优先尝试 Gist, 其次本地文件)"""
-        history = []
-        # 尝试从 Gist 加载
+        """加载历史记录 (合并 Gist + 本地文件, 取记录更多的)"""
+        gist_history = []
+        local_history = []
+
+        # 1. 尝试从 Gist 加载
         if self.gist_token and self.gist_id:
             try:
                 url = f"https://api.github.com/gists/{self.gist_id}"
@@ -108,66 +110,61 @@ class OpenWebUIStats:
                     file_info = gist_data.get("files", {}).get(self.history_filename)
                     if file_info:
                         content = file_info.get("content")
-                        print(f"✅ 已从 Gist 加载历史记录 ({self.gist_id})")
-                        history = json.loads(content)
+                        gist_history = json.loads(content)
+                        print(f"✅ 已从 Gist 加载历史记录 ({len(gist_history)} 条)")
             except Exception as e:
                 print(f"⚠️ 无法从 Gist 加载历史: {e}")
 
-        # 降级：从本地加载
-        if not history and self.history_file.exists():
+        # 2. 同时从本地文件加载
+        if self.history_file.exists():
             try:
                 with open(self.history_file, "r", encoding="utf-8") as f:
-                    history = json.load(f)
+                    local_history = json.load(f)
+                    print(f"✅ 已从本地加载历史记录 ({len(local_history)} 条)")
             except Exception as e:
                 print(f"⚠️ 无法加载本地历史记录: {e}")
 
-        # 如果历史记录太少 (< 5条)，尝试从 Git 历史重建
+        # 3. 合并两个来源 (以日期为 key, 有冲突时保留更新的)
+        hist_dict = {}
+        for item in gist_history:
+            hist_dict[item["date"]] = item
+        for item in local_history:
+            hist_dict[item["date"]] = item  # 本地数据覆盖 Gist (更可能是最新的)
+
+        history = sorted(hist_dict.values(), key=lambda x: x["date"])
+        print(f"📊 合并后历史记录: {len(history)} 条")
+
+        # 4. 如果合并后仍然太少, 尝试从 Git 历史重建
         if len(history) < 5 and os.path.isdir(".git"):
             print("📉 History too short, attempting Git rebuild...")
             git_history = self.rebuild_history_from_git()
 
             if len(git_history) > len(history):
                 print(f"✅ Rebuilt history from Git: {len(git_history)} records")
+                for item in git_history:
+                    if item["date"] not in hist_dict:
+                        hist_dict[item["date"]] = item
+                history = sorted(hist_dict.values(), key=lambda x: x["date"])
 
-                # 转成 dict以便合并
-                hist_dict = {item["date"]: item for item in git_history}
-                for item in history:
-                    hist_dict[item["date"]] = item  # 覆盖/新增
-
-                # 转回 list 并排序
-                new_history = list(hist_dict.values())
-                new_history.sort(key=lambda x: x["date"])
-
-                history = new_history
-
-                # 立即保存到本地
-                with open(self.history_file, "w", encoding="utf-8") as f:
-                    json.dump(history, f, ensure_ascii=False, indent=2)
-                print(f"✅ Rebuilt history saved to local file ({self.history_file})")
-
-                # 如果有 Gist 配置，也同步到 Gist
-                if self.gist_token and self.gist_id:
-                    try:
-                        url = f"https://api.github.com/gists/{self.gist_id}"
-                        headers = {"Authorization": f"token {self.gist_token}"}
-                        payload = {
-                            "files": {
-                                self.history_filename: {
-                                    "content": json.dumps(
-                                        history, ensure_ascii=False, indent=2
-                                    )
-                                }
-                            }
+        # 5. 如果有新数据, 同步回 Gist
+        if len(history) > len(gist_history) and self.gist_token and self.gist_id:
+            try:
+                url = f"https://api.github.com/gists/{self.gist_id}"
+                headers = {"Authorization": f"token {self.gist_token}"}
+                payload = {
+                    "files": {
+                        self.history_filename: {
+                            "content": json.dumps(history, ensure_ascii=False, indent=2)
                         }
-                        resp = requests.patch(url, headers=headers, json=payload)
-                        if resp.status_code == 200:
-                            print(f"✅ Rebuilt history synced to Gist ({self.gist_id})")
-                        else:
-                            print(
-                                f"⚠️ Failed to sync rebuilt history to Gist: {resp.status_code} - {resp.text}"
-                            )
-                    except Exception as e:
-                        print(f"⚠️ Error syncing rebuilt history to Gist: {e}")
+                    }
+                }
+                resp = requests.patch(url, headers=headers, json=payload)
+                if resp.status_code == 200:
+                    print(f"✅ 历史记录已同步至 Gist ({len(history)} 条)")
+                else:
+                    print(f"⚠️ Gist sync failed: {resp.status_code}")
+            except Exception as e:
+                print(f"⚠️ Error syncing history to Gist: {e}")
 
         return history
 
@@ -310,14 +307,15 @@ class OpenWebUIStats:
         """从 Git 历史提交中重建统计数据"""
         history = []
         try:
-            # 获取所有修改了 docs/stats-history.json 的 commit
+            # 从 docs/community-stats.json 的 Git 历史重建 (该文件历史最丰富)
             # 格式: hash date
+            target = "docs/community-stats.json"
             cmd = [
                 "git",
                 "log",
                 "--pretty=format:%H %ad",
                 "--date=short",
-                str(self.history_file),
+                target,
             ]
             result = subprocess.run(cmd, capture_output=True, text=True, check=True)
 
@@ -342,7 +340,7 @@ class OpenWebUIStats:
 
                 # 读取该 commit 时的文件内容
                 # Note: The file name in git show needs to be relative to the repo root
-                show_cmd = ["git", "show", f"{commit_hash}:{self.history_file}"]
+                show_cmd = ["git", "show", f"{commit_hash}:{target}"]
                 show_res = subprocess.run(
                     show_cmd, capture_output=True, text=True, check=True
                 )
