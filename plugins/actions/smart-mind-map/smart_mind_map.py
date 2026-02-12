@@ -4,7 +4,7 @@ author: Fu-Jie
 author_url: https://github.com/Fu-Jie/awesome-openwebui
 funding_url: https://github.com/open-webui
 funding_url: https://github.com/Fu-Jie/awesome-openwebui
-version: 0.9.3
+version: 0.9.4
 openwebui_id: 3094c59a-b4dd-4e0c-9449-15e2dd547dc4
 icon_url: data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxyZWN0IHg9IjE2IiB5PSIxNiIgd2lkdGg9IjYiIGhlaWdodD0iNiIgcng9IjEiLz48cmVjdCB4PSIyIiB5PSIxNiIgd2lkdGg9IjYiIGhlaWdodD0iNiIgcng9IjEiLz48cmVjdCB4PSI5IiB5PSIyIiB3aWR0aD0iNiIgaGVpZ2h0PSI2IiByeD0iMSIvPjxwYXRoIGQ9Ik01IDE2di0zYTEgMSAwIDAgMSAxLTFoMTJhMSAxIDAgMCAxIDEgMXYzIi8+PHBhdGggZD0iTTEyIDEyVjgiLz48L3N2Zz4=
 description: Intelligently analyzes text content and generates interactive mind maps to help users structure and visualize knowledge.
@@ -813,7 +813,7 @@ CONTENT_TEMPLATE_MINDMAP = """
 SCRIPT_TEMPLATE_MINDMAP = """
     <script>
       (function() {
-        const uniqueId = "{unique_id}";
+        const uniqueId = {unique_id_json};
         const i18n = {i18n_json};
 
         const loadScriptOnce = (src, checkFn) => {
@@ -1292,24 +1292,58 @@ class Action:
             "en-AU": "en-US",
             "de-AT": "de-DE",
         }
+        # Date formats by locale
+        self.date_formats = {
+            "zh-CN": "%Y年%m月%d日 %H:%M:%S",
+            "zh-HK": "%Y年%m月%d日 %H:%M:%S",
+            "zh-TW": "%Y年%m月%d日 %H:%M:%S",
+            "ja-JP": "%Y年%m月%d日 %H:%M:%S",
+            "ko-KR": "%Y년 %m월 %d일 %H:%M:%S",
+            "de-DE": "%d.%m.%Y %H:%M:%S",
+            "de-AT": "%d.%m.%Y %H:%M:%S",
+            "en-GB": "%d/%m/%Y %H:%M:%S",
+            "en-AU": "%d/%m/%Y %H:%M:%S",
+            "en-NZ": "%d/%m/%Y %H:%M:%S",
+            "fr-FR": "%d/%m/%Y %H:%M:%S",
+            "fr-CA": "%d/%m/%Y %H:%M:%S",
+            "es-ES": "%d/%m/%Y %H:%M:%S",
+            "es-AR": "%d/%m/%Y %H:%M:%S",
+            "es-MX": "%d/%m/%Y %H:%M:%S",
+            "it-IT": "%d/%m/%Y %H:%M:%S",
+            "vi-VN": "%d/%m/%Y %H:%M:%S",
+            "id-ID": "%d/%m/%Y %H:%M:%S",
+        }
 
-    def _get_translation(self, lang: str, key: str, **kwargs) -> str:
-        """Get translated string for the given language and key."""
+    def _resolve_language(self, lang: str) -> str:
+        """Resolve the best matching language code from the TRANSLATIONS dict."""
         target_lang = lang
 
         # 1. Direct match
-        if target_lang not in TRANSLATIONS:
-            # 2. Variant fallback
-            if target_lang in self.fallback_map:
-                target_lang = self.fallback_map[target_lang]
-            else:
-                # 3. Base language match (e.g. "zh-TW" -> "zh", check if "zh" exists? No, keys are full codes)
-                # But maybe "fr" -> "fr-FR"
-                pass
+        if target_lang in TRANSLATIONS:
+            return target_lang
+
+        # 2. Variant fallback (explicit mapping)
+        if target_lang in self.fallback_map:
+            target_lang = self.fallback_map[target_lang]
+            if target_lang in TRANSLATIONS:
+                return target_lang
+
+        # 3. Base language fallback (e.g. fr-BE -> fr-FR)
+        # Check if the base language (part before -) exists in translations
+        if '-' in lang:
+            base_lang = lang.split('-')[0]
+            # Try to find a supported language starting with base_lang
+            # Prioritize standard variants (e.g., fr -> fr-FR)
+            for supported_lang in TRANSLATIONS:
+                if supported_lang.startswith(base_lang + "-"):
+                    return supported_lang
 
         # 4. Final Fallback to en-US
-        if target_lang not in TRANSLATIONS:
-            target_lang = "en-US"
+        return "en-US"
+
+    def _get_translation(self, lang: str, key: str, **kwargs) -> str:
+        """Get translated string for the given language and key."""
+        target_lang = self._resolve_language(lang)
 
         # Retrieve dictionary
         lang_dict = TRANSLATIONS.get(target_lang, TRANSLATIONS["en-US"])
@@ -1328,26 +1362,9 @@ class Action:
 
     def _format_date(self, lang: str, dt: datetime) -> str:
         """Format date based on language locale requirements."""
-        # 🇨🇳 CN: YYYY年MM月DD日 HH:mm:ss
-        if lang in ["zh-CN", "zh-HK"]:
-            return dt.strftime("%Y年%m月%d日 %H:%M:%S")
-        # 🇯🇵 JP: YYYY年MM月DD日 HH:mm:ss
-        if lang == "ja-JP":
-            return dt.strftime("%Y年%m月%d日 %H:%M:%S")
-        # 🇰🇷 KR: YYYY년 MM월 DD일 HH:mm:ss
-        if lang == "ko-KR":
-            return dt.strftime("%Y년 %m월 %d일 %H:%M:%S")
-        # 🇩🇪 DE: DD.MM.YYYY HH:mm:ss (also AT)
-        if lang in ["de-DE", "de-AT"]:
-            return dt.strftime("%d.%m.%Y %H:%M:%S")
-        # 🇬🇧 GB: DD/MM/YYYY HH:mm:ss (also AU)
-        if lang in ["en-GB", "en-AU", "en-NZ"]:
-            return dt.strftime("%d/%m/%Y %H:%M:%S")
-        # 🇫🇷 FR, 🇪🇸 ES, 🇮🇹 IT, 🇻🇳 VN, 🇮🇩 ID: DD/MM/YYYY HH:mm:ss
-        if lang in ["fr-FR", "fr-CA", "es-ES", "es-AR", "es-MX", "it-IT", "vi-VN", "id-ID"]:
-            return dt.strftime("%d/%m/%Y %H:%M:%S")
-        # 🇺🇸 US: MM/DD/YYYY hh:mm:ss AM/PM (Default)
-        return dt.strftime("%m/%d/%Y %I:%M:%S %p")
+        # Default format for US and others
+        date_format = self.date_formats.get(lang, "%m/%d/%Y %I:%M:%S %p")
+        return dt.strftime(date_format)
 
     async def _get_user_context(
         self,
@@ -1502,6 +1519,9 @@ class Action:
         """
         Merges new content into an existing HTML container, or creates a new one.
         """
+        # Security: Escape user_language to prevent XSS
+        safe_language = user_language.replace('"', '&quot;')
+
         if (
             "<!-- OPENWEBUI_PLUGIN_OUTPUT -->" in existing_html_code
             and "<!-- CONTENT_INSERTION_POINT -->" in existing_html_code
@@ -1510,7 +1530,7 @@ class Action:
             base_html = re.sub(r"^```html\s*", "", base_html)
             base_html = re.sub(r"\s*```$", "", base_html)
         else:
-            base_html = HTML_WRAPPER_TEMPLATE.replace("{lang}", user_language)
+            base_html = HTML_WRAPPER_TEMPLATE.replace("{lang}", safe_language)
 
         wrapped_content = f'<div class="plugin-item">\n{new_content}\n</div>'
 
@@ -1552,315 +1572,34 @@ class Action:
         )
 
         # Prepare i18n for this specific context
-        i18n_data = {}
-        target_lang = lang
-        if target_lang not in TRANSLATIONS and target_lang in self.fallback_map:
-             target_lang = self.fallback_map[target_lang]
-        if target_lang not in TRANSLATIONS:
-             target_lang = "en-US"
-
+        target_lang = self._resolve_language(lang)
         full_trans = TRANSLATIONS.get(target_lang, TRANSLATIONS["en-US"])
-        # We only need specific keys for the JS image generation part
+
+        i18n_data = {}
         keys = ["js_upload_failed", "md_image_alt"]
         for k in keys:
             i18n_data[k] = full_trans.get(k, TRANSLATIONS["en-US"].get(k, k))
-
+            
         i18n_json = json.dumps(i18n_data, ensure_ascii=False)
+        
+        # Security: Use json.dumps to safely embed IDs
+        unique_id_json = json.dumps(unique_id)
+        chat_id_json = json.dumps(chat_id)
+        message_id_json = json.dumps(message_id)
 
-        return f"""
-(async function() {{
-    const uniqueId = "{unique_id}";
-    const chatId = "{chat_id}";
-    const messageId = "{message_id}";
-    const i18n = {i18n_json};
-    const defaultWidth = 1200;
-    const defaultHeight = 800;
-    
-    // Theme detection ... (Same as before)
-    const detectTheme = () => {{
-        try {{
-            const html = document.documentElement;
-            const body = document.body;
-            const htmlClass = html ? html.className : '';
-            const bodyClass = body ? body.className : '';
-            const htmlDataTheme = html ? html.getAttribute('data-theme') : '';
-            
-            if (htmlDataTheme === 'dark' || bodyClass.includes('dark') || htmlClass.includes('dark')) {{
-                return 'dark';
-            }}
-            if (htmlDataTheme === 'light' || bodyClass.includes('light') || htmlClass.includes('light')) {{
-                return 'light';
-            }}
-            const metas = document.querySelectorAll('meta[name="theme-color"]');
-            if (metas.length > 0) {{
-                const color = metas[metas.length - 1].content.trim();
-                const m = color.match(/^#?([0-9a-f]{{6}})$/i);
-                if (m) {{
-                    const hex = m[1];
-                    const r = parseInt(hex.slice(0, 2), 16);
-                    const g = parseInt(hex.slice(2, 4), 16);
-                    const b = parseInt(hex.slice(4, 6), 16);
-                    const luma = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
-                    return luma < 0.5 ? 'dark' : 'light';
-                }}
-            }}
-            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {{
-                return 'dark';
-            }}
-            return 'light';
-        }} catch (e) {{
-            return 'light';
-        }}
-    }};
-    
-    const currentTheme = detectTheme();
-    console.log("[MindMap Image] Detected theme:", currentTheme);
-    
-    const colors = currentTheme === 'dark' ? {{
-        background: '#1f2937',
-        text: '#e5e7eb',
-        link: '#94a3b8',
-        nodeStroke: '#64748b'
-    }} : {{
-        background: '#ffffff',
-        text: '#1f2937',
-        link: '#546e7a',
-        nodeStroke: '#94a3b8'
-    }};
-    
-    let svgWidth = defaultWidth;
-    let svgHeight = defaultHeight;
-    const chatContainer = document.getElementById('chat-container');
-    if (chatContainer) {{
-        const containerWidth = chatContainer.clientWidth;
-        if (containerWidth > 100) {{
-            svgWidth = Math.floor(containerWidth * 0.9);
-            svgHeight = Math.floor(svgWidth * (defaultHeight / defaultWidth));
-        }}
-    }}
-    
-    try {{
-        if (typeof d3 === 'undefined') {{
-            await new Promise((resolve, reject) => {{
-                const script = document.createElement('script');
-                script.src = 'https://cdn.jsdelivr.net/npm/d3@7';
-                script.onload = resolve;
-                script.onerror = reject;
-                document.head.appendChild(script);
-            }});
-        }}
-        
-        if (!window.markmap || !window.markmap.Transformer) {{
-            await new Promise((resolve, reject) => {{
-                const script = document.createElement('script');
-                script.src = 'https://cdn.jsdelivr.net/npm/markmap-lib@0.17';
-                script.onload = resolve;
-                script.onerror = reject;
-                document.head.appendChild(script);
-            }});
-        }}
-        
-        if (!window.markmap || !window.markmap.Markmap) {{
-            await new Promise((resolve, reject) => {{
-                const script = document.createElement('script');
-                script.src = 'https://cdn.jsdelivr.net/npm/markmap-view@0.17';
-                script.onload = resolve;
-                script.onerror = reject;
-                document.head.appendChild(script);
-            }});
-        }}
-        
-        const {{ Transformer, Markmap }} = window.markmap;
-        
-        let syntaxContent = `{syntax_escaped}`;
-        
-        const container = document.createElement('div');
-        container.id = 'mindmap-offscreen-' + uniqueId;
-        container.style.cssText = 'position:absolute;left:-9999px;top:-9999px;width:' + svgWidth + 'px;height:' + svgHeight + 'px;';
-        document.body.appendChild(container);
-        
-        const svgEl = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-        svgEl.setAttribute('width', svgWidth);
-        svgEl.setAttribute('height', svgHeight);
-        svgEl.style.width = svgWidth + 'px';
-        svgEl.style.height = svgHeight + 'px';
-        svgEl.style.backgroundColor = colors.background;
-        container.appendChild(svgEl);
-        
-        const transformer = new Transformer();
-        const {{ root }} = transformer.transform(syntaxContent);
-        
-        const options = {{
-            autoFit: true,
-            initialExpandLevel: Infinity,
-            zoom: false,
-            pan: false
-        }};
-        
-        const markmapInstance = Markmap.create(svgEl, options, root);
-        
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        markmapInstance.fit();
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        const clonedSvg = svgEl.cloneNode(true);
-        clonedSvg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
-        clonedSvg.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
-        
-        const bgRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-        bgRect.setAttribute('width', '100%');
-        bgRect.setAttribute('height', '100%');
-        bgRect.setAttribute('fill', colors.background);
-        clonedSvg.insertBefore(bgRect, clonedSvg.firstChild);
-        
-        const style = document.createElementNS('http://www.w3.org/2000/svg', 'style');
-        style.textContent = `
-            text {{ font-family: sans-serif; font-size: 14px; fill: ${{colors.text}}; }}
-            foreignObject, .markmap-foreign, .markmap-foreign div {{ color: ${{colors.text}}; font-family: sans-serif; font-size: 14px; }}
-            h1 {{ font-size: 22px; font-weight: 700; margin: 0; }}
-            h2 {{ font-size: 18px; font-weight: 600; margin: 0; }}
-            strong {{ font-weight: 700; }}
-            .markmap-link {{ stroke: ${{colors.link}}; fill: none; }}
-            .markmap-node circle, .markmap-node rect {{ stroke: ${{colors.nodeStroke}}; }}
-        `;
-        clonedSvg.insertBefore(style, bgRect.nextSibling);
-        
-        const foreignObjects = clonedSvg.querySelectorAll('foreignObject');
-        foreignObjects.forEach(fo => {{
-            const text = fo.textContent || '';
-            const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-            const textEl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-            textEl.setAttribute('x', fo.getAttribute('x') || '0');
-            textEl.setAttribute('y', (parseFloat(fo.getAttribute('y') || '0') + 14).toString());
-            textEl.setAttribute('fill', colors.text);
-            textEl.setAttribute('font-family', 'sans-serif');
-            textEl.setAttribute('font-size', '14');
-            textEl.textContent = text.trim();
-            g.appendChild(textEl);
-            fo.parentNode.replaceChild(g, fo);
-        }});
-        
-        const svgData = new XMLSerializer().serializeToString(clonedSvg);
-        
-        document.body.removeChild(container);
-        
-        const blob = new Blob([svgData], {{ type: 'image/svg+xml' }});
-        const file = new File([blob], `mindmap-${{uniqueId}}.svg`, {{ type: 'image/svg+xml' }});
-        
-        const token = localStorage.getItem("token");
-        const formData = new FormData();
-        formData.append('file', file);
-        
-        const uploadResponse = await fetch('/api/v1/files/', {{
-            method: 'POST',
-            headers: {{
-                'Authorization': `Bearer ${{token}}`
-            }},
-            body: formData
-        }});
-        
-        if (!uploadResponse.ok) {{
-            throw new Error(i18n.js_upload_failed + uploadResponse.statusText);
-        }}
-        
-        const fileData = await uploadResponse.json();
-        const fileId = fileData.id;
-        const imageUrl = `/api/v1/files/${{fileId}}/content`;
-        
-        const markdownImage = `![${{i18n.md_image_alt}}](${{imageUrl}})`;
-        
-        if (chatId && messageId) {{
-            const fetchWithRetry = async (url, options, retries = 3) => {{
-                for (let i = 0; i < retries; i++) {{
-                    try {{
-                        const response = await fetch(url, options);
-                        if (response.ok) return response;
-                        if (i < retries - 1) {{
-                            await new Promise(r => setTimeout(r, 1000 * (i + 1)));
-                        }}
-                    }} catch (e) {{
-                        if (i === retries - 1) throw e;
-                        await new Promise(r => setTimeout(r, 1000 * (i + 1)));
-                    }}
-                }}
-                return null;
-            }};
-            
-            const getResponse = await fetch(`/api/v1/chats/${{chatId}}`, {{
-                method: "GET",
-                headers: {{ "Authorization": `Bearer ${{token}}` }}
-            }});
-            
-            if (!getResponse.ok) {{
-                throw new Error("Failed to get chat data: " + getResponse.status);
-            }}
-            
-            const chatData = await getResponse.json();
-            let updatedMessages = [];
-            let newContent = "";
-            
-            if (chatData.chat && chatData.chat.messages) {{
-                updatedMessages = chatData.chat.messages.map(m => {{
-                    if (m.id === messageId) {{
-                        const originalContent = m.content || "";
-                        const mindmapPattern = /\\n*!\\[[^[\\]]*\\]\\((?:data:image\\/[^)]+|(?:\\/api\\/v1\\/files\\/[^)]+))\\)/g;
-                        let cleanedContent = originalContent.replace(mindmapPattern, "");
-                        cleanedContent = cleanedContent.replace(/\\n{{3,}}/g, "\\n\\n").trim();
-                        newContent = cleanedContent + "\\n\\n" + markdownImage;
-                        
-                        if (chatData.chat.history && chatData.chat.history.messages) {{
-                            if (chatData.chat.history.messages[messageId]) {{
-                                chatData.chat.history.messages[messageId].content = newContent;
-                            }}
-                        }}
-                        
-                        return {{ ...m, content: newContent }};
-                    }}
-                    return m;
-                }});
-            }}
-            
-            if (!newContent) {{
-                return;
-            }}
-            
-            try {{
-                await fetch(`/api/v1/chats/${{chatId}}/messages/${{messageId}}/event`, {{
-                    method: "POST",
-                    headers: {{
-                        "Content-Type": "application/json",
-                        "Authorization": `Bearer ${{token}}`
-                    }},
-                    body: JSON.stringify({{
-                        type: "chat:message",
-                        data: {{ content: newContent }}
-                    }})
-                }});
-            }} catch (eventErr) {{
-            }}
-            
-            const updatePayload = {{
-                chat: {{
-                    ...chatData.chat,
-                    messages: updatedMessages
-                }}
-            }};
-            
-            await fetchWithRetry(`/api/v1/chats/${{chatId}}`, {{
-                method: "POST",
-                headers: {{
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${{token}}`
-                }},
-                body: JSON.stringify(updatePayload)
-            }});
-        }}
-        
-    }} catch (error) {{
-        console.error("[MindMap Image] Error:", error);
-    }}
-}})();
-"""
+        return SCRIPT_TEMPLATE_MINDMAP.replace(
+            "{unique_id}", unique_id
+        ).replace(
+            "{unique_id_json}", unique_id_json
+        ).replace(
+            "{chat_id_json}", chat_id_json
+        ).replace(
+            "{message_id_json}", message_id_json
+        ).replace(
+            "{i18n_json}", i18n_json
+        ).replace(
+            "{syntax_escaped}", syntax_escaped
+        )
 
     async def action(
         self,
@@ -1871,7 +1610,7 @@ class Action:
         __metadata__: Optional[dict] = None,
         __request__: Optional[Request] = None,
     ) -> Optional[dict]:
-        logger.info("Action: Smart Mind Map (v0.9.3) started")
+        logger.info("Action: Smart Mind Map (v0.9.4) started")
         user_ctx = await self._get_user_context(__user__, __event_call__)
         user_language = user_ctx["user_language"]
         user_name = user_ctx["user_name"]
@@ -1883,12 +1622,10 @@ class Action:
             now_dt = datetime.now(tzinfo or timezone.utc)
 
             # Localize date time
-            current_date_time_str = self._format_date(user_language, now_dt)
+            resolved_lang = self._resolve_language(user_language)
+            current_date_time_str = self._format_date(resolved_lang, now_dt)
 
             current_weekday_en = now_dt.strftime("%A")
-            # We don't have weekday map for all languages, so use English or simple fallback?
-            # Or just ignore it as it is used in prompt only.
-            # I will keep English weekday for the LLM prompt.
             current_weekday_zh = self.weekday_map.get(current_weekday_en, "Unknown")
 
             current_year = now_dt.strftime("%Y")
@@ -2026,26 +1763,37 @@ class Action:
                     else:
                         ui_trans[f"t_{k}"] = val
 
-            content_html = (
-                CONTENT_TEMPLATE_MINDMAP.format(
-                    unique_id=unique_id,
-                    user_name=user_name,
-                    current_date_time_str=current_date_time_str,
-                    markdown_syntax=markdown_syntax,
-                    **ui_trans
-                )
-            )
+            # Security: Use simple string replacement instead of format() to prevent
+            # crashes if markdown_syntax contains braces { or }.
+            # Also escape user_name for basic HTML safety.
+            content_html = CONTENT_TEMPLATE_MINDMAP
+            for k, v in ui_trans.items():
+                content_html = content_html.replace(f"{{{k}}}", v)
+
+            content_html = content_html.replace("{unique_id}", unique_id) \
+                                       .replace("{user_name}", user_name.replace('<', '&lt;').replace('>', '&gt;')) \
+                                       .replace("{current_date_time_str}", current_date_time_str) \
+                                       .replace("{markdown_syntax}", markdown_syntax)
 
             # Prepare JS i18n
+            target_lang = self._resolve_language(user_language)
+            full_trans = TRANSLATIONS.get(target_lang, TRANSLATIONS["en-US"])
             js_trans = {}
             for k in full_trans:
                 if k.startswith("js_") or k.startswith("html_"):
                     js_trans[k] = full_trans[k]
 
+            i18n_json = json.dumps(js_trans, ensure_ascii=False)
+            unique_id_json = json.dumps(unique_id)
+
+            # Note: We don't need chat/message ID in HTML mode JS, but we do need uniqueId and i18n
+            # The SCRIPT_TEMPLATE_MINDMAP now uses {unique_id_json} for the ID
             script_html = SCRIPT_TEMPLATE_MINDMAP.replace(
-                "{unique_id}", unique_id
+                "{unique_id}", unique_id # Fallback for other non-JSON placeholders if any
             ).replace(
-                "{i18n_json}", json.dumps(js_trans, ensure_ascii=False)
+                "{unique_id_json}", unique_id_json
+            ).replace(
+                "{i18n_json}", i18n_json
             )
 
             # Extract existing HTML if any
@@ -2119,7 +1867,7 @@ class Action:
                     self._get_translation(user_language, "notification_image_success", user_name=user_name),
                     "success",
                 )
-                logger.info("Action: Smart Mind Map (v0.9.3) completed in image mode")
+                logger.info("Action: Smart Mind Map (v0.9.4) completed in image mode")
                 return body
 
             # HTML mode (default): embed as HTML block
@@ -2134,7 +1882,7 @@ class Action:
                 self._get_translation(user_language, "notification_success", user_name=user_name),
                 "success",
             )
-            logger.info("Action: Smart Mind Map (v0.9.3) completed in HTML mode")
+            logger.info("Action: Smart Mind Map (v0.9.4) completed in HTML mode")
 
         except Exception as e:
             error_message = f"Smart Mind Map processing failed: {str(e)}"
