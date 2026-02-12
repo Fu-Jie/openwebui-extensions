@@ -810,7 +810,7 @@ CONTENT_TEMPLATE_MINDMAP = """
         <script type="text/template" id="markdown-source-{unique_id}">{markdown_syntax}</script>
 """
 
-SCRIPT_TEMPLATE_MINDMAP = r"""
+SCRIPT_TEMPLATE_MINDMAP = """
     <script>
       (function() {
         const uniqueId = "{unique_id}";
@@ -852,7 +852,7 @@ SCRIPT_TEMPLATE_MINDMAP = r"""
                 return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
             }
             // rgb(r, g, b) or rgba(r, g, b, a)
-            m = colorStr.match(/rgba?\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i);
+            m = colorStr.match(/rgba?\\s*\\(\\s*(\\d+)\\s*,\\s*(\\d+)\\s*,\\s*(\\d+)/i);
             if (m) {
                 const r = parseInt(m[1], 10);
                 const g = parseInt(m[2], 10);
@@ -2017,20 +2017,14 @@ class Action:
             # Prepare content components
             # Resolve translations for UI
             ui_trans = {}
-            target_lang = user_language
-            if target_lang not in TRANSLATIONS and target_lang in self.fallback_map:
-                 target_lang = self.fallback_map[target_lang]
-            if target_lang not in TRANSLATIONS:
-                 target_lang = "en-US"
-
-            full_trans = TRANSLATIONS.get(target_lang, TRANSLATIONS["en-US"])
-            for k in full_trans:
+            # Iterate over base language keys to ensure no missing placeholders
+            for k in TRANSLATIONS["en-US"]:
                 if k.startswith("ui_"):
-                    # For ui_footer which has {year}
+                    val = self._get_translation(user_language, k)
                     if k == "ui_footer":
-                        ui_trans[f"t_{k}"] = full_trans[k].format(year=current_year)
+                        ui_trans[f"t_{k}"] = val.format(year=current_year)
                     else:
-                        ui_trans[f"t_{k}"] = full_trans[k]
+                        ui_trans[f"t_{k}"] = val
 
             content_html = (
                 CONTENT_TEMPLATE_MINDMAP.format(
