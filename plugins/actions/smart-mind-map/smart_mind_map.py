@@ -1245,6 +1245,7 @@ class Action:
         }
         # Fallback mapping for variants not in TRANSLATIONS keys
         self.fallback_map = {
+            "zh-TW": "zh-HK",
             "es-AR": "es-ES",
             "es-MX": "es-ES",
             "fr-CA": "fr-FR",
