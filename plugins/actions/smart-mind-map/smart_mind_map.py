@@ -4,7 +4,7 @@ author: Fu-Jie
 author_url: https://github.com/Fu-Jie/awesome-openwebui
 funding_url: https://github.com/open-webui
 funding_url: https://github.com/Fu-Jie/awesome-openwebui
-version: 0.9.2
+version: 0.9.3
 openwebui_id: 3094c59a-b4dd-4e0c-9449-15e2dd547dc4
 icon_url: data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxyZWN0IHg9IjE2IiB5PSIxNiIgd2lkdGg9IjYiIGhlaWdodD0iNiIgcng9IjEiLz48cmVjdCB4PSIyIiB5PSIxNiIgd2lkdGg9IjYiIGhlaWdodD0iNiIgcng9IjEiLz48cmVjdCB4PSI5IiB5PSIyIiB3aWR0aD0iNiIgaGVpZ2h0PSI2IiByeD0iMSIvPjxwYXRoIGQ9Ik01IDE2di0zYTEgMSAwIDAgMSAxLTFoMTJhMSAxIDAgMCAxIDEgMXYzIi8+PHBhdGggZD0iTTEyIDEyVjgiLz48L3N2Zz4=
 description: Intelligently analyzes text content and generates interactive mind maps to help users structure and visualize knowledge.
@@ -14,6 +14,7 @@ import logging
 import os
 import re
 import time
+import json
 from datetime import datetime, timezone
 from typing import Any, Callable, Awaitable, Dict, Optional
 from zoneinfo import ZoneInfo
@@ -28,6 +29,438 @@ logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
+
+TRANSLATIONS = {
+    "en-US": {
+        "status_starting": "Smart Mind Map is starting, generating mind map for you...",
+        "error_no_content": "Unable to retrieve valid user message content.",
+        "error_text_too_short": "Text content is too short ({len} characters), unable to perform effective analysis. Please provide at least {min_len} characters of text.",
+        "status_analyzing": "Smart Mind Map: Analyzing text structure in depth...",
+        "status_drawing": "Smart Mind Map: Drawing completed!",
+        "notification_success": "Mind map has been generated, {user_name}!",
+        "error_processing": "Smart Mind Map processing failed: {error}",
+        "error_user_facing": "Sorry, Smart Mind Map encountered an error during processing: {error}.\nPlease check the Open WebUI backend logs for more details.",
+        "status_failed": "Smart Mind Map: Processing failed.",
+        "notification_failed": "Smart Mind Map generation failed, {user_name}!",
+        "status_rendering_image": "Smart Mind Map: Rendering image...",
+        "status_image_generated": "Smart Mind Map: Image generated!",
+        "notification_image_success": "Mind map image has been generated, {user_name}!",
+        "ui_title": "🧠 Smart Mind Map",
+        "ui_user": "User:",
+        "ui_time": "Time:",
+        "ui_download_png": "PNG",
+        "ui_download_svg": "SVG",
+        "ui_download_md": "Markdown",
+        "ui_zoom_out": "-",
+        "ui_zoom_reset": "Reset",
+        "ui_zoom_in": "+",
+        "ui_depth_select": "Expand Level",
+        "ui_depth_all": "Expand All",
+        "ui_depth_2": "Level 2",
+        "ui_depth_3": "Level 3",
+        "ui_fullscreen": "Fullscreen",
+        "ui_theme": "Theme",
+        "ui_footer": "© {year} Smart Mind Map • Markmap",
+        "html_error_missing_content": "⚠️ Unable to load mind map: Missing valid content.",
+        "html_error_load_failed": "⚠️ Resource loading failed, please try again later.",
+        "js_done": "Done",
+        "js_failed": "Failed",
+        "js_generating": "Generating...",
+        "js_filename": "mindmap.png",
+        "js_upload_failed": "Upload failed: ",
+        "md_image_alt": "🧠 Mind Map"
+    },
+    "zh-CN": {
+        "status_starting": "思维导图已启动，正在为您生成思维导图...",
+        "error_no_content": "无法获取有效的用户消息内容。",
+        "error_text_too_short": "文本内容过短（{len}字符），无法进行有效分析。请提供至少{min_len}字符的文本。",
+        "status_analyzing": "思维导图：深入分析文本结构...",
+        "status_drawing": "思维导图：绘制完成！",
+        "notification_success": "思维导图已生成，{user_name}！",
+        "error_processing": "思维导图处理失败：{error}",
+        "error_user_facing": "抱歉，思维导图在处理时遇到错误：{error}。\n请检查Open WebUI后端日志获取更多详情。",
+        "status_failed": "思维导图：处理失败。",
+        "notification_failed": "思维导图生成失败，{user_name}！",
+        "status_rendering_image": "思维导图：正在渲染图片...",
+        "status_image_generated": "思维导图：图片已生成！",
+        "notification_image_success": "思维导图图片已生成，{user_name}！",
+        "ui_title": "🧠 智能思维导图",
+        "ui_user": "用户：",
+        "ui_time": "时间：",
+        "ui_download_png": "PNG",
+        "ui_download_svg": "SVG",
+        "ui_download_md": "Markdown",
+        "ui_zoom_out": "缩小",
+        "ui_zoom_reset": "重置",
+        "ui_zoom_in": "放大",
+        "ui_depth_select": "展开层级",
+        "ui_depth_all": "全部展开",
+        "ui_depth_2": "展开 2 级",
+        "ui_depth_3": "展开 3 级",
+        "ui_fullscreen": "全屏",
+        "ui_theme": "主题",
+        "ui_footer": "© {year} 智能思维导图 • Markmap",
+        "html_error_missing_content": "⚠️ 无法加载思维导图：缺少有效内容。",
+        "html_error_load_failed": "⚠️ 资源加载失败，请稍后重试。",
+        "js_done": "完成",
+        "js_failed": "失败",
+        "js_generating": "生成中...",
+        "js_filename": "思维导图.png",
+        "js_upload_failed": "上传失败：",
+        "md_image_alt": "🧠 思维导图"
+    },
+    "zh-HK": {
+        "status_starting": "思維導圖已啟動，正在為您生成思維導圖...",
+        "error_no_content": "無法獲取有效的用戶消息內容。",
+        "error_text_too_short": "文本內容過短（{len}字元），無法進行有效分析。請提供至少{min_len}字元的文本。",
+        "status_analyzing": "思維導圖：深入分析文本結構...",
+        "status_drawing": "思維導圖：繪製完成！",
+        "notification_success": "思維導圖已生成，{user_name}！",
+        "error_processing": "思維導圖處理失敗：{error}",
+        "error_user_facing": "抱歉，思維導圖在處理時遇到錯誤：{error}。\n請檢查Open WebUI後端日誌獲取更多詳情。",
+        "status_failed": "思維導圖：處理失敗。",
+        "notification_failed": "思維導圖生成失敗，{user_name}！",
+        "status_rendering_image": "思維導圖：正在渲染圖片...",
+        "status_image_generated": "思維導圖：圖片已生成！",
+        "notification_image_success": "思維導圖圖片已生成，{user_name}！",
+        "ui_title": "🧠 智能思維導圖",
+        "ui_user": "用戶：",
+        "ui_time": "時間：",
+        "ui_download_png": "PNG",
+        "ui_download_svg": "SVG",
+        "ui_download_md": "Markdown",
+        "ui_zoom_out": "縮小",
+        "ui_zoom_reset": "重置",
+        "ui_zoom_in": "放大",
+        "ui_depth_select": "展開層級",
+        "ui_depth_all": "全部展開",
+        "ui_depth_2": "展開 2 級",
+        "ui_depth_3": "展開 3 級",
+        "ui_fullscreen": "全屏",
+        "ui_theme": "主題",
+        "ui_footer": "© {year} 智能思維導圖 • Markmap",
+        "html_error_missing_content": "⚠️ 無法加載思維導圖：缺少有效內容。",
+        "html_error_load_failed": "⚠️ 資源加載失敗，請稍後重試。",
+        "js_done": "完成",
+        "js_failed": "失敗",
+        "js_generating": "生成中...",
+        "js_filename": "思維導圖.png",
+        "js_upload_failed": "上傳失敗：",
+        "md_image_alt": "🧠 思維導圖"
+    },
+    "ko-KR": {
+        "status_starting": "스마트 마인드맵이 시작되었습니다, 마인드맵을 생성 중입니다...",
+        "error_no_content": "유효한 사용자 메시지 내용을 가져올 수 없습니다.",
+        "error_text_too_short": "텍스트 내용이 너무 짧아({len}자), 효과적인 분석을 수행할 수 없습니다. 최소 {min_len}자 이상의 텍스트를 제공해 주세요.",
+        "status_analyzing": "스마트 마인드맵: 텍스트 구조 심층 분석 중...",
+        "status_drawing": "스마트 마인드맵: 그리기 완료!",
+        "notification_success": "마인드맵이 생성되었습니다, {user_name}님!",
+        "error_processing": "스마트 마인드맵 처리 실패: {error}",
+        "error_user_facing": "죄송합니다, 스마트 마인드맵 처리 중 오류가 발생했습니다: {error}.\n자세한 내용은 Open WebUI 백엔드 로그를 확인해 주세요.",
+        "status_failed": "스마트 마인드맵: 처리 실패.",
+        "notification_failed": "스마트 마인드맵 생성 실패, {user_name}님!",
+        "status_rendering_image": "스마트 마인드맵: 이미지 렌더링 중...",
+        "status_image_generated": "스마트 마인드맵: 이미지 생성됨!",
+        "notification_image_success": "마인드맵 이미지가 생성되었습니다, {user_name}님!",
+        "ui_title": "🧠 스마트 마인드맵",
+        "ui_user": "사용자:",
+        "ui_time": "시간:",
+        "ui_download_png": "PNG",
+        "ui_download_svg": "SVG",
+        "ui_download_md": "Markdown",
+        "ui_zoom_out": "-",
+        "ui_zoom_reset": "초기화",
+        "ui_zoom_in": "+",
+        "ui_depth_select": "레벨 확장",
+        "ui_depth_all": "모두 확장",
+        "ui_depth_2": "레벨 2",
+        "ui_depth_3": "레벨 3",
+        "ui_fullscreen": "전체 화면",
+        "ui_theme": "테마",
+        "ui_footer": "© {year} 스마트 마인드맵 • Markmap",
+        "html_error_missing_content": "⚠️ 마인드맵을 로드할 수 없습니다: 유효한 내용이 없습니다.",
+        "html_error_load_failed": "⚠️ 리소스 로드 실패, 나중에 다시 시도해 주세요.",
+        "js_done": "완료",
+        "js_failed": "실패",
+        "js_generating": "생성 중...",
+        "js_filename": "mindmap.png",
+        "js_upload_failed": "업로드 실패: ",
+        "md_image_alt": "🧠 마인드맵"
+    },
+    "ja-JP": {
+        "status_starting": "スマートマインドマップが起動しました。マインドマップを生成しています...",
+        "error_no_content": "有効なユーザーメッセージの内容を取得できませんでした。",
+        "error_text_too_short": "テキストの内容が短すぎるため（{len}文字）、効果的な分析を実行できません。少なくとも{min_len}文字のテキストを提供してください。",
+        "status_analyzing": "スマートマインドマップ：テキスト構造を詳細に分析中...",
+        "status_drawing": "スマートマインドマップ：描画完了！",
+        "notification_success": "マインドマップが生成されました、{user_name}さん！",
+        "error_processing": "スマートマインドマップ処理失敗：{error}",
+        "error_user_facing": "申し訳ありません、スマートマインドマップの処理中にエラーが発生しました：{error}。\n詳細については、Open WebUIバックエンドログを確認してください。",
+        "status_failed": "スマートマインドマップ：処理失敗。",
+        "notification_failed": "スマートマインドマップ生成失敗、{user_name}さん！",
+        "status_rendering_image": "スマートマインドマップ：画像レンダリング中...",
+        "status_image_generated": "スマートマインドマップ：画像生成完了！",
+        "notification_image_success": "マインドマップ画像が生成されました、{user_name}さん！",
+        "ui_title": "🧠 スマートマインドマップ",
+        "ui_user": "ユーザー：",
+        "ui_time": "時間：",
+        "ui_download_png": "PNG",
+        "ui_download_svg": "SVG",
+        "ui_download_md": "Markdown",
+        "ui_zoom_out": "-",
+        "ui_zoom_reset": "リセット",
+        "ui_zoom_in": "+",
+        "ui_depth_select": "レベル展開",
+        "ui_depth_all": "すべて展開",
+        "ui_depth_2": "レベル2",
+        "ui_depth_3": "レベル3",
+        "ui_fullscreen": "全画面",
+        "ui_theme": "テーマ",
+        "ui_footer": "© {year} スマートマインドマップ • Markmap",
+        "html_error_missing_content": "⚠️ マインドマップを読み込めません：有効なコンテンツがありません。",
+        "html_error_load_failed": "⚠️ リソースの読み込みに失敗しました。後でもう一度お試しください。",
+        "js_done": "完了",
+        "js_failed": "失敗",
+        "js_generating": "生成中...",
+        "js_filename": "mindmap.png",
+        "js_upload_failed": "アップロード失敗：",
+        "md_image_alt": "🧠 マインドマップ"
+    },
+    "fr-FR": {
+        "status_starting": "Smart Mind Map démarre, génération de la carte heuristique en cours...",
+        "error_no_content": "Impossible de récupérer le contenu valide du message utilisateur.",
+        "error_text_too_short": "Le contenu du texte est trop court ({len} caractères), impossible d'effectuer une analyse efficace. Veuillez fournir au moins {min_len} caractères de texte.",
+        "status_analyzing": "Smart Mind Map : Analyse approfondie de la structure du texte...",
+        "status_drawing": "Smart Mind Map : Dessin terminé !",
+        "notification_success": "La carte heuristique a été générée, {user_name} !",
+        "error_processing": "Échec du traitement de Smart Mind Map : {error}",
+        "error_user_facing": "Désolé, Smart Mind Map a rencontré une erreur lors du traitement : {error}.\nVeuillez vérifier les journaux backend d'Open WebUI pour plus de détails.",
+        "status_failed": "Smart Mind Map : Échec du traitement.",
+        "notification_failed": "Échec de la génération de la carte heuristique, {user_name} !",
+        "status_rendering_image": "Smart Mind Map : Rendu de l'image...",
+        "status_image_generated": "Smart Mind Map : Image générée !",
+        "notification_image_success": "L'image de la carte heuristique a été générée, {user_name} !",
+        "ui_title": "🧠 Smart Mind Map",
+        "ui_user": "Utilisateur :",
+        "ui_time": "Heure :",
+        "ui_download_png": "PNG",
+        "ui_download_svg": "SVG",
+        "ui_download_md": "Markdown",
+        "ui_zoom_out": "-",
+        "ui_zoom_reset": "Rénitialiser",
+        "ui_zoom_in": "+",
+        "ui_depth_select": "Niveau d'expansion",
+        "ui_depth_all": "Tout développer",
+        "ui_depth_2": "Niveau 2",
+        "ui_depth_3": "Niveau 3",
+        "ui_fullscreen": "Plein écran",
+        "ui_theme": "Thème",
+        "ui_footer": "© {year} Smart Mind Map • Markmap",
+        "html_error_missing_content": "⚠️ Impossible de charger la carte heuristique : contenu valide manquant.",
+        "html_error_load_failed": "⚠️ Échec du chargement des ressources, veuillez réessayer plus tard.",
+        "js_done": "Terminé",
+        "js_failed": "Échec",
+        "js_generating": "Génération...",
+        "js_filename": "carte_heuristique.png",
+        "js_upload_failed": "Échec du téléchargement : ",
+        "md_image_alt": "🧠 Carte Heuristique"
+    },
+    "de-DE": {
+        "status_starting": "Smart Mind Map startet, Mindmap wird für Sie erstellt...",
+        "error_no_content": "Gültiger Inhalt der Benutzernachricht konnte nicht abgerufen werden.",
+        "error_text_too_short": "Der Textinhalt ist zu kurz ({len} Zeichen), eine effektive Analyse ist nicht möglich. Bitte geben Sie mindestens {min_len} Zeichen Text an.",
+        "status_analyzing": "Smart Mind Map: Detaillierte Analyse der Textstruktur...",
+        "status_drawing": "Smart Mind Map: Zeichnen abgeschlossen!",
+        "notification_success": "Mindmap wurde erstellt, {user_name}!",
+        "error_processing": "Smart Mind Map Verarbeitung fehlgeschlagen: {error}",
+        "error_user_facing": "Entschuldigung, bei der Verarbeitung von Smart Mind Map ist ein Fehler aufgetreten: {error}.\nBitte überprüfen Sie die Open WebUI Backend-Protokolle für weitere Details.",
+        "status_failed": "Smart Mind Map: Verarbeitung fehlgeschlagen.",
+        "notification_failed": "Erstellung der Mindmap fehlgeschlagen, {user_name}!",
+        "status_rendering_image": "Smart Mind Map: Bild wird gerendert...",
+        "status_image_generated": "Smart Mind Map: Bild erstellt!",
+        "notification_image_success": "Mindmap-Bild wurde erstellt, {user_name}!",
+        "ui_title": "🧠 Smart Mind Map",
+        "ui_user": "Benutzer:",
+        "ui_time": "Zeit:",
+        "ui_download_png": "PNG",
+        "ui_download_svg": "SVG",
+        "ui_download_md": "Markdown",
+        "ui_zoom_out": "-",
+        "ui_zoom_reset": "Zurücksetzen",
+        "ui_zoom_in": "+",
+        "ui_depth_select": "Ebene erweitern",
+        "ui_depth_all": "Alles erweitern",
+        "ui_depth_2": "Ebene 2",
+        "ui_depth_3": "Ebene 3",
+        "ui_fullscreen": "Vollbild",
+        "ui_theme": "Thema",
+        "ui_footer": "© {year} Smart Mind Map • Markmap",
+        "html_error_missing_content": "⚠️ Mindmap kann nicht geladen werden: Gültiger Inhalt fehlt.",
+        "html_error_load_failed": "⚠️ Ressourcenladen fehlgeschlagen, bitte versuchen Sie es später erneut.",
+        "js_done": "Fertig",
+        "js_failed": "Fehlgeschlagen",
+        "js_generating": "Generiere...",
+        "js_filename": "mindmap.png",
+        "js_upload_failed": "Upload fehlgeschlagen: ",
+        "md_image_alt": "🧠 Mindmap"
+    },
+    "es-ES": {
+        "status_starting": "Smart Mind Map se está iniciando, generando mapa mental para usted...",
+        "error_no_content": "No se puede recuperar el contenido válido del mensaje del usuario.",
+        "error_text_too_short": "El contenido del texto es demasiado corto ({len} caracteres), no se puede realizar un análisis efectivo. Proporcione al menos {min_len} caracteres de texto.",
+        "status_analyzing": "Smart Mind Map: Analizando la estructura del texto en profundidad...",
+        "status_drawing": "Smart Mind Map: ¡Dibujo completado!",
+        "notification_success": "¡El mapa mental ha sido generado, {user_name}!",
+        "error_processing": "Falló el procesamiento de Smart Mind Map: {error}",
+        "error_user_facing": "Lo sentimos, Smart Mind Map encontró un error durante el procesamiento: {error}.\nConsulte los registros del backend de Open WebUI para más detalles.",
+        "status_failed": "Smart Mind Map: Procesamiento fallido.",
+        "notification_failed": "¡La generación del mapa mental falló, {user_name}!",
+        "status_rendering_image": "Smart Mind Map: Renderizando imagen...",
+        "status_image_generated": "Smart Mind Map: ¡Imagen generada!",
+        "notification_image_success": "¡La imagen del mapa mental ha sido generada, {user_name}!",
+        "ui_title": "🧠 Smart Mind Map",
+        "ui_user": "Usuario:",
+        "ui_time": "Hora:",
+        "ui_download_png": "PNG",
+        "ui_download_svg": "SVG",
+        "ui_download_md": "Markdown",
+        "ui_zoom_out": "-",
+        "ui_zoom_reset": "Restablecer",
+        "ui_zoom_in": "+",
+        "ui_depth_select": "Expandir Nivel",
+        "ui_depth_all": "Expandir Todo",
+        "ui_depth_2": "Nivel 2",
+        "ui_depth_3": "Nivel 3",
+        "ui_fullscreen": "Pantalla completa",
+        "ui_theme": "Tema",
+        "ui_footer": "© {year} Smart Mind Map • Markmap",
+        "html_error_missing_content": "⚠️ No se puede cargar el mapa mental: Falta contenido válido.",
+        "html_error_load_failed": "⚠️ Falló la carga de recursos, inténtelo de nuevo más tarde.",
+        "js_done": "Hecho",
+        "js_failed": "Fallido",
+        "js_generating": "Generando...",
+        "js_filename": "mapa_mental.png",
+        "js_upload_failed": "Carga fallida: ",
+        "md_image_alt": "🧠 Mapa Mental"
+    },
+    "it-IT": {
+        "status_starting": "Smart Mind Map si sta avviando, generazione mappa mentale in corso...",
+        "error_no_content": "Impossibile recuperare il contenuto valido del messaggio utente.",
+        "error_text_too_short": "Il testo è troppo breve ({len} caratteri), impossibile eseguire un'analisi efficace. Fornire almeno {min_len} caratteri di testo.",
+        "status_analyzing": "Smart Mind Map: Analisi approfondita della struttura del testo...",
+        "status_drawing": "Smart Mind Map: Disegno completato!",
+        "notification_success": "La mappa mentale è stata generata, {user_name}!",
+        "error_processing": "Elaborazione Smart Mind Map fallita: {error}",
+        "error_user_facing": "Spiacenti, Smart Mind Map ha riscontrato un errore durante l'elaborazione: {error}.\nControllare i log del backend di Open WebUI per ulteriori dettagli.",
+        "status_failed": "Smart Mind Map: Elaborazione fallita.",
+        "notification_failed": "Generazione mappa mentale fallita, {user_name}!",
+        "status_rendering_image": "Smart Mind Map: Rendering immagine...",
+        "status_image_generated": "Smart Mind Map: Immagine generata!",
+        "notification_image_success": "L'immagine della mappa mentale è stata generata, {user_name}!",
+        "ui_title": "🧠 Smart Mind Map",
+        "ui_user": "Utente:",
+        "ui_time": "Ora:",
+        "ui_download_png": "PNG",
+        "ui_download_svg": "SVG",
+        "ui_download_md": "Markdown",
+        "ui_zoom_out": "-",
+        "ui_zoom_reset": "Reimposta",
+        "ui_zoom_in": "+",
+        "ui_depth_select": "Espandi Livello",
+        "ui_depth_all": "Espandi Tutto",
+        "ui_depth_2": "Livello 2",
+        "ui_depth_3": "Livello 3",
+        "ui_fullscreen": "Schermo intero",
+        "ui_theme": "Tema",
+        "ui_footer": "© {year} Smart Mind Map • Markmap",
+        "html_error_missing_content": "⚠️ Impossibile caricare la mappa mentale: Contenuto valido mancante.",
+        "html_error_load_failed": "⚠️ Caricamento risorse fallito, riprovare più tardi.",
+        "js_done": "Fatto",
+        "js_failed": "Fallito",
+        "js_generating": "Generazione...",
+        "js_filename": "mappa_mentale.png",
+        "js_upload_failed": "Caricamento fallito: ",
+        "md_image_alt": "🧠 Mappa Mentale"
+    },
+    "vi-VN": {
+        "status_starting": "Smart Mind Map đang khởi động, đang tạo sơ đồ tư duy cho bạn...",
+        "error_no_content": "Không thể lấy nội dung tin nhắn người dùng hợp lệ.",
+        "error_text_too_short": "Nội dung văn bản quá ngắn ({len} ký tự), không thể thực hiện phân tích hiệu quả. Vui lòng cung cấp ít nhất {min_len} ký tự văn bản.",
+        "status_analyzing": "Smart Mind Map: Phân tích sâu cấu trúc văn bản...",
+        "status_drawing": "Smart Mind Map: Vẽ hoàn tất!",
+        "notification_success": "Sơ đồ tư duy đã được tạo, {user_name}!",
+        "error_processing": "Xử lý Smart Mind Map thất bại: {error}",
+        "error_user_facing": "Xin lỗi, Smart Mind Map đã gặp lỗi trong quá trình xử lý: {error}.\nVui lòng kiểm tra nhật ký backend Open WebUI để biết thêm chi tiết.",
+        "status_failed": "Smart Mind Map: Xử lý thất bại.",
+        "notification_failed": "Tạo sơ đồ tư duy thất bại, {user_name}!",
+        "status_rendering_image": "Smart Mind Map: Đang render hình ảnh...",
+        "status_image_generated": "Smart Mind Map: Hình ảnh đã tạo!",
+        "notification_image_success": "Hình ảnh sơ đồ tư duy đã được tạo, {user_name}!",
+        "ui_title": "🧠 Smart Mind Map",
+        "ui_user": "Người dùng:",
+        "ui_time": "Thời gian:",
+        "ui_download_png": "PNG",
+        "ui_download_svg": "SVG",
+        "ui_download_md": "Markdown",
+        "ui_zoom_out": "-",
+        "ui_zoom_reset": "Đặt lại",
+        "ui_zoom_in": "+",
+        "ui_depth_select": "Mở rộng Cấp độ",
+        "ui_depth_all": "Mở rộng Tất cả",
+        "ui_depth_2": "Cấp độ 2",
+        "ui_depth_3": "Cấp độ 3",
+        "ui_fullscreen": "Toàn màn hình",
+        "ui_theme": "Chủ đề",
+        "ui_footer": "© {year} Smart Mind Map • Markmap",
+        "html_error_missing_content": "⚠️ Không thể tải sơ đồ tư duy: Thiếu nội dung hợp lệ.",
+        "html_error_load_failed": "⚠️ Tải tài nguyên thất bại, vui lòng thử lại sau.",
+        "js_done": "Xong",
+        "js_failed": "Thất bại",
+        "js_generating": "Đang tạo...",
+        "js_filename": "sodo_tuduy.png",
+        "js_upload_failed": "Tải lên thất bại: ",
+        "md_image_alt": "🧠 Sơ đồ Tư duy"
+    },
+    "id-ID": {
+        "status_starting": "Smart Mind Map sedang dimulai, membuat peta pikiran untuk Anda...",
+        "error_no_content": "Tidak dapat mengambil konten pesan pengguna yang valid.",
+        "error_text_too_short": "Konten teks terlalu pendek ({len} karakter), tidak dapat melakukan analisis efektif. Harap berikan setidaknya {min_len} karakter teks.",
+        "status_analyzing": "Smart Mind Map: Menganalisis struktur teks secara mendalam...",
+        "status_drawing": "Smart Mind Map: Menggambar selesai!",
+        "notification_success": "Peta pikiran telah dibuat, {user_name}!",
+        "error_processing": "Pemrosesan Smart Mind Map gagal: {error}",
+        "error_user_facing": "Maaf, Smart Mind Map mengalami kesalahan saat memproses: {error}.\nSilakan periksa log backend Open WebUI untuk detail lebih lanjut.",
+        "status_failed": "Smart Mind Map: Pemrosesan gagal.",
+        "notification_failed": "Pembuatan peta pikiran gagal, {user_name}!",
+        "status_rendering_image": "Smart Mind Map: Merender gambar...",
+        "status_image_generated": "Smart Mind Map: Gambar dibuat!",
+        "notification_image_success": "Gambar peta pikiran telah dibuat, {user_name}!",
+        "ui_title": "🧠 Smart Mind Map",
+        "ui_user": "Pengguna:",
+        "ui_time": "Waktu:",
+        "ui_download_png": "PNG",
+        "ui_download_svg": "SVG",
+        "ui_download_md": "Markdown",
+        "ui_zoom_out": "-",
+        "ui_zoom_reset": "Atur Ulang",
+        "ui_zoom_in": "+",
+        "ui_depth_select": "Perluas Level",
+        "ui_depth_all": "Perluas Semua",
+        "ui_depth_2": "Level 2",
+        "ui_depth_3": "Level 3",
+        "ui_fullscreen": "Layar Penuh",
+        "ui_theme": "Tema",
+        "ui_footer": "© {year} Smart Mind Map • Markmap",
+        "html_error_missing_content": "⚠️ Tidak dapat memuat peta pikiran: Konten valid hilang.",
+        "html_error_load_failed": "⚠️ Gagal memuat sumber daya, silakan coba lagi nanti.",
+        "js_done": "Selesai",
+        "js_failed": "Gagal",
+        "js_generating": "Membuat...",
+        "js_filename": "peta_pikiran.png",
+        "js_upload_failed": "Unggah gagal: ",
+        "md_image_alt": "🧠 Peta Pikiran"
+    }
+}
 
 SYSTEM_PROMPT_MINDMAP_ASSISTANT = """
 You are a professional mind map generation assistant, capable of efficiently analyzing long-form text provided by users and structuring its core themes, key concepts, branches, and sub-branches into standard Markdown list syntax for rendering by Markmap.js.
@@ -51,8 +484,6 @@ Please strictly follow these guidelines:
     ```
 """
 
-import json
-
 USER_PROMPT_GENERATE_MINDMAP = """
 Please analyze the following long-form text and structure its core themes, key concepts, branches, and sub-branches into standard Markdown list syntax for Markmap.js rendering.
 
@@ -72,7 +503,7 @@ User Language: {user_language}
 HTML_WRAPPER_TEMPLATE = """
 <!-- OPENWEBUI_PLUGIN_OUTPUT -->
 <!DOCTYPE html>
-<html lang="{user_language}">
+<html lang="{lang}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -296,54 +727,55 @@ CSS_TEMPLATE_MINDMAP = """
 CONTENT_TEMPLATE_MINDMAP = """
         <div class="mindmap-container-wrapper">
             <div class="header">
-                <h1>🧠 Smart Mind Map</h1>
+                <h1>{t_ui_title}</h1>
             </div>
             <div class="user-context">
-                <span><strong>User:</strong> {user_name}</span>
-                <span><strong>Time:</strong> {current_date_time_str}</span>
+                <span><strong>{t_ui_user}</strong> {user_name}</span>
+                <span><strong>{t_ui_time}</strong> {current_date_time_str}</span>
             </div>
             <div class="content-area">
                 <div class="markmap-container" id="markmap-container-{unique_id}"></div>
                 <div class="control-rows">
                     <div class="btn-group">
                         <button id="download-png-btn-{unique_id}" class="control-btn secondary">
-                            <span class="btn-text">PNG</span>
+                            <span class="btn-text">{t_ui_download_png}</span>
                         </button>
                         <button id="download-svg-btn-{unique_id}" class="control-btn">
-                            <span class="btn-text">SVG</span>
+                            <span class="btn-text">{t_ui_download_svg}</span>
                         </button>
                         <button id="download-md-btn-{unique_id}" class="control-btn neutral">
-                            <span class="btn-text">Markdown</span>
+                            <span class="btn-text">{t_ui_download_md}</span>
                         </button>
                     </div>
                     <div class="btn-group">
-                        <button id="zoom-out-btn-{unique_id}" class="control-btn neutral" title="Zoom Out">-</button>
-                        <button id="zoom-reset-btn-{unique_id}" class="control-btn neutral" title="Reset">Reset</button>
-                        <button id="zoom-in-btn-{unique_id}" class="control-btn neutral" title="Zoom In">+</button>
+                        <button id="zoom-out-btn-{unique_id}" class="control-btn neutral" title="{t_ui_zoom_out}">{t_ui_zoom_out}</button>
+                        <button id="zoom-reset-btn-{unique_id}" class="control-btn neutral" title="{t_ui_zoom_reset}">{t_ui_zoom_reset}</button>
+                        <button id="zoom-in-btn-{unique_id}" class="control-btn neutral" title="{t_ui_zoom_in}">{t_ui_zoom_in}</button>
                     </div>
                     <div class="btn-group">
-                        <select id="depth-select-{unique_id}" class="control-btn secondary" title="Expand Level">
-                            <option value="0" selected>Expand All</option>
-                            <option value="2">Level 2</option>
-                            <option value="3">Level 3</option>
+                        <select id="depth-select-{unique_id}" class="control-btn secondary" title="{t_ui_depth_select}">
+                            <option value="0" selected>{t_ui_depth_all}</option>
+                            <option value="2">{t_ui_depth_2}</option>
+                            <option value="3">{t_ui_depth_3}</option>
                         </select>
-                        <button id="fullscreen-btn-{unique_id}" class="control-btn">Fullscreen</button>
-                        <button id="theme-toggle-btn-{unique_id}" class="control-btn neutral">Theme</button>
+                        <button id="fullscreen-btn-{unique_id}" class="control-btn">{t_ui_fullscreen}</button>
+                        <button id="theme-toggle-btn-{unique_id}" class="control-btn neutral">{t_ui_theme}</button>
                     </div>
                 </div>
             </div>
             <div class="footer">
-                <p>© {current_year} Smart Mind Map • <a href="https://markmap.js.org/" target="_blank">Markmap</a></p>
+                <p>{t_ui_footer}</p>
             </div>
         </div>
         
         <script type="text/template" id="markdown-source-{unique_id}">{markdown_syntax}</script>
 """
 
-SCRIPT_TEMPLATE_MINDMAP = """
+SCRIPT_TEMPLATE_MINDMAP = r"""
     <script>
       (function() {
         const uniqueId = "{unique_id}";
+        const i18n = {i18n_json};
 
         const loadScriptOnce = (src, checkFn) => {
             if (checkFn()) return Promise.resolve();
@@ -448,7 +880,7 @@ SCRIPT_TEMPLATE_MINDMAP = """
 
             const markdownContent = sourceEl.textContent.trim();
             if (!markdownContent) {
-                containerEl.innerHTML = '<div class=\"error-message\">⚠️ Unable to load mind map: Missing valid content.</div>';
+                containerEl.innerHTML = '<div class="error-message">' + i18n.html_error_missing_content + '</div>';
                 return;
             }
 
@@ -490,7 +922,7 @@ SCRIPT_TEMPLATE_MINDMAP = """
 
             }).catch((error) => {
                 console.error('Markmap loading error:', error);
-                containerEl.innerHTML = '<div class=\"error-message\">⚠️ Resource loading failed, please try again later.</div>';
+                containerEl.innerHTML = '<div class="error-message">' + i18n.html_error_load_failed + '</div>';
             });
         };
 
@@ -508,7 +940,7 @@ SCRIPT_TEMPLATE_MINDMAP = """
             const wrapper = containerEl.closest('.mindmap-container-wrapper');
             let currentTheme = setTheme(wrapper);
 
-            const showFeedback = (button, textOk = 'Done', textFail = 'Failed') => {
+            const showFeedback = (button, textOk = i18n.js_done, textFail = i18n.js_failed) => {
                 if (!button) return;
                 const buttonText = button.querySelector('.btn-text') || button;
                 const originalText = buttonText.textContent;
@@ -524,7 +956,7 @@ SCRIPT_TEMPLATE_MINDMAP = """
 
             const copyToClipboard = (content, button) => {
                 if (navigator.clipboard && window.isSecureContext) {
-                    navigator.clipboard.writeText(content).then(() => showFeedback(button), () => showFeedback(button, 'Failed', 'Failed'));
+                    navigator.clipboard.writeText(content).then(() => showFeedback(button), () => showFeedback(button, i18n.js_failed, i18n.js_failed));
                 } else {
                     const textArea = document.createElement('textarea');
                     textArea.value = content;
@@ -537,7 +969,7 @@ SCRIPT_TEMPLATE_MINDMAP = """
                         document.execCommand('copy');
                         showFeedback(button);
                     } catch (err) {
-                        showFeedback(button, 'Failed', 'Failed');
+                        showFeedback(button, i18n.js_failed, i18n.js_failed);
                     }
                     document.body.removeChild(textArea);
                 }
@@ -572,14 +1004,14 @@ SCRIPT_TEMPLATE_MINDMAP = """
             const handleDownloadPNG = () => {
                 const btn = downloadPngBtn;
                 const originalText = btn.querySelector('.btn-text').textContent;
-                btn.querySelector('.btn-text').textContent = 'Generating...';
+                btn.querySelector('.btn-text').textContent = i18n.js_generating;
                 btn.disabled = true;
 
                 const svg = containerEl.querySelector('svg');
                 if (!svg) {
                     btn.querySelector('.btn-text').textContent = originalText;
                     btn.disabled = false;
-                    showFeedback(btn, 'Failed', 'Failed');
+                    showFeedback(btn, i18n.js_failed, i18n.js_failed);
                     return;
                 }
 
@@ -647,13 +1079,13 @@ SCRIPT_TEMPLATE_MINDMAP = """
                             if (!blob) {
                                 btn.querySelector('.btn-text').textContent = originalText;
                                 btn.disabled = false;
-                                showFeedback(btn, 'Failed', 'Failed');
+                                showFeedback(btn, i18n.js_failed, i18n.js_failed);
                                 return;
                             }
                             
                             // Use non-bubbling MouseEvent to avoid router interception
                             const a = document.createElement('a');
-                            a.download = 'mindmap.png';
+                            a.download = i18n.js_filename;
                             a.href = URL.createObjectURL(blob);
                             a.style.display = 'none';
                             document.body.appendChild(a);
@@ -680,7 +1112,7 @@ SCRIPT_TEMPLATE_MINDMAP = """
                         console.error('PNG image load error:', e);
                         btn.querySelector('.btn-text').textContent = originalText;
                         btn.disabled = false;
-                        showFeedback(btn, 'Failed', 'Failed');
+                        showFeedback(btn, i18n.js_failed, i18n.js_failed);
                     };
                     
                     img.src = dataUrl;
@@ -688,7 +1120,7 @@ SCRIPT_TEMPLATE_MINDMAP = """
                     console.error('PNG export error:', err);
                     btn.querySelector('.btn-text').textContent = originalText;
                     btn.disabled = false;
-                    showFeedback(btn, 'Failed', 'Failed');
+                    showFeedback(btn, i18n.js_failed, i18n.js_failed);
                 }
             };
 
@@ -811,6 +1243,72 @@ class Action:
             "Saturday": "Saturday",
             "Sunday": "Sunday",
         }
+        # Fallback mapping for variants not in TRANSLATIONS keys
+        self.fallback_map = {
+            "es-AR": "es-ES",
+            "es-MX": "es-ES",
+            "fr-CA": "fr-FR",
+            "en-CA": "en-US",
+            "en-GB": "en-US",
+            "en-AU": "en-US",
+            "de-AT": "de-DE",
+        }
+
+    def _get_translation(self, lang: str, key: str, **kwargs) -> str:
+        """Get translated string for the given language and key."""
+        target_lang = lang
+
+        # 1. Direct match
+        if target_lang not in TRANSLATIONS:
+            # 2. Variant fallback
+            if target_lang in self.fallback_map:
+                target_lang = self.fallback_map[target_lang]
+            else:
+                # 3. Base language match (e.g. "zh-TW" -> "zh", check if "zh" exists? No, keys are full codes)
+                # But maybe "fr" -> "fr-FR"
+                pass
+
+        # 4. Final Fallback to en-US
+        if target_lang not in TRANSLATIONS:
+            target_lang = "en-US"
+
+        # Retrieve dictionary
+        lang_dict = TRANSLATIONS.get(target_lang, TRANSLATIONS["en-US"])
+
+        # Get string
+        text = lang_dict.get(key, TRANSLATIONS["en-US"].get(key, key))
+
+        # Format if arguments provided
+        if kwargs:
+            try:
+                text = text.format(**kwargs)
+            except Exception as e:
+                logger.warning(f"Translation formatting failed for {key}: {e}")
+
+        return text
+
+    def _format_date(self, lang: str, dt: datetime) -> str:
+        """Format date based on language locale requirements."""
+        # 🇨🇳 CN: YYYY年MM月DD日 HH:mm:ss
+        if lang in ["zh-CN", "zh-HK"]:
+            return dt.strftime("%Y年%m月%d日 %H:%M:%S")
+        # 🇯🇵 JP: YYYY年MM月DD日 HH:mm:ss
+        if lang == "ja-JP":
+            return dt.strftime("%Y年%m月%d日 %H:%M:%S")
+        # 🇰🇷 KR: YYYY년 MM월 DD일 HH:mm:ss
+        if lang == "ko-KR":
+            return dt.strftime("%Y년 %m월 %d일 %H:%M:%S")
+        # 🇩🇪 DE: DD.MM.YYYY HH:mm:ss (also AT)
+        if lang in ["de-DE", "de-AT"]:
+            return dt.strftime("%d.%m.%Y %H:%M:%S")
+        # 🇬🇧 GB: DD/MM/YYYY HH:mm:ss (also AU)
+        if lang in ["en-GB", "en-AU", "en-NZ"]:
+            return dt.strftime("%d/%m/%Y %H:%M:%S")
+        # 🇫🇷 FR, 🇪🇸 ES, 🇮🇹 IT, 🇻🇳 VN, 🇮🇩 ID: DD/MM/YYYY HH:mm:ss
+        if lang in ["fr-FR", "fr-CA", "es-ES", "es-AR", "es-MX", "it-IT", "vi-VN", "id-ID"]:
+            return dt.strftime("%d/%m/%Y %H:%M:%S")
+        # 🇺🇸 US: MM/DD/YYYY hh:mm:ss AM/PM (Default)
+        return dt.strftime("%m/%d/%Y %I:%M:%S %p")
 
     async def _get_user_context(
         self,
@@ -827,8 +1325,10 @@ class Action:
 
         user_id = user_data.get("id", "unknown_user")
         user_name = user_data.get("name", "User")
+        # Default from profile
         user_language = user_data.get("language", "en-US")
 
+        # Priority: LocalStorage (Frontend) > Browser > Profile (Default)
         if __event_call__:
             try:
                 js_code = """
@@ -932,24 +1432,6 @@ class Action:
         except Exception as e:
             print(f"Error emitting debug log: {e}")
 
-    async def _emit_debug_log(self, emitter, title: str, data: dict):
-        """Print structured debug logs in the browser console"""
-        if not self.valves.SHOW_DEBUG_LOG or not emitter:
-            return
-
-        try:
-            js_code = f"""
-                (async function() {{
-                    console.group("🛠️ {title}");
-                    console.log({json.dumps(data, ensure_ascii=False)});
-                    console.groupEnd();
-                }})();
-            """
-
-            await emitter({"type": "execute", "data": {"code": js_code}})
-        except Exception as e:
-            print(f"Error emitting debug log: {e}")
-
     def _remove_existing_html(self, content: str) -> str:
         """Removes existing plugin-generated HTML code blocks from the content."""
         pattern = r"```html\s*<!-- OPENWEBUI_PLUGIN_OUTPUT -->[\s\S]*?```"
@@ -989,7 +1471,7 @@ class Action:
             base_html = re.sub(r"^```html\s*", "", base_html)
             base_html = re.sub(r"\s*```$", "", base_html)
         else:
-            base_html = HTML_WRAPPER_TEMPLATE.replace("{user_language}", user_language)
+            base_html = HTML_WRAPPER_TEMPLATE.replace("{lang}", user_language)
 
         wrapped_content = f'<div class="plugin-item">\n{new_content}\n</div>'
 
@@ -1018,6 +1500,7 @@ class Action:
         chat_id: str,
         message_id: str,
         markdown_syntax: str,
+        lang: str,
     ) -> str:
         """Generate JavaScript code for frontend SVG rendering and image embedding"""
 
@@ -1029,18 +1512,34 @@ class Action:
             .replace("</script>", "<\\/script>")
         )
 
+        # Prepare i18n for this specific context
+        i18n_data = {}
+        target_lang = lang
+        if target_lang not in TRANSLATIONS and target_lang in self.fallback_map:
+             target_lang = self.fallback_map[target_lang]
+        if target_lang not in TRANSLATIONS:
+             target_lang = "en-US"
+
+        full_trans = TRANSLATIONS.get(target_lang, TRANSLATIONS["en-US"])
+        # We only need specific keys for the JS image generation part
+        keys = ["js_upload_failed", "md_image_alt"]
+        for k in keys:
+            i18n_data[k] = full_trans.get(k, TRANSLATIONS["en-US"].get(k, k))
+
+        i18n_json = json.dumps(i18n_data, ensure_ascii=False)
+
         return f"""
 (async function() {{
     const uniqueId = "{unique_id}";
     const chatId = "{chat_id}";
     const messageId = "{message_id}";
+    const i18n = {i18n_json};
     const defaultWidth = 1200;
     const defaultHeight = 800;
     
-    // Theme detection - check parent document for OpenWebUI theme
+    // Theme detection ... (Same as before)
     const detectTheme = () => {{
         try {{
-            // 1. Check parent document's html/body class or data-theme
             const html = document.documentElement;
             const body = document.body;
             const htmlClass = html ? html.className : '';
@@ -1053,8 +1552,6 @@ class Action:
             if (htmlDataTheme === 'light' || bodyClass.includes('light') || htmlClass.includes('light')) {{
                 return 'light';
             }}
-            
-            // 2. Check meta theme-color
             const metas = document.querySelectorAll('meta[name="theme-color"]');
             if (metas.length > 0) {{
                 const color = metas[metas.length - 1].content.trim();
@@ -1068,12 +1565,9 @@ class Action:
                     return luma < 0.5 ? 'dark' : 'light';
                 }}
             }}
-            
-            // 3. Check system preference
             if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {{
                 return 'dark';
             }}
-            
             return 'light';
         }} catch (e) {{
             return 'light';
@@ -1083,7 +1577,6 @@ class Action:
     const currentTheme = detectTheme();
     console.log("[MindMap Image] Detected theme:", currentTheme);
     
-    // Theme-based colors
     const colors = currentTheme === 'dark' ? {{
         background: '#1f2937',
         text: '#e5e7eb',
@@ -1096,28 +1589,19 @@ class Action:
         nodeStroke: '#94a3b8'
     }};
     
-    // Auto-detect chat container width for responsive sizing
     let svgWidth = defaultWidth;
     let svgHeight = defaultHeight;
     const chatContainer = document.getElementById('chat-container');
     if (chatContainer) {{
         const containerWidth = chatContainer.clientWidth;
         if (containerWidth > 100) {{
-            // Use container width with some padding (90% of container)
             svgWidth = Math.floor(containerWidth * 0.9);
-            // Maintain aspect ratio based on default dimensions
             svgHeight = Math.floor(svgWidth * (defaultHeight / defaultWidth));
-            console.log("[MindMap Image] Auto-detected container width:", containerWidth, "-> SVG:", svgWidth, "x", svgHeight);
         }}
     }}
     
-    console.log("[MindMap Image] Starting render...");
-    console.log("[MindMap Image] chatId:", chatId, "messageId:", messageId);
-    
     try {{
-        // Load D3 if not loaded
         if (typeof d3 === 'undefined') {{
-            console.log("[MindMap Image] Loading D3...");
             await new Promise((resolve, reject) => {{
                 const script = document.createElement('script');
                 script.src = 'https://cdn.jsdelivr.net/npm/d3@7';
@@ -1127,9 +1611,7 @@ class Action:
             }});
         }}
         
-        // Load markmap-lib if not loaded
         if (!window.markmap || !window.markmap.Transformer) {{
-            console.log("[MindMap Image] Loading markmap-lib...");
             await new Promise((resolve, reject) => {{
                 const script = document.createElement('script');
                 script.src = 'https://cdn.jsdelivr.net/npm/markmap-lib@0.17';
@@ -1139,9 +1621,7 @@ class Action:
             }});
         }}
         
-        // Load markmap-view if not loaded
         if (!window.markmap || !window.markmap.Markmap) {{
-            console.log("[MindMap Image] Loading markmap-view...");
             await new Promise((resolve, reject) => {{
                 const script = document.createElement('script');
                 script.src = 'https://cdn.jsdelivr.net/npm/markmap-view@0.17';
@@ -1153,17 +1633,13 @@ class Action:
         
         const {{ Transformer, Markmap }} = window.markmap;
         
-        // Get markdown syntax
         let syntaxContent = `{syntax_escaped}`;
-        console.log("[MindMap Image] Syntax length:", syntaxContent.length);
         
-        // Create offscreen container
         const container = document.createElement('div');
         container.id = 'mindmap-offscreen-' + uniqueId;
         container.style.cssText = 'position:absolute;left:-9999px;top:-9999px;width:' + svgWidth + 'px;height:' + svgHeight + 'px;';
         document.body.appendChild(container);
         
-        // Create SVG element
         const svgEl = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
         svgEl.setAttribute('width', svgWidth);
         svgEl.setAttribute('height', svgHeight);
@@ -1172,11 +1648,9 @@ class Action:
         svgEl.style.backgroundColor = colors.background;
         container.appendChild(svgEl);
         
-        // Transform markdown to tree
         const transformer = new Transformer();
         const {{ root }} = transformer.transform(syntaxContent);
         
-        // Create markmap instance
         const options = {{
             autoFit: true,
             initialExpandLevel: Infinity,
@@ -1184,27 +1658,22 @@ class Action:
             pan: false
         }};
         
-        console.log("[MindMap Image] Rendering markmap...");
         const markmapInstance = Markmap.create(svgEl, options, root);
         
-        // Wait for render to complete
         await new Promise(resolve => setTimeout(resolve, 1500));
         markmapInstance.fit();
         await new Promise(resolve => setTimeout(resolve, 500));
         
-        // Clone and prepare SVG for export
         const clonedSvg = svgEl.cloneNode(true);
         clonedSvg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
         clonedSvg.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
         
-        // Add background rect with theme color
         const bgRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
         bgRect.setAttribute('width', '100%');
         bgRect.setAttribute('height', '100%');
         bgRect.setAttribute('fill', colors.background);
         clonedSvg.insertBefore(bgRect, clonedSvg.firstChild);
         
-        // Add inline styles with theme colors
         const style = document.createElementNS('http://www.w3.org/2000/svg', 'style');
         style.textContent = `
             text {{ font-family: sans-serif; font-size: 14px; fill: ${{colors.text}}; }}
@@ -1217,7 +1686,6 @@ class Action:
         `;
         clonedSvg.insertBefore(style, bgRect.nextSibling);
         
-        // Convert foreignObject to text for better compatibility
         const foreignObjects = clonedSvg.querySelectorAll('foreignObject');
         foreignObjects.forEach(fo => {{
             const text = fo.textContent || '';
@@ -1233,18 +1701,13 @@ class Action:
             fo.parentNode.replaceChild(g, fo);
         }});
         
-        // Serialize SVG to string
         const svgData = new XMLSerializer().serializeToString(clonedSvg);
         
-        // Cleanup container
         document.body.removeChild(container);
         
-        // Convert SVG string to Blob
         const blob = new Blob([svgData], {{ type: 'image/svg+xml' }});
         const file = new File([blob], `mindmap-${{uniqueId}}.svg`, {{ type: 'image/svg+xml' }});
         
-        // Upload file to OpenWebUI API
-        console.log("[MindMap Image] Uploading SVG file...");
         const token = localStorage.getItem("token");
         const formData = new FormData();
         formData.append('file', file);
@@ -1258,29 +1721,22 @@ class Action:
         }});
         
         if (!uploadResponse.ok) {{
-            throw new Error(`Upload failed: ${{uploadResponse.statusText}}`);
+            throw new Error(i18n.js_upload_failed + uploadResponse.statusText);
         }}
         
         const fileData = await uploadResponse.json();
         const fileId = fileData.id;
         const imageUrl = `/api/v1/files/${{fileId}}/content`;
         
-        console.log("[MindMap Image] File uploaded, ID:", fileId);
+        const markdownImage = `![${{i18n.md_image_alt}}](${{imageUrl}})`;
         
-        // Generate markdown image with file URL
-        const markdownImage = `![🧠 Mind Map](${{imageUrl}})`;
-        
-        // Update message via API
         if (chatId && messageId) {{
-            
-            // Helper function with retry logic
             const fetchWithRetry = async (url, options, retries = 3) => {{
                 for (let i = 0; i < retries; i++) {{
                     try {{
                         const response = await fetch(url, options);
                         if (response.ok) return response;
                         if (i < retries - 1) {{
-                            console.log(`[MindMap Image] Retry ${{i + 1}}/${{retries}} for ${{url}}`);
                             await new Promise(r => setTimeout(r, 1000 * (i + 1)));
                         }}
                     }} catch (e) {{
@@ -1291,7 +1747,6 @@ class Action:
                 return null;
             }};
             
-            // Get current chat data
             const getResponse = await fetch(`/api/v1/chats/${{chatId}}`, {{
                 method: "GET",
                 headers: {{ "Authorization": `Bearer ${{token}}` }}
@@ -1309,15 +1764,11 @@ class Action:
                 updatedMessages = chatData.chat.messages.map(m => {{
                     if (m.id === messageId) {{
                         const originalContent = m.content || "";
-                        // Remove existing mindmap images (both base64 and file URL patterns)
-                        const mindmapPattern = /\\n*!\\[🧠[^\\]]*\\]\\((?:data:image\\/[^)]+|(?:\\/api\\/v1\\/files\\/[^)]+))\\)/g;
+                        const mindmapPattern = /\\n*!\\[[^[\\]]*\\]\\((?:data:image\\/[^)]+|(?:\\/api\\/v1\\/files\\/[^)]+))\\)/g;
                         let cleanedContent = originalContent.replace(mindmapPattern, "");
                         cleanedContent = cleanedContent.replace(/\\n{{3,}}/g, "\\n\\n").trim();
-                        // Append new image
                         newContent = cleanedContent + "\\n\\n" + markdownImage;
                         
-                        // Critical: Update content in both messages array AND history object
-                        // The history object is the source of truth for the database
                         if (chatData.chat.history && chatData.chat.history.messages) {{
                             if (chatData.chat.history.messages[messageId]) {{
                                 chatData.chat.history.messages[messageId].content = newContent;
@@ -1331,11 +1782,9 @@ class Action:
             }}
             
             if (!newContent) {{
-                console.warn("[MindMap Image] Could not find message to update");
                 return;
             }}
             
-            // Try to update frontend display via event API (optional, may not exist in all versions)
             try {{
                 await fetch(`/api/v1/chats/${{chatId}}/messages/${{messageId}}/event`, {{
                     method: "POST",
@@ -1349,21 +1798,16 @@ class Action:
                     }})
                 }});
             }} catch (eventErr) {{
-                // Event API is optional, continue with persistence
-                console.log("[MindMap Image] Event API not available, continuing...");
             }}
             
-            // Persist to database by updating the entire chat object
-            // This follows the OpenWebUI Backend-Controlled API Flow
             const updatePayload = {{
                 chat: {{
                     ...chatData.chat,
                     messages: updatedMessages
-                    // history is already updated in-place above
                 }}
             }};
             
-            const persistResponse = await fetchWithRetry(`/api/v1/chats/${{chatId}}`, {{
+            await fetchWithRetry(`/api/v1/chats/${{chatId}}`, {{
                 method: "POST",
                 headers: {{
                     "Content-Type": "application/json",
@@ -1371,14 +1815,6 @@ class Action:
                 }},
                 body: JSON.stringify(updatePayload)
             }});
-            
-            if (persistResponse && persistResponse.ok) {{
-                console.log("[MindMap Image] ✅ Message persisted successfully!");
-            }} else {{
-                console.error("[MindMap Image] ❌ Failed to persist message after retries");
-            }}
-        }} else {{
-            console.warn("[MindMap Image] ⚠️ Missing chatId or messageId, cannot persist");
         }}
         
     }} catch (error) {{
@@ -1396,7 +1832,7 @@ class Action:
         __metadata__: Optional[dict] = None,
         __request__: Optional[Request] = None,
     ) -> Optional[dict]:
-        logger.info("Action: Smart Mind Map (v0.9.2) started")
+        logger.info("Action: Smart Mind Map (v0.9.3) started")
         user_ctx = await self._get_user_context(__user__, __event_call__)
         user_language = user_ctx["user_language"]
         user_name = user_ctx["user_name"]
@@ -1406,28 +1842,35 @@ class Action:
             tz_env = os.environ.get("TZ")
             tzinfo = ZoneInfo(tz_env) if tz_env else None
             now_dt = datetime.now(tzinfo or timezone.utc)
-            current_date_time_str = now_dt.strftime("%B %d, %Y %H:%M:%S")
+
+            # Localize date time
+            current_date_time_str = self._format_date(user_language, now_dt)
+
             current_weekday_en = now_dt.strftime("%A")
+            # We don't have weekday map for all languages, so use English or simple fallback?
+            # Or just ignore it as it is used in prompt only.
+            # I will keep English weekday for the LLM prompt.
             current_weekday_zh = self.weekday_map.get(current_weekday_en, "Unknown")
+
             current_year = now_dt.strftime("%Y")
             current_timezone_str = tz_env or "UTC"
         except Exception as e:
             logger.warning(f"Failed to get timezone info: {e}, using default values.")
             now = datetime.now()
-            current_date_time_str = now.strftime("%B %d, %Y %H:%M:%S")
+            current_date_time_str = now.strftime("%Y-%m-%d %H:%M:%S")
             current_weekday_zh = "Unknown"
             current_year = now.strftime("%Y")
             current_timezone_str = "Unknown"
 
         await self._emit_notification(
             __event_emitter__,
-            "Smart Mind Map is starting, generating mind map for you...",
+            self._get_translation(user_language, "status_starting"),
             "info",
         )
 
         messages = body.get("messages")
         if not messages or not isinstance(messages, list):
-            error_message = "Unable to retrieve valid user message content."
+            error_message = self._get_translation(user_language, "error_no_content")
             await self._emit_notification(__event_emitter__, error_message, "error")
             return {
                 "messages": [{"role": "assistant", "content": f"❌ {error_message}"}]
@@ -1442,16 +1885,10 @@ class Action:
         for i, msg in enumerate(recent_messages, 1):
             text_content = self._extract_text_content(msg.get("content"))
             if text_content:
-                role = msg.get("role", "unknown")
-                role_label = (
-                    "User"
-                    if role == "user"
-                    else "Assistant" if role == "assistant" else role
-                )
                 aggregated_parts.append(f"{text_content}")
 
         if not aggregated_parts:
-            error_message = "Unable to retrieve valid user message content."
+            error_message = self._get_translation(user_language, "error_no_content")
             await self._emit_notification(__event_emitter__, error_message, "error")
             return {
                 "messages": [{"role": "assistant", "content": f"❌ {error_message}"}]
@@ -1471,7 +1908,12 @@ class Action:
             long_text_content = original_content.strip()
 
         if len(long_text_content) < self.valves.MIN_TEXT_LENGTH:
-            short_text_message = f"Text content is too short ({len(long_text_content)} characters), unable to perform effective analysis. Please provide at least {self.valves.MIN_TEXT_LENGTH} characters of text."
+            short_text_message = self._get_translation(
+                user_language,
+                "error_text_too_short",
+                len=len(long_text_content),
+                min_len=self.valves.MIN_TEXT_LENGTH
+            )
             await self._emit_notification(
                 __event_emitter__, short_text_message, "warning"
             )
@@ -1483,7 +1925,7 @@ class Action:
 
         await self._emit_status(
             __event_emitter__,
-            "Smart Mind Map: Analyzing text structure in depth...",
+            self._get_translation(user_language, "status_analyzing"),
             False,
         )
 
@@ -1534,15 +1976,44 @@ class Action:
             markdown_syntax = self._extract_markdown_syntax(assistant_response_content)
 
             # Prepare content components
+            # Resolve translations for UI
+            ui_trans = {}
+            target_lang = user_language
+            if target_lang not in TRANSLATIONS and target_lang in self.fallback_map:
+                 target_lang = self.fallback_map[target_lang]
+            if target_lang not in TRANSLATIONS:
+                 target_lang = "en-US"
+
+            full_trans = TRANSLATIONS.get(target_lang, TRANSLATIONS["en-US"])
+            for k in full_trans:
+                if k.startswith("ui_"):
+                    # For ui_footer which has {year}
+                    if k == "ui_footer":
+                        ui_trans[f"t_{k}"] = full_trans[k].format(year=current_year)
+                    else:
+                        ui_trans[f"t_{k}"] = full_trans[k]
+
             content_html = (
-                CONTENT_TEMPLATE_MINDMAP.replace("{unique_id}", unique_id)
-                .replace("{user_name}", user_name)
-                .replace("{current_date_time_str}", current_date_time_str)
-                .replace("{current_year}", current_year)
-                .replace("{markdown_syntax}", markdown_syntax)
+                CONTENT_TEMPLATE_MINDMAP.format(
+                    unique_id=unique_id,
+                    user_name=user_name,
+                    current_date_time_str=current_date_time_str,
+                    markdown_syntax=markdown_syntax,
+                    **ui_trans
+                )
             )
 
-            script_html = SCRIPT_TEMPLATE_MINDMAP.replace("{unique_id}", unique_id)
+            # Prepare JS i18n
+            js_trans = {}
+            for k in full_trans:
+                if k.startswith("js_") or k.startswith("html_"):
+                    js_trans[k] = full_trans[k]
+
+            script_html = SCRIPT_TEMPLATE_MINDMAP.replace(
+                "{unique_id}", unique_id
+            ).replace(
+                "{i18n_json}", json.dumps(js_trans, ensure_ascii=False)
+            )
 
             # Extract existing HTML if any
             existing_html_block = ""
@@ -1587,7 +2058,7 @@ class Action:
 
                 await self._emit_status(
                     __event_emitter__,
-                    "Smart Mind Map: Rendering image...",
+                    self._get_translation(user_language, "status_rendering_image"),
                     False,
                 )
 
@@ -1597,6 +2068,7 @@ class Action:
                         chat_id=chat_id,
                         message_id=message_id,
                         markdown_syntax=markdown_syntax,
+                        lang=user_language,
                     )
 
                     await __event_call__(
@@ -1607,14 +2079,14 @@ class Action:
                     )
 
                 await self._emit_status(
-                    __event_emitter__, "Smart Mind Map: Image generated!", True
+                    __event_emitter__, self._get_translation(user_language, "status_image_generated"), True
                 )
                 await self._emit_notification(
                     __event_emitter__,
-                    f"Mind map image has been generated, {user_name}!",
+                    self._get_translation(user_language, "notification_image_success", user_name=user_name),
                     "success",
                 )
-                logger.info("Action: Smart Mind Map (v0.9.1) completed in image mode")
+                logger.info("Action: Smart Mind Map (v0.9.3) completed in image mode")
                 return body
 
             # HTML mode (default): embed as HTML block
@@ -1622,29 +2094,30 @@ class Action:
             body["messages"][-1]["content"] = f"{long_text_content}\n\n{html_embed_tag}"
 
             await self._emit_status(
-                __event_emitter__, "Smart Mind Map: Drawing completed!", True
+                __event_emitter__, self._get_translation(user_language, "status_drawing"), True
             )
             await self._emit_notification(
                 __event_emitter__,
-                f"Mind map has been generated, {user_name}!",
+                self._get_translation(user_language, "notification_success", user_name=user_name),
                 "success",
             )
-            logger.info("Action: Smart Mind Map (v0.9.1) completed in HTML mode")
+            logger.info("Action: Smart Mind Map (v0.9.3) completed in HTML mode")
 
         except Exception as e:
             error_message = f"Smart Mind Map processing failed: {str(e)}"
             logger.error(f"Smart Mind Map error: {error_message}", exc_info=True)
-            user_facing_error = f"Sorry, Smart Mind Map encountered an error during processing: {str(e)}.\nPlease check the Open WebUI backend logs for more details."
+            user_facing_error = self._get_translation(user_language, "error_user_facing", error=str(e))
+
             body["messages"][-1][
                 "content"
             ] = f"{long_text_content}\n\n❌ **Error:** {user_facing_error}"
 
             await self._emit_status(
-                __event_emitter__, "Smart Mind Map: Processing failed.", True
+                __event_emitter__, self._get_translation(user_language, "status_failed"), True
             )
             await self._emit_notification(
                 __event_emitter__,
-                f"Smart Mind Map generation failed, {user_name}!",
+                self._get_translation(user_language, "notification_failed", user_name=user_name),
                 "error",
             )
 
