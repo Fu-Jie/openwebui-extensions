@@ -1,6 +1,6 @@
 # GitHub Copilot SDK Plugin Deep Dive
 
-**Version:** 0.6.0 | **Author:** [Fu-Jie](https://github.com/Fu-Jie/awesome-openwebui) | **Status:** Production-Ready
+**Version:** 0.6.0 | **Author:** [Fu-Jie](https://github.com/Fu-Jie/openwebui-extensions) | **Status:** Production-Ready
 
 The GitHub Copilot SDK plugin is far more than a simple API proxy; it is a highly integrated **Intelligent Agent Runtime Environment**. This document explores the core features, implementation details, technical architecture, and security design that define its capabilities.
 

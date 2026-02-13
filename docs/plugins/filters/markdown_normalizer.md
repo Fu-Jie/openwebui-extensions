@@ -47,7 +47,7 @@ A content normalizer filter for Open WebUI that fixes common Markdown formatting
 
 ## Troubleshooting ❓
 
-* **Submit an Issue**: If you encounter any problems, please submit an issue on GitHub: [Awesome OpenWebUI Issues](https://github.com/Fu-Jie/awesome-openwebui/issues)
+* **Submit an Issue**: If you encounter any problems, please submit an issue on GitHub: [OpenWebUI Extensions Issues](https://github.com/Fu-Jie/openwebui-extensions/issues)
 
 ## Changelog
 

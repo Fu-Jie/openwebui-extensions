@@ -1,7 +1,7 @@
 """
 title: UI Language Debugger
 author: Fu-Jie
-author_url: https://github.com/Fu-Jie/awesome-openwebui
+author_url: https://github.com/Fu-Jie/openwebui-extensions
 funding_url: https://github.com/open-webui
 version: 0.1.0
 icon_url: data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPgogIDxwYXRoIGQ9Im01IDggNiA2Ii8+CiAgPHBhdGggZD0ibTQgMTQgNi02IDItMiIvPgogIDxwYXRoIGQ9Ik0yIDVoMTIiLz4KICA8cGF0aCBkPSJNNyAyaDEiLz4KICA8cGF0aCBkPSJtMjIgMjItNS0xMC01IDEwIi8+CiAgPHBhdGggZD0iTTE0IDE4aDYiLz4KPC9zdmc+Cg==

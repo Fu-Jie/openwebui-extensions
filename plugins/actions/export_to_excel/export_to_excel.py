@@ -1,7 +1,7 @@
 """
 title: Export to Excel
 author: Fu-Jie
-author_url: https://github.com/Fu-Jie/awesome-openwebui
+author_url: https://github.com/Fu-Jie/openwebui-extensions
 funding_url: https://github.com/open-webui
 version: 0.3.7
 openwebui_id: 244b8f9d-7459-47d6-84d3-c7ae8e3ec710

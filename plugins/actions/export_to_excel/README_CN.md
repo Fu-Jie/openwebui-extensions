@@ -1,6 +1,6 @@
 # 📊 导出为 Excel
 
-**作者:** [Fu-Jie](https://github.com/Fu-Jie/awesome-openwebui) | **版本:** 0.3.6 | **项目:** [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui) | **许可证:** MIT
+**作者:** [Fu-Jie](https://github.com/Fu-Jie/openwebui-extensions) | **版本:** 0.3.6 | **项目:** [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions) | **许可证:** MIT
 
 将对话历史直接导出为 Excel (.xlsx) 文件。
 
@@ -42,18 +42,18 @@
 
 ## ⭐ 支持
 
-如果这个插件对你有帮助，欢迎到 [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui) 点个 Star，这将是我持续改进的动力，感谢支持。
+如果这个插件对你有帮助，欢迎到 [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions) 点个 Star，这将是我持续改进的动力，感谢支持。
 
 ## 故障排除 (Troubleshooting) ❓
 
 - **插件不工作？**: 请检查是否在模型设置中启用了该过滤器/动作。
 - **调试日志**: 如需排查，启用 `SHOW_STATUS` 并查看浏览器控制台 (F12)。
 - **错误信息**: 如果看到错误，请复制完整的错误信息并报告。
-- **提交 Issue**: 如果遇到任何问题，请在 GitHub 上提交 Issue：[Awesome OpenWebUI Issues](https://github.com/Fu-Jie/awesome-openwebui/issues)
+- **提交 Issue**: 如果遇到任何问题，请在 GitHub 上提交 Issue：[OpenWebUI Extensions Issues](https://github.com/Fu-Jie/openwebui-extensions/issues)
 
 ## 更新日志
 
-完整历史请查看 GitHub 项目： [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui)# 导出为 Excel
+完整历史请查看 GitHub 项目： [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions)# 导出为 Excel
 
 此插件允许你直接从聊天界面将对话历史导出为 Excel (.xlsx) 文件。
 
@@ -93,7 +93,7 @@
 ## 作者
 
 Fu-Jie
-GitHub: [Fu-Jie/awesome-openwebui](https://github.com/Fu-Jie/awesome-openwebui)
+GitHub: [Fu-Jie/openwebui-extensions](https://github.com/Fu-Jie/openwebui-extensions)
 
 ## 许可证
 

@@ -47,7 +47,7 @@ The Export to Excel plugin allows you to download your chat conversations as Exc
 
 ## Installation
 
-1. Download the plugin file: [`export_to_excel.py`](https://github.com/Fu-Jie/awesome-openwebui/tree/main/plugins/actions/export_to_excel)
+1. Download the plugin file: [`export_to_excel.py`](https://github.com/Fu-Jie/openwebui-extensions/tree/main/plugins/actions/export_to_excel)
 2. Upload to OpenWebUI: **Admin Panel** → **Settings** → **Functions**
 3. Enable the plugin
 
@@ -84,4 +84,4 @@ The exported Excel file contains:
 
 ## Source Code
 
-[:fontawesome-brands-github: View on GitHub](https://github.com/Fu-Jie/awesome-openwebui/tree/main/plugins/actions/export_to_excel){ .md-button }
+[:fontawesome-brands-github: View on GitHub](https://github.com/Fu-Jie/openwebui-extensions/tree/main/plugins/actions/export_to_excel){ .md-button }

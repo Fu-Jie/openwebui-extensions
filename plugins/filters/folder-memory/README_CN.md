@@ -1,6 +1,6 @@
 # 文件夹记忆 (Folder Memory)
 
-**作者:** [Fu-Jie](https://github.com/Fu-Jie/awesome-openwebui) | **版本:** 0.1.0 | **项目:** [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui) | **许可证:** MIT
+**作者:** [Fu-Jie](https://github.com/Fu-Jie/openwebui-extensions) | **版本:** 0.1.0 | **项目:** [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions) | **许可证:** MIT
 
 **文件夹记忆 (Folder Memory)** 是一个 OpenWebUI 的智能上下文过滤器插件。它能自动从文件夹内的对话中提取一致性的“项目规则”，并将其回写到文件夹的系统提示词中。
 
@@ -40,11 +40,11 @@
 
 ## ⭐ 支持
 
-如果这个插件对你有帮助，欢迎到 [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui) 点个 Star，这将是我持续改进的动力，感谢支持。
+如果这个插件对你有帮助，欢迎到 [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions) 点个 Star，这将是我持续改进的动力，感谢支持。
 
 ## 🛠️ 工作原理
 
-![Folder Memory Demo](https://raw.githubusercontent.com/Fu-Jie/awesome-openwebui/main/plugins/filters/folder-memory/folder-memory-demo.png)
+![Folder Memory Demo](https://raw.githubusercontent.com/Fu-Jie/openwebui-extensions/main/plugins/filters/folder-memory/folder-memory-demo.png)
 
 1. **触发**：当对话达到 `MESSAGE_TRIGGER_COUNT`（例如 10、20 条消息）时。
 2. **分析**：插件将最近的对话 + 现有规则发送给 LLM。
@@ -62,4 +62,4 @@
 
 ## 更新日志
 
-完整历史请查看 GitHub 项目： [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui)
+完整历史请查看 GitHub 项目： [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions)

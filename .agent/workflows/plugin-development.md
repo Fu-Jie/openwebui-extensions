@@ -105,8 +105,8 @@ Reference: `.github/workflows/release.yml`
     - **Auto-Sync**: If a local plugin has no ID but matches an existing published plugin by **Title**, the script will automatically fetch the ID, update the local file, and proceed with the update.
     - Requirement: `OPENWEBUI_API_KEY` secret must be set.
     - **README Link**: When announcing a release, always include the GitHub README URL for the plugin:
-      - Format: `https://github.com/Fu-Jie/awesome-openwebui/blob/main/plugins/{type}/{name}/README.md`
-      - Example: `https://github.com/Fu-Jie/awesome-openwebui/blob/main/plugins/filters/folder-memory/README.md`
+      - Format: `https://github.com/Fu-Jie/openwebui-extensions/blob/main/plugins/{type}/{name}/README.md`
+      - Example: `https://github.com/Fu-Jie/openwebui-extensions/blob/main/plugins/filters/folder-memory/README.md`
 
 ### Release Content Standard
 

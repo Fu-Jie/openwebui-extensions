@@ -2,7 +2,7 @@
 
 Generate polished learning flashcards from any text—title, summary, key points, tags, and category—ready for review and sharing.
 
-**Author:** [Fu-Jie](https://github.com/Fu-Jie/awesome-openwebui) | **Version:** 0.2.4 | **Project:** [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui) | **License:** MIT
+**Author:** [Fu-Jie](https://github.com/Fu-Jie/openwebui-extensions) | **Version:** 0.2.4 | **Project:** [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions) | **License:** MIT
 
 ## What's New
 
@@ -38,14 +38,14 @@ Generate polished learning flashcards from any text—title, summary, key points
 
 ## ⭐ Support
 
-If this plugin has been useful, a star on [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui) is a big motivation for me. Thank you for the support.
+If this plugin has been useful, a star on [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions) is a big motivation for me. Thank you for the support.
 
 ## Troubleshooting ❓
 
 - **Plugin not working?**: Check if the filter/action is enabled in the model settings.
 - **Debug Logs**: Enable `SHOW_STATUS` in Valves to see progress updates.
 - **Error Messages**: If you see an error, please copy the full error message and report it.
-- **Submit an Issue**: If you encounter any problems, please submit an issue on GitHub: [Awesome OpenWebUI Issues](https://github.com/Fu-Jie/awesome-openwebui/issues)
+- **Submit an Issue**: If you encounter any problems, please submit an issue on GitHub: [OpenWebUI Extensions Issues](https://github.com/Fu-Jie/openwebui-extensions/issues)
 
 ## Preview 📸
 
@@ -53,4 +53,4 @@ If this plugin has been useful, a star on [Awesome OpenWebUI](https://github.com
 
 ## Changelog
 
-See the full history on GitHub: [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui)
+See the full history on GitHub: [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions)

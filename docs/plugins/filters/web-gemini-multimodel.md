@@ -25,7 +25,7 @@ This plugin enables multimodal processing for any model by leveraging Gemini as 
 
 ## Installation
 
-1. Download the plugin file: [`web_gemini_multimodel.py`](https://github.com/Fu-Jie/awesome-openwebui/tree/main/plugins/filters/web_gemini_multimodel_filter)
+1. Download the plugin file: [`web_gemini_multimodel.py`](https://github.com/Fu-Jie/openwebui-extensions/tree/main/plugins/filters/web_gemini_multimodel_filter)
 2. Upload to OpenWebUI: **Admin Panel** → **Settings** → **Functions**
 3. Configure the Gemini Adapter URL and other settings.
 4. Enable the filter globally or per chat.

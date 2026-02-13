@@ -22,7 +22,7 @@ Context Enhancement 过滤器会自动为会话补充必要的上下文，使模
 
 ## 安装
 
-1. 下载插件文件：[`context_enhancement_filter.py`](https://github.com/Fu-Jie/awesome-openwebui/tree/main/plugins/filters/context_enhancement_filter)
+1. 下载插件文件：[`context_enhancement_filter.py`](https://github.com/Fu-Jie/openwebui-extensions/tree/main/plugins/filters/context_enhancement_filter)
 2. 上传到 OpenWebUI：**Admin Panel** → **Settings** → **Functions**
 3. 配置增强选项
 4. 启用过滤器
@@ -48,4 +48,4 @@ Context Enhancement 过滤器会自动为会话补充必要的上下文，使模
 
 ## 源码
 
-[:fontawesome-brands-github: 在 GitHub 查看](https://github.com/Fu-Jie/awesome-openwebui/tree/main/plugins/filters/context_enhancement_filter){ .md-button }
+[:fontawesome-brands-github: 在 GitHub 查看](https://github.com/Fu-Jie/openwebui-extensions/tree/main/plugins/filters/context_enhancement_filter){ .md-button }

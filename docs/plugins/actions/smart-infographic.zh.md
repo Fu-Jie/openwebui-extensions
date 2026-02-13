@@ -26,7 +26,7 @@ Smart Infographic 使用 AI 分析文本，并基于 AntV 可视化引擎生成�
 
 ## 安装
 
-1. 下载插件文件：[`infographic.py`](https://github.com/Fu-Jie/awesome-openwebui/tree/main/plugins/actions/infographic)
+1. 下载插件文件：[`infographic.py`](https://github.com/Fu-Jie/openwebui-extensions/tree/main/plugins/actions/infographic)
 2. 上传到 OpenWebUI：**Admin Panel** → **Settings** → **Functions**
 3. 可选：根据需要配置插件选项
 4. 启用插件
@@ -108,4 +108,4 @@ data
 
 ## 源码
 
-[:fontawesome-brands-github: 在 GitHub 查看](https://github.com/Fu-Jie/awesome-openwebui/tree/main/plugins/actions/infographic){ .md-button }
+[:fontawesome-brands-github: 在 GitHub 查看](https://github.com/Fu-Jie/openwebui-extensions/tree/main/plugins/actions/infographic){ .md-button }

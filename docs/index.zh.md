@@ -4,17 +4,17 @@ hide:
   - toc
 ---
 
-# 欢迎来到 OpenWebUI Extras
+# 欢迎来到 OpenWebUI Extensions
 
 <div class="hero-section" markdown>
 <div class="hero-content" markdown>
 
 # 🚀 增强你的 OpenWebUI 体验
 
-**OpenWebUI Extras** 是一个精心整理的插件、提示词和增强功能集合，旨在扩展 [OpenWebUI](https://github.com/open-webui/open-webui) 的功能。
+**OpenWebUI Extensions** 是一个精心整理的插件、提示词和增强功能集合，旨在扩展 [OpenWebUI](https://github.com/open-webui/open-webui) 的功能。
 
 [开始使用 :material-arrow-right:](#快速导航){ .md-button .md-button--primary }
-[在 GitHub 上查看 :fontawesome-brands-github:](https://github.com/Fu-Jie/awesome-openwebui){ .md-button }
+[在 GitHub 上查看 :fontawesome-brands-github:](https://github.com/Fu-Jie/openwebui-extensions){ .md-button }
 
 </div>
 </div>
@@ -135,6 +135,6 @@ hide:
 
 <div class="footer-stats" markdown>
 
-**OpenWebUI Extras** - 让 AI 交互更强大、更高效。
+**OpenWebUI Extensions** - 让 AI 交互更强大、更高效。
 
 </div>

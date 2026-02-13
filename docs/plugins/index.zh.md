@@ -1,6 +1,6 @@
 # 插件中心
 
-欢迎来到 OpenWebUI Extras 插件中心！在这里你可以找到完整的插件集合，帮助你强化 OpenWebUI 的体验。
+欢迎来到 OpenWebUI Extensions 插件中心！在这里你可以找到完整的插件集合，帮助你强化 OpenWebUI 的体验。
 
 ## 插件类型
 

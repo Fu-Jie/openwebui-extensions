@@ -1,7 +1,7 @@
 """
 title: 闪记卡 (Flash Card)
 author: Fu-Jie
-author_url: https://github.com/Fu-Jie/awesome-openwebui
+author_url: https://github.com/Fu-Jie/openwebui-extensions
 funding_url: https://github.com/open-webui
 version: 0.2.4
 openwebui_id: 4a31eac3-a3c4-4c30-9ca5-dab36b5fac65

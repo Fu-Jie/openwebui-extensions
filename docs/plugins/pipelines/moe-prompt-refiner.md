@@ -22,7 +22,7 @@ The MoE Prompt Refiner is an advanced pipeline that optimizes prompts before sen
 
 ## Installation
 
-1. Download the pipeline file: [`moe_prompt_refiner.py`](https://github.com/Fu-Jie/awesome-openwebui/tree/main/plugins/pipelines)
+1. Download the pipeline file: [`moe_prompt_refiner.py`](https://github.com/Fu-Jie/openwebui-extensions/tree/main/plugins/pipelines)
 2. Upload to OpenWebUI: **Admin Panel** → **Settings** → **Functions**
 3. Configure expert models and settings
 4. Enable the pipeline
@@ -106,4 +106,4 @@ Synthesized recommendations based on expert consensus...
 
 ## Source Code
 
-[:fontawesome-brands-github: View on GitHub](https://github.com/Fu-Jie/awesome-openwebui/tree/main/plugins/pipelines){ .md-button }
+[:fontawesome-brands-github: View on GitHub](https://github.com/Fu-Jie/openwebui-extensions/tree/main/plugins/pipelines){ .md-button }

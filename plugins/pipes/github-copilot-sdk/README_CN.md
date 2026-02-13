@@ -1,6 +1,6 @@
 # GitHub Copilot SDK 官方管道
 
-**作者:** [Fu-Jie](https://github.com/Fu-Jie/awesome-openwebui) | **版本:** 0.6.2 | **项目:** [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui) | **许可证:** MIT
+**作者:** [Fu-Jie](https://github.com/Fu-Jie/openwebui-extensions) | **版本:** 0.6.2 | **项目:** [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions) | **许可证:** MIT
 
 这是一个用于 [OpenWebUI](https://github.com/open-webui/open-webui) 的高级 Pipe 函数，深度集成了 **GitHub Copilot SDK**。它不仅支持 **GitHub Copilot 官方模型**（如 `gpt-5.2-codex`, `claude-sonnet-4.5`, `gemini-3-pro`, `gpt-5-mini`），还支持 **BYOK (自带 Key)** 模式对接自定义服务商（OpenAI, Anthropic），并具备**严格的用户与会话级工作区隔离**能力，提供统一且安全的 Agent 交互体验。
 
@@ -86,7 +86,7 @@
 
 ## ⭐ 支持与交流 (Support)
 
-如果这个插件对您有所帮助，请在 [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui) 项目上点个 **Star** 💫，这是对我最大的鼓励。
+如果这个插件对您有所帮助，请在 [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions) 项目上点个 **Star** 💫，这是对我最大的鼓励。
 
 ---
 
@@ -120,4 +120,4 @@
 
 ## 更新日志 (Changelog)
 
-完整历史记录请见 GitHub: [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui)
+完整历史记录请见 GitHub: [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions)

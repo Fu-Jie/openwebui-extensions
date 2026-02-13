@@ -168,7 +168,7 @@
 2. 打开浏览器控制台（F12）
 3. 触发工具调用
 4. 复制任何错误消息
-5. 报告到 [GitHub Issues](https://github.com/Fu-Jie/awesome-openwebui/issues)
+5. 报告到 [GitHub Issues](https://github.com/Fu-Jie/openwebui-extensions/issues)
 
 包含：
 

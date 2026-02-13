@@ -1,7 +1,6 @@
-#!/usr/bin/env python3
 """
 Script to extract plugin version information from Python files.
-用于从 Python 插件文件中提取版本信息的脚本。
+
 
 This script scans the plugins directory and extracts metadata (title, version, author, description)
 from Python files that follow the OpenWebUI plugin docstring format.
@@ -25,7 +24,7 @@ from typing import Any
 def extract_plugin_metadata(file_path: str) -> dict[str, Any] | None:
     """
     Extract plugin metadata from a Python file's docstring.
-    从 Python 文件的文档字符串中提取插件元数据。
+
 
     Args:
         file_path: Path to the Python file
@@ -77,7 +76,7 @@ def extract_plugin_metadata(file_path: str) -> dict[str, Any] | None:
 def scan_plugins_directory(plugins_dir: str) -> list[dict[str, Any]]:
     """
     Scan the plugins directory and extract metadata from all plugin files.
-    扫描 plugins 目录并从所有插件文件中提取元数据。
+
 
     Args:
         plugins_dir: Path to the plugins directory
@@ -114,11 +113,11 @@ def scan_plugins_directory(plugins_dir: str) -> list[dict[str, Any]]:
                 if metadata:
                     # Determine plugin type from directory structure
                     rel_path = os.path.relpath(file_path, plugins_dir)
-                    
+
                     # Normalize file_path to always start with "plugins/" for consistent ID comparison
                     # regardless of where we scan from (/tmp/old_repo or ./plugins)
                     metadata["file_path"] = os.path.join("plugins", rel_path)
-                    
+
                     parts = rel_path.split(os.sep)
                     if len(parts) > 0:
                         metadata["type"] = parts[0]  # actions, filters, pipes, etc.
@@ -130,7 +129,7 @@ def scan_plugins_directory(plugins_dir: str) -> list[dict[str, Any]]:
 def compare_versions(current: list[dict], previous_file: str) -> dict[str, list[dict]]:
     """
     Compare current plugin versions with a previous version file.
-    比较当前插件版本与之前的版本文件。
+
 
     Args:
         current: List of current plugin metadata
@@ -207,10 +206,9 @@ def compare_versions(current: list[dict], previous_file: str) -> dict[str, list[
 def format_markdown_table(plugins: list[dict]) -> str:
     """
     Format plugins as a Markdown table.
-    将插件格式化为 Markdown 表格。
     """
     lines = [
-        "| Plugin / 插件 | Version / 版本 | Type / 类型 | Description / 描述 |",
+        "| Plugin | Version | Type | Description |",
         "|---------------|----------------|-------------|---------------------|",
     ]
 
@@ -232,7 +230,6 @@ def format_markdown_table(plugins: list[dict]) -> str:
 def _get_readme_url(file_path: str) -> str:
     """
     Generate GitHub README URL from plugin file path.
-    从插件文件路径生成 GitHub README 链接。
     """
     if not file_path:
         return ""
@@ -241,9 +238,7 @@ def _get_readme_url(file_path: str) -> str:
 
     plugin_dir = Path(file_path).parent
     # Convert to GitHub URL
-    return (
-        f"https://github.com/Fu-Jie/awesome-openwebui/blob/main/{plugin_dir}/README.md"
-    )
+    return f"https://github.com/Fu-Jie/openwebui-extensions/blob/main/{plugin_dir}/README.md"
 
 
 def format_release_notes(
@@ -251,23 +246,22 @@ def format_release_notes(
 ) -> str:
     """
     Format version comparison as release notes.
-    将版本比较格式化为发布说明。
     """
     lines = []
 
     if comparison["added"]:
-        lines.append("### 新增插件 / New Plugins")
+        lines.append("### New Plugins")
         for plugin in comparison["added"]:
             readme_url = _get_readme_url(plugin.get("file_path", ""))
             lines.append(f"- **{plugin['title']}** v{plugin['version']}")
             if plugin.get("description"):
                 lines.append(f"  - {plugin['description']}")
             if readme_url:
-                lines.append(f"  - 📖 [README / 文档]({readme_url})")
+                lines.append(f"  - 📖 [README]({readme_url})")
         lines.append("")
 
     if comparison["updated"]:
-        lines.append("### 插件更新 / Plugin Updates")
+        lines.append("### Plugin Updates")
         for update in comparison["updated"]:
             curr = update["current"]
             prev = update["previous"]
@@ -293,11 +287,11 @@ def format_release_notes(
             readme_url = _get_readme_url(curr.get("file_path", ""))
             lines.append(f"- **{curr_title}**: v{prev_ver} → v{curr_ver}")
             if readme_url:
-                lines.append(f"  - 📖 [README / 文档]({readme_url})")
+                lines.append(f"  - 📖 [README]({readme_url})")
         lines.append("")
 
     if comparison["removed"] and not ignore_removed:
-        lines.append("### 移除插件 / Removed Plugins")
+        lines.append("### Removed Plugins")
         for plugin in comparison["removed"]:
             lines.append(f"- **{plugin['title']}** v{plugin['version']}")
         lines.append("")
@@ -356,7 +350,7 @@ def main():
                 comparison, ignore_removed=args.ignore_removed
             )
             if not output.strip():
-                output = "No changes detected. / 未检测到更改。"
+                output = "No changes detected."
     elif args.json:
         output = json.dumps(plugins, indent=2, ensure_ascii=False)
     elif args.markdown:

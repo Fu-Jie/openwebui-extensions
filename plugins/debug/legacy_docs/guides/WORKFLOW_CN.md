@@ -827,7 +827,7 @@ if chat_id and not re.match(r'^[a-zA-Z0-9_-]+$', chat_id):
 
 - [GitHub Copilot SDK 文档](https://github.com/github/copilot-sdk)
 - [OpenWebUI Pipe 开发](https://docs.openwebui.com/)
-- [Awesome OpenWebUI 项目](https://github.com/Fu-Jie/awesome-openwebui)
+- [OpenWebUI Extensions 项目](https://github.com/Fu-Jie/openwebui-extensions)
 
 ---
 

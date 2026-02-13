@@ -29,7 +29,7 @@ The Deep Dive plugin transforms how you understand complex content by guiding yo
 
 ## Installation
 
-1. Download the plugin file: [`deep_dive.py`](https://github.com/Fu-Jie/awesome-openwebui/tree/main/plugins/actions/deep-dive)
+1. Download the plugin file: [`deep_dive.py`](https://github.com/Fu-Jie/openwebui-extensions/tree/main/plugins/actions/deep-dive)
 2. Upload to OpenWebUI: **Admin Panel** → **Settings** → **Functions**
 3. Enable the plugin
 
@@ -108,4 +108,4 @@ The plugin generates a beautiful structured timeline:
 
 ## Source Code
 
-[:fontawesome-brands-github: View on GitHub](https://github.com/Fu-Jie/awesome-openwebui/tree/main/plugins/actions/deep-dive){ .md-button }
+[:fontawesome-brands-github: View on GitHub](https://github.com/Fu-Jie/openwebui-extensions/tree/main/plugins/actions/deep-dive){ .md-button }

@@ -1,6 +1,6 @@
 # 开发指南
 
-了解如何开发插件并为 OpenWebUI Extras 做出贡献。
+了解如何开发插件并为 OpenWebUI Extensions 做出贡献。
 
 ---
 
@@ -164,5 +164,5 @@ user_language = __user__.get("language", "en-US")
 ## 资源
 
 - [完整开发指南](plugin-guide.md)
-- [插件示例](https://github.com/Fu-Jie/awesome-openwebui/tree/main/plugins)
+- [插件示例](https://github.com/Fu-Jie/openwebui-extensions/tree/main/plugins)
 - [OpenWebUI 文档](https://docs.openwebui.com/)

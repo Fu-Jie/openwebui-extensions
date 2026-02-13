@@ -25,7 +25,7 @@
 
 ## 安装
 
-1. 下载插件文件: [`web_gemini_multimodel.py`](https://github.com/Fu-Jie/awesome-openwebui/tree/main/plugins/filters/web_gemini_multimodel_filter)
+1. 下载插件文件: [`web_gemini_multimodel.py`](https://github.com/Fu-Jie/openwebui-extensions/tree/main/plugins/filters/web_gemini_multimodel_filter)
 2. 上传到 OpenWebUI: **管理员面板** → **设置** → **函数**
 3. 配置 Gemini Adapter URL 和其他设置。
 4. 启用过滤器。

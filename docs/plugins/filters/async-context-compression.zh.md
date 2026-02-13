@@ -45,7 +45,7 @@ Async Context Compression 过滤器通过以下方式帮助管理长对话的 to
 
 ## 安装
 
-1. 下载插件文件：[`async_context_compression.py`](https://github.com/Fu-Jie/awesome-openwebui/tree/main/plugins/filters/async-context-compression)
+1. 下载插件文件：[`async_context_compression.py`](https://github.com/Fu-Jie/openwebui-extensions/tree/main/plugins/filters/async-context-compression)
 2. 上传到 OpenWebUI：**Admin Panel** → **Settings** → **Functions**
 3. 配置压缩参数
 4. 启用过滤器
@@ -134,4 +134,4 @@ history, features, and common use cases...
 
 ## 源码
 
-[:fontawesome-brands-github: 在 GitHub 查看](https://github.com/Fu-Jie/awesome-openwebui/tree/main/plugins/filters/async-context-compression){ .md-button }
+[:fontawesome-brands-github: 在 GitHub 查看](https://github.com/Fu-Jie/openwebui-extensions/tree/main/plugins/filters/async-context-compression){ .md-button }

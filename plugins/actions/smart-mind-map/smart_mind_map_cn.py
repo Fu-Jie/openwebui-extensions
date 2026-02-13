@@ -1,7 +1,7 @@
 """
 title: 思维导图
 author: Fu-Jie
-author_url: https://github.com/Fu-Jie/awesome-openwebui
+author_url: https://github.com/Fu-Jie/openwebui-extensions
 funding_url: https://github.com/open-webui
 version: 0.9.2
 openwebui_id: 8d4b097b-219b-4dd2-b509-05fbe6388335

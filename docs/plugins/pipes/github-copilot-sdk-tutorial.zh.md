@@ -1,6 +1,6 @@
 # GitHub Copilot SDK 插件进阶实战教程
 
-**作者:** [Fu-Jie](https://github.com/Fu-Jie) | **版本:** 1.0.0 | **项目:** [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui)
+**作者:** [Fu-Jie](https://github.com/Fu-Jie) | **版本:** 1.0.0 | **项目:** [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions)
 
 本教程旨在指导您如何深度发挥 GitHub Copilot SDK 插件的全部潜力，特别是在自动化文件生成、BYOK 模式自定义以及复杂任务调度方面的进阶用法。
 
@@ -102,4 +102,4 @@ Agent 会向用户展示：
 
 ## ⭐ 持续改进
 
-如果您在使用过程中发现任何问题，或有新的功能建议，欢迎到 [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui) 提交 Issue 或参与讨论。
+如果您在使用过程中发现任何问题，或有新的功能建议，欢迎到 [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions) 提交 Issue 或参与讨论。

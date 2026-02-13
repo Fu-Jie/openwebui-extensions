@@ -1,6 +1,6 @@
 # Contributing Guide
 
-Thank you for your interest in **OpenWebUI Extras**!
+Thank you for your interest in **OpenWebUI Extensions**!
 
 ## 🚀 How to Contribute
 

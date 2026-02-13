@@ -1,6 +1,6 @@
 # GitHub Copilot SDK Advanced Tutorial
 
-**Author:** [Fu-Jie](https://github.com/Fu-Jie) | **Version:** 1.0.0 | **Project:** [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui)
+**Author:** [Fu-Jie](https://github.com/Fu-Jie) | **Version:** 1.0.0 | **Project:** [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions)
 
 This tutorial guides you through unleashing the full potential of the GitHub Copilot SDK plugin, specifically focusing on advanced file generation, BYOK customization, and complex task orchestration.
 
@@ -102,4 +102,4 @@ The Agent responds:
 
 ## ⭐ Continuous Improvement
 
-If you encounter any issues or have suggestions for new features, feel free to submit an Issue or participate in discussions on [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui).
+If you encounter any issues or have suggestions for new features, feel free to submit an Issue or participate in discussions on [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions).

@@ -1,4 +1,4 @@
-# Copilot Instructions for awesome-openwebui
+# Copilot Instructions for openwebui-extensions
 
 本文档定义了 OpenWebUI 插件开发的标准规范和最佳实践。Copilot 在生成代码或文档时应遵循这些准则。
 
@@ -39,7 +39,7 @@ plugins/actions/export_to_docx/
 
 1.  **标题 (Title)**: 插件名称，带 Emoji 图标
 2.  **元数据 (Metadata)**: 作者、版本、项目链接 (一行显示)
-    - 格式: `**Author:** [Fu-Jie](https://github.com/Fu-Jie) | **Version:** x.x.x | **Project:** [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui)`
+    - 格式: `**Author:** [Fu-Jie](https://github.com/Fu-Jie) | **Version:** x.x.x | **Project:** [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions)`
     - **注意**: Author 和 Project 为固定值，仅需更新 Version 版本号
 3.  **描述 (Description)**: 一句话功能介绍
 4.  **最新更新 (What's New)**: **必须**放在描述之后，仅展示**最近 1 次**更新
@@ -47,8 +47,8 @@ plugins/actions/export_to_docx/
 6.  **使用方法 (How to Use)**: 按步骤说明
 7.  **配置参数 (Configuration/Valves)**: 使用表格格式，包含参数名、默认值、描述
 8.  **支持 (Support)**: **必须**包含，放在配置参数之后、故障排除之前
-    - English: `If this plugin has been useful, a star on [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui) is a big motivation for me. Thank you for the support.`
-    - 中文: `如果这个插件对你有帮助，欢迎到 [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui) 点个 Star，这将是我持续改进的动力，感谢支持。`
+    - English: `If this plugin has been useful, a star on [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions) is a big motivation for me. Thank you for the support.`
+    - 中文: `如果这个插件对你有帮助，欢迎到 [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions) 点个 Star，这将是我持续改进的动力，感谢支持。`
 9.  **其他 (Others)**: 支持的模板类型、语法示例、故障排除等
     - **Changelog**: 统一指向 GitHub 项目历史，不在 README 中列出具体变更
 
@@ -109,7 +109,7 @@ plugins/debug/
 """
 title: 插件名称 (Plugin Name)
 author: Fu-Jie
-author_url: https://github.com/Fu-Jie/awesome-openwebui
+author_url: https://github.com/Fu-Jie/openwebui-extensions
 funding_url: https://github.com/open-webui
 version: 0.1.0
 icon_url: data:image/svg+xml;base64,<base64-encoded-svg>
@@ -124,7 +124,7 @@ description: 插件功能的简短描述。Brief description of plugin functiona
 |--------------|---------------------|----------------|
 | `title` | 插件显示名称 | `Export to Word` / `导出为 Word` |
 | `author` | 作者名称 | `Fu-Jie` |
-| `author_url` | 作者主页链接 | `https://github.com/Fu-Jie/awesome-openwebui` |
+| `author_url` | 作者主页链接 | `https://github.com/Fu-Jie/openwebui-extensions` |
 | `funding_url` | 赞助/项目链接 | `https://github.com/open-webui` |
 | `version` | 语义化版本号 | `0.1.0`, `1.2.3` |
 | `icon_url` | 图标 (Base64 编码的 SVG) | 仅 Action 插件**必须**提供。其他类型可选。 |
@@ -1015,8 +1015,9 @@ Filter 实例是**单例 (Singleton)**。
 ## Author
 
 Fu-Jie  
-GitHub: [Fu-Jie/awesome-openwebui](https://github.com/Fu-Jie/awesome-openwebui)
+GitHub: [Fu-Jie/openwebui-extensions](https://github.com/Fu-Jie/openwebui-extensions)
 
 ## License
 
 MIT License
+```
