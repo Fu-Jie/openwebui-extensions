@@ -2,7 +2,7 @@
 
 Smart Mind Map is a powerful OpenWebUI action plugin that intelligently analyzes long-form text content and automatically generates interactive mind maps, helping users structure and visualize knowledge.
 
-**Author:** [Fu-Jie](https://github.com/Fu-Jie/openwebui-extensions) | **Version:** 0.9.2 | **Project:** [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions) | **License:** MIT
+**Author:** [Fu-Jie](https://github.com/Fu-Jie) | **Version:** 0.9.2 | **Project:** [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions) | **License:** MIT
 
 ## What's New in v0.9.2
 

@@ -2,7 +2,7 @@
 
 思维导图是一个强大的 OpenWebUI 动作插件，能够智能分析长篇文本内容，自动生成交互式思维导图，帮助用户结构化和可视化知识。
 
-**作者:** [Fu-Jie](https://github.com/Fu-Jie/openwebui-extensions) | **版本:** 0.9.2 | **项目:** [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions) | **许可证:** MIT
+**作者:** [Fu-Jie](https://github.com/Fu-Jie) | **版本:** 0.9.2 | **项目:** [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions) | **许可证:** MIT
 
 ## v0.9.2 更新亮点
 
