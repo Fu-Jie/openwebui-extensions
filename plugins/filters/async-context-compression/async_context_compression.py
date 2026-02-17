@@ -5,17 +5,17 @@ author: Fu-Jie
 author_url: https://github.com/Fu-Jie/openwebui-extensions
 funding_url: https://github.com/open-webui
 description: Reduces token consumption in long conversations while maintaining coherence through intelligent summarization and message compression.
-version: 1.2.2
+version: 1.3.0
 openwebui_id: b1655bc8-6de9-4cad-8cb5-a6f7829a02ce
 license: MIT
 
 ═══════════════════════════════════════════════════════════════════════════════
-📌 What's new in 1.2.1
+📌 What's new in 1.3.0
 ═══════════════════════════════════════════════════════════════════════════════
 
-  ✅ Smart Configuration: Automatically detects base model settings for custom models and adds `summary_model_max_context` for independent summary limits.
-  ✅ Performance & Refactoring: Optimized threshold parsing with caching and removed redundant code for better efficiency.
-  ✅ Bug Fixes & Modernization: Fixed `datetime` deprecation warnings and corrected type annotations.
+  ✅ Smart Status Display: Added `token_usage_status_threshold` valve (default 80%) to control when token usage status is shown, reducing unnecessary notifications.
+  ✅ Copilot SDK Integration: Automatically detects and skips compression for copilot_sdk based models to prevent conflicts.
+  ✅ Improved User Experience: Status messages now only appear when token usage exceeds the configured threshold, keeping the interface cleaner.
 
 ═══════════════════════════════════════════════════════════════════════════════
 📌 Overview
@@ -582,6 +582,12 @@ class Filter:
         show_token_usage_status: bool = Field(
             default=True, description="Show token usage status notification"
         )
+        token_usage_status_threshold: int = Field(
+            default=80,
+            ge=0,
+            le=100,
+            description="Only show token usage status when usage exceeds this percentage (0-100). Set to 0 to always show.",
+        )
         enable_tool_output_trimming: bool = Field(
             default=False,
             description="Enable trimming of large tool outputs (only works with native function calling).",
@@ -888,6 +894,46 @@ class Filter:
             except Exception as e:
                 logger.error(f"Failed to emit log to frontend: {type(e).__name__}: {e}")
 
+    def _should_show_status(self, usage_ratio: float) -> bool:
+        """
+        Check if token usage status should be shown based on threshold.
+        
+        Args:
+            usage_ratio: Current usage ratio (0.0 to 1.0)
+            
+        Returns:
+            True if status should be shown, False otherwise
+        """
+        if not self.valves.show_token_usage_status:
+            return False
+        
+        # If threshold is 0, always show
+        if self.valves.token_usage_status_threshold == 0:
+            return True
+        
+        # Check if usage exceeds threshold
+        threshold_ratio = self.valves.token_usage_status_threshold / 100.0
+        return usage_ratio >= threshold_ratio
+
+    def _should_skip_compression(self, body: dict, __model__: Optional[dict] = None) -> bool:
+        """
+        Check if compression should be skipped.
+        Returns True if:
+        1. The base model includes 'copilot_sdk'
+        """
+        # Check if base model includes copilot_sdk
+        if __model__:
+            base_model_id = __model__.get("base_model_id", "")
+            if "copilot_sdk" in base_model_id.lower():
+                return True
+        
+        # Also check model in body
+        model_id = body.get("model", "")
+        if "copilot_sdk" in model_id.lower():
+            return True
+        
+        return False
+
     async def inlet(
         self,
         body: dict,
@@ -902,6 +948,17 @@ class Filter:
         Executed before sending to the LLM.
         Compression Strategy: Only responsible for injecting existing summaries, no Token calculation.
         """
+
+        # Check if compression should be skipped (e.g., for copilot_sdk)
+        if self._should_skip_compression(body, __model__):
+            if self.valves.debug_mode:
+                logger.info("[Inlet] Skipping compression: copilot_sdk detected in base model")
+            if self.valves.show_debug_log and __event_call__:
+                await self._log(
+                    "[Inlet] ⏭️ Skipping compression: copilot_sdk detected",
+                    event_call=__event_call__,
+                )
+            return body
 
         messages = body.get("messages", [])
 
@@ -1408,22 +1465,35 @@ class Filter:
             # Prepare status message (Context Usage format)
             if max_context_tokens > 0:
                 usage_ratio = total_section_tokens / max_context_tokens
-                status_msg = f"Context Usage (Estimated): {total_section_tokens} / {max_context_tokens} Tokens ({usage_ratio*100:.1f}%)"
-                if usage_ratio > 0.9:
-                    status_msg += " | ⚠️ High Usage"
+                # Only show status if threshold is met
+                if self._should_show_status(usage_ratio):
+                    status_msg = f"Context Usage (Estimated): {total_section_tokens} / {max_context_tokens} Tokens ({usage_ratio*100:.1f}%)"
+                    if usage_ratio > 0.9:
+                        status_msg += " | ⚠️ High Usage"
+                    
+                    if __event_emitter__:
+                        await __event_emitter__(
+                            {
+                                "type": "status",
+                                "data": {
+                                    "description": status_msg,
+                                    "done": True,
+                                },
+                            }
+                        )
             else:
-                status_msg = f"Loaded historical summary (Hidden {compressed_count} historical messages)"
-
-            if __event_emitter__:
-                await __event_emitter__(
-                    {
-                        "type": "status",
-                        "data": {
-                            "description": status_msg,
-                            "done": True,
-                        },
-                    }
-                )
+                # For the case where max_context_tokens is 0, show summary info without threshold check
+                if self.valves.show_token_usage_status and __event_emitter__:
+                    status_msg = f"Loaded historical summary (Hidden {compressed_count} historical messages)"
+                    await __event_emitter__(
+                        {
+                            "type": "status",
+                            "data": {
+                                "description": status_msg,
+                                "done": True,
+                            },
+                        }
+                    )
 
             # Emit debug log to frontend (Keep the structured log as well)
             await self._emit_debug_log(
@@ -1485,23 +1555,24 @@ class Filter:
                 )
 
             # Send status notification (Context Usage format)
-            if __event_emitter__:
-                status_msg = f"Context Usage (Estimated): {total_tokens} / {max_context_tokens} Tokens"
-                if max_context_tokens > 0:
-                    usage_ratio = total_tokens / max_context_tokens
-                    status_msg += f" ({usage_ratio*100:.1f}%)"
+            if max_context_tokens > 0:
+                usage_ratio = total_tokens / max_context_tokens
+                # Only show status if threshold is met
+                if self._should_show_status(usage_ratio):
+                    status_msg = f"Context Usage (Estimated): {total_tokens} / {max_context_tokens} Tokens ({usage_ratio*100:.1f}%)"
                     if usage_ratio > 0.9:
                         status_msg += " | ⚠️ High Usage"
-
-                await __event_emitter__(
-                    {
-                        "type": "status",
-                        "data": {
-                            "description": status_msg,
-                            "done": True,
-                        },
-                    }
-                )
+                    
+                    if __event_emitter__:
+                        await __event_emitter__(
+                            {
+                                "type": "status",
+                                "data": {
+                                    "description": status_msg,
+                                    "done": True,
+                                },
+                            }
+                        )
 
         body["messages"] = final_messages
 
@@ -1517,6 +1588,7 @@ class Filter:
         body: dict,
         __user__: Optional[dict] = None,
         __metadata__: dict = None,
+        __model__: dict = None,
         __event_emitter__: Callable[[Any], Awaitable[None]] = None,
         __event_call__: Callable[[Any], Awaitable[None]] = None,
     ) -> dict:
@@ -1524,6 +1596,17 @@ class Filter:
         Executed after the LLM response is complete.
         Calculates Token count in the background and triggers summary generation (does not block current response, does not affect content output).
         """
+        # Check if compression should be skipped (e.g., for copilot_sdk)
+        if self._should_skip_compression(body, __model__):
+            if self.valves.debug_mode:
+                logger.info("[Outlet] Skipping compression: copilot_sdk detected in base model")
+            if self.valves.show_debug_log and __event_call__:
+                await self._log(
+                    "[Outlet] ⏭️ Skipping compression: copilot_sdk detected",
+                    event_call=__event_call__,
+                )
+            return body
+        
         chat_ctx = self._get_chat_context(body, __metadata__)
         chat_id = chat_ctx["chat_id"]
         if not chat_id:
@@ -1606,26 +1689,27 @@ class Filter:
             )
 
             # Send status notification (Context Usage format)
-            if __event_emitter__ and self.valves.show_token_usage_status:
+            if __event_emitter__:
                 max_context_tokens = thresholds.get(
                     "max_context_tokens", self.valves.max_context_tokens
                 )
-                status_msg = f"Context Usage (Estimated): {current_tokens} / {max_context_tokens} Tokens"
                 if max_context_tokens > 0:
                     usage_ratio = current_tokens / max_context_tokens
-                    status_msg += f" ({usage_ratio*100:.1f}%)"
-                    if usage_ratio > 0.9:
-                        status_msg += " | ⚠️ High Usage"
-
-                await __event_emitter__(
-                    {
-                        "type": "status",
-                        "data": {
-                            "description": status_msg,
-                            "done": True,
-                        },
-                    }
-                )
+                    # Only show status if threshold is met
+                    if self._should_show_status(usage_ratio):
+                        status_msg = f"Context Usage (Estimated): {current_tokens} / {max_context_tokens} Tokens ({usage_ratio*100:.1f}%)"
+                        if usage_ratio > 0.9:
+                            status_msg += " | ⚠️ High Usage"
+                        
+                        await __event_emitter__(
+                            {
+                                "type": "status",
+                                "data": {
+                                    "description": status_msg,
+                                    "done": True,
+                                },
+                            }
+                        )
 
             # Check if compression is needed
             if current_tokens >= compression_threshold_tokens:
@@ -1943,23 +2027,24 @@ class Filter:
                     max_context_tokens = thresholds.get(
                         "max_context_tokens", self.valves.max_context_tokens
                     )
-                    # 6. Emit Status
-                    status_msg = f"Context Summary Updated: {token_count} / {max_context_tokens} Tokens"
+                    # 6. Emit Status (only if threshold is met)
                     if max_context_tokens > 0:
-                        ratio = (token_count / max_context_tokens) * 100
-                        status_msg += f" ({ratio:.1f}%)"
-                        if ratio > 90.0:
-                            status_msg += " | ⚠️ High Usage"
-
-                    await __event_emitter__(
-                        {
-                            "type": "status",
-                            "data": {
-                                "description": status_msg,
-                                "done": True,
-                            },
-                        }
-                    )
+                        usage_ratio = token_count / max_context_tokens
+                        # Only show status if threshold is met
+                        if self._should_show_status(usage_ratio):
+                            status_msg = f"Context Summary Updated: {token_count} / {max_context_tokens} Tokens ({usage_ratio*100:.1f}%)"
+                            if usage_ratio > 0.9:
+                                status_msg += " | ⚠️ High Usage"
+                            
+                            await __event_emitter__(
+                                {
+                                    "type": "status",
+                                    "data": {
+                                        "description": status_msg,
+                                        "done": True,
+                                    },
+                                }
+                            )
                 except Exception as e:
                     await self._log(
                         f"[Status] Error calculating tokens: {e}",

@@ -5,17 +5,17 @@ author: Fu-Jie
 author_url: https://github.com/Fu-Jie/openwebui-extensions
 funding_url: https://github.com/open-webui
 description: 通过智能摘要和消息压缩，降低长对话的 token 消耗，同时保持对话连贯性。
-version: 1.2.2
+version: 1.3.0
 openwebui_id: 5c0617cb-a9e4-4bd6-a440-d276534ebd18
 license: MIT
 
 ═══════════════════════════════════════════════════════════════════════════════
-📌 1.2.1 版本更新
+📌 1.3.0 版本更新
 ═══════════════════════════════════════════════════════════════════════════════
 
-  ✅ 智能配置增强：自动检测自定义模型的基础模型配置，并新增 `summary_model_max_context` 参数以独立控制摘要模型的上下文限制。
-  ✅ 性能优化与重构：重构了阈值解析逻辑并增加缓存，移除了冗余的处理代码，并增强了 LLM 响应处理（支持 JSONResponse）。
-  ✅ 稳定性改进：修复了 `datetime` 弃用警告，修正了类型注解，并将 print 语句替换为标准日志记录。
+  ✅ 智能状态显示：新增 `token_usage_status_threshold` 阀门（默认 80%），用于控制 Token 使用状态的显示时机，减少不必要的通知。
+  ✅ Copilot SDK 集成：自动检测并跳过基于 copilot_sdk 的模型压缩，防止冲突。
+  ✅ 用户体验改进：状态消息仅在 Token 使用率超过配置阈值时显示，保持界面更清爽。
 
 ═══════════════════════════════════════════════════════════════════════════════
 📌 功能概述
@@ -528,6 +528,12 @@ class Filter:
         show_token_usage_status: bool = Field(
             default=True, description="在对话结束时显示 Token 使用情况的状态通知"
         )
+        token_usage_status_threshold: int = Field(
+            default=80,
+            ge=0,
+            le=100,
+            description="仅当 Token 使用率超过此百分比（0-100）时才显示状态。设为 0 表示始终显示。",
+        )
         enable_tool_output_trimming: bool = Field(
             default=False,
             description="启用原生工具输出裁剪 (仅适用于 native function calling)，裁剪过长的工具输出以节省 Token。",
@@ -828,6 +834,46 @@ class Filter:
             except Exception as e:
                 logger.error(f"发送前端日志失败: {e}")
 
+    def _should_show_status(self, usage_ratio: float) -> bool:
+        """
+        根据阈值检查是否应该显示 Token 使用状态。
+        
+        Args:
+            usage_ratio: 当前使用率（0.0 到 1.0）
+            
+        Returns:
+            如果应该显示状态则返回 True，否则返回 False
+        """
+        if not self.valves.show_token_usage_status:
+            return False
+        
+        # 如果阈值为 0，则始终显示
+        if self.valves.token_usage_status_threshold == 0:
+            return True
+        
+        # 检查使用率是否超过阈值
+        threshold_ratio = self.valves.token_usage_status_threshold / 100.0
+        return usage_ratio >= threshold_ratio
+
+    def _should_skip_compression(self, body: dict, __model__: Optional[dict] = None) -> bool:
+        """
+        检查是否应该跳过压缩。
+        返回 True 如果：
+        1. 基础模型包含 'copilot_sdk'
+        """
+        # 检查基础模型是否包含 copilot_sdk
+        if __model__:
+            base_model_id = __model__.get("base_model_id", "")
+            if "copilot_sdk" in base_model_id.lower():
+                return True
+        
+        # 同时检查 body 中的模型
+        model_id = body.get("model", "")
+        if "copilot_sdk" in model_id.lower():
+            return True
+        
+        return False
+
     async def inlet(
         self,
         body: dict,
@@ -845,6 +891,18 @@ class Filter:
         2. 预检 Token 预算
         3. 如果超限，执行结构化裁剪（Structure-Aware Trimming）或丢弃旧消息
         """
+        
+        # 检查是否应该跳过压缩（例如，copilot_sdk）
+        if self._should_skip_compression(body, __model__):
+            if self.valves.debug_mode:
+                logger.info("[Inlet] 跳过压缩：检测到 copilot_sdk 基础模型")
+            if self.valves.show_debug_log and __event_call__:
+                await self._log(
+                    "[Inlet] ⏭️ 跳过压缩：检测到 copilot_sdk",
+                    event_call=__event_call__,
+                )
+            return body
+        
         messages = body.get("messages", [])
 
         # --- 原生工具输出裁剪 (Native Tool Output Trimming) ---
@@ -1302,22 +1360,35 @@ class Filter:
             # 准备状态消息 (上下文使用量格式)
             if max_context_tokens > 0:
                 usage_ratio = total_section_tokens / max_context_tokens
-                status_msg = f"上下文使用量 (预估): {total_section_tokens} / {max_context_tokens} Tokens ({usage_ratio*100:.1f}%)"
-                if usage_ratio > 0.9:
-                    status_msg += " | ⚠️ 高负载"
+                # 仅在超过阈值时显示状态
+                if self._should_show_status(usage_ratio):
+                    status_msg = f"上下文使用量 (预估): {total_section_tokens} / {max_context_tokens} Tokens ({usage_ratio*100:.1f}%)"
+                    if usage_ratio > 0.9:
+                        status_msg += " | ⚠️ 高负载"
+                    
+                    if __event_emitter__:
+                        await __event_emitter__(
+                            {
+                                "type": "status",
+                                "data": {
+                                    "description": status_msg,
+                                    "done": True,
+                                },
+                            }
+                        )
             else:
-                status_msg = f"已加载历史摘要 (隐藏 {compressed_count} 条历史消息)"
-
-            if __event_emitter__:
-                await __event_emitter__(
-                    {
-                        "type": "status",
-                        "data": {
-                            "description": status_msg,
-                            "done": True,
-                        },
-                    }
-                )
+                # 对于 max_context_tokens 为 0 的情况，显示摘要信息而不检查阈值
+                if self.valves.show_token_usage_status and __event_emitter__:
+                    status_msg = f"已加载历史摘要 (隐藏 {compressed_count} 条历史消息)"
+                    await __event_emitter__(
+                        {
+                            "type": "status",
+                            "data": {
+                                "description": status_msg,
+                                "done": True,
+                            },
+                        }
+                    )
 
             # Emit debug log to frontend (Keep the structured log as well)
             await self._emit_debug_log(
@@ -1379,25 +1450,25 @@ class Filter:
                 )
 
             # 发送状态通知 (上下文使用量格式)
-            if __event_emitter__:
-                status_msg = (
-                    f"上下文使用量 (预估): {total_tokens} / {max_context_tokens} Tokens"
-                )
-                if max_context_tokens > 0:
-                    usage_ratio = total_tokens / max_context_tokens
-                    status_msg += f" ({usage_ratio*100:.1f}%)"
+            # 发送状态通知 (上下文使用量格式)
+            if max_context_tokens > 0:
+                usage_ratio = total_tokens / max_context_tokens
+                # 仅在超过阈值时显示状态
+                if self._should_show_status(usage_ratio):
+                    status_msg = f"上下文使用量 (预估): {total_tokens} / {max_context_tokens} Tokens ({usage_ratio*100:.1f}%)"
                     if usage_ratio > 0.9:
                         status_msg += " | ⚠️ 高负载"
-
-                await __event_emitter__(
-                    {
-                        "type": "status",
-                        "data": {
-                            "description": status_msg,
-                            "done": True,
-                        },
-                    }
-                )
+                    
+                    if __event_emitter__:
+                        await __event_emitter__(
+                            {
+                                "type": "status",
+                                "data": {
+                                    "description": status_msg,
+                                    "done": True,
+                                },
+                            }
+                        )
 
         body["messages"] = final_messages
 
@@ -1413,6 +1484,7 @@ class Filter:
         body: dict,
         __user__: Optional[dict] = None,
         __metadata__: dict = None,
+        __model__: dict = None,
         __event_emitter__: Callable[[Any], Awaitable[None]] = None,
         __event_call__: Callable[[Any], Awaitable[None]] = None,
     ) -> dict:
@@ -1420,6 +1492,17 @@ class Filter:
         在 LLM 响应完成后执行
         在后台计算 Token 数并触发摘要生成（不阻塞当前响应，不影响内容输出）
         """
+        # 检查是否应该跳过压缩（例如，copilot_sdk）
+        if self._should_skip_compression(body, __model__):
+            if self.valves.debug_mode:
+                logger.info("[Outlet] 跳过压缩：检测到 copilot_sdk 基础模型")
+            if self.valves.show_debug_log and __event_call__:
+                await self._log(
+                    "[Outlet] ⏭️ 跳过压缩：检测到 copilot_sdk",
+                    event_call=__event_call__,
+                )
+            return body
+        
         chat_ctx = self._get_chat_context(body, __metadata__)
         chat_id = chat_ctx["chat_id"]
         if not chat_id:
@@ -1486,6 +1569,29 @@ class Filter:
                 f"[🔍 后台计算] Token 数: {current_tokens}",
                 event_call=__event_call__,
             )
+
+            # 发送状态通知 (上下文使用量格式)
+            if __event_emitter__:
+                max_context_tokens = thresholds.get(
+                    "max_context_tokens", self.valves.max_context_tokens
+                )
+                if max_context_tokens > 0:
+                    usage_ratio = current_tokens / max_context_tokens
+                    # 仅在超过阈值时显示状态
+                    if self._should_show_status(usage_ratio):
+                        status_msg = f"上下文使用量 (预估): {current_tokens} / {max_context_tokens} Tokens ({usage_ratio*100:.1f}%)"
+                        if usage_ratio > 0.9:
+                            status_msg += " | ⚠️ 高负载"
+                        
+                        await __event_emitter__(
+                            {
+                                "type": "status",
+                                "data": {
+                                    "description": status_msg,
+                                    "done": True,
+                                },
+                            }
+                        )
 
             # 检查是否需要压缩
             if current_tokens >= compression_threshold_tokens:
@@ -1804,25 +1910,24 @@ class Filter:
                             "max_context_tokens", self.valves.max_context_tokens
                         )
 
-                    # 6. 发送状态
-                    status_msg = (
-                        f"上下文摘要已更新: {token_count} / {max_context_tokens} Tokens"
-                    )
+                    # 6. 发送状态 (仅在超过阈值时)
                     if max_context_tokens > 0:
-                        ratio = (token_count / max_context_tokens) * 100
-                        status_msg += f" ({ratio:.1f}%)"
-                        if ratio > 90.0:
-                            status_msg += " | ⚠️ 高负载"
-
-                    await __event_emitter__(
-                        {
-                            "type": "status",
-                            "data": {
-                                "description": status_msg,
-                                "done": True,
-                            },
-                        }
-                    )
+                        usage_ratio = token_count / max_context_tokens
+                        # 仅在超过阈值时显示状态
+                        if self._should_show_status(usage_ratio):
+                            status_msg = f"上下文摘要已更新: {token_count} / {max_context_tokens} Tokens ({usage_ratio*100:.1f}%)"
+                            if usage_ratio > 0.9:
+                                status_msg += " | ⚠️ 高负载"
+                            
+                            await __event_emitter__(
+                                {
+                                    "type": "status",
+                                    "data": {
+                                        "description": status_msg,
+                                        "done": True,
+                                    },
+                                }
+                            )
                 except Exception as e:
                     await self._log(
                         f"[Status] 计算 Token 错误: {e}",
