@@ -1,13 +1,14 @@
 # Async Context Compression Filter
 
-**Author:** [Fu-Jie](https://github.com/Fu-Jie/openwebui-extensions) | **Version:** 1.2.2 | **Project:** [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions) | **License:** MIT
+**Author:** [Fu-Jie](https://github.com/Fu-Jie/openwebui-extensions) | **Version:** 1.3.0 | **Project:** [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions) | **License:** MIT
 
 This filter reduces token consumption in long conversations through intelligent summarization and message compression while keeping conversations coherent.
 
-## What's new in 1.2.2
+## What's new in 1.3.0
 
-- **Critical Fix**: Resolved `TypeError: 'str' object is not callable` caused by variable name conflict in logging function.
-- **Compatibility**: Enhanced `params` handling to support Pydantic objects, improving compatibility with different OpenWebUI versions.
+- **Smart Status Display**: Added `token_usage_status_threshold` valve (default 80%) to control when token usage status is shown, reducing unnecessary notifications.
+- **Copilot SDK Integration**: Automatically detects and skips compression for copilot_sdk based models to prevent conflicts.
+- **Improved User Experience**: Status messages now only appear when token usage exceeds the configured threshold, keeping the interface cleaner.
 
 ---
 
@@ -57,6 +58,8 @@ This filter reduces token consumption in long conversations through intelligent 
 | `enable_tool_output_trimming`  | `false`  | When enabled and `function_calling: "native"` is active, trims verbose tool outputs to extract only the final answer.                                                 |
 | `debug_mode`                   | `true`   | Log verbose debug info. Set to `false` in production.                                                                                                                 |
 | `show_debug_log`               | `false`  | Print debug logs to browser console (F12). Useful for frontend debugging.                                                                                             |
+| `show_token_usage_status`      | `true`   | Show token usage status notifications.                                                                                                                                |
+| `token_usage_status_threshold` | `80`     | Only show token usage status when usage exceeds this percentage (0-100). Set to 0 to always show. Default is 80%.                                                     |
 
 ---
 

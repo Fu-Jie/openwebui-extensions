@@ -1,15 +1,16 @@
 # 异步上下文压缩过滤器
 
-**作者:** [Fu-Jie](https://github.com/Fu-Jie/openwebui-extensions) | **版本:** 1.2.2 | **项目:** [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions) | **许可证:** MIT
+**作者:** [Fu-Jie](https://github.com/Fu-Jie/openwebui-extensions) | **版本:** 1.3.0 | **项目:** [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions) | **许可证:** MIT
 
 > **重要提示**：为了确保所有过滤器的可维护性和易用性，每个过滤器都应附带清晰、完整的文档，以确保其功能、配置和使用方法得到充分说明。
 
 本过滤器通过智能摘要和消息压缩技术，在保持对话连贯性的同时，显著降低长对话的 Token 消耗。
 
-## 1.2.2 版本更新
+## 1.3.0 版本更新
 
-- **严重错误修复**: 解决了因日志函数变量名冲突导致的 `TypeError: 'str' object is not callable` 错误。
-- **兼容性增强**: 改进了 `params` 处理逻辑以支持 Pydantic 对象，提高了对不同 OpenWebUI 版本的兼容性。
+- **智能状态显示**: 新增 `token_usage_status_threshold` 阀门（默认 80%），用于控制 Token 使用状态的显示时机，减少不必要的通知。
+- **Copilot SDK 集成**: 自动检测并跳过基于 copilot_sdk 的模型压缩，防止冲突。
+- **用户体验改进**: 状态消息仅在 Token 使用率超过配置阈值时显示，保持界面更清爽。
 
 ---
 
@@ -96,6 +97,7 @@
 | `debug_mode`                   | `true`   | 是否在 Open WebUI 的控制台日志中打印详细的调试信息（如 Token 计数、压缩进度、数据库操作等）。生产环境建议设为 `false`。 |
 | `show_debug_log`               | `false`  | 是否在浏览器控制台 (F12) 打印调试日志。便于前端调试。                                                                   |
 | `show_token_usage_status`      | `true`   | 是否在对话结束时显示 Token 使用情况的状态通知。                                                                         |
+| `token_usage_status_threshold` | `80`     | 仅当 Token 使用率超过此百分比（0-100）时才显示状态。设为 0 表示始终显示。默认为 80%。                                  |
 
 ---
 
