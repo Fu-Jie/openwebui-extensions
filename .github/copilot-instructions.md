@@ -1016,3 +1016,4 @@ GitHub: [Fu-Jie/openwebui-extensions](https://github.com/Fu-Jie/openwebui-extens
 ## License
 
 MIT License
+```

@@ -21,7 +21,7 @@ This filter detects when multiple models have responded in the previous turn (e.
 
 ## Installation
 
-1. Download the plugin file: [`multi_model_context_merger.py`](https://github.com/Fu-Jie/awesome-openwebui/tree/main/plugins/filters)
+1. Download the plugin file: [`multi_model_context_merger.py`](https://github.com/Fu-Jie/openwebui-extensions/tree/main/plugins/filters)
 2. Upload to OpenWebUI: **Admin Panel** → **Settings** → **Functions**
 3. Enable the filter.
 

@@ -26,7 +26,7 @@ The Smart Infographic plugin uses AI to analyze text content and generate profes
 
 ## Installation
 
-1. Download the plugin file: [`infographic.py`](https://github.com/Fu-Jie/awesome-openwebui/tree/main/plugins/actions/infographic)
+1. Download the plugin file: [`infographic.py`](https://github.com/Fu-Jie/openwebui-extensions/tree/main/plugins/actions/infographic)
 2. Upload to OpenWebUI: **Admin Panel** → **Settings** → **Functions**
 3. Configure plugin settings (optional)
 4. Enable the plugin
@@ -108,4 +108,4 @@ data
 
 ## Source Code
 
-[:fontawesome-brands-github: View on GitHub](https://github.com/Fu-Jie/awesome-openwebui/tree/main/plugins/actions/infographic){ .md-button }
+[:fontawesome-brands-github: View on GitHub](https://github.com/Fu-Jie/openwebui-extensions/tree/main/plugins/actions/infographic){ .md-button }

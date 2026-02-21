@@ -75,7 +75,7 @@ Users can override the following settings in their personal settings:
 
 ## Installation
 
-1. Download the plugin file: [`export_to_word.py`](https://github.com/Fu-Jie/awesome-openwebui/tree/main/plugins/actions/export_to_docx)
+1. Download the plugin file: [`export_to_word.py`](https://github.com/Fu-Jie/openwebui-extensions/tree/main/plugins/actions/export_to_docx)
 2. Upload to OpenWebUI: **Admin Panel** → **Settings** → **Functions**
 3. Enable the plugin
 
@@ -125,5 +125,5 @@ Users can override the following settings in their personal settings:
 
 ## Source Code
 
-[:fontawesome-brands-github: View on GitHub](https://github.com/Fu-Jie/awesome-openwebui/tree/main/plugins/actions/export_to_docx){ .md-button }
-**Author:** [Fu-Jie](https://github.com/Fu-Jie) | **Version:** 0.4.4 | **Project:** [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui)
+[:fontawesome-brands-github: View on GitHub](https://github.com/Fu-Jie/openwebui-extensions/tree/main/plugins/actions/export_to_docx){ .md-button }
+**Author:** [Fu-Jie](https://github.com/Fu-Jie) | **Version:** 0.4.4 | **Project:** [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions)

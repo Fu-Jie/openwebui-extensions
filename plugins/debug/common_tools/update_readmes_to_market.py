@@ -91,7 +91,7 @@ NOTES / 注意事项:
 AUTHOR / 作者:
 -------------
 Fu-Jie
-GitHub: https://github.com/Fu-Jie/awesome-openwebui
+GitHub: https://github.com/Fu-Jie/openwebui-extensions
 
 ======================================================================
 """

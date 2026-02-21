@@ -1,6 +1,6 @@
 # Folder Memory
  
-**Author:** [Fu-Jie](https://github.com/Fu-Jie/awesome-openwebui) | **Version:** 0.1.0 | **Project:** [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui) | **License:** MIT
+**Author:** [Fu-Jie](https://github.com/Fu-Jie/openwebui-extensions) | **Version:** 0.1.0 | **Project:** [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions) | **License:** MIT
 
 ---
 
@@ -45,7 +45,7 @@ This ensures that all future conversations within that folder share the same evo
 
 ## How It Works
 
-![Folder Memory Demo](https://raw.githubusercontent.com/Fu-Jie/awesome-openwebui/main/plugins/filters/folder-memory/folder-memory-demo.png)
+![Folder Memory Demo](https://raw.githubusercontent.com/Fu-Jie/openwebui-extensions/main/plugins/filters/folder-memory/folder-memory-demo.png)
 
 1. **Trigger**: When a conversation reaches `MESSAGE_TRIGGER_COUNT` (e.g., 10, 20 messages).
 2. **Analysis**: The plugin sends the recent conversation + existing rules to the LLM.
@@ -54,4 +54,4 @@ This ensures that all future conversations within that folder share the same evo
 
 ## Roadmap
 
-See [ROADMAP](https://github.com/Fu-Jie/awesome-openwebui/blob/main/plugins/filters/folder-memory/ROADMAP.md) for future plans, including "Project Knowledge" collection.
+See [ROADMAP](https://github.com/Fu-Jie/openwebui-extensions/blob/main/plugins/filters/folder-memory/ROADMAP.md) for future plans, including "Project Knowledge" collection.

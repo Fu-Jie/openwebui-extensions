@@ -23,7 +23,7 @@ Knowledge Card 插件（又名 Flash Card / 闪记卡）会把内容转成视觉
 
 ## 安装
 
-1. 下载插件文件：[`flash_card.py`](https://github.com/Fu-Jie/awesome-openwebui/tree/main/plugins/actions/flash-card)
+1. 下载插件文件：[`flash_card.py`](https://github.com/Fu-Jie/openwebui-extensions/tree/main/plugins/actions/flash-card)
 2. 上传到 OpenWebUI：**Admin Panel** → **Settings** → **Functions**
 3. 启用插件
 
@@ -85,4 +85,4 @@ Knowledge Card 插件（又名 Flash Card / 闪记卡）会把内容转成视觉
 
 ## 源码
 
-[:fontawesome-brands-github: 在 GitHub 查看](https://github.com/Fu-Jie/awesome-openwebui/tree/main/plugins/actions/flash-card){ .md-button }
+[:fontawesome-brands-github: 在 GitHub 查看](https://github.com/Fu-Jie/openwebui-extensions/tree/main/plugins/actions/flash-card){ .md-button }

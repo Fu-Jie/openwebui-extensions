@@ -1,6 +1,6 @@
 # Prompt Library
 
-Welcome to the OpenWebUI Extras Prompt Library! Find carefully crafted prompts for various use cases.
+Welcome to the OpenWebUI Extensions Prompt Library! Find carefully crafted prompts for various use cases.
 
 ---
 

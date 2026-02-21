@@ -1,6 +1,6 @@
 # 📊 Export to Excel
 
-**Author:** [Fu-Jie](https://github.com/Fu-Jie/awesome-openwebui) | **Version:** 0.3.7 | **Project:** [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui) | **License:** MIT
+**Author:** [Fu-Jie](https://github.com/Fu-Jie/openwebui-extensions) | **Version:** 0.3.7 | **Project:** [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions) | **License:** MIT
 
 Export chat history to an Excel (.xlsx) file directly from the chat interface.
 
@@ -42,18 +42,18 @@ Export chat history to an Excel (.xlsx) file directly from the chat interface.
 
 ## ⭐ Support
 
-If this plugin has been useful, a star on [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui) is a big motivation for me. Thank you for the support.
+If this plugin has been useful, a star on [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions) is a big motivation for me. Thank you for the support.
 
 ## Troubleshooting ❓
 
 - **Plugin not working?**: Check if the filter/action is enabled in the model settings.
 - **Debug Logs**: Enable `SHOW_STATUS` and check the browser console (F12) if needed.
 - **Error Messages**: If you see an error, please copy the full error message and report it.
-- **Submit an Issue**: If you encounter any problems, please submit an issue on GitHub: [Awesome OpenWebUI Issues](https://github.com/Fu-Jie/awesome-openwebui/issues)
+- **Submit an Issue**: If you encounter any problems, please submit an issue on GitHub: [OpenWebUI Extensions Issues](https://github.com/Fu-Jie/openwebui-extensions/issues)
 
 ## Changelog
 
-See the full history on GitHub: [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui)# Export to Excel
+See the full history on GitHub: [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions)# Export to Excel
 
 This plugin allows you to export your chat history to an Excel (.xlsx) file directly from the chat interface.
 
@@ -93,7 +93,7 @@ This plugin allows you to export your chat history to an Excel (.xlsx) file dire
 ## Author
 
 Fu-Jie
-GitHub: [Fu-Jie/awesome-openwebui](https://github.com/Fu-Jie/awesome-openwebui)
+GitHub: [Fu-Jie/openwebui-extensions](https://github.com/Fu-Jie/openwebui-extensions)
 
 ## License
 

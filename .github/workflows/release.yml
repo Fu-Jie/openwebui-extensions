@@ -1,8 +1,6 @@
-# GitHub Actions Workflow for Plugin Release
-# 插件发布工作流
+# Plugin Release Workflow
 #
 # This workflow automates the release process for OpenWebUI plugins.
-# 此工作流自动化 OpenWebUI 插件的发布流程。
 #
 # Triggers:
 # - Push to main branch when plugins are modified (auto-release)
@@ -15,7 +13,7 @@
 # 3. Creates a GitHub Release with plugin files as downloadable assets
 # 4. Supports multiple plugin updates in a single release
 
-name: Plugin Release / 插件发布
+name: Plugin Release
 
 on:
   # Auto-trigger on push to main when plugins are modified
@@ -331,7 +329,7 @@ jobs:
           DETECTED_CHANGES: ${{ needs.check-changes.outputs.release_notes }}
           COMMITS: ${{ steps.commits.outputs.commits }}
         run: |
-          echo "# ${VERSION} Release / 发布" > release_notes.md
+          echo "# ${VERSION} Release" > release_notes.md
           echo "" >> release_notes.md
           
           if [ -n "$TITLE" ]; then
@@ -340,21 +338,21 @@ jobs:
           fi
           
           if [ -n "$DETECTED_CHANGES" ] && ! echo "$DETECTED_CHANGES" | grep -q "No changes detected"; then
-            echo "## What's Changed / 更新内容" >> release_notes.md
+            echo "## What's Changed" >> release_notes.md
             echo "" >> release_notes.md
             echo "$DETECTED_CHANGES" >> release_notes.md
             echo "" >> release_notes.md
           fi
           
           if [ -n "$COMMITS" ]; then
-            echo "## Commits / 提交记录" >> release_notes.md
+            echo "## Commits" >> release_notes.md
             echo "" >> release_notes.md
             echo "$COMMITS" >> release_notes.md
             echo "" >> release_notes.md
           fi
           
           if [ -n "$NOTES" ]; then
-            echo "## Additional Notes / 附加说明" >> release_notes.md
+            echo "## Additional Notes" >> release_notes.md
             echo "" >> release_notes.md
             echo "$NOTES" >> release_notes.md
             echo "" >> release_notes.md
@@ -364,11 +362,11 @@ jobs:
           
           cat >> release_notes.md << 'EOF'
           
-          ## Download / 下载
+          ## Download
           
-          📦 **Download the updated plugin files below** / 请在下方下载更新的插件文件
+          📦 **Download the updated plugin files below**
           
-          ### Installation / 安装
+          ### Installation
           
           #### From OpenWebUI Community
           1. Open OpenWebUI Admin Panel
@@ -376,7 +374,7 @@ jobs:
           3. Search for the plugin name
           4. Click Install
           
-          #### Manual Installation / 手动安装
+          #### Manual Installation
           1. Download the plugin file (`.py`) from the assets below
           2. Open OpenWebUI Admin Panel → Functions
           3. Click "Create Function" → Import
@@ -384,8 +382,8 @@ jobs:
           
           ---
           
-          📚 [Documentation / 文档](https://fu-jie.github.io/awesome-openwebui/)
-          🐛 [Report Issues / 报告问题](https://github.com/Fu-Jie/awesome-openwebui/issues)
+          📚 [Documentation](https://fu-jie.github.io/openwebui-extensions/)
+          🐛 [Report Issues](https://github.com/Fu-Jie/openwebui-extensions/issues)
           EOF
           
           echo "=== Release Notes ==="

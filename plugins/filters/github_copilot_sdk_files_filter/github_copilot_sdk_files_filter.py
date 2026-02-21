@@ -2,7 +2,7 @@
 title: GitHub Copilot SDK Files Filter
 id: github_copilot_sdk_files_filter
 author: Fu-Jie
-author_url: https://github.com/Fu-Jie/awesome-openwebui
+author_url: https://github.com/Fu-Jie/openwebui-extensions
 funding_url: https://github.com/open-webui
 version: 0.1.2
 openwebui_id: 403a62ee-a596-45e7-be65-fab9cc249dd6

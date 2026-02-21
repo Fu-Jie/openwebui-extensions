@@ -1,6 +1,6 @@
 # Plugin Center
 
-Welcome to the OpenWebUI Extras Plugin Center! Here you'll find a comprehensive collection of plugins to enhance your OpenWebUI experience.
+Welcome to the OpenWebUI Extensions Plugin Center! Here you'll find a comprehensive collection of plugins to enhance your OpenWebUI experience.
 
 ## Plugin Types
 

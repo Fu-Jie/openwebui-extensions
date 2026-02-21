@@ -1,7 +1,7 @@
 """
 title: 📂 文件夹记忆 (Folder Memory)
 author: Fu-Jie
-author_url: https://github.com/Fu-Jie/awesome-openwebui
+author_url: https://github.com/Fu-Jie/openwebui-extensions
 funding_url: https://github.com/open-webui
 version: 0.1.0
 description: 自动从对话中提取项目规则，并将其注入到文件夹的系统提示词中。

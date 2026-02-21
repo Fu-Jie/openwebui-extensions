@@ -168,7 +168,7 @@ If you encounter issues with native tool display:
 2. Open browser console (F12)
 3. Trigger a tool call
 4. Copy any error messages
-5. Report to [GitHub Issues](https://github.com/Fu-Jie/awesome-openwebui/issues)
+5. Report to [GitHub Issues](https://github.com/Fu-Jie/openwebui-extensions/issues)
 
 Include:
 

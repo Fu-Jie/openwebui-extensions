@@ -23,7 +23,7 @@ The Knowledge Card plugin (also known as Flash Card / 闪记卡) transforms cont
 
 ## Installation
 
-1. Download the plugin file: [`flash_card.py`](https://github.com/Fu-Jie/awesome-openwebui/tree/main/plugins/actions/flash-card)
+1. Download the plugin file: [`flash_card.py`](https://github.com/Fu-Jie/openwebui-extensions/tree/main/plugins/actions/flash-card)
 2. Upload to OpenWebUI: **Admin Panel** → **Settings** → **Functions**
 3. Enable the plugin
 
@@ -85,4 +85,4 @@ The Knowledge Card plugin (also known as Flash Card / 闪记卡) transforms cont
 
 ## Source Code
 
-[:fontawesome-brands-github: View on GitHub](https://github.com/Fu-Jie/awesome-openwebui/tree/main/plugins/actions/flash-card){ .md-button }
+[:fontawesome-brands-github: View on GitHub](https://github.com/Fu-Jie/openwebui-extensions/tree/main/plugins/actions/flash-card){ .md-button }

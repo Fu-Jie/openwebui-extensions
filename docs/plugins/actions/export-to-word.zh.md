@@ -75,7 +75,7 @@ Export to Word 插件会把聊天消息从 Markdown 转成精致的 Word 文档�
 
 ## 安装
 
-1. 下载插件文件：[`export_to_word.py`](https://github.com/Fu-Jie/awesome-openwebui/tree/main/plugins/actions/export_to_docx)
+1. 下载插件文件：[`export_to_word.py`](https://github.com/Fu-Jie/openwebui-extensions/tree/main/plugins/actions/export_to_docx)
 2. 上传到 OpenWebUI：**Admin Panel** → **Settings** → **Functions**
 3. 启用插件
 
@@ -125,5 +125,5 @@ Export to Word 插件会把聊天消息从 Markdown 转成精致的 Word 文档�
 
 ## 源码
 
-[:fontawesome-brands-github: View on GitHub](https://github.com/Fu-Jie/awesome-openwebui/tree/main/plugins/actions/export_to_docx){ .md-button }
-**Author:** [Fu-Jie](https://github.com/Fu-Jie) | **Version:** 0.4.4 | **Project:** [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui)
+[:fontawesome-brands-github: View on GitHub](https://github.com/Fu-Jie/openwebui-extensions/tree/main/plugins/actions/export_to_docx){ .md-button }
+**Author:** [Fu-Jie](https://github.com/Fu-Jie) | **Version:** 0.4.4 | **Project:** [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions)

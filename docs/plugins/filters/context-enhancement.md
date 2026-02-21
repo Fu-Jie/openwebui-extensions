@@ -22,7 +22,7 @@ The Context Enhancement filter automatically enriches your conversations with co
 
 ## Installation
 
-1. Download the plugin file: [`context_enhancement_filter.py`](https://github.com/Fu-Jie/awesome-openwebui/tree/main/plugins/filters/context_enhancement_filter)
+1. Download the plugin file: [`context_enhancement_filter.py`](https://github.com/Fu-Jie/openwebui-extensions/tree/main/plugins/filters/context_enhancement_filter)
 2. Upload to OpenWebUI: **Admin Panel** → **Settings** → **Functions**
 3. Configure enhancement options
 4. Enable the filter
@@ -48,4 +48,4 @@ The Context Enhancement filter automatically enriches your conversations with co
 
 ## Source Code
 
-[:fontawesome-brands-github: View on GitHub](https://github.com/Fu-Jie/awesome-openwebui/tree/main/plugins/filters/context_enhancement_filter){ .md-button }
+[:fontawesome-brands-github: View on GitHub](https://github.com/Fu-Jie/openwebui-extensions/tree/main/plugins/filters/context_enhancement_filter){ .md-button }

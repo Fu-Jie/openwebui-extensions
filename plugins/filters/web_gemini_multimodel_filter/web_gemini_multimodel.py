@@ -2,7 +2,7 @@
 title: Gemini 多模态过滤器（含字幕增强）
 author: Gemini Adapter
 author_url: https://github.com/Fu-Jie
-funding_url: https://github.com/Fu-Jie/awesome-openwebui
+funding_url: https://github.com/Fu-Jie/openwebui-extensions
 
 version: 0.3.2
 description: >

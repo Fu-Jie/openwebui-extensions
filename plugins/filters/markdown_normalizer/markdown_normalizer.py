@@ -1,7 +1,7 @@
 """
 title: Markdown Normalizer
 author: Fu-Jie
-author_url: https://github.com/Fu-Jie/awesome-openwebui
+author_url: https://github.com/Fu-Jie/openwebui-extensions
 funding_url: https://github.com/open-webui
 version: 1.2.4
 openwebui_id: baaa8732-9348-40b7-8359-7e009660e23c

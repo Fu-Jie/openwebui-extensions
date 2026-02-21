@@ -45,7 +45,7 @@ This is especially useful for:
 
 ## Installation
 
-1. Download the plugin file: [`async_context_compression.py`](https://github.com/Fu-Jie/awesome-openwebui/tree/main/plugins/filters/async-context-compression)
+1. Download the plugin file: [`async_context_compression.py`](https://github.com/Fu-Jie/openwebui-extensions/tree/main/plugins/filters/async-context-compression)
 2. Upload to OpenWebUI: **Admin Panel** → **Settings** → **Functions**
 3. Configure compression settings
 4. Enable the filter
@@ -134,4 +134,4 @@ history, features, and common use cases...
 
 ## Source Code
 
-[:fontawesome-brands-github: View on GitHub](https://github.com/Fu-Jie/awesome-openwebui/tree/main/plugins/filters/async-context-compression){ .md-button }
+[:fontawesome-brands-github: View on GitHub](https://github.com/Fu-Jie/openwebui-extensions/tree/main/plugins/filters/async-context-compression){ .md-button }

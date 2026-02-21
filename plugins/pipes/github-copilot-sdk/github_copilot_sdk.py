@@ -2134,7 +2134,7 @@ class Pipe:
 
         # 1. Environment Setup (Only if needed or not done)
         if needs_setup:
-            self._setup_env(token=token)
+            self._setup_env(token=token, skip_cli_install=True)
             self.__class__._last_update_check = now
         else:
             # Still inject token for BYOK real-time updates
@@ -2194,7 +2194,7 @@ class Pipe:
                 logger.info("[Pipes] Refreshing model cache...")
             try:
                 # Use effective token for fetching
-                self._setup_env(token=token)
+                self._setup_env(token=token, skip_cli_install=True)
 
                 # Fetch BYOK models if configured
                 byok = []
@@ -2208,9 +2208,11 @@ class Pipe:
                     byok = await self._fetch_byok_models(uv=uv)
 
                 standard = []
-                if token:
+                cli_path = os.environ.get("COPILOT_CLI_PATH", "")
+                cli_ready = bool(cli_path and os.path.exists(cli_path))
+                if token and cli_ready:
                     client_config = {
-                        "cli_path": os.environ.get("COPILOT_CLI_PATH"),
+                        "cli_path": cli_path,
                         "cwd": self._get_workspace_dir(
                             user_id=user_id, chat_id="listing"
                         ),
@@ -2266,11 +2268,18 @@ class Pipe:
                         logger.error(f"[Pipes] Error listing models: {e}")
                     finally:
                         await c.stop()
+                elif token and self.valves.DEBUG:
+                    logger.info(
+                        "[Pipes] Copilot CLI not ready during listing. Skip standard model probe to avoid blocking startup."
+                    )
 
                 self._model_cache = standard + byok
                 if not self._model_cache:
                     return [
-                        {"id": "error", "name": "No models found. Check Token/Network."}
+                        {
+                            "id": "warming_up",
+                            "name": "Copilot CLI is preparing in background. Please retry in a moment.",
+                        }
                     ]
             except Exception as e:
                 return [{"id": "error", "name": f"Error: {e}"}]
@@ -2318,8 +2327,26 @@ class Pipe:
         token: str = None,
         enable_mcp: bool = True,
         enable_cache: bool = True,
+        skip_cli_install: bool = False,
+        __event_emitter__=None,
     ):
         """Setup environment variables and verify Copilot CLI. Dynamic Token Injection."""
+        def emit_status_sync(description: str, done: bool = False):
+            if not __event_emitter__:
+                return
+            try:
+                loop = asyncio.get_running_loop()
+                loop.create_task(
+                    __event_emitter__(
+                        {
+                            "type": "status",
+                            "data": {"description": description, "done": done},
+                        }
+                    )
+                )
+            except Exception:
+                pass
+
         # 1. Real-time Token Injection (Always updates on each call)
         effective_token = token or self.valves.GH_TOKEN
         if effective_token:
@@ -2418,41 +2445,106 @@ class Pipe:
                         f"Version mismatch ({current_version} != {target_version})"
                     )
 
-        if should_install:
+        if should_install and not skip_cli_install:
             self._emit_debug_log_sync(
                 f"Installing/Updating Copilot CLI: {install_reason}...",
                 __event_call__,
                 debug_enabled=debug_enabled,
             )
+            emit_status_sync(
+                "🔧 正在安装/更新 Copilot CLI（首次可能需要 1-3 分钟）...",
+                done=False,
+            )
             try:
                 env = os.environ.copy()
                 if target_version:
                     env["VERSION"] = target_version
-                subprocess.run(
+                proc = subprocess.Popen(
                     "curl -fsSL https://gh.io/copilot-install | bash",
                     shell=True,
-                    check=True,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    bufsize=1,
                     env=env,
                 )
+
+                progress_percent = -1
+                line_count = 0
+                while True:
+                    raw_line = proc.stdout.readline() if proc.stdout else ""
+                    if raw_line == "" and proc.poll() is not None:
+                        break
+
+                    line = (raw_line or "").strip()
+                    if not line:
+                        continue
+
+                    line_count += 1
+                    percent_match = re.search(r"(\d{1,3})%", line)
+                    if percent_match:
+                        try:
+                            pct = int(percent_match.group(1))
+                            if pct >= progress_percent + 5:
+                                progress_percent = pct
+                                emit_status_sync(
+                                    f"📦 Copilot CLI 安装中：{pct}%", done=False
+                                )
+                        except Exception:
+                            pass
+                    elif line_count % 20 == 0:
+                        emit_status_sync(
+                            f"📦 Copilot CLI 安装中：{line[:120]}", done=False
+                        )
+
+                return_code = proc.wait()
+                if return_code != 0:
+                    raise subprocess.CalledProcessError(
+                        return_code,
+                        "curl -fsSL https://gh.io/copilot-install | bash",
+                    )
+
                 # Re-verify
                 current_version = get_cli_version(cli_path)
+                emit_status_sync(
+                    f"✅ Copilot CLI 安装完成（v{current_version or target_version or 'latest'}）",
+                    done=False,
+                )
             except Exception as e:
                 self._emit_debug_log_sync(
                     f"CLI installation failed: {e}",
                     __event_call__,
                     debug_enabled=debug_enabled,
                 )
+                emit_status_sync(
+                    f"❌ Copilot CLI 安装失败：{str(e)[:120]}",
+                    done=True,
+                )
+        elif should_install and skip_cli_install:
+            self._emit_debug_log_sync(
+                f"Skipping CLI install during model listing: {install_reason}",
+                __event_call__,
+                debug_enabled=debug_enabled,
+            )
 
         # 4. Finalize
-        os.environ["COPILOT_CLI_PATH"] = cli_path
-        self.__class__._env_setup_done = True
+        cli_ready = bool(cli_path and os.path.exists(cli_path))
+        if cli_ready:
+            os.environ["COPILOT_CLI_PATH"] = cli_path
+
+        self.__class__._env_setup_done = cli_ready
         self.__class__._last_update_check = datetime.now().timestamp()
 
         self._emit_debug_log_sync(
-            f"Environment setup complete. CLI: {cli_path} (v{current_version})",
+            f"Environment setup complete. CLI ready={cli_ready}. Path: {cli_path} (v{current_version})",
             __event_call__,
             debug_enabled=debug_enabled,
         )
+        if not skip_cli_install:
+            if cli_ready:
+                emit_status_sync("✅ Copilot CLI 已就绪", done=True)
+            else:
+                emit_status_sync("⚠️ Copilot CLI 尚未就绪，请稍后重试。", done=True)
 
     def _process_attachments(
         self,
@@ -2737,6 +2829,7 @@ class Pipe:
             token=effective_token,
             enable_mcp=effective_mcp,
             enable_cache=effective_cache,
+            __event_emitter__=__event_emitter__,
         )
 
         cwd = self._get_workspace_dir(user_id=user_id, chat_id=chat_id)

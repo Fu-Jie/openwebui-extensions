@@ -1,7 +1,7 @@
 """
 title: 📂 Folder Memory
 author: Fu-Jie
-author_url: https://github.com/Fu-Jie/awesome-openwebui
+author_url: https://github.com/Fu-Jie/openwebui-extensions
 funding_url: https://github.com/open-webui
 version: 0.1.0
 description: Automatically extracts project rules from conversations and injects them into the folder's system prompt.

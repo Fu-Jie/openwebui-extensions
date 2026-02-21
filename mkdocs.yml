@@ -1,17 +1,17 @@
 # MkDocs Configuration for OpenWebUI Extras
 # Site Information
-site_name: OpenWebUI Extras
+site_name: OpenWebUI Extensions
 site_description: A collection of enhancements, plugins, and prompts for OpenWebUI
 site_author: Fu-Jie
-site_url: https://fu-jie.github.io/awesome-openwebui/
+site_url: https://fu-jie.github.io/openwebui-extensions/
 
 # Repository
-repo_name: Fu-Jie/awesome-openwebui
-repo_url: https://github.com/Fu-Jie/awesome-openwebui
+repo_name: Fu-Jie/openwebui-extensions
+repo_url: https://github.com/Fu-Jie/openwebui-extensions
 edit_uri: edit/main/docs/
 
 # Copyright
-copyright: Copyright &copy; 2024 OpenWebUI Extras Contributors
+copyright: Copyright &copy; 2024 OpenWebUI Extensions Contributors
 
 # Theme Configuration
 theme:
@@ -142,7 +142,7 @@ markdown_extensions:
       normalize_issue_symbols: true
       repo_url_shorthand: true
       user: Fu-Jie
-      repo: awesome-openwebui
+      repo: openwebui-extensions
   - pymdownx.mark
   - pymdownx.smartsymbols
   - pymdownx.snippets
@@ -162,7 +162,7 @@ markdown_extensions:
 extra:
   social:
     - icon: fontawesome/brands/github
-      link: https://github.com/Fu-Jie/awesome-openwebui
+      link: https://github.com/Fu-Jie/openwebui-extensions
   
   generator: false
   

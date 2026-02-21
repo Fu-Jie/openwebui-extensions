@@ -1,6 +1,6 @@
 # 贡献指南
 
-感谢你对 **OpenWebUI Extras** 感兴趣！
+感谢你对 **OpenWebUI Extensions** 感兴趣！
 
 ## 🚀 贡献流程
 

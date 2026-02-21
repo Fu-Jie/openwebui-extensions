@@ -1,6 +1,6 @@
 # GitHub Copilot SDK Pipe for OpenWebUI
 
-**Author:** [Fu-Jie](https://github.com/Fu-Jie) | **Version:** 0.6.2 | **Project:** [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui) | **License:** MIT
+**Author:** [Fu-Jie](https://github.com/Fu-Jie) | **Version:** 0.6.2 | **Project:** [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions) | **License:** MIT
 
 This is an advanced Pipe function for [OpenWebUI](https://github.com/open-webui/open-webui) that integrates the official [GitHub Copilot SDK](https://github.com/github/copilot-sdk). It enables you to use **GitHub Copilot models** (e.g., `gpt-5.2-codex`, `claude-sonnet-4.5`,`gemini-3-pro`, `gpt-5-mini`) **AND** your own models via **BYOK** (OpenAI, Anthropic) directly within OpenWebUI, providing a unified agentic experience with **strict User & Chat-level Workspace Isolation**.
 
@@ -86,7 +86,7 @@ Standard users can override these settings in their individual Profile/Function 
 
 ## ⭐ Support
 
-If this plugin has been useful, a **Star** on [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui) would be a great motivation for me. Thank you!
+If this plugin has been useful, a **Star** on [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions) would be a great motivation for me. Thank you!
 
 ---
 
@@ -116,4 +116,4 @@ If this plugin has been useful, a **Star** on [Awesome OpenWebUI](https://github
 
 ## Changelog
 
-See the full history on GitHub: [Awesome OpenWebUI](https://github.com/Fu-Jie/awesome-openwebui)
+See the full history on GitHub: [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions)

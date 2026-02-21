@@ -62,4 +62,4 @@ When adding a new pipe plugin, please follow these steps:
 ## Author
 
 Fu-Jie
-GitHub: [Fu-Jie/awesome-openwebui](https://github.com/Fu-Jie/awesome-openwebui)
+GitHub: [Fu-Jie/openwebui-extensions](https://github.com/Fu-Jie/openwebui-extensions)

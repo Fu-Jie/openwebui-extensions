@@ -4,17 +4,17 @@ hide:
   - toc
 ---
 
-# Welcome to OpenWebUI Extras
+# Welcome to OpenWebUI Extensions
 
 <div class="hero-section" markdown>
 <div class="hero-content" markdown>
 
 # 🚀 Supercharge Your OpenWebUI Experience
 
-**OpenWebUI Extras** is a curated collection of plugins, prompts, and enhancements designed to extend the functionality of [OpenWebUI](https://github.com/open-webui/open-webui).
+**OpenWebUI Extensions** is a curated collection of plugins, prompts, and enhancements designed to extend the functionality of [OpenWebUI](https://github.com/open-webui/open-webui).
 
 [Get Started :material-arrow-right:](#quick-navigation){ .md-button .md-button--primary }
-[View on GitHub :fontawesome-brands-github:](https://github.com/Fu-Jie/awesome-openwebui){ .md-button }
+[View on GitHub :fontawesome-brands-github:](https://github.com/Fu-Jie/openwebui-extensions){ .md-button }
 
 </div>
 </div>
@@ -135,6 +135,6 @@ We welcome contributions! Whether it's a new plugin, a helpful prompt, or docume
 
 <div class="footer-stats" markdown>
 
-**OpenWebUI Extras** - Making AI interactions more powerful and productive.
+**OpenWebUI Extensions** - Making AI interactions more powerful and productive.
 
 </div>

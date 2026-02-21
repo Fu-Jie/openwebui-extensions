@@ -45,8 +45,7 @@
       "contributions": [
         "ideas"
       ]
-    }
-    ,
+    },
     {
       "login": "abaroni",
       "name": "Alessandro Baroni",
@@ -61,6 +60,6 @@
   "skipCi": true,
   "repoType": "github",
   "repoHost": "https://github.com",
-  "projectName": "awesome-openwebui",
+  "projectName": "openwebui-extensions",
   "projectOwner": "Fu-Jie"
 }

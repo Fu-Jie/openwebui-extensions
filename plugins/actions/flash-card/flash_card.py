@@ -1,7 +1,7 @@
 """
 title: Flash Card
 author: Fu-Jie
-author_url: https://github.com/Fu-Jie/awesome-openwebui
+author_url: https://github.com/Fu-Jie/openwebui-extensions
 funding_url: https://github.com/open-webui
 version: 0.2.4
 openwebui_id: 65a2ea8f-2a13-4587-9d76-55eea0035cc8

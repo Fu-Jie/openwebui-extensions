@@ -1,6 +1,6 @@
 # Contributing Guide
 
-Thank you for your interest in contributing to **OpenWebUI Extras**! We welcome contributions of plugins, prompts, documentation, and more.
+Thank you for your interest in contributing to **OpenWebUI Extensions**! We welcome contributions of plugins, prompts, documentation, and more.
 
 ---
 
@@ -181,6 +181,6 @@ By contributing, you agree that your contributions will be licensed under the sa
 
 ## 🙏 Thank You!
 
-Every contribution, no matter how small, helps make OpenWebUI Extras better for everyone. Thank you for being part of our community!
+Every contribution, no matter how small, helps make OpenWebUI Extensions better for everyone. Thank you for being part of our community!
 
-[:fontawesome-brands-github: View on GitHub](https://github.com/Fu-Jie/awesome-openwebui){ .md-button .md-button--primary }
+[:fontawesome-brands-github: View on GitHub](https://github.com/Fu-Jie/openwebui-extensions){ .md-button .md-button--primary }

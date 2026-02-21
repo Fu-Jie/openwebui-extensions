@@ -827,7 +827,7 @@ Monitoring Copilot SDK updates for:
 
 - [GitHub Copilot SDK Documentation](https://github.com/github/copilot-sdk)
 - [OpenWebUI Pipe Development](https://docs.openwebui.com/)
-- [Awesome OpenWebUI Project](https://github.com/Fu-Jie/awesome-openwebui)
+- [OpenWebUI Extensions Project](https://github.com/Fu-Jie/openwebui-extensions)
 
 ---
 

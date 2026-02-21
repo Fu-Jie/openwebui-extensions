@@ -35,7 +35,7 @@ async def main():
 
     result = await session.send_and_wait(
         {
-            "prompt": "Use GitHub MCP tools to find the owner of the 'awesome-openwebui' repository.",
+            "prompt": "Use GitHub MCP tools to find the owner of the 'openwebui-extensions' repository.",
         },timeout=1000
     )
     print(result.data.content)

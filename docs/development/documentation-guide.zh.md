@@ -1,6 +1,6 @@
 # 文档编写指南
 
-本文介绍如何为 OpenWebUI Extras 编写与贡献文档。
+本文介绍如何为 OpenWebUI Extensions 编写与贡献文档。
 
 ---
 
@@ -21,8 +21,8 @@
 
 ```bash
 # 克隆仓库
-git clone https://github.com/Fu-Jie/awesome-openwebui.git
-cd awesome-openwebui
+git clone https://github.com/Fu-Jie/openwebui-extensions.git
+cd openwebui-extensions
 
 # 安装依赖
 pip install -r requirements.txt
@@ -122,7 +122,7 @@ Step-by-step usage instructions.
 
 ## Source Code
 
-[:fontawesome-brands-github: View on GitHub](https://github.com/Fu-Jie/awesome-openwebui/tree/main/plugins/...){ .md-button }
+[:fontawesome-brands-github: View on GitHub](https://github.com/Fu-Jie/openwebui-extensions/tree/main/plugins/...){ .md-button }
 ```
 
 ---

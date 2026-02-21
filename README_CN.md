@@ -1,4 +1,4 @@
-# OpenWebUI Extras
+# OpenWebUI Extensions
 
 [English](./README.md) | 中文
 
@@ -6,6 +6,7 @@ OpenWebUI 增强功能集合。包含个人开发与收集的插件、提示词�
 
 <!-- STATS_START -->
 ## 📊 社区统计
+>
 > ![updated_zh](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_updated_zh.json&style=flat)
 
 | 👤 作者 | 👥 粉丝 | ⭐ 积分 | 🏆 贡献 |
@@ -16,8 +17,8 @@ OpenWebUI 增强功能集合。包含个人开发与收集的插件、提示词�
 | :---: | :---: | :---: | :---: | :---: |
 | ![posts](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_posts.json&style=flat) | ![downloads](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_downloads.json&style=flat) | ![views](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_views.json&style=flat) | ![upvotes](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_upvotes.json&style=flat) | ![saves](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_saves.json&style=flat) |
 
-
 ### 🔥 热门插件 Top 6
+
 | 排名 | 插件 | 版本 | 下载 | 浏览 | 📅 更新 |
 | :---: | :--- | :---: | :---: | :---: | :---: |
 | 🥇 | [Smart Mind Map](https://openwebui.com/posts/turn_any_text_into_beautiful_mind_maps_3094c59a) | ![p1_version](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p1_version.json&style=flat) | ![p1_dl](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p1_dl.json&style=flat) | ![p1_vw](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p1_vw.json&style=flat) | ![updated](https://img.shields.io/badge/2026--01--29-gray?style=flat) |
@@ -28,6 +29,7 @@ OpenWebUI 增强功能集合。包含个人开发与收集的插件、提示词�
 | 6️⃣ | [Markdown Normalizer](https://openwebui.com/posts/markdown_normalizer_baaa8732) | ![p6_version](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p6_version.json&style=flat) | ![p6_dl](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p6_dl.json&style=flat) | ![p6_vw](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p6_vw.json&style=flat) | ![updated](https://img.shields.io/badge/2026--01--29-gray?style=flat) |
 
 ### 📈 总下载量累计趋势
+
 ![Activity](https://gist.githubusercontent.com/Fu-Jie/db3d95687075a880af6f1fba76d679c6/raw/chart.svg)
 
 *完整统计与趋势图请查看 [社区统计报告](./docs/community-stats.zh.md)*
@@ -41,7 +43,8 @@ OpenWebUI 增强功能集合。包含个人开发与收集的插件、提示词�
 > [!TIP]
 > **无需 GitHub Copilot 订阅！** 支持 **BYOK (Bring Your Own Key)** 模式，使用你自己的 OpenAI/Anthropic API Key。
 
-#### 🌟 核心实战案例：
+#### 🌟 核心实战案例
+
 - **[GitHub Star 增长预测](./docs/plugins/pipes/star-prediction-example.zh.md)**：自动解析 CSV 数据，编写 Python 分析脚本并生成动态增长看板。
 - **[视频高质量转换与压缩](./docs/plugins/pipes/video-processing-example.zh.md)**：直接调用系统级 FFmpeg 工具，实现录屏的加速、缩放及双阶段色彩优化。
 
@@ -136,4 +139,3 @@ Open WebUI 的前端增强扩展：
 本项目是一个资源集合，无需安装 Python 环境。你只需要下载对应的文件并导入到你的 OpenWebUI 实例中即可。
 
 [贡献指南](./CONTRIBUTING_CN.md) | [更新日志](./CHANGELOG.md)
-

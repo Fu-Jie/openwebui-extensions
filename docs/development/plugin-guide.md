@@ -406,6 +406,6 @@ except Exception as e:
 
 ## Additional Resources
 
-- [:fontawesome-brands-github: Plugin Examples](https://github.com/Fu-Jie/awesome-openwebui/tree/main/plugins)
+- [:fontawesome-brands-github: Plugin Examples](https://github.com/Fu-Jie/openwebui-extensions/tree/main/plugins)
 - [:material-book-open-variant: OpenWebUI Official Docs](https://docs.openwebui.com/)
 - [:material-forum: Community Discussions](https://github.com/open-webui/open-webui/discussions)

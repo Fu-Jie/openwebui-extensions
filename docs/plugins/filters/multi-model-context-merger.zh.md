@@ -21,7 +21,7 @@
 
 ## 安装
 
-1. 下载插件文件: [`multi_model_context_merger.py`](https://github.com/Fu-Jie/awesome-openwebui/tree/main/plugins/filters)
+1. 下载插件文件: [`multi_model_context_merger.py`](https://github.com/Fu-Jie/openwebui-extensions/tree/main/plugins/filters)
 2. 上传到 OpenWebUI: **管理员面板** → **设置** → **函数**
 3. 启用过滤器。
 

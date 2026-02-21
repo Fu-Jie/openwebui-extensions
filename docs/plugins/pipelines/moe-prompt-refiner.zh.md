@@ -22,7 +22,7 @@ MoE Prompt Refiner 是一个高级 Pipeline，会在将请求发送给多个专�
 
 ## 安装
 
-1. 下载 Pipeline 文件：[`moe_prompt_refiner.py`](https://github.com/Fu-Jie/awesome-openwebui/tree/main/plugins/pipelines)
+1. 下载 Pipeline 文件：[`moe_prompt_refiner.py`](https://github.com/Fu-Jie/openwebui-extensions/tree/main/plugins/pipelines)
 2. 上传到 OpenWebUI：**Admin Panel** → **Settings** → **Functions**
 3. 配置专家模型及相关参数
 4. 启用该 Pipeline
@@ -106,4 +106,4 @@ Synthesized recommendations based on expert consensus...
 
 ## 源码
 
-[:fontawesome-brands-github: 在 GitHub 查看](https://github.com/Fu-Jie/awesome-openwebui/tree/main/plugins/pipelines){ .md-button }
+[:fontawesome-brands-github: 在 GitHub 查看](https://github.com/Fu-Jie/openwebui-extensions/tree/main/plugins/pipelines){ .md-button }

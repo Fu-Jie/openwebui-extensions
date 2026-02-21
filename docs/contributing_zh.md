@@ -1,6 +1,6 @@
 # 贡献指南
 
-感谢你对 **OpenWebUI Extras** 的兴趣！我们欢迎各种形式的贡献，包括插件、提示词、文档等。
+感谢你对 **OpenWebUI Extensions** 的兴趣！我们欢迎各种形式的贡献，包括插件、提示词、文档等。
 
 ---
 
@@ -181,6 +181,6 @@ Update: 插件开发指南添加新示例
 
 ## 🙏 感谢
 
-每一份贡献，无论大小，都有助于让 OpenWebUI Extras 变得更好。感谢你成为我们社区的一员！
+每一份贡献，无论大小，都有助于让 OpenWebUI Extensions 变得更好。感谢你成为我们社区的一员！
 
-[:fontawesome-brands-github: 在 GitHub 上查看](https://github.com/Fu-Jie/awesome-openwebui){ .md-button .md-button--primary }
+[:fontawesome-brands-github: 在 GitHub 上查看](https://github.com/Fu-Jie/openwebui-extensions){ .md-button .md-button--primary }

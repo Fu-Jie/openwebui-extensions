@@ -1,6 +1,6 @@
 # Documentation Writing Guide
 
-This guide explains how to write and contribute documentation for OpenWebUI Extras.
+This guide explains how to write and contribute documentation for OpenWebUI Extensions.
 
 ---
 
@@ -21,8 +21,8 @@ Our documentation is built with [MkDocs](https://www.mkdocs.org/) and the [Mater
 
 ```bash
 # Clone the repository
-git clone https://github.com/Fu-Jie/awesome-openwebui.git
-cd awesome-openwebui
+git clone https://github.com/Fu-Jie/openwebui-extensions.git
+cd openwebui-extensions
 
 # Install dependencies
 pip install -r requirements.txt
@@ -122,7 +122,7 @@ Step-by-step usage instructions.
 
 ## Source Code
 
-[:fontawesome-brands-github: View on GitHub](https://github.com/Fu-Jie/awesome-openwebui/tree/main/plugins/...){ .md-button }
+[:fontawesome-brands-github: View on GitHub](https://github.com/Fu-Jie/openwebui-extensions/tree/main/plugins/...){ .md-button }
 ```
 
 ---

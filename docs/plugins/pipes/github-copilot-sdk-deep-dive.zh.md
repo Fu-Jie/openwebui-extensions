@@ -1,6 +1,6 @@
 # GitHub Copilot SDK 插件深度解析 (Deep Dive)
 
-**版本:** 0.6.0 | **作者:** [Fu-Jie](https://github.com/Fu-Jie/awesome-openwebui) | **状态:** 生产级
+**版本:** 0.6.0 | **作者:** [Fu-Jie](https://github.com/Fu-Jie/openwebui-extensions) | **状态:** 生产级
 
 GitHub Copilot SDK 插件不仅仅是一个 API 转发器，它是一个高度集成的 **智能 Agent 运行环境**。本文将从功能实现、应用场景、技术架构及安全设计四个维度，深入解析这一插件的强大之处。
 

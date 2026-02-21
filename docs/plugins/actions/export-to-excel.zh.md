@@ -47,7 +47,7 @@ Export to Excel 插件可以把你的聊天记录下载为 Excel 文件，适用
 
 ## 安装
 
-1. 下载插件文件：[`export_to_excel.py`](https://github.com/Fu-Jie/awesome-openwebui/tree/main/plugins/actions/export_to_excel)
+1. 下载插件文件：[`export_to_excel.py`](https://github.com/Fu-Jie/openwebui-extensions/tree/main/plugins/actions/export_to_excel)
 2. 上传到 OpenWebUI：**Admin Panel** → **Settings** → **Functions**
 3. 启用插件
 
@@ -84,4 +84,4 @@ Export to Excel 插件可以把你的聊天记录下载为 Excel 文件，适用
 
 ## 源码
 
-[:fontawesome-brands-github: 在 GitHub 查看](https://github.com/Fu-Jie/awesome-openwebui/tree/main/plugins/actions/export_to_excel){ .md-button }
+[:fontawesome-brands-github: 在 GitHub 查看](https://github.com/Fu-Jie/openwebui-extensions/tree/main/plugins/actions/export_to_excel){ .md-button }
