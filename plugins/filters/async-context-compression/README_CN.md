@@ -1,20 +1,24 @@
 # 异步上下文压缩过滤器
 
-**作者:** [Fu-Jie](https://github.com/Fu-Jie/openwebui-extensions) | **版本:** 1.2.2 | **项目:** [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions) | **许可证:** MIT
+**作者:** [Fu-Jie](https://github.com/Fu-Jie/openwebui-extensions) | **版本:** 1.3.0 | **项目:** [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions) | **许可证:** MIT
 
 > **重要提示**：为了确保所有过滤器的可维护性和易用性，每个过滤器都应附带清晰、完整的文档，以确保其功能、配置和使用方法得到充分说明。
 
 本过滤器通过智能摘要和消息压缩技术，在保持对话连贯性的同时，显著降低长对话的 Token 消耗。
 
-## 1.2.2 版本更新
+## 1.3.0 版本更新
 
-- **严重错误修复**: 解决了因日志函数变量名冲突导致的 `TypeError: 'str' object is not callable` 错误。
-- **兼容性增强**: 改进了 `params` 处理逻辑以支持 Pydantic 对象，提高了对不同 OpenWebUI 版本的兼容性。
+- **国际化 (i18n) 支持**: 完成了所有用户可见消息的本地化，现已原生支持 9 种语言（含中、英、日、韩及欧洲主要语言）。
+- **智能状态显示**: 新增 `token_usage_status_threshold` 阀门（默认 80%），可以智能控制何时显示 Token 用量状态，减少不必要的打扰。
+- **性能大幅优化**: 对前端语言检测和日志处理流程进行了非阻塞重构，完全不影响首字节响应时间（TTFB），保持毫秒级极速推流。
+- **Copilot SDK 兼容**: 自动检测并跳过基于 `copilot_sdk` 模型的上下文压缩，避免冲突。
+- **配置项调整**: 为了提供更安静的生产环境体验，`debug_mode` 现已默认设置为 `false`。
 
 ---
 
 ## 核心特性
 
+- ✅ **全方位国际化**: 原生支持 9 种界面语言。
 - ✅ **自动压缩**: 基于 Token 阈值自动触发上下文压缩。
 - ✅ **异步摘要**: 后台生成摘要，不阻塞当前对话响应。
 - ✅ **持久化存储**: 复用 Open WebUI 共享数据库连接，自动支持 PostgreSQL/SQLite 等。
@@ -93,9 +97,10 @@
 | 参数                           | 默认值   | 描述                                                                                                                                    |
 | :----------------------------- | :------- | :-------------------------------------------------------------------------------------------------------------------------------------- |
 | `enable_tool_output_trimming`  | `false`  | 启用时，若 `function_calling: "native"` 激活，将裁剪冗长的工具输出以仅提取最终答案。                                                        |
-| `debug_mode`                   | `true`   | 是否在 Open WebUI 的控制台日志中打印详细的调试信息（如 Token 计数、压缩进度、数据库操作等）。生产环境建议设为 `false`。 |
+| `debug_mode`                   | `false`   | 是否在 Open WebUI 的控制台日志中打印详细的调试信息。生产环境默认且建议设为 `false`。 |
 | `show_debug_log`               | `false`  | 是否在浏览器控制台 (F12) 打印调试日志。便于前端调试。                                                                   |
 | `show_token_usage_status`      | `true`   | 是否在对话结束时显示 Token 使用情况的状态通知。                                                                         |
+| `token_usage_status_threshold` | `80`     | 触发显示上下文用量状态通知的最低百分比阈值 (0-100)。                                                                    |
 
 ---
 

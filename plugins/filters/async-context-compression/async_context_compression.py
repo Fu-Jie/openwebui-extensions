@@ -5,17 +5,17 @@ author: Fu-Jie
 author_url: https://github.com/Fu-Jie/openwebui-extensions
 funding_url: https://github.com/open-webui
 description: Reduces token consumption in long conversations while maintaining coherence through intelligent summarization and message compression.
-version: 1.2.2
+version: 1.3.0
 openwebui_id: b1655bc8-6de9-4cad-8cb5-a6f7829a02ce
 license: MIT
 
 ═══════════════════════════════════════════════════════════════════════════════
-📌 What's new in 1.2.1
+📌 What's new in 1.3.0
 ═══════════════════════════════════════════════════════════════════════════════
 
-  ✅ Smart Configuration: Automatically detects base model settings for custom models and adds `summary_model_max_context` for independent summary limits.
-  ✅ Performance & Refactoring: Optimized threshold parsing with caching and removed redundant code for better efficiency.
-  ✅ Bug Fixes & Modernization: Fixed `datetime` deprecation warnings and corrected type annotations.
+  ✅ Smart Status Display: Added `token_usage_status_threshold` valve (default 80%) to control when token usage status is shown, reducing unnecessary notifications.
+  ✅ Copilot SDK Integration: Automatically detects and skips compression for copilot_sdk based models to prevent conflicts.
+  ✅ Improved User Experience: Status messages now only appear when token usage exceeds the configured threshold, keeping the interface cleaner.
 
 ═══════════════════════════════════════════════════════════════════════════════
 📌 Overview
@@ -150,7 +150,7 @@ summary_temperature
   Description: Controls the randomness of the summary generation. Lower values produce more deterministic output.
 
 debug_mode
-  Default: true
+  Default: false
   Description: Prints detailed debug information to the log. Recommended to set to `false` in production.
 
 show_debug_log
@@ -268,6 +268,7 @@ import hashlib
 import time
 import contextlib
 import logging
+from functools import lru_cache
 
 # Setup logger
 logger = logging.getLogger(__name__)
@@ -391,6 +392,130 @@ class ChatSummary(owui_Base):
     )
 
 
+TRANSLATIONS = {
+    "en-US": {
+        "status_context_usage": "Context Usage (Estimated): {tokens} / {max_tokens} Tokens ({ratio}%)",
+        "status_high_usage": " | ⚠️ High Usage",
+        "status_loaded_summary": "Loaded historical summary (Hidden {count} historical messages)",
+        "status_context_summary_updated": "Context Summary Updated: {tokens} / {max_tokens} Tokens ({ratio}%)",
+        "status_generating_summary": "Generating context summary in background...",
+        "status_summary_error": "Summary Error: {error}",
+        "summary_prompt_prefix": "【Previous Summary: The following is a summary of the historical conversation, provided for context only. Do not reply to the summary content itself; answer the subsequent latest questions directly.】\n\n",
+        "summary_prompt_suffix": "\n\n---\nBelow is the recent conversation:",
+        "tool_trimmed": "... [Tool outputs trimmed]\n{content}",
+        "content_collapsed": "\n... [Content collapsed] ...\n",
+    },
+    "zh-CN": {
+        "status_context_usage": "上下文用量 (预估): {tokens} / {max_tokens} Tokens ({ratio}%)",
+        "status_high_usage": " | ⚠️ 用量较高",
+        "status_loaded_summary": "已加载历史总结 (隐藏了 {count} 条历史消息)",
+        "status_context_summary_updated": "上下文总结已更新: {tokens} / {max_tokens} Tokens ({ratio}%)",
+        "status_generating_summary": "正在后台生成上下文总结...",
+        "status_summary_error": "总结生成错误: {error}",
+        "summary_prompt_prefix": "【前情提要：以下是历史对话的总结，仅供上下文参考。请不要回复总结内容本身，直接回答之后最新的问题。】\n\n",
+        "summary_prompt_suffix": "\n\n---\n以下是最近的对话：",
+        "tool_trimmed": "... [工具输出已裁剪]\n{content}",
+        "content_collapsed": "\n... [内容已折叠] ...\n",
+    },
+    "zh-HK": {
+        "status_context_usage": "上下文用量 (預估): {tokens} / {max_tokens} Tokens ({ratio}%)",
+        "status_high_usage": " | ⚠️ 用量較高",
+        "status_loaded_summary": "已載入歷史總結 (隱藏了 {count} 條歷史訊息)",
+        "status_context_summary_updated": "上下文總結已更新: {tokens} / {max_tokens} Tokens ({ratio}%)",
+        "status_generating_summary": "正在後台生成上下文總結...",
+        "status_summary_error": "總結生成錯誤: {error}",
+        "summary_prompt_prefix": "【前情提要：以下是歷史對話的總結，僅供上下文參考。請不要回覆總結內容本身，直接回答之後最新的問題。】\n\n",
+        "summary_prompt_suffix": "\n\n---\n以下是最近的對話：",
+        "tool_trimmed": "... [工具輸出已裁剪]\n{content}",
+        "content_collapsed": "\n... [內容已折疊] ...\n",
+    },
+    "zh-TW": {
+        "status_context_usage": "上下文用量 (預估): {tokens} / {max_tokens} Tokens ({ratio}%)",
+        "status_high_usage": " | ⚠️ 用量較高",
+        "status_loaded_summary": "已載入歷史總結 (隱藏了 {count} 條歷史訊息)",
+        "status_context_summary_updated": "上下文總結已更新: {tokens} / {max_tokens} Tokens ({ratio}%)",
+        "status_generating_summary": "正在後台生成上下文總結...",
+        "status_summary_error": "總結生成錯誤: {error}",
+        "summary_prompt_prefix": "【前情提要：以下是歷史對話的總結，僅供上下文参考。請不要回覆總結內容本身，直接回答之後最新的問題。】\n\n",
+        "summary_prompt_suffix": "\n\n---\n以下是最近的對話：",
+        "tool_trimmed": "... [工具輸出已裁剪]\n{content}",
+        "content_collapsed": "\n... [內容已折疊] ...\n",
+    },
+    "ja-JP": {
+        "status_context_usage": "コンテキスト使用量 (推定): {tokens} / {max_tokens} トークン ({ratio}%)",
+        "status_high_usage": " | ⚠️ 使用量高",
+        "status_loaded_summary": "履歴の要約を読み込みました ({count} 件の履歴メッセージを非表示)",
+        "status_context_summary_updated": "コンテキストの要約が更新されました: {tokens} / {max_tokens} トークン ({ratio}%)",
+        "status_generating_summary": "バックグラウンドでコンテキスト要約を生成しています...",
+        "status_summary_error": "要約エラー: {error}",
+        "summary_prompt_prefix": "【これまでのあらすじ：以下は過去の会話の要約であり、コンテキストの参考としてのみ提供されます。要約の内容自体には返答せず、その後の最新の質問に直接答えてください。】\n\n",
+        "summary_prompt_suffix": "\n\n---\n以下は最近の会話です：",
+        "tool_trimmed": "... [ツールの出力をトリミングしました]\n{content}",
+        "content_collapsed": "\n... [コンテンツが折りたたまれました] ...\n",
+    },
+    "ko-KR": {
+        "status_context_usage": "컨텍스트 사용량 (예상): {tokens} / {max_tokens} 토큰 ({ratio}%)",
+        "status_high_usage": " | ⚠️ 사용량 높음",
+        "status_loaded_summary": "이전 요약 불러옴 ({count}개의 이전 메시지 숨김)",
+        "status_context_summary_updated": "컨텍스트 요약 업데이트됨: {tokens} / {max_tokens} 토큰 ({ratio}%)",
+        "status_generating_summary": "백그라운드에서 컨텍스트 요약 생성 중...",
+        "status_summary_error": "요약 오류: {error}",
+        "summary_prompt_prefix": "【이전 요약: 다음은 이전 대화의 요약이며 문맥 참고용으로만 제공됩니다. 요약 내용 자체에 답하지 말고 последу의 최신 질문에 직접 답하세요.】\n\n",
+        "summary_prompt_suffix": "\n\n---\n다음은 최근 대화입니다:",
+        "tool_trimmed": "... [도구 출력 잘림]\n{content}",
+        "content_collapsed": "\n... [내용 접힘] ...\n",
+    },
+    "fr-FR": {
+        "status_context_usage": "Utilisation du contexte (estimée) : {tokens} / {max_tokens} jetons ({ratio}%)",
+        "status_high_usage": " | ⚠️ Utilisation élevée",
+        "status_loaded_summary": "Résumé historique chargé ({count} messages d'historique masqués)",
+        "status_context_summary_updated": "Résumé du contexte mis à jour : {tokens} / {max_tokens} jetons ({ratio}%)",
+        "status_generating_summary": "Génération du résumé du contexte en arrière-plan...",
+        "status_summary_error": "Erreur de résumé : {error}",
+        "summary_prompt_prefix": "【Résumé précédent : Ce qui suit est un résumé de la conversation historique, fourni uniquement pour le contexte. Ne répondez pas au contenu du résumé lui-même ; répondez directement aux dernières questions.】\n\n",
+        "summary_prompt_suffix": "\n\n---\nVoici la conversation récente :",
+        "tool_trimmed": "... [Sorties d'outils coupées]\n{content}",
+        "content_collapsed": "\n... [Contenu réduit] ...\n",
+    },
+    "de-DE": {
+        "status_context_usage": "Kontextnutzung (geschätzt): {tokens} / {max_tokens} Tokens ({ratio}%)",
+        "status_high_usage": " | ⚠️ Hohe Nutzung",
+        "status_loaded_summary": "Historische Zusammenfassung geladen ({count} historische Nachrichten ausgeblendet)",
+        "status_context_summary_updated": "Kontextzusammenfassung aktualisiert: {tokens} / {max_tokens} Tokens ({ratio}%)",
+        "status_generating_summary": "Kontextzusammenfassung wird im Hintergrund generiert...",
+        "status_summary_error": "Zusammenfassungsfehler: {error}",
+        "summary_prompt_prefix": "【Vorherige Zusammenfassung: Das Folgende ist eine Zusammenfassung der historischen Konversation, die nur als Kontext dient. Antworten Sie nicht auf den Inhalt der Zusammenfassung selbst, sondern direkt auf die nachfolgenden neuesten Fragen.】\n\n",
+        "summary_prompt_suffix": "\n\n---\nHier ist die jüngste Konversation:",
+        "tool_trimmed": "... [Werkzeugausgaben gekürzt]\n{content}",
+        "content_collapsed": "\n... [Inhalt ausgeblendet] ...\n",
+    },
+    "es-ES": {
+        "status_context_usage": "Uso del contexto (estimado): {tokens} / {max_tokens} Tokens ({ratio}%)",
+        "status_high_usage": " | ⚠️ Uso elevado",
+        "status_loaded_summary": "Resumen histórico cargado ({count} mensajes históricos ocultos)",
+        "status_context_summary_updated": "Resumen del contexto actualizado: {tokens} / {max_tokens} Tokens ({ratio}%)",
+        "status_generating_summary": "Generando resumen del contexto en segundo plano...",
+        "status_summary_error": "Error de resumen: {error}",
+        "summary_prompt_prefix": "【Resumen anterior: El siguiente es un resumen de la conversación histórica, proporcionado solo como contexto. No responda al contenido del resumen en sí; responda directamente a las preguntas más recientes.】\n\n",
+        "summary_prompt_suffix": "\n\n---\nA continuación se muestra la conversación reciente:",
+        "tool_trimmed": "... [Salidas de herramientas recortadas]\n{content}",
+        "content_collapsed": "\n... [Contenido contraído] ...\n",
+    },
+    "it-IT": {
+        "status_context_usage": "Utilizzo contesto (stimato): {tokens} / {max_tokens} Token ({ratio}%)",
+        "status_high_usage": " | ⚠️ Utilizzo elevato",
+        "status_loaded_summary": "Riepilogo storico caricato ({count} messaggi storici nascosti)",
+        "status_context_summary_updated": "Riepilogo contesto aggiornato: {tokens} / {max_tokens} Token ({ratio}%)",
+        "status_generating_summary": "Generazione riepilogo contesto in background...",
+        "status_summary_error": "Errore riepilogo: {error}",
+        "summary_prompt_prefix": "【Riepilogo precedente: Il seguente è un riepilogo della conversazione storica, fornito solo per contesto. Non rispondere al contenuto del riepilogo stesso; rispondi direttamente alle domande più recenti.】\n\n",
+        "summary_prompt_suffix": "\n\n---\nDi seguito è riportata la conversazione recente:",
+        "tool_trimmed": "... [Output degli strumenti tagliati]\n{content}",
+        "content_collapsed": "\n... [Contenuto compresso] ...\n",
+    },
+}
+
+
 # Global cache for tiktoken encoding
 TIKTOKEN_ENCODING = None
 if tiktoken:
@@ -398,6 +523,26 @@ if tiktoken:
         TIKTOKEN_ENCODING = tiktoken.get_encoding("o200k_base")
     except Exception as e:
         logger.error(f"[Init] Failed to load tiktoken encoding: {e}")
+
+
+@lru_cache(maxsize=1024)
+def _get_cached_tokens(text: str) -> int:
+    """Calculates tokens with LRU caching for exact string matches."""
+    if not text:
+        return 0
+    if TIKTOKEN_ENCODING:
+        try:
+            # tiktoken logic is relatively fast, but caching it based on exact string match
+            # turns O(N) encoding time to O(1) dictionary lookup for historical messages.
+            return len(TIKTOKEN_ENCODING.encode(text))
+        except Exception as e:
+            logger.warning(
+                f"[Token Count] tiktoken error: {e}, falling back to character estimation"
+            )
+            pass
+
+    # Fallback strategy: Rough estimation (1 token ≈ 4 chars)
+    return len(text) // 4
 
 
 class Filter:
@@ -409,7 +554,104 @@ class Filter:
             sessionmaker(bind=self._db_engine) if self._db_engine else None
         )
         self._model_thresholds_cache: Optional[Dict[str, Any]] = None
+
+        # Fallback mapping for variants not in TRANSLATIONS keys
+        self.fallback_map = {
+            "es-AR": "es-ES",
+            "es-MX": "es-ES",
+            "fr-CA": "fr-FR",
+            "en-CA": "en-US",
+            "en-GB": "en-US",
+            "en-AU": "en-US",
+            "de-AT": "de-DE",
+        }
+
         self._init_database()
+
+    def _resolve_language(self, lang: str) -> str:
+        """Resolve the best matching language code from the TRANSLATIONS dict."""
+        target_lang = lang
+
+        # 1. Direct match
+        if target_lang in TRANSLATIONS:
+            return target_lang
+
+        # 2. Variant fallback (explicit mapping)
+        if target_lang in self.fallback_map:
+            target_lang = self.fallback_map[target_lang]
+            if target_lang in TRANSLATIONS:
+                return target_lang
+
+        # 3. Base language fallback (e.g. fr-BE -> fr-FR)
+        if "-" in lang:
+            base_lang = lang.split("-")[0]
+            for supported_lang in TRANSLATIONS:
+                if supported_lang.startswith(base_lang + "-"):
+                    return supported_lang
+
+        # 4. Final Fallback to en-US
+        return "en-US"
+
+    def _get_translation(self, lang: str, key: str, **kwargs) -> str:
+        """Get translated string for the given language and key."""
+        target_lang = self._resolve_language(lang)
+        lang_dict = TRANSLATIONS.get(target_lang, TRANSLATIONS["en-US"])
+        text = lang_dict.get(key, TRANSLATIONS["en-US"].get(key, key))
+        if kwargs:
+            try:
+                text = text.format(**kwargs)
+            except Exception as e:
+                logger.warning(f"Translation formatting failed for {key}: {e}")
+        return text
+
+    async def _get_user_context(
+        self,
+        __user__: Optional[Dict[str, Any]],
+        __event_call__: Optional[Callable[[Any], Awaitable[None]]] = None,
+    ) -> Dict[str, str]:
+        """Extract basic user context with safe fallbacks."""
+        if isinstance(__user__, (list, tuple)):
+            user_data = __user__[0] if __user__ else {}
+        elif isinstance(__user__, dict):
+            user_data = __user__
+        else:
+            user_data = {}
+
+        user_id = user_data.get("id", "unknown_user")
+        user_name = user_data.get("name", "User")
+        user_language = user_data.get("language", "en-US")
+
+        if __event_call__:
+            try:
+                js_code = """
+                    return (
+                        document.documentElement.lang ||
+                        localStorage.getItem('locale') || 
+                        localStorage.getItem('language') || 
+                        navigator.language || 
+                        'en-US'
+                    );
+                """
+                frontend_lang = await asyncio.wait_for(
+                    __event_call__({"type": "execute", "data": {"code": js_code}}),
+                    timeout=1.0,
+                )
+                if frontend_lang and isinstance(frontend_lang, str):
+                    user_language = frontend_lang
+            except asyncio.TimeoutError:
+                logger.warning(
+                    "Failed to retrieve frontend language: Timeout (using fallback)"
+                )
+            except Exception as e:
+                logger.warning(
+                    f"Failed to retrieve frontend language: {type(e).__name__}: {e}"
+                )
+
+        return {
+            "user_id": user_id,
+            "user_name": user_name,
+            "user_language": user_language,
+        }
 
     def _parse_model_thresholds(self) -> Dict[str, Any]:
         """Parse model_thresholds string into a dictionary.
@@ -574,13 +816,19 @@ class Filter:
             description="The temperature for summary generation.",
         )
         debug_mode: bool = Field(
-            default=True, description="Enable detailed logging for debugging."
+            default=False, description="Enable detailed logging for debugging."
         )
         show_debug_log: bool = Field(
             default=False, description="Show debug logs in the frontend console"
         )
         show_token_usage_status: bool = Field(
             default=True, description="Show token usage status notification"
+        )
+        token_usage_status_threshold: int = Field(
+            default=80,
+            ge=0,
+            le=100,
+            description="Only show token usage status when usage exceeds this percentage (0-100). Set to 0 to always show.",
         )
         enable_tool_output_trimming: bool = Field(
             default=False,
@@ -654,20 +902,7 @@ class Filter:
 
     def _count_tokens(self, text: str) -> int:
         """Counts the number of tokens in the text."""
-        if not text:
-            return 0
-
-        if TIKTOKEN_ENCODING:
-            try:
-                return len(TIKTOKEN_ENCODING.encode(text))
-            except Exception as e:
-                if self.valves.debug_mode:
-                    logger.warning(
-                        f"[Token Count] tiktoken error: {e}, falling back to character estimation"
-                    )
-
-        # Fallback strategy: Rough estimation (1 token ≈ 4 chars)
-        return len(text) // 4
+        return _get_cached_tokens(text)
 
     def _calculate_messages_tokens(self, messages: List[Dict]) -> int:
         """Calculates the total tokens for a list of messages."""
@@ -692,6 +927,20 @@ class Filter:
             )
 
         return total_tokens
+
+    def _estimate_messages_tokens(self, messages: List[Dict]) -> int:
+        """Fast estimation of tokens based on character count (1/4 ratio)."""
+        total_chars = 0
+        for msg in messages:
+            content = msg.get("content", "")
+            if isinstance(content, list):
+                for part in content:
+                    if isinstance(part, dict) and part.get("type") == "text":
+                        total_chars += len(part.get("text", ""))
+            else:
+                total_chars += len(str(content))
+
+        return total_chars // 4
 
     def _get_model_thresholds(self, model_id: str) -> Dict[str, int]:
         """Gets threshold configuration for a specific model.
@@ -830,11 +1079,13 @@ class Filter:
                 }})();
             """
 
-            await __event_call__(
-                {
-                    "type": "execute",
-                    "data": {"code": js_code},
-                }
+            asyncio.create_task(
+                __event_call__(
+                    {
+                        "type": "execute",
+                        "data": {"code": js_code},
+                    }
+                )
             )
         except Exception as e:
             logger.error(f"Error emitting debug log: {e}")
@@ -876,17 +1127,55 @@ class Filter:
                 js_code = f"""
                     console.log("%c[Compression] {safe_message}", "{css}");
                 """
-                # Add timeout to prevent blocking if frontend connection is broken
-                await asyncio.wait_for(
-                    event_call({"type": "execute", "data": {"code": js_code}}),
-                    timeout=2.0,
-                )
-            except asyncio.TimeoutError:
-                logger.warning(
-                    f"Failed to emit log to frontend: Timeout (connection may be broken)"
+                asyncio.create_task(
+                    event_call({"type": "execute", "data": {"code": js_code}})
                 )
             except Exception as e:
-                logger.error(f"Failed to emit log to frontend: {type(e).__name__}: {e}")
+                logger.error(
+                    f"Failed to process log to frontend: {type(e).__name__}: {e}"
+                )
+
+    def _should_show_status(self, usage_ratio: float) -> bool:
+        """
+        Check if token usage status should be shown based on threshold.
+
+        Args:
+            usage_ratio: Current usage ratio (0.0 to 1.0)
+
+        Returns:
+            True if status should be shown, False otherwise
+        """
+        if not self.valves.show_token_usage_status:
+            return False
+
+        # If threshold is 0, always show
+        if self.valves.token_usage_status_threshold == 0:
+            return True
+
+        # Check if usage exceeds threshold
+        threshold_ratio = self.valves.token_usage_status_threshold / 100.0
+        return usage_ratio >= threshold_ratio
+
+    def _should_skip_compression(
+        self, body: dict, __model__: Optional[dict] = None
+    ) -> bool:
+        """
+        Check if compression should be skipped.
+        Returns True if:
+        1. The base model includes 'copilot_sdk'
+        """
+        # Check if base model includes copilot_sdk
+        if __model__:
+            base_model_id = __model__.get("base_model_id", "")
+            if "copilot_sdk" in base_model_id.lower():
+                return True
+
+        # Also check model in body
+        model_id = body.get("model", "")
+        if "copilot_sdk" in model_id.lower():
+            return True
+
+        return False
 
     async def inlet(
         self,
@@ -902,6 +1191,19 @@ class Filter:
         Executed before sending to the LLM.
         Compression Strategy: Only responsible for injecting existing summaries, no Token calculation.
         """
+
+        # Check if compression should be skipped (e.g., for copilot_sdk)
+        if self._should_skip_compression(body, __model__):
+            if self.valves.debug_mode:
+                logger.info(
+                    "[Inlet] Skipping compression: copilot_sdk detected in base model"
+                )
+            if self.valves.show_debug_log and __event_call__:
+                await self._log(
+                    "[Inlet] ⏭️ Skipping compression: copilot_sdk detected",
+                    event_call=__event_call__,
+                )
+            return body
 
         messages = body.get("messages", [])
 
@@ -966,8 +1268,14 @@ class Filter:
                                 final_answer = content[last_match_end:].strip()
 
                                 if final_answer:
-                                    msg["content"] = (
-                                        f"... [Tool outputs trimmed]\n{final_answer}"
+                                    msg["content"] = self._get_translation(
+                                        (
+                                            __user__.get("language", "en-US")
+                                            if __user__
+                                            else "en-US"
+                                        ),
+                                        "tool_trimmed",
+                                        content=final_answer,
                                     )
                                     trimmed_count += 1
                             else:
@@ -980,8 +1288,14 @@ class Filter:
                                 if len(parts) > 1:
                                     final_answer = parts[-1].strip()
                                     if final_answer:
-                                        msg["content"] = (
-                                            f"... [Tool outputs trimmed]\n{final_answer}"
+                                        msg["content"] = self._get_translation(
+                                            (
+                                                __user__.get("language", "en-US")
+                                                if __user__
+                                                else "en-US"
+                                            ),
+                                            "tool_trimmed",
+                                            content=final_answer,
                                         )
                                         trimmed_count += 1
 
@@ -1173,6 +1487,10 @@ class Filter:
         # Target is to compress up to the (total - keep_last) message
         target_compressed_count = max(0, len(messages) - self.valves.keep_last)
 
+        # Get user context for i18n
+        user_ctx = await self._get_user_context(__user__, __event_call__)
+        lang = user_ctx["user_language"]
+
         await self._log(
             f"[Inlet] Recorded target compression progress: {target_compressed_count}",
             event_call=__event_call__,
@@ -1207,10 +1525,9 @@ class Filter:
 
             # 2. Summary message (Inserted as Assistant message)
             summary_content = (
-                f"【Previous Summary: The following is a summary of the historical conversation, provided for context only. Do not reply to the summary content itself; answer the subsequent latest questions directly.】\n\n"
-                f"{summary_record.summary}\n\n"
-                f"---\n"
-                f"Below is the recent conversation:"
+                self._get_translation(lang, "summary_prompt_prefix")
+                + f"{summary_record.summary}"
+                + self._get_translation(lang, "summary_prompt_suffix")
             )
             summary_msg = {"role": "assistant", "content": summary_content}
 
@@ -1249,16 +1566,27 @@ class Filter:
                 "max_context_tokens", self.valves.max_context_tokens
             )
 
-            # Calculate total tokens
-            total_tokens = await asyncio.to_thread(
-                self._calculate_messages_tokens, calc_messages
-            )
+            # --- Fast Estimation Check ---
+            estimated_tokens = self._estimate_messages_tokens(calc_messages)
 
-            # Preflight Check Log
-            await self._log(
-                f"[Inlet] 🔎 Preflight Check: {total_tokens}t / {max_context_tokens}t ({(total_tokens/max_context_tokens*100):.1f}%)",
-                event_call=__event_call__,
-            )
+            # Since this is a hard limit check, only skip precise calculation if we are far below it (margin of 15%)
+            if estimated_tokens < max_context_tokens * 0.85:
+                total_tokens = estimated_tokens
+                await self._log(
+                    f"[Inlet] 🔎 Fast Preflight Check (Est): {total_tokens}t / {max_context_tokens}t (Well within limit)",
+                    event_call=__event_call__,
+                )
+            else:
+                # Calculate exact total tokens via tiktoken
+                total_tokens = await asyncio.to_thread(
+                    self._calculate_messages_tokens, calc_messages
+                )
+
+                # Preflight Check Log
+                await self._log(
+                    f"[Inlet] 🔎 Precise Preflight Check: {total_tokens}t / {max_context_tokens}t ({(total_tokens/max_context_tokens*100):.1f}%)",
+                    event_call=__event_call__,
+                )
 
             # If over budget, reduce history (Keep Last)
             if total_tokens > max_context_tokens:
@@ -1325,7 +1653,9 @@ class Filter:
                                 first_line_found = True
                                 # Add placeholder if there's more content coming
                                 if idx < last_line_idx:
-                                    kept_lines.append("\n... [Content collapsed] ...\n")
+                                    kept_lines.append(
+                                        self._get_translation(lang, "content_collapsed")
+                                    )
                                 continue
 
                             # Keep last non-empty line
@@ -1347,8 +1677,13 @@ class Filter:
                             target_msg["metadata"]["is_trimmed"] = True
 
                             # Calculate token reduction
-                            old_tokens = self._count_tokens(content)
-                            new_tokens = self._count_tokens(target_msg["content"])
+                            # Use current token strategy
+                            if total_tokens == estimated_tokens:
+                                old_tokens = len(content) // 4
+                                new_tokens = len(target_msg["content"]) // 4
+                            else:
+                                old_tokens = self._count_tokens(content)
+                                new_tokens = self._count_tokens(target_msg["content"])
                             diff = old_tokens - new_tokens
                             total_tokens -= diff
 
@@ -1362,7 +1697,12 @@ class Filter:
                     # Strategy 2: Fallback - Drop Oldest Message Entirely (FIFO)
                     # (User requested to remove progressive trimming for other cases)
                     dropped = tail_messages.pop(0)
-                    dropped_tokens = self._count_tokens(str(dropped.get("content", "")))
+                    if total_tokens == estimated_tokens:
+                        dropped_tokens = len(str(dropped.get("content", ""))) // 4
+                    else:
+                        dropped_tokens = self._count_tokens(
+                            str(dropped.get("content", ""))
+                        )
                     total_tokens -= dropped_tokens
 
                     if self.valves.show_debug_log and __event_call__:
@@ -1382,14 +1722,24 @@ class Filter:
             final_messages = candidate_messages
 
             # Calculate detailed token stats for logging
-            system_tokens = (
-                self._count_tokens(system_prompt_msg.get("content", ""))
-                if system_prompt_msg
-                else 0
-            )
-            head_tokens = self._calculate_messages_tokens(head_messages)
-            summary_tokens = self._count_tokens(summary_content)
-            tail_tokens = self._calculate_messages_tokens(tail_messages)
+            if total_tokens == estimated_tokens:
+                system_tokens = (
+                    len(system_prompt_msg.get("content", "")) // 4
+                    if system_prompt_msg
+                    else 0
+                )
+                head_tokens = self._estimate_messages_tokens(head_messages)
+                summary_tokens = len(summary_content) // 4
+                tail_tokens = self._estimate_messages_tokens(tail_messages)
+            else:
+                system_tokens = (
+                    self._count_tokens(system_prompt_msg.get("content", ""))
+                    if system_prompt_msg
+                    else 0
+                )
+                head_tokens = self._calculate_messages_tokens(head_messages)
+                summary_tokens = self._count_tokens(summary_content)
+                tail_tokens = self._calculate_messages_tokens(tail_messages)
 
             system_info = (
                 f"System({system_tokens}t)" if system_prompt_msg else "System(0t)"
@@ -1408,22 +1758,43 @@ class Filter:
             # Prepare status message (Context Usage format)
             if max_context_tokens > 0:
                 usage_ratio = total_section_tokens / max_context_tokens
-                status_msg = f"Context Usage (Estimated): {total_section_tokens} / {max_context_tokens} Tokens ({usage_ratio*100:.1f}%)"
-                if usage_ratio > 0.9:
-                    status_msg += " | ⚠️ High Usage"
-            else:
-                status_msg = f"Loaded historical summary (Hidden {compressed_count} historical messages)"
+                # Only show status if threshold is met
+                if self._should_show_status(usage_ratio):
+                    status_msg = self._get_translation(
+                        lang,
+                        "status_context_usage",
+                        tokens=total_section_tokens,
+                        max_tokens=max_context_tokens,
+                        ratio=f"{usage_ratio*100:.1f}",
+                    )
+                    if usage_ratio > 0.9:
+                        status_msg += self._get_translation(lang, "status_high_usage")
 
-            if __event_emitter__:
-                await __event_emitter__(
-                    {
-                        "type": "status",
-                        "data": {
-                            "description": status_msg,
-                            "done": True,
-                        },
-                    }
-                )
+                    if __event_emitter__:
+                        await __event_emitter__(
+                            {
+                                "type": "status",
+                                "data": {
+                                    "description": status_msg,
+                                    "done": True,
+                                },
+                            }
+                        )
+            else:
+                # For the case where max_context_tokens is 0, show summary info without threshold check
+                if self.valves.show_token_usage_status and __event_emitter__:
+                    status_msg = self._get_translation(
+                        lang, "status_loaded_summary", count=compressed_count
+                    )
+                    await __event_emitter__(
+                        {
+                            "type": "status",
+                            "data": {
+                                "description": status_msg,
+                                "done": True,
+                            },
+                        }
+                    )
 
             # Emit debug log to frontend (Keep the structured log as well)
             await self._emit_debug_log(
@@ -1454,9 +1825,20 @@ class Filter:
                 "max_context_tokens", self.valves.max_context_tokens
             )
 
-            total_tokens = await asyncio.to_thread(
-                self._calculate_messages_tokens, calc_messages
-            )
+            # --- Fast Estimation Check ---
+            estimated_tokens = self._estimate_messages_tokens(calc_messages)
+
+            # Only skip precise calculation if we are clearly below the limit
+            if estimated_tokens < max_context_tokens * 0.85:
+                total_tokens = estimated_tokens
+                await self._log(
+                    f"[Inlet] 🔎 Fast limit check (Est): {total_tokens}t / {max_context_tokens}t",
+                    event_call=__event_call__,
+                )
+            else:
+                total_tokens = await asyncio.to_thread(
+                    self._calculate_messages_tokens, calc_messages
+                )
 
             if total_tokens > max_context_tokens:
                 await self._log(
@@ -1476,7 +1858,12 @@ class Filter:
                     > start_trim_index + 1  # Keep at least 1 message after keep_first
                 ):
                     dropped = final_messages.pop(start_trim_index)
-                    dropped_tokens = self._count_tokens(str(dropped.get("content", "")))
+                    if total_tokens == estimated_tokens:
+                        dropped_tokens = len(str(dropped.get("content", ""))) // 4
+                    else:
+                        dropped_tokens = self._count_tokens(
+                            str(dropped.get("content", ""))
+                        )
                     total_tokens -= dropped_tokens
 
                 await self._log(
@@ -1485,23 +1872,30 @@ class Filter:
                 )
 
             # Send status notification (Context Usage format)
-            if __event_emitter__:
-                status_msg = f"Context Usage (Estimated): {total_tokens} / {max_context_tokens} Tokens"
-                if max_context_tokens > 0:
-                    usage_ratio = total_tokens / max_context_tokens
-                    status_msg += f" ({usage_ratio*100:.1f}%)"
+            if max_context_tokens > 0:
+                usage_ratio = total_tokens / max_context_tokens
+                # Only show status if threshold is met
+                if self._should_show_status(usage_ratio):
+                    status_msg = self._get_translation(
+                        lang,
+                        "status_context_usage",
+                        tokens=total_tokens,
+                        max_tokens=max_context_tokens,
+                        ratio=f"{usage_ratio*100:.1f}",
+                    )
                     if usage_ratio > 0.9:
-                        status_msg += " | ⚠️ High Usage"
+                        status_msg += self._get_translation(lang, "status_high_usage")
 
-                await __event_emitter__(
-                    {
-                        "type": "status",
-                        "data": {
-                            "description": status_msg,
-                            "done": True,
-                        },
-                    }
-                )
+                    if __event_emitter__:
+                        await __event_emitter__(
+                            {
+                                "type": "status",
+                                "data": {
+                                    "description": status_msg,
+                                    "done": True,
+                                },
+                            }
+                        )
 
         body["messages"] = final_messages
 
@@ -1517,6 +1911,7 @@ class Filter:
         body: dict,
         __user__: Optional[dict] = None,
         __metadata__: dict = None,
+        __model__: dict = None,
         __event_emitter__: Callable[[Any], Awaitable[None]] = None,
         __event_call__: Callable[[Any], Awaitable[None]] = None,
     ) -> dict:
@@ -1524,6 +1919,23 @@ class Filter:
         Executed after the LLM response is complete.
         Calculates Token count in the background and triggers summary generation (does not block current response, does not affect content output).
         """
+        # Check if compression should be skipped (e.g., for copilot_sdk)
+        if self._should_skip_compression(body, __model__):
+            if self.valves.debug_mode:
+                logger.info(
+                    "[Outlet] Skipping compression: copilot_sdk detected in base model"
+                )
+            if self.valves.show_debug_log and __event_call__:
+                await self._log(
+                    "[Outlet] ⏭️ Skipping compression: copilot_sdk detected",
+                    event_call=__event_call__,
+                )
+            return body
+
+        # Get user context for i18n
+        user_ctx = await self._get_user_context(__user__, __event_call__)
+        lang = user_ctx["user_language"]
+
         chat_ctx = self._get_chat_context(body, __metadata__)
         chat_id = chat_ctx["chat_id"]
         if not chat_id:
@@ -1547,6 +1959,7 @@ class Filter:
                 body,
                 __user__,
                 target_compressed_count,
+                lang,
                 __event_emitter__,
                 __event_call__,
             )
@@ -1561,6 +1974,7 @@ class Filter:
         body: dict,
         user_data: Optional[dict],
         target_compressed_count: Optional[int],
+        lang: str = "en-US",
         __event_emitter__: Callable[[Any], Awaitable[None]] = None,
         __event_call__: Callable[[Any], Awaitable[None]] = None,
     ):
@@ -1595,37 +2009,58 @@ class Filter:
                 event_call=__event_call__,
             )
 
-            # Calculate Token count in a background thread
-            current_tokens = await asyncio.to_thread(
-                self._calculate_messages_tokens, messages
-            )
+            # --- Fast Estimation Check ---
+            estimated_tokens = self._estimate_messages_tokens(messages)
 
-            await self._log(
-                f"[🔍 Background Calculation] Token count: {current_tokens}",
-                event_call=__event_call__,
-            )
+            # For triggering summary generation, we need to be more precise if we are in the grey zone
+            # Margin is 15% (skip tiktoken if estimated is < 85% of threshold)
+            # Note: We still use tiktoken if we exceed threshold, because we want an accurate usage status report
+            if estimated_tokens < compression_threshold_tokens * 0.85:
+                current_tokens = estimated_tokens
+                await self._log(
+                    f"[🔍 Background Calculation] Fast estimate ({current_tokens}) is well below threshold ({compression_threshold_tokens}). Skipping tiktoken.",
+                    event_call=__event_call__,
+                )
+            else:
+                # Calculate Token count precisely in a background thread
+                current_tokens = await asyncio.to_thread(
+                    self._calculate_messages_tokens, messages
+                )
+                await self._log(
+                    f"[🔍 Background Calculation] Precise token count: {current_tokens}",
+                    event_call=__event_call__,
+                )
 
             # Send status notification (Context Usage format)
-            if __event_emitter__ and self.valves.show_token_usage_status:
+            if __event_emitter__:
                 max_context_tokens = thresholds.get(
                     "max_context_tokens", self.valves.max_context_tokens
                 )
-                status_msg = f"Context Usage (Estimated): {current_tokens} / {max_context_tokens} Tokens"
                 if max_context_tokens > 0:
                     usage_ratio = current_tokens / max_context_tokens
-                    status_msg += f" ({usage_ratio*100:.1f}%)"
-                    if usage_ratio > 0.9:
-                        status_msg += " | ⚠️ High Usage"
+                    # Only show status if threshold is met
+                    if self._should_show_status(usage_ratio):
+                        status_msg = self._get_translation(
+                            lang,
+                            "status_context_usage",
+                            tokens=current_tokens,
+                            max_tokens=max_context_tokens,
+                            ratio=f"{usage_ratio*100:.1f}",
+                        )
+                        if usage_ratio > 0.9:
+                            status_msg += self._get_translation(
+                                lang, "status_high_usage"
+                            )
 
-                await __event_emitter__(
-                    {
-                        "type": "status",
-                        "data": {
-                            "description": status_msg,
-                            "done": True,
-                        },
-                    }
-                )
+                        await __event_emitter__(
+                            {
+                                "type": "status",
+                                "data": {
+                                    "description": status_msg,
+                                    "done": True,
+                                },
+                            }
+                        )
 
             # Check if compression is needed
             if current_tokens >= compression_threshold_tokens:
@@ -1642,6 +2077,7 @@ class Filter:
                     body,
                     user_data,
                     target_compressed_count,
+                    lang,
                     __event_emitter__,
                     __event_call__,
                 )
@@ -1672,6 +2108,7 @@ class Filter:
         body: dict,
         user_data: Optional[dict],
         target_compressed_count: Optional[int],
+        lang: str = "en-US",
         __event_emitter__: Callable[[Any], Awaitable[None]] = None,
         __event_call__: Callable[[Any], Awaitable[None]] = None,
     ):
@@ -1811,7 +2248,9 @@ class Filter:
                     {
                         "type": "status",
                         "data": {
-                            "description": "Generating context summary in background...",
+                            "description": self._get_translation(
+                                lang, "status_generating_summary"
+                            ),
                             "done": False,
                         },
                     }
@@ -1849,7 +2288,11 @@ class Filter:
                     {
                         "type": "status",
                         "data": {
-                            "description": f"Context summary updated (Compressed {len(middle_messages)} messages)",
+                            "description": self._get_translation(
+                                lang,
+                                "status_loaded_summary",
+                                count=len(middle_messages),
+                            ),
                             "done": True,
                         },
                     }
@@ -1910,10 +2353,9 @@ class Filter:
 
                     # Summary
                     summary_content = (
-                        f"【System Prompt: The following is a summary of the historical conversation, provided for context only. Do not reply to the summary content itself; answer the subsequent latest questions directly.】\n\n"
-                        f"{new_summary}\n\n"
-                        f"---\n"
-                        f"Below is the recent conversation:"
+                        self._get_translation(lang, "summary_prompt_prefix")
+                        + f"{new_summary}"
+                        + self._get_translation(lang, "summary_prompt_suffix")
                     )
                     summary_msg = {"role": "assistant", "content": summary_content}
 
@@ -1943,23 +2385,32 @@ class Filter:
                     max_context_tokens = thresholds.get(
                         "max_context_tokens", self.valves.max_context_tokens
                     )
-                    # 6. Emit Status
-                    status_msg = f"Context Summary Updated: {token_count} / {max_context_tokens} Tokens"
+                    # 6. Emit Status (only if threshold is met)
                     if max_context_tokens > 0:
-                        ratio = (token_count / max_context_tokens) * 100
-                        status_msg += f" ({ratio:.1f}%)"
-                        if ratio > 90.0:
-                            status_msg += " | ⚠️ High Usage"
+                        usage_ratio = token_count / max_context_tokens
+                        # Only show status if threshold is met
+                        if self._should_show_status(usage_ratio):
+                            status_msg = self._get_translation(
+                                lang,
+                                "status_context_summary_updated",
+                                tokens=token_count,
+                                max_tokens=max_context_tokens,
+                                ratio=f"{usage_ratio*100:.1f}",
+                            )
+                            if usage_ratio > 0.9:
+                                status_msg += self._get_translation(
+                                    lang, "status_high_usage"
+                                )
 
-                    await __event_emitter__(
-                        {
-                            "type": "status",
-                            "data": {
-                                "description": status_msg,
-                                "done": True,
-                            },
-                        }
-                    )
+                            await __event_emitter__(
+                                {
+                                    "type": "status",
+                                    "data": {
+                                        "description": status_msg,
+                                        "done": True,
+                                    },
+                                }
+                            )
                 except Exception as e:
                     await self._log(
                         f"[Status] Error calculating tokens: {e}",
@@ -1979,7 +2430,9 @@ class Filter:
                     {
                         "type": "status",
                         "data": {
-                            "description": f"Summary Error: {str(e)[:100]}...",
+                            "description": self._get_translation(
+                                lang, "status_summary_error", error=str(e)[:100]
+                            ),
                             "done": True,
                         },
                     }
