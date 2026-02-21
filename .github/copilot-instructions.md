@@ -991,6 +991,7 @@ Filter 实例是**单例 (Singleton)**。
 - **核心原则**: 默认仅进行**本地文件准备**（更新代码、READMEs、Docs、版本号），**严禁**在未获用户明确许可的情况下自动执行 `git commit` 或 `git push`。
 - **允许 (需确认)**: 只有在用户明确表示“发布”、“Commit it”、“Release”或“提交”后，才允许直接推送到 `main` 分支或创建 PR。
 - **功能分支**: 推荐在进行大规模重构或实验性功能开发时，创建功能分支 (`feature/xxx`) 进行隔离。
+- **PR 提交**: 必须使用 GitHub CLI (`gh`) 创建 Pull Request。示例：`gh pr create --title "feat: ..." --body "..."`。
 
 ### 5. 🤝 贡献者认可规范 (Contributor Recognition)
 
