@@ -329,8 +329,7 @@ jobs:
           DETECTED_CHANGES: ${{ needs.check-changes.outputs.release_notes }}
           COMMITS: ${{ steps.commits.outputs.commits }}
         run: |
-          echo "# ${VERSION} Release" > release_notes.md
-          echo "" >> release_notes.md
+          > release_notes.md
           
           if [ -n "$TITLE" ]; then
             echo "## $TITLE" >> release_notes.md
