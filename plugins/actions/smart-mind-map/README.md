@@ -2,21 +2,26 @@
 
 Smart Mind Map is a powerful OpenWebUI action plugin that intelligently analyzes long-form text content and automatically generates interactive mind maps, helping users structure and visualize knowledge.
 
-**Author:** [Fu-Jie](https://github.com/Fu-Jie) | **Version:** 0.9.2 | **Project:** [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions) | **License:** MIT
+**Author:** [Fu-Jie](https://github.com/Fu-Jie) | **Version:** 1.0.0 | **Project:** [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions) | **License:** MIT
 
-## What's New in v0.9.2
+## What's New in v1.0.0
 
-**Language Rule Alignment**
+### Direct Embed & UI Refinements
 
-- **Input Language First**: Mind map output now strictly matches the input text language.
-- **Consistent Behavior**: Matches the infographic language rule for predictable multilingual output.
+- **Native Multi-language UI (i18n)**: The plugin interface (buttons, settings, status) now automatically adapts to your browser's language setting for a seamless global experience.
+- **Direct Embed Mode**: Introduced a native-like inline display mode for Open WebUI 0.8.0+, enabling a seamless full-width canvas.
+- **Adaptive Auto-Sizing**: Mind map now dynamically scales its height and perfectly refits to the window to eliminate scrollbar artifacts.
+- **Subdued & Compact UI**: Completely redesigned the header tooling bar to a slender, single-line configuration to maximize visual rendering space.
+- **Configurable Experience**: Added `ENABLE_DIRECT_EMBED_MODE` valve to explicitly toggle the new inline rendering behavior.
 
 ## Key Features 🔑
 
 - ✅ **Intelligent Text Analysis**: Automatically identifies core themes, key concepts, and hierarchical structures.
+- ✅ **Native Multi-language UI**: Automatic interface translation (i18n) based on system language for a native feel.
 - ✅ **Interactive Visualization**: Generates beautiful interactive mind maps based on Markmap.js.
+- ✅ **Direct Embed Mode**: (Optional) For Open WebUI 0.8.0+, render natively inline to fill entire UI width.
 - ✅ **High-Resolution PNG Export**: Export mind maps as high-quality PNG images (9x scale).
-- ✅ **Complete Control Panel**: Zoom controls, expand level selection, and fullscreen mode.
+- ✅ **Complete Control Panel**: Zoom controls, expand level selection, and fullscreen mode within a compact toolbar.
 - ✅ **Theme Switching**: Manual theme toggle button with automatic theme detection.
 - ✅ **Image Output Mode**: Generate static SVG images embedded directly in Markdown for cleaner history.
 
@@ -37,6 +42,7 @@ Smart Mind Map is a powerful OpenWebUI action plugin that intelligently analyzes
 | `CLEAR_PREVIOUS_HTML` | `false` | Whether to clear previous plugin-generated HTML content. |
 | `MESSAGE_COUNT` | `1` | Number of recent messages to use for generation (1-5). |
 | `OUTPUT_MODE` | `html` | Output mode: `html` (interactive) or `image` (static). |
+| `ENABLE_DIRECT_EMBED_MODE` | `false` | Enable Direct Embed Mode (Open WebUI 0.8.0+ native layout) instead of Legacy Mode. |
 
 ## ⭐ Support
 

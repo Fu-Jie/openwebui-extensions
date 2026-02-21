@@ -1,7 +1,7 @@
 # Smart Mind Map
 
 <span class="category-badge action">Action</span>
-<span class="version-badge">v0.9.2</span>
+<span class="version-badge">v1.0.0</span>
 
 Intelligently analyzes text content and generates interactive mind maps for better visualization and understanding.
 
@@ -17,7 +17,8 @@ The Smart Mind Map plugin transforms text content into beautiful, interactive mi
 - :material-gesture-swipe: **Rich Controls**: Zoom, reset view, expand level selector (All/2/3) and fullscreen
 - :material-palette: **Theme Aware**: Auto-detects OpenWebUI light/dark theme with manual toggle
 - :material-download: **One-Click Export**: Download high-res PNG, copy SVG, or copy Markdown source
-- :material-translate: **Multi-language**: Matches output language to the input text
+- :material-translate: **i18n Embedded**: One code file smartly detects frontend languages and translates the output.
+- :material-arrow-all: **Auto-Sizing & Direct Embed**: Seamlessly scales to display massive canvas inline (requires setting toggle).
 
 ---
 
@@ -50,6 +51,7 @@ The Smart Mind Map plugin transforms text content into beautiful, interactive mi
 | `MIN_TEXT_LENGTH` | integer | `100` | Minimum characters required before analysis runs |
 | `CLEAR_PREVIOUS_HTML` | boolean | `false` | Clear previous plugin HTML instead of merging |
 | `MESSAGE_COUNT` | integer | `1` | Number of recent messages to include (1–5) |
+| `ENABLE_DIRECT_EMBED_MODE` | boolean | `false` | Enable inline full-width UI for OpenWebUI 0.8.0+ |
 
 ---
 

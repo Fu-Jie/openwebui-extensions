@@ -3,7 +3,7 @@ title: Smart Mind Map
 author: Fu-Jie
 author_url: https://github.com/Fu-Jie/openwebui-extensions
 funding_url: https://github.com/open-webui
-version: 0.9.4
+version: 1.0.0
 openwebui_id: 3094c59a-b4dd-4e0c-9449-15e2dd547dc4
 icon_url: data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxyZWN0IHg9IjE2IiB5PSIxNiIgd2lkdGg9IjYiIGhlaWdodD0iNiIgcng9IjEiLz48cmVjdCB4PSIyIiB5PSIxNiIgd2lkdGg9IjYiIGhlaWdodD0iNiIgcng9IjEiLz48cmVjdCB4PSI5IiB5PSIyIiB3aWR0aD0iNiIgaGVpZ2h0PSI2IiByeD0iMSIvPjxwYXRoIGQ9Ik01IDE2di0zYTEgMSAwIDAgMSAxLTFoMTJhMSAxIDAgMCAxIDEgMXYzIi8+PHBhdGggZD0iTTEyIDEyVjgiLz48L3N2Zz4=
 description: Intelligently analyzes text content and generates interactive mind maps to help users structure and visualize knowledge.
@@ -23,6 +23,12 @@ from pydantic import BaseModel, Field
 
 from open_webui.utils.chat import generate_chat_completion
 from open_webui.models.users import Users
+
+try:
+    from open_webui.env import VERSION as open_webui_version
+except ImportError:
+    open_webui_version = "0.0.0"
+
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
@@ -59,7 +65,7 @@ TRANSLATIONS = {
         "ui_depth_3": "Level 3",
         "ui_fullscreen": "Fullscreen",
         "ui_theme": "Theme",
-        "ui_footer": "© {year} Smart Mind Map • <a href='https://markmap.js.org/' target='_blank'>Markmap</a>",
+        "ui_footer": "<b>Powered by</b> <a href='https://markmap.js.org/' target='_blank' rel='noopener noreferrer'>Markmap</a>",
         "html_error_missing_content": "⚠️ Unable to load mind map: Missing valid content.",
         "html_error_load_failed": "⚠️ Resource loading failed, please try again later.",
         "js_done": "Done",
@@ -67,7 +73,7 @@ TRANSLATIONS = {
         "js_generating": "Generating...",
         "js_filename": "mindmap.png",
         "js_upload_failed": "Upload failed: ",
-        "md_image_alt": "🧠 Mind Map"
+        "md_image_alt": "🧠 Mind Map",
     },
     "zh-CN": {
         "status_starting": "思维导图已启动，正在为您生成思维导图...",
@@ -98,7 +104,7 @@ TRANSLATIONS = {
         "ui_depth_3": "展开 3 级",
         "ui_fullscreen": "全屏",
         "ui_theme": "主题",
-        "ui_footer": "© {year} 智能思维导图 • <a href='https://markmap.js.org/' target='_blank'>Markmap</a>",
+        "ui_footer": "<b>Powered by</b> <a href='https://markmap.js.org/' target='_blank' rel='noopener noreferrer'>Markmap</a>",
         "html_error_missing_content": "⚠️ 无法加载思维导图：缺少有效内容。",
         "html_error_load_failed": "⚠️ 资源加载失败，请稍后重试。",
         "js_done": "完成",
@@ -106,7 +112,7 @@ TRANSLATIONS = {
         "js_generating": "生成中...",
         "js_filename": "思维导图.png",
         "js_upload_failed": "上传失败：",
-        "md_image_alt": "🧠 思维导图"
+        "md_image_alt": "🧠 思维导图",
     },
     "zh-HK": {
         "status_starting": "思維導圖已啟動，正在為您生成思維導圖...",
@@ -137,7 +143,7 @@ TRANSLATIONS = {
         "ui_depth_3": "展開 3 級",
         "ui_fullscreen": "全屏",
         "ui_theme": "主題",
-        "ui_footer": "© {year} 智能思維導圖 • <a href='https://markmap.js.org/' target='_blank'>Markmap</a>",
+        "ui_footer": "<b>Powered by</b> <a href='https://markmap.js.org/' target='_blank' rel='noopener noreferrer'>Markmap</a>",
         "html_error_missing_content": "⚠️ 無法加載思維導圖：缺少有效內容。",
         "html_error_load_failed": "⚠️ 資源加載失敗，請稍後重試。",
         "js_done": "完成",
@@ -145,7 +151,7 @@ TRANSLATIONS = {
         "js_generating": "生成中...",
         "js_filename": "思維導圖.png",
         "js_upload_failed": "上傳失敗：",
-        "md_image_alt": "🧠 思維導圖"
+        "md_image_alt": "🧠 思維導圖",
     },
     "zh-TW": {
         "status_starting": "思維導圖已啟動，正在為您生成思維導圖...",
@@ -176,7 +182,7 @@ TRANSLATIONS = {
         "ui_depth_3": "展開 3 級",
         "ui_fullscreen": "全屏",
         "ui_theme": "主題",
-        "ui_footer": "© {year} 智能思維導圖 • <a href='https://markmap.js.org/' target='_blank'>Markmap</a>",
+        "ui_footer": "<b>Powered by</b> <a href='https://markmap.js.org/' target='_blank' rel='noopener noreferrer'>Markmap</a>",
         "html_error_missing_content": "⚠️ 無法加載思維導圖：缺少有效內容。",
         "html_error_load_failed": "⚠️ 資源加載失敗，請稍後重試。",
         "js_done": "完成",
@@ -184,7 +190,7 @@ TRANSLATIONS = {
         "js_generating": "生成中...",
         "js_filename": "思維導圖.png",
         "js_upload_failed": "上傳失敗：",
-        "md_image_alt": "🧠 思維導圖"
+        "md_image_alt": "🧠 思維導圖",
     },
     "ko-KR": {
         "status_starting": "스마트 마인드맵이 시작되었습니다, 마인드맵을 생성 중입니다...",
@@ -215,7 +221,7 @@ TRANSLATIONS = {
         "ui_depth_3": "레벨 3",
         "ui_fullscreen": "전체 화면",
         "ui_theme": "테마",
-        "ui_footer": "© {year} 스마트 마인드맵 • <a href='https://markmap.js.org/' target='_blank'>Markmap</a>",
+        "ui_footer": "<b>Powered by</b> <a href='https://markmap.js.org/' target='_blank' rel='noopener noreferrer'>Markmap</a>",
         "html_error_missing_content": "⚠️ 마인드맵을 로드할 수 없습니다: 유효한 내용이 없습니다.",
         "html_error_load_failed": "⚠️ 리소스 로드 실패, 나중에 다시 시도해 주세요.",
         "js_done": "완료",
@@ -223,7 +229,7 @@ TRANSLATIONS = {
         "js_generating": "생성 중...",
         "js_filename": "mindmap.png",
         "js_upload_failed": "업로드 실패: ",
-        "md_image_alt": "🧠 마인드맵"
+        "md_image_alt": "🧠 마인드맵",
     },
     "ja-JP": {
         "status_starting": "スマートマインドマップが起動しました。マインドマップを生成しています...",
@@ -254,7 +260,7 @@ TRANSLATIONS = {
         "ui_depth_3": "レベル3",
         "ui_fullscreen": "全画面",
         "ui_theme": "テーマ",
-        "ui_footer": "© {year} スマートマインドマップ • <a href='https://markmap.js.org/' target='_blank'>Markmap</a>",
+        "ui_footer": "<b>Powered by</b> <a href='https://markmap.js.org/' target='_blank' rel='noopener noreferrer'>Markmap</a>",
         "html_error_missing_content": "⚠️ マインドマップを読み込めません：有効なコンテンツがありません。",
         "html_error_load_failed": "⚠️ リソースの読み込みに失敗しました。後でもう一度お試しください。",
         "js_done": "完了",
@@ -262,7 +268,7 @@ TRANSLATIONS = {
         "js_generating": "生成中...",
         "js_filename": "mindmap.png",
         "js_upload_failed": "アップロード失敗：",
-        "md_image_alt": "🧠 マインドマップ"
+        "md_image_alt": "🧠 マインドマップ",
     },
     "fr-FR": {
         "status_starting": "Smart Mind Map démarre, génération de la carte heuristique en cours...",
@@ -293,7 +299,7 @@ TRANSLATIONS = {
         "ui_depth_3": "Niveau 3",
         "ui_fullscreen": "Plein écran",
         "ui_theme": "Thème",
-        "ui_footer": "© {year} Smart Mind Map • <a href='https://markmap.js.org/' target='_blank'>Markmap</a>",
+        "ui_footer": "<b>Powered by</b> <a href='https://markmap.js.org/' target='_blank' rel='noopener noreferrer'>Markmap</a>",
         "html_error_missing_content": "⚠️ Impossible de charger la carte heuristique : contenu valide manquant.",
         "html_error_load_failed": "⚠️ Échec du chargement des ressources, veuillez réessayer plus tard.",
         "js_done": "Terminé",
@@ -301,7 +307,7 @@ TRANSLATIONS = {
         "js_generating": "Génération...",
         "js_filename": "carte_heuristique.png",
         "js_upload_failed": "Échec du téléchargement : ",
-        "md_image_alt": "🧠 Carte Heuristique"
+        "md_image_alt": "🧠 Carte Heuristique",
     },
     "de-DE": {
         "status_starting": "Smart Mind Map startet, Mindmap wird für Sie erstellt...",
@@ -332,7 +338,7 @@ TRANSLATIONS = {
         "ui_depth_3": "Ebene 3",
         "ui_fullscreen": "Vollbild",
         "ui_theme": "Thema",
-        "ui_footer": "© {year} Smart Mind Map • <a href='https://markmap.js.org/' target='_blank'>Markmap</a>",
+        "ui_footer": "<b>Powered by</b> <a href='https://markmap.js.org/' target='_blank' rel='noopener noreferrer'>Markmap</a>",
         "html_error_missing_content": "⚠️ Mindmap kann nicht geladen werden: Gültiger Inhalt fehlt.",
         "html_error_load_failed": "⚠️ Ressourcenladen fehlgeschlagen, bitte versuchen Sie es später erneut.",
         "js_done": "Fertig",
@@ -340,7 +346,7 @@ TRANSLATIONS = {
         "js_generating": "Generiere...",
         "js_filename": "mindmap.png",
         "js_upload_failed": "Upload fehlgeschlagen: ",
-        "md_image_alt": "🧠 Mindmap"
+        "md_image_alt": "🧠 Mindmap",
     },
     "es-ES": {
         "status_starting": "Smart Mind Map se está iniciando, generando mapa mental para usted...",
@@ -371,7 +377,7 @@ TRANSLATIONS = {
         "ui_depth_3": "Nivel 3",
         "ui_fullscreen": "Pantalla completa",
         "ui_theme": "Tema",
-        "ui_footer": "© {year} Smart Mind Map • <a href='https://markmap.js.org/' target='_blank'>Markmap</a>",
+        "ui_footer": "<b>Powered by</b> <a href='https://markmap.js.org/' target='_blank' rel='noopener noreferrer'>Markmap</a>",
         "html_error_missing_content": "⚠️ No se puede cargar el mapa mental: Falta contenido válido.",
         "html_error_load_failed": "⚠️ Falló la carga de recursos, inténtelo de nuevo más tarde.",
         "js_done": "Hecho",
@@ -379,7 +385,7 @@ TRANSLATIONS = {
         "js_generating": "Generando...",
         "js_filename": "mapa_mental.png",
         "js_upload_failed": "Carga fallida: ",
-        "md_image_alt": "🧠 Mapa Mental"
+        "md_image_alt": "🧠 Mapa Mental",
     },
     "it-IT": {
         "status_starting": "Smart Mind Map si sta avviando, generazione mappa mentale in corso...",
@@ -410,7 +416,7 @@ TRANSLATIONS = {
         "ui_depth_3": "Livello 3",
         "ui_fullscreen": "Schermo intero",
         "ui_theme": "Tema",
-        "ui_footer": "© {year} Smart Mind Map • <a href='https://markmap.js.org/' target='_blank'>Markmap</a>",
+        "ui_footer": "<b>Powered by</b> <a href='https://markmap.js.org/' target='_blank' rel='noopener noreferrer'>Markmap</a>",
         "html_error_missing_content": "⚠️ Impossibile caricare la mappa mentale: Contenuto valido mancante.",
         "html_error_load_failed": "⚠️ Caricamento risorse fallito, riprovare più tardi.",
         "js_done": "Fatto",
@@ -418,7 +424,7 @@ TRANSLATIONS = {
         "js_generating": "Generazione...",
         "js_filename": "mappa_mentale.png",
         "js_upload_failed": "Caricamento fallito: ",
-        "md_image_alt": "🧠 Mappa Mentale"
+        "md_image_alt": "🧠 Mappa Mentale",
     },
     "vi-VN": {
         "status_starting": "Smart Mind Map đang khởi động, đang tạo sơ đồ tư duy cho bạn...",
@@ -449,7 +455,7 @@ TRANSLATIONS = {
         "ui_depth_3": "Cấp độ 3",
         "ui_fullscreen": "Toàn màn hình",
         "ui_theme": "Chủ đề",
-        "ui_footer": "© {year} Smart Mind Map • <a href='https://markmap.js.org/' target='_blank'>Markmap</a>",
+        "ui_footer": "<b>Powered by</b> <a href='https://markmap.js.org/' target='_blank' rel='noopener noreferrer'>Markmap</a>",
         "html_error_missing_content": "⚠️ Không thể tải sơ đồ tư duy: Thiếu nội dung hợp lệ.",
         "html_error_load_failed": "⚠️ Tải tài nguyên thất bại, vui lòng thử lại sau.",
         "js_done": "Xong",
@@ -457,7 +463,7 @@ TRANSLATIONS = {
         "js_generating": "Đang tạo...",
         "js_filename": "sodo_tuduy.png",
         "js_upload_failed": "Tải lên thất bại: ",
-        "md_image_alt": "🧠 Sơ đồ Tư duy"
+        "md_image_alt": "🧠 Sơ đồ Tư duy",
     },
     "id-ID": {
         "status_starting": "Smart Mind Map sedang dimulai, membuat peta pikiran untuk Anda...",
@@ -488,7 +494,7 @@ TRANSLATIONS = {
         "ui_depth_3": "Level 3",
         "ui_fullscreen": "Layar Penuh",
         "ui_theme": "Tema",
-        "ui_footer": "© {year} Smart Mind Map • <a href='https://markmap.js.org/' target='_blank'>Markmap</a>",
+        "ui_footer": "<b>Powered by</b> <a href='https://markmap.js.org/' target='_blank' rel='noopener noreferrer'>Markmap</a>",
         "html_error_missing_content": "⚠️ Tidak dapat memuat peta pikiran: Konten valid hilang.",
         "html_error_load_failed": "⚠️ Gagal memuat sumber daya, silakan coba lagi nanti.",
         "js_done": "Selesai",
@@ -496,8 +502,8 @@ TRANSLATIONS = {
         "js_generating": "Membuat...",
         "js_filename": "peta_pikiran.png",
         "js_upload_failed": "Unggah gagal: ",
-        "md_image_alt": "🧠 Peta Pikiran"
-    }
+        "md_image_alt": "🧠 Peta Pikiran",
+    },
 }
 
 SYSTEM_PROMPT_MINDMAP_ASSISTANT = """
@@ -509,8 +515,15 @@ Please strictly follow these guidelines:
 -   **Format**: Your output must strictly be in Markdown list format, wrapped with ```markdown and ```.
     -   Use `#` to define the central theme (root node).
     -   Use `-` with two-space indentation to represent branches and sub-branches.
--   **Content**:
-    -   Identify the central theme of the text as the `#` heading.
+-   **Root Node (Central Theme) — Strict Length Limits**:
+    -   The `#` root node must be an ultra-compact title, like a newspaper headline. It should be a keyword or short phrase, NEVER a full sentence.
+    -   **CJK scripts (Chinese, Japanese, Korean)**: Maximum **10 characters** (e.g., `# 老人缓解呼吸困难方法` ✓ / `# 老人在家时感到呼吸困难的缓解方法` ✗)
+    -   **Latin-script languages (English, Spanish, French, Italian, Portuguese)**: Maximum **5 words or 35 characters** (e.g., `# Methods to Relieve Dyspnea` ✓ / `# How Elderly People Can Relieve Breathing Difficulty at Home` ✗)
+    -   **German, Dutch or languages with long compound words**: Maximum **4 words or 30 characters**
+    -   **Arabic, Hebrew and other RTL scripts**: Maximum **5 words or 25 characters**
+    -   **All other languages**: Maximum **5 words or 30 characters**
+    -   If the identified theme would exceed the limit, distill it further into the single most essential keyword or 2-3 word phrase.
+-   **Branch Node Content**:
     -   Identify main concepts as first-level list items.
     -   Identify supporting details or sub-concepts as nested list items.
     -   Node content should be concise and clear, avoiding verbosity.
@@ -520,6 +533,9 @@ Please strictly follow these guidelines:
     # Unable to Generate Mind Map
     - Reason: Insufficient or unclear text content
     ```
+-   **Awareness of Target Audience Layout**: You will be provided `Target Rendering Mode`.
+    -   If `Target Rendering Mode` is `direct`: The client has massive horizontal space but limited scrolling vertically. Extract more first-level concepts to make the mind map spread wide like a sprawling fan, rather than deep single columns.
+    -   If `Target Rendering Mode` is `legacy`: The client uses a narrow, portrait sidebar. Extract fewer top-level nodes, and break points into deeper, tighter sub-branches so the map grows vertically downwards.
 """
 
 USER_PROMPT_GENERATE_MINDMAP = """
@@ -532,6 +548,7 @@ Current Date & Time: {current_date_time_str}
 Current Weekday: {current_weekday}
 Current Timezone: {current_timezone_str}
 User Language: {user_language}
+Target Rendering Mode: Auto-adapting (Dynamic width based on viewport)
 ---
 
 **Long-form Text Content:**
@@ -549,7 +566,7 @@ HTML_WRAPPER_TEMPLATE = """
         body { 
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
             margin: 0; 
-            padding: 10px; 
+            padding: 2px; 
             background-color: transparent; 
         }
         #main-container { 
@@ -609,6 +626,14 @@ CSS_TEMPLATE_MINDMAP = """
             --header-gradient: linear-gradient(135deg, #0ea5e9, #22c55e);
             --shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
         }
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100vw;
+            height: 100vh;
+            background: var(--card-bg-color);
+            overflow: hidden;
+        }
         .mindmap-container-wrapper {
             font-family: var(--font-family);
             line-height: 1.6;
@@ -617,64 +642,76 @@ CSS_TEMPLATE_MINDMAP = """
             padding: 0;
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
-            height: 100%;
             display: flex;
             flex-direction: column;
-            background: var(--background-color);
-            border: 1px solid var(--border-color);
-            border-radius: var(--border-radius);
-            box-shadow: var(--shadow);
+            background: var(--card-bg-color);
+            width: 100vw;
+            height: 100vh;
+            box-sizing: border-box;
+            overflow: hidden;
+            border: none;
+            border-radius: 0;
+            box-shadow: none;
         }
         .header {
-            background: var(--header-gradient);
-            color: white;
-            padding: 18px 20px;
-            text-align: center;
-            border-top-left-radius: var(--border-radius);
-            border-top-right-radius: var(--border-radius);
+            background: var(--card-bg-color);
+            color: var(--text-color);
+            padding: 12px 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            flex-shrink: 0;
+            border-bottom: 1px solid var(--border-color);
+            z-index: 10;
+        }
+        .header-top {
+            display: flex;
+            align-items: center;
+            gap: 12px;
         }
         .header h1 {
             margin: 0;
-            font-size: 1.4em;
+            font-size: 1.2em;
             font-weight: 600;
-            letter-spacing: 0.3px;
-        }
-        .user-context {
-            font-size: 0.85em;
-            color: var(--muted-text-color);
-            background-color: rgba(255, 255, 255, 0.6);
-            padding: 8px 14px;
+            letter-spacing: 0.5px;
             display: flex;
-            justify-content: space-between;
-            flex-wrap: wrap;
-            border-bottom: 1px solid var(--border-color);
-            gap: 6px;
+            align-items: center;
+            gap: 8px;
         }
-        .theme-dark .user-context {
-            background-color: rgba(31, 41, 55, 0.7);
+        .header-credits {
+            font-size: 0.8em;
+            color: var(--muted-text-color);
+            opacity: 0.8;
+            white-space: nowrap;
         }
-        .user-context span { margin: 2px 6px; }
+        .header-credits a {
+            color: var(--primary-color);
+            text-decoration: none;
+            border-bottom: 1px dotted var(--link-color);
+        }
+        
         .content-area {
-            padding: 16px;
-            flex-grow: 1;
-            background: var(--card-bg-color);
+            padding: 0;
+            flex: 1 1 0;
+            background: transparent;
+            position: relative;
+            overflow: hidden;
+            width: 100%;
+            min-height: 0;
+            /* Height will be computed dynamically by JS below */
         }
         .markmap-container {
-            position: relative;
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
             background-color: var(--card-bg-color);
-            border-radius: 10px;
-            padding: 12px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            border: 1px solid var(--border-color);
-            width: 100%;
-            min-height: 60vh;
-            overflow: visible;
         }
         .markmap-container svg {
             width: 100%;
             height: 100%;
+            display: block;
         }
         .markmap-container svg text {
             fill: var(--text-color) !important;
@@ -688,6 +725,10 @@ CSS_TEMPLATE_MINDMAP = """
         }
         .markmap-container svg .markmap-link {
             stroke: var(--link-color) !important;
+            stroke-opacity: 0.6;
+        }
+        .theme-dark .markmap-node circle {
+            fill: var(--card-bg-color) !important;
         }
         .markmap-container svg .markmap-node circle,
         .markmap-container svg .markmap-node rect {
@@ -695,32 +736,54 @@ CSS_TEMPLATE_MINDMAP = """
         }
         .control-rows {
             display: flex;
+            align-items: center;
             flex-wrap: wrap;
-            gap: 10px;
-            justify-content: center;
-            margin-top: 12px;
+            gap: 12px;
+            margin-left: auto; /* Push controls to the right */
         }
         .btn-group {
             display: inline-flex;
-            gap: 6px;
+            gap: 4px;
             align-items: center;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 2px;
+            background: var(--background-color);
         }
         .control-btn {
-            background-color: var(--primary-color);
-            color: white;
+            background-color: transparent;
+            color: var(--text-color);
             border: none;
-            padding: 8px 12px;
-            border-radius: 8px;
-            font-size: 0.9em;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 0.85em;
             font-weight: 500;
             cursor: pointer;
-            transition: background-color 0.15s ease, transform 0.15s ease;
+            transition: all 0.2s ease;
             display: inline-flex;
             align-items: center;
-            gap: 6px;
-            height: 36px;
+            justify-content: center;
+            height: 28px;
             box-sizing: border-box;
+            opacity: 0.8;
         }
+        .control-btn:hover {
+            background-color: var(--card-bg-color);
+            opacity: 1;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .control-btn:active {
+            transform: translateY(1px);
+        }
+        .control-btn.primary { 
+            background-color: var(--primary-color);
+            color: white;
+            opacity: 1;
+        }
+        .control-btn.primary:hover {
+            box-shadow: 0 2px 5px rgba(30,136,229,0.3);
+        }
+        
         select.control-btn {
             appearance: none;
             padding-right: 28px;
@@ -729,28 +792,10 @@ CSS_TEMPLATE_MINDMAP = """
             background-position: right 8px center;
             background-size: 10px;
         }
-        .control-btn.secondary { background-color: var(--secondary-color); }
-        .control-btn.neutral { background-color: #64748b; }
-        .control-btn:hover { transform: translateY(-1px); }
-        .control-btn.copied { background-color: #2e7d32; }
-        .control-btn:disabled { opacity: 0.6; cursor: not-allowed; }
-        .footer {
-            text-align: center;
-            padding: 12px;
-            font-size: 0.85em;
-            color: var(--muted-text-color);
+        .control-btn option {
             background-color: var(--card-bg-color);
-            border-top: 1px solid var(--border-color);
-            border-bottom-left-radius: var(--border-radius);
-            border-bottom-right-radius: var(--border-radius);
+            color: var(--text-color);
         }
-
-        .footer a {
-            color: var(--primary-color);
-            text-decoration: none;
-            font-weight: 500;
-        }
-        .footer a:hover { text-decoration: underline; }
         .error-message {
             color: #c62828;
             background-color: #ffcdd2;
@@ -759,50 +804,67 @@ CSS_TEMPLATE_MINDMAP = """
             border-radius: 8px;
             font-weight: 500;
             font-size: 1em;
+            margin: 10px;
+        }
+
+        /* Mobile Responsive Adjustments */
+        @media screen and (max-width: 768px) {
+            .mindmap-container-wrapper {
+                min-height: 400px;
+                height: 80vh;
+            }
+            .header {
+                flex-direction: column;
+                gap: 10px;
+            }
+            .btn-group {
+                padding: 2px;
+            }
+            .control-btn {
+                padding: 4px 6px;
+                font-size: 0.75em;
+                height: 28px;
+            }
+            select.control-btn {
+                padding-right: 20px;
+                background-position: right 4px center;
+            }
         }
 """
 
 CONTENT_TEMPLATE_MINDMAP = """
         <div class="mindmap-container-wrapper">
             <div class="header">
-                <h1>{t_ui_title}</h1>
-            </div>
-            <div class="user-context">
-                <span><strong>{t_ui_user}</strong> {user_name}</span>
-                <span><strong>{t_ui_time}</strong> {current_date_time_str}</span>
-            </div>
-            <div class="content-area">
-                <div class="markmap-container" id="markmap-container-{unique_id}"></div>
-                <div class="control-rows">
-                    <div class="btn-group">
-                        <button id="download-png-btn-{unique_id}" class="control-btn secondary">
-                            <span class="btn-text">{t_ui_download_png}</span>
-                        </button>
-                        <button id="download-svg-btn-{unique_id}" class="control-btn">
-                            <span class="btn-text">{t_ui_download_svg}</span>
-                        </button>
-                        <button id="download-md-btn-{unique_id}" class="control-btn neutral">
-                            <span class="btn-text">{t_ui_download_md}</span>
-                        </button>
+                <div class="header-top">
+                    <h1>{t_ui_title}</h1>
+                    <div class="header-credits">
+                        <span>{t_ui_footer}</span>
                     </div>
-                    <div class="btn-group">
-                        <button id="zoom-out-btn-{unique_id}" class="control-btn neutral" title="{t_ui_zoom_out}">{t_ui_zoom_out}</button>
-                        <button id="zoom-reset-btn-{unique_id}" class="control-btn neutral" title="{t_ui_zoom_reset}">{t_ui_zoom_reset}</button>
-                        <button id="zoom-in-btn-{unique_id}" class="control-btn neutral" title="{t_ui_zoom_in}">{t_ui_zoom_in}</button>
-                    </div>
-                    <div class="btn-group">
-                        <select id="depth-select-{unique_id}" class="control-btn secondary" title="{t_ui_depth_select}">
-                            <option value="0" selected>{t_ui_depth_all}</option>
-                            <option value="2">{t_ui_depth_2}</option>
-                            <option value="3">{t_ui_depth_3}</option>
-                        </select>
-                        <button id="fullscreen-btn-{unique_id}" class="control-btn">{t_ui_fullscreen}</button>
-                        <button id="theme-toggle-btn-{unique_id}" class="control-btn neutral">{t_ui_theme}</button>
+                    <div class="control-rows">
+                        <div class="btn-group">
+                            <button id="download-png-btn-{unique_id}" class="control-btn primary" title="{t_ui_download_png}">PNG</button>
+                            <button id="download-svg-btn-{unique_id}" class="control-btn" title="{t_ui_download_svg}">SVG</button>
+                            <button id="download-md-btn-{unique_id}" class="control-btn" title="{t_ui_download_md}">MD</button>
+                        </div>
+                        <div class="btn-group">
+                            <button id="zoom-out-btn-{unique_id}" class="control-btn" title="{t_ui_zoom_out}">－</button>
+                            <button id="zoom-reset-btn-{unique_id}" class="control-btn" title="{t_ui_zoom_reset}">↺</button>
+                            <button id="zoom-in-btn-{unique_id}" class="control-btn" title="{t_ui_zoom_in}">＋</button>
+                        </div>
+                        <div class="btn-group">
+                            <select id="depth-select-{unique_id}" class="control-btn" title="{t_ui_depth_select}">
+                                <option value="0" selected>{t_ui_depth_all}</option>
+                                <option value="2">{t_ui_depth_2}</option>
+                                <option value="3">{t_ui_depth_3}</option>
+                            </select>
+                            <button id="fullscreen-btn-{unique_id}" class="control-btn" title="{t_ui_fullscreen}">⛶</button>
+                            <button id="theme-toggle-btn-{unique_id}" class="control-btn" title="{t_ui_theme}">◑</button>
+                        </div>
                     </div>
                 </div>
             </div>
-            <div class="footer">
-                <p>{t_ui_footer}</p>
+            <div class="content-area">
+                <div class="markmap-container" id="markmap-container-{unique_id}"></div>
             </div>
         </div>
         
@@ -926,7 +988,6 @@ SCRIPT_TEMPLATE_MINDMAP = """
                 const svgEl = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
                 svgEl.style.width = '100%';
                 svgEl.style.height = '100%';
-                svgEl.style.minHeight = '60vh';
                 containerEl.innerHTML = '';
                 containerEl.appendChild(svgEl);
 
@@ -934,21 +995,67 @@ SCRIPT_TEMPLATE_MINDMAP = """
                 const transformer = new Transformer();
                 const { root } = transformer.transform(markdownContent);
 
+                const containerWidth = containerEl.clientWidth || window.innerWidth;
+                const containerHeight = containerEl.clientHeight || window.innerHeight;
+                const isPortrait = containerHeight >= containerWidth * 0.8;
+
                 const style = (id) => `
-                    ${id} text, ${id} foreignObject { font-size: 14px; }
-                    ${id} foreignObject h1 { font-size: 22px; font-weight: 700; margin: 0; }
-                    ${id} foreignObject h2 { font-size: 18px; font-weight: 600; margin: 0; }
+                    ${id} text, ${id} foreignObject { font-size: 16px; }
+                    ${id} foreignObject { line-height: 1.6; }
+                    ${id} foreignObject div { padding: 2px 0; }
+                    ${id} foreignObject h1 { font-size: 24px; font-weight: 700; margin: 0 0 6px 0; border-bottom: 2px solid currentColor; padding-bottom: 4px; display: inline-block; }
+                    ${id} foreignObject h2 { font-size: 18px; font-weight: 600; margin: 0 0 4px 0; }
                     ${id} foreignObject strong { font-weight: 700; }
+                    ${id} foreignObject p { margin: 2px 0; }
                 `;
+                
+                let responsiveMaxWidth;
+                let dynamicSpacingVertical = 5;
+                let dynamicSpacingHorizontal = 80;
+
+                if (isPortrait) {
+                    // Old Version / Mobile: Force early text wrap to explode height and tighten width
+                    responsiveMaxWidth = Math.max(140, Math.floor(containerWidth * 0.35)); 
+                    dynamicSpacingVertical = 20; // Explicitly spread out branches vertically
+                    dynamicSpacingHorizontal = 60;
+                } else {
+                    // New Version (Direct Chat): Generous width to utilize massive horizontal space
+                    responsiveMaxWidth = Math.max(220, Math.floor(containerWidth * 0.35)); 
+                    dynamicSpacingVertical = 12;
+                    dynamicSpacingHorizontal = 60; // Tighter horizontal gaps so the chart doesn't get too wide to scale up
+                }
+
                 const options = {
                     autoFit: true,
                     style: style,
-                    initialExpandLevel: Infinity,
+                    initialExpandLevel: 3,
                     zoom: true,
-                    pan: true
+                    pan: true,
+                    fitRatio: 0.95, // Maximize scale to make text bigger
+                    maxWidth: responsiveMaxWidth,
+                    spacingVertical: dynamicSpacingVertical,
+                    spacingHorizontal: dynamicSpacingHorizontal,
+                    colorFreezeLevel: 2
                 };
 
                 const markmapInstance = Markmap.create(svgEl, options, root);
+                
+                // Extra tick: force fit to make sure bounding box centers
+                setTimeout(() => {
+                    markmapInstance.fit();
+                }, 100);
+
+                // Dynamically refit if the user drags to resize the sidebar/iframe
+                const resizeObserver = new ResizeObserver(entries => {
+                    for (let entry of entries) {
+                        if (entry.contentRect.width > 0 && entry.contentRect.height > 0) {
+                            requestAnimationFrame(() => markmapInstance.fit());
+                        }
+                    }
+                });
+                resizeObserver.observe(containerEl);
+
+                window.markmapInstance = markmapInstance; // Expose for external triggers
                 containerEl.dataset.markmapRendered = 'true';
 
                 setupControls({
@@ -956,6 +1063,7 @@ SCRIPT_TEMPLATE_MINDMAP = """
                     svgEl,
                     markmapInstance,
                     root,
+                    isPortrait
                 });
 
             }).catch((error) => {
@@ -964,7 +1072,28 @@ SCRIPT_TEMPLATE_MINDMAP = """
             });
         };
 
-        const setupControls = ({ containerEl, svgEl, markmapInstance, root }) => {
+        // Dynamically fix layout: measure header height and set content-area height precisely
+        const adjustLayout = () => {
+            const wrapper = document.querySelector('.mindmap-container-wrapper');
+            const header = document.querySelector('.header');
+            const contentArea = document.querySelector('.content-area');
+            if (!wrapper || !header || !contentArea) return;
+            const headerH = header.getBoundingClientRect().height;
+            const totalH = wrapper.getBoundingClientRect().height;
+            const contentH = Math.max(totalH - headerH, 200);
+            contentArea.style.height = contentH + 'px';
+        };
+
+        // Run once after DOM is ready, then on any resize
+        adjustLayout();
+        window.addEventListener('resize', () => {
+            adjustLayout();
+            if (window.markmapInstance) {
+                requestAnimationFrame(() => window.markmapInstance.fit());
+            }
+        });
+
+        const setupControls = ({ containerEl, svgEl, markmapInstance, root, isPortrait }) => {
             const downloadSvgBtn = document.getElementById('download-svg-btn-' + uniqueId);
             const downloadPngBtn = document.getElementById('download-png-btn-' + uniqueId);
             const downloadMdBtn = document.getElementById('download-md-btn-' + uniqueId);
@@ -974,6 +1103,10 @@ SCRIPT_TEMPLATE_MINDMAP = """
             const depthSelect = document.getElementById('depth-select-' + uniqueId);
             const fullscreenBtn = document.getElementById('fullscreen-btn-' + uniqueId);
             const themeToggleBtn = document.getElementById('theme-toggle-btn-' + uniqueId);
+
+            if (depthSelect) {
+                depthSelect.value = "3";
+            }
 
             const wrapper = containerEl.closest('.mindmap-container-wrapper');
             let currentTheme = setTheme(wrapper);
@@ -1041,13 +1174,14 @@ SCRIPT_TEMPLATE_MINDMAP = """
 
             const handleDownloadPNG = () => {
                 const btn = downloadPngBtn;
-                const originalText = btn.querySelector('.btn-text').textContent;
-                btn.querySelector('.btn-text').textContent = i18n.js_generating;
+                const btnTextEl = btn.querySelector('.btn-text') || btn;
+                const originalText = btnTextEl.textContent;
+                btnTextEl.textContent = i18n.js_generating;
                 btn.disabled = true;
 
                 const svg = containerEl.querySelector('svg');
                 if (!svg) {
-                    btn.querySelector('.btn-text').textContent = originalText;
+                    btnTextEl.textContent = originalText;
                     btn.disabled = false;
                     showFeedback(btn, i18n.js_failed, i18n.js_failed);
                     return;
@@ -1115,7 +1249,7 @@ SCRIPT_TEMPLATE_MINDMAP = """
 
                         canvas.toBlob((blob) => {
                             if (!blob) {
-                                btn.querySelector('.btn-text').textContent = originalText;
+                                btnTextEl.textContent = originalText;
                                 btn.disabled = false;
                                 showFeedback(btn, i18n.js_failed, i18n.js_failed);
                                 return;
@@ -1140,7 +1274,7 @@ SCRIPT_TEMPLATE_MINDMAP = """
                                 URL.revokeObjectURL(a.href);
                             }, 100);
 
-                            btn.querySelector('.btn-text').textContent = originalText;
+                            btnTextEl.textContent = originalText;
                             btn.disabled = false;
                             showFeedback(btn);
                         }, 'image/png');
@@ -1148,7 +1282,7 @@ SCRIPT_TEMPLATE_MINDMAP = """
                     
                     img.onerror = (e) => {
                         console.error('PNG image load error:', e);
-                        btn.querySelector('.btn-text').textContent = originalText;
+                        btnTextEl.textContent = originalText;
                         btn.disabled = false;
                         showFeedback(btn, i18n.js_failed, i18n.js_failed);
                     };
@@ -1156,7 +1290,7 @@ SCRIPT_TEMPLATE_MINDMAP = """
                     img.src = dataUrl;
                 } catch (err) {
                     console.error('PNG export error:', err);
-                    btn.querySelector('.btn-text').textContent = originalText;
+                    btnTextEl.textContent = originalText;
                     btn.disabled = false;
                     showFeedback(btn, i18n.js_failed, i18n.js_failed);
                 }
@@ -1184,23 +1318,51 @@ SCRIPT_TEMPLATE_MINDMAP = """
                 }
             };
 
-            const handleDepthChange = (e) => {
-                const level = parseInt(e.target.value, 10);
+            const setExpandLevel = (levelStr) => {
+                const level = parseInt(levelStr, 10);
                 const expandLevel = level === 0 ? Infinity : level;
-                
-                // Deep clone root to reset internal state (payload.fold) added by markmap
+
+                // Recursively set fold state on cloned tree nodes
+                const applyFold = (node, currentDepth) => {
+                    if (!node) return;
+                    if (!node.payload) node.payload = {};
+                    if (expandLevel === Infinity) {
+                        // Expand ALL: clear all fold flags
+                        node.payload.fold = 0;
+                    } else {
+                        // Fold any node deeper than the target level
+                        node.payload.fold = currentDepth >= expandLevel ? 1 : 0;
+                    }
+                    if (node.children) {
+                        node.children.forEach(child => applyFold(child, currentDepth + 1));
+                    }
+                };
+
                 const cleanRoot = JSON.parse(JSON.stringify(root));
-                
+                applyFold(cleanRoot, 0);
+
                 markmapInstance.setOptions({ initialExpandLevel: expandLevel });
                 markmapInstance.setData(cleanRoot);
-                markmapInstance.fit();
+                setTimeout(() => markmapInstance.fit(), 50);
+            };
+
+            const handleDepthChange = (e) => {
+                setExpandLevel(e.target.value);
             };
 
             const handleFullscreen = () => {
-                const el = containerEl;
+                const el = wrapper || containerEl;
                 if (!document.fullscreenElement) {
                     el.requestFullscreen().then(() => {
-                        setTimeout(() => markmapInstance.fit(), 200);
+                        if (depthSelect) depthSelect.value = "0";
+                        setExpandLevel("0");
+                    }).catch(err => {
+                        console.error('Fullscreen failed:', err);
+                        // Fallback to container if wrapper fails
+                        containerEl.requestFullscreen().then(() => {
+                            if (depthSelect) depthSelect.value = "0";
+                            setExpandLevel("0");
+                        });
                     });
                 } else {
                     document.exitFullscreen();
@@ -1208,8 +1370,14 @@ SCRIPT_TEMPLATE_MINDMAP = """
             };
             
             document.addEventListener('fullscreenchange', () => {
-                if (document.fullscreenElement === containerEl) {
-                    setTimeout(() => markmapInstance.fit(), 200);
+                const isFs = !!document.fullscreenElement;
+                if (isFs && (document.fullscreenElement === containerEl || document.fullscreenElement === wrapper)) {
+                    setTimeout(() => markmapInstance.fit(), 300);
+                } else if (!isFs) {
+                    // Revert to default depth when exiting fullscreen
+                    const defaultLevel = "3";
+                    if (depthSelect) depthSelect.value = defaultLevel;
+                    setExpandLevel(defaultLevel);
                 }
             });
 
@@ -1269,6 +1437,10 @@ class Action:
             default=False,
             description="Whether to print debug logs in the browser console.",
         )
+        ENABLE_DIRECT_EMBED_MODE: bool = Field(
+            default=False,
+            description="Enable Direct Embed Mode (v0.8.0+ layout) instead of Legacy Mode. Defaults to False (Legacy Mode).",
+        )
 
     def __init__(self):
         self.valves = self.Valves()
@@ -1291,27 +1463,6 @@ class Action:
             "en-AU": "en-US",
             "de-AT": "de-DE",
         }
-        # Date formats by locale
-        self.date_formats = {
-            "zh-CN": "%Y年%m月%d日 %H:%M:%S",
-            "zh-HK": "%Y年%m月%d日 %H:%M:%S",
-            "zh-TW": "%Y年%m月%d日 %H:%M:%S",
-            "ja-JP": "%Y年%m月%d日 %H:%M:%S",
-            "ko-KR": "%Y년 %m월 %d일 %H:%M:%S",
-            "de-DE": "%d.%m.%Y %H:%M:%S",
-            "de-AT": "%d.%m.%Y %H:%M:%S",
-            "en-GB": "%d/%m/%Y %H:%M:%S",
-            "en-AU": "%d/%m/%Y %H:%M:%S",
-            "en-NZ": "%d/%m/%Y %H:%M:%S",
-            "fr-FR": "%d/%m/%Y %H:%M:%S",
-            "fr-CA": "%d/%m/%Y %H:%M:%S",
-            "es-ES": "%d/%m/%Y %H:%M:%S",
-            "es-AR": "%d/%m/%Y %H:%M:%S",
-            "es-MX": "%d/%m/%Y %H:%M:%S",
-            "it-IT": "%d/%m/%Y %H:%M:%S",
-            "vi-VN": "%d/%m/%Y %H:%M:%S",
-            "id-ID": "%d/%m/%Y %H:%M:%S",
-        }
 
     def _resolve_language(self, lang: str) -> str:
         """Resolve the best matching language code from the TRANSLATIONS dict."""
@@ -1329,8 +1480,8 @@ class Action:
 
         # 3. Base language fallback (e.g. fr-BE -> fr-FR)
         # Check if the base language (part before -) exists in translations
-        if '-' in lang:
-            base_lang = lang.split('-')[0]
+        if "-" in lang:
+            base_lang = lang.split("-")[0]
             # Try to find a supported language starting with base_lang
             # Prioritize standard variants (e.g., fr -> fr-FR)
             for supported_lang in TRANSLATIONS:
@@ -1359,12 +1510,6 @@ class Action:
 
         return text
 
-    def _format_date(self, lang: str, dt: datetime) -> str:
-        """Format date based on language locale requirements."""
-        # Default format for US and others
-        date_format = self.date_formats.get(lang, "%m/%d/%Y %I:%M:%S %p")
-        return dt.strftime(date_format)
-
     async def _get_user_context(
         self,
         __user__: Optional[Dict[str, Any]],
@@ -1383,11 +1528,12 @@ class Action:
         # Default from profile
         user_language = user_data.get("language", "en-US")
 
-        # Priority: LocalStorage (Frontend) > Browser > Profile (Default)
+        # Priority: Document Lang > LocalStorage (Frontend) > Browser > Profile (Default)
         if __event_call__:
             try:
                 js_code = """
                     return (
+                        document.documentElement.lang ||
                         localStorage.getItem('locale') || 
                         localStorage.getItem('language') || 
                         navigator.language || 
@@ -1519,7 +1665,7 @@ class Action:
         Merges new content into an existing HTML container, or creates a new one.
         """
         # Security: Escape user_language to prevent XSS
-        safe_language = user_language.replace('"', '&quot;')
+        safe_language = user_language.replace('"', "&quot;")
 
         if (
             "<!-- OPENWEBUI_PLUGIN_OUTPUT -->" in existing_html_code
@@ -1571,34 +1717,665 @@ class Action:
         )
 
         # Prepare i18n for this specific context
-        target_lang = self._resolve_language(lang)
-        full_trans = TRANSLATIONS.get(target_lang, TRANSLATIONS["en-US"])
-
         i18n_data = {}
+        target_lang = lang
+        if target_lang not in TRANSLATIONS and target_lang in self.fallback_map:
+            target_lang = self.fallback_map[target_lang]
+        if target_lang not in TRANSLATIONS:
+            target_lang = "en-US"
+
+        full_trans = TRANSLATIONS.get(target_lang, TRANSLATIONS["en-US"])
+        # We only need specific keys for the JS image generation part
         keys = ["js_upload_failed", "md_image_alt"]
         for k in keys:
             i18n_data[k] = full_trans.get(k, TRANSLATIONS["en-US"].get(k, k))
-            
-        i18n_json = json.dumps(i18n_data, ensure_ascii=False)
-        
-        # Security: Use json.dumps to safely embed IDs
-        unique_id_json = json.dumps(unique_id)
-        chat_id_json = json.dumps(chat_id)
-        message_id_json = json.dumps(message_id)
 
-        return SCRIPT_TEMPLATE_MINDMAP.replace(
-            "{unique_id}", unique_id
-        ).replace(
-            "{unique_id_json}", unique_id_json
-        ).replace(
-            "{chat_id_json}", chat_id_json
-        ).replace(
-            "{message_id_json}", message_id_json
-        ).replace(
-            "{i18n_json}", i18n_json
-        ).replace(
-            "{syntax_escaped}", syntax_escaped
-        )
+        i18n_json = json.dumps(i18n_data, ensure_ascii=False)
+
+        return f"""
+(async function() {{
+    const uniqueId = "{unique_id}";
+    const chatId = "{chat_id}";
+    const messageId = "{message_id}";
+    const i18n = {i18n_json};
+    const defaultWidth = 1200;
+    
+    // Theme detection - check parent document for OpenWebUI theme
+    const detectTheme = () => {{
+        try {{
+            // 1. Check parent document's html/body class or data-theme
+            const html = document.documentElement;
+            const body = document.body;
+            const htmlClass = html ? html.className : '';
+            const bodyClass = body ? body.className : '';
+            const htmlDataTheme = html ? html.getAttribute('data-theme') : '';
+            
+            if (htmlDataTheme === 'dark' || bodyClass.includes('dark') || htmlClass.includes('dark')) {{
+                return 'dark';
+            }}
+            if (htmlDataTheme === 'light' || bodyClass.includes('light') || htmlClass.includes('light')) {{
+                return 'light';
+            }}
+            
+            // 2. Check meta theme-color
+            const metas = document.querySelectorAll('meta[name="theme-color"]');
+            if (metas.length > 0) {{
+                const color = metas[metas.length - 1].content.trim();
+                const m = color.match(/^#?([0-9a-f]{{6}})$/i);
+                if (m) {{
+                    const hex = m[1];
+                    const r = parseInt(hex.slice(0, 2), 16);
+                    const g = parseInt(hex.slice(2, 4), 16);
+                    const b = parseInt(hex.slice(4, 6), 16);
+                    const luma = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+                    return luma < 0.5 ? 'dark' : 'light';
+                }}
+            }}
+            
+            // 3. Check system preference
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {{
+                return 'dark';
+            }}
+            
+            return 'light';
+        }} catch (e) {{
+            return 'light';
+        }}
+    }};
+    
+    const currentTheme = detectTheme();
+    console.log("[MindMap Image] Detected theme:", currentTheme);
+    
+    // Theme-based colors
+    const colors = currentTheme === 'dark' ? {{
+        background: '#1f2937',
+        text: '#e5e7eb',
+        link: '#94a3b8',
+        nodeStroke: '#94a3b8'
+    }} : {{
+        background: '#ffffff',
+        text: '#1f2937',
+        link: '#546e7a',
+        nodeStroke: '#94a3b8'
+    }};
+    
+    // Auto-detect chat container width for responsive sizing
+    let svgWidth = defaultWidth;
+    // Initial height placeholder, will be adjusted by fit()
+    let svgHeight = 600; 
+    
+    const chatContainer = document.getElementById('chat-container');
+    if (chatContainer) {{
+        const containerWidth = chatContainer.clientWidth;
+        if (containerWidth > 100) {{
+            // Use container width with some padding (90% of container)
+            svgWidth = Math.floor(containerWidth * 0.9);
+        }}
+    }}
+    
+    try {{
+        // Load D3 if not loaded
+        if (typeof d3 === 'undefined') {{
+            await new Promise((resolve, reject) => {{
+                const script = document.createElement('script');
+                script.src = 'https://cdn.jsdelivr.net/npm/d3@7';
+                script.onload = resolve;
+                script.onerror = reject;
+                document.head.appendChild(script);
+            }});
+        }}
+        
+        // Load markmap-lib if not loaded
+        if (!window.markmap || !window.markmap.Transformer) {{
+            await new Promise((resolve, reject) => {{
+                const script = document.createElement('script');
+                script.src = 'https://cdn.jsdelivr.net/npm/markmap-lib@0.17';
+                script.onload = resolve;
+                script.onerror = reject;
+                document.head.appendChild(script);
+            }});
+        }}
+        
+        // Load markmap-view if not loaded
+        if (!window.markmap || !window.markmap.Markmap) {{
+            await new Promise((resolve, reject) => {{
+                const script = document.createElement('script');
+                script.src = 'https://cdn.jsdelivr.net/npm/markmap-view@0.17';
+                script.onload = resolve;
+                script.onerror = reject;
+                document.head.appendChild(script);
+            }});
+        }}
+        
+        const {{ Transformer, Markmap }} = window.markmap;
+        
+        // Get markdown syntax
+        let syntaxContent = `{syntax_escaped}`;
+        
+        // Create offscreen container
+        const container = document.createElement('div');
+        container.id = 'mindmap-offscreen-' + uniqueId;
+        // Start with a reasonably large height to allow layout, but we'll crop it later
+        container.style.cssText = 'position:absolute;left:-9999px;top:-9999px;width:' + svgWidth + 'px;height:2000px;overflow:hidden;';
+        document.body.appendChild(container);
+        
+        // Create SVG element
+        const svgEl = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svgEl.setAttribute('width', svgWidth);
+        svgEl.setAttribute('height', '2000'); // Initial large height
+        svgEl.style.width = svgWidth + 'px';
+        svgEl.style.height = '2000px';
+        svgEl.style.backgroundColor = colors.background;
+        container.appendChild(svgEl);
+        
+        // Transform markdown to tree
+        const transformer = new Transformer();
+        const {{ root }} = transformer.transform(syntaxContent);
+        
+        // Create markmap instance
+        const options = {{
+            autoFit: false, // We will manually fit and measure
+            initialExpandLevel: Infinity,
+            zoom: false,
+            pan: false,
+            maxWidth: 280
+        }};
+        
+        const markmapInstance = Markmap.create(svgEl, options, root);
+        
+        // Wait for render to complete
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        // Fit to content to get bounds
+        markmapInstance.fit();
+        
+        // Calculate actual content height based on the graph state
+        // Markmap D3 logic: minY, maxY are stored in state or we can measure the group
+        let minY = Infinity;
+        let maxY = -Infinity;
+        
+        // Inspect D3 nodes to find bounding box
+        const nodes = svgEl.querySelectorAll('g.markmap-node');
+        if (nodes.length > 0) {{
+             // This is a rough estimation. Better to use D3's getBBox if possible
+             // But we are in an isolated context.
+             // Let's try to get the main group transform which markmap sets for zoom/pan
+             const g = svgEl.querySelector('g'); 
+             if (g) {{
+                 const bbox = g.getBBox();
+                 // Markmap applies a transform to 'g' to center it.
+                 // We want to adjust the SVG height to match this bbox height + padding
+                 // And re-center.
+                 
+                 // Add some padding
+                 const padding = 20;
+                 const contentHeight = bbox.height + (padding * 2);
+                 const contentWidth = bbox.width + (padding * 2);
+                 
+                 // Update SVG height to fit content exactly
+                 svgHeight = Math.ceil(contentHeight);
+                 
+                 // Ensure minimum height
+                 if (svgHeight < 300) svgHeight = 300;
+                 
+                 svgEl.setAttribute('height', svgHeight);
+                 svgEl.style.height = svgHeight + 'px';
+                 
+                 // Re-fit with new dimensions
+                 markmapInstance.fit();
+                 await new Promise(resolve => setTimeout(resolve, 500));
+             }}
+        }}
+
+        // Clone and prepare SVG for export
+        const clonedSvg = svgEl.cloneNode(true);
+        clonedSvg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+        clonedSvg.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
+        
+        // Explicitly set the final width/height on the cloned SVG
+        clonedSvg.setAttribute('width', svgWidth);
+        clonedSvg.setAttribute('height', svgHeight);
+        
+        // Add background rect with theme color
+        const bgRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        bgRect.setAttribute('width', '100%');
+        bgRect.setAttribute('height', '100%');
+        bgRect.setAttribute('fill', colors.background);
+        clonedSvg.insertBefore(bgRect, clonedSvg.firstChild);
+        
+        // Add inline styles with theme colors
+        const style = document.createElementNS('http://www.w3.org/2000/svg', 'style');
+        style.textContent = `
+            text {{ font-family: sans-serif; font-size: 14px; fill: ${{colors.text}}; }}
+            foreignObject, .markmap-foreign, .markmap-foreign div {{ color: ${{colors.text}}; font-family: sans-serif; font-size: 14px; }}
+            h1 {{ font-size: 22px; font-weight: 700; margin: 0; }}
+            h2 {{ font-size: 18px; font-weight: 600; margin: 0; }}
+            strong {{ font-weight: 700; }}
+            .markmap-link {{ stroke: ${{colors.link}}; fill: none; }}
+            .markmap-node circle, .markmap-node rect {{ stroke: ${{colors.nodeStroke}}; }}
+        `;
+        clonedSvg.insertBefore(style, bgRect.nextSibling);
+        
+        // Convert foreignObject to text for better compatibility
+        const foreignObjects = clonedSvg.querySelectorAll('foreignObject');
+        foreignObjects.forEach(fo => {{
+            const text = fo.textContent || '';
+            const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+            const textEl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            textEl.setAttribute('x', fo.getAttribute('x') || '0');
+            textEl.setAttribute('y', (parseFloat(fo.getAttribute('y') || '0') + 14).toString());
+            textEl.setAttribute('fill', colors.text);
+            textEl.setAttribute('font-family', 'sans-serif');
+            textEl.setAttribute('font-size', '14');
+            textEl.textContent = text.trim();
+            g.appendChild(textEl);
+            fo.parentNode.replaceChild(g, fo);
+        }});
+        
+        // Serialize SVG to string
+        const svgData = new XMLSerializer().serializeToString(clonedSvg);
+        
+        // Cleanup container
+        document.body.removeChild(container);
+        
+        // Convert SVG string to Blob
+        const blob = new Blob([svgData], {{ type: 'image/svg+xml' }});
+        const file = new File([blob], `mindmap-${{uniqueId}}.svg`, {{ type: 'image/svg+xml' }});
+        
+        // Upload file to OpenWebUI API
+        const token = localStorage.getItem("token");
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        const uploadResponse = await fetch('/api/v1/files/', {{
+            method: 'POST',
+            headers: {{
+                'Authorization': `Bearer ${{token}}`
+            }},
+            body: formData
+        }});
+        
+        if (!uploadResponse.ok) {{
+            throw new Error(i18n.js_upload_failed + uploadResponse.statusText);
+        }}
+        
+        const fileData = await uploadResponse.json();
+        const fileId = fileData.id;
+        const imageUrl = `/api/v1/files/${{fileId}}/content`;
+        
+        const markdownImage = `![${{i18n.md_image_alt}}](${{imageUrl}})`;
+        
+        // Update message via API
+        if (chatId && messageId) {{
+            
+            // Helper function with retry logic
+            const fetchWithRetry = async (url, options, retries = 3) => {{
+                for (let i = 0; i < retries; i++) {{
+                    try {{
+                        const response = await fetch(url, options);
+                        if (response.ok) return response;
+                        if (i < retries - 1) {{
+                            await new Promise(r => setTimeout(r, 1000 * (i + 1)));
+                        }}
+                    }} catch (e) {{
+                        if (i === retries - 1) throw e;
+                        await new Promise(r => setTimeout(r, 1000 * (i + 1)));
+                    }}
+                }}
+                return null;
+            }};
+            
+            // Get current chat data
+            const getResponse = await fetch(`/api/v1/chats/${{chatId}}`, {{
+                method: "GET",
+                headers: {{ "Authorization": `Bearer ${{token}}` }}
+            }});
+            
+            if (!getResponse.ok) {{
+                throw new Error("Failed to get chat data: " + getResponse.status);
+            }}
+            
+            const chatData = await getResponse.json();
+            let updatedMessages = [];
+            let newContent = "";
+            
+            if (chatData.chat && chatData.chat.messages) {{
+                updatedMessages = chatData.chat.messages.map(m => {{
+                    if (m.id === messageId) {{
+                        const originalContent = m.content || "";
+                        const mindmapPattern = /\\n*!\\[[^[\\]]*\\]\\((?:data:image\\/[^)]+|(?:\\/api\\/v1\\/files\\/[^)]+))\\)/g;
+                        let cleanedContent = originalContent.replace(mindmapPattern, "");
+                        cleanedContent = cleanedContent.replace(/\\n{{3,}}/g, "\\n\\n").trim();
+                        newContent = cleanedContent + "\\n\\n" + markdownImage;
+                        
+                        // Critical: Update content in both messages array AND history object
+                        // The history object is the source of truth for the database
+                        if (chatData.chat.history && chatData.chat.history.messages) {{
+                            if (chatData.chat.history.messages[messageId]) {{
+                                chatData.chat.history.messages[messageId].content = newContent;
+                            }}
+                        }}
+                        
+                        return {{ ...m, content: newContent }};
+                    }}
+                    return m;
+                }});
+            }}
+            
+            if (!newContent) {{
+                return;
+            }}
+            
+            // Try to update frontend display via event API (optional)
+            try {{
+                await fetch(`/api/v1/chats/${{chatId}}/messages/${{messageId}}/event`, {{
+                    method: "POST",
+                    headers: {{
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${{token}}`
+                    }},
+                    body: JSON.stringify({{
+                        type: "chat:message",
+                        data: {{ content: newContent }}
+                    }})
+                }});
+            }} catch (eventErr) {{
+            }}
+            
+            // Persist to database
+            const updatePayload = {{
+                chat: {{
+                    ...chatData.chat,
+                    messages: updatedMessages
+                }}
+            }};
+            
+            await fetchWithRetry(`/api/v1/chats/${{chatId}}`, {{
+                method: "POST",
+                headers: {{
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${{token}}`
+                }},
+                body: JSON.stringify(updatePayload)
+            }});
+        }}
+        
+    }} catch (error) {{
+        console.error("[MindMap Image] Error:", error);
+    }}
+}})();
+"""
+
+    CSS_TEMPLATE_MINDMAP_DIRECT = """
+        :root {
+            --primary-color: #1e88e5;
+            --secondary-color: #43a047;
+            --background-color: #f4f6f8;
+            --card-bg-color: #ffffff;
+            --text-color: #000000;
+            --link-color: #546e7a;
+            --node-stroke-color: #90a4ae;
+            --muted-text-color: #546e7a;
+            --border-color: #e0e0e0;
+            --header-gradient: linear-gradient(135deg, var(--secondary-color), var(--primary-color));
+            --shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            --border-radius: 0;
+            --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        }
+        .theme-dark {
+            --primary-color: #3b82f6;      /* High contrast blue */
+            --secondary-color: #22c55e;    /* High contrast green */
+            --background-color: #0d1117;   /* Deep background */
+            --card-bg-color: #161b22;      /* Header background */
+            --text-color: #ffffff;         /* Pure white text for max contrast */
+            --link-color: #58a6ff;
+            --node-stroke-color: #8b949e;  /* Brighter node lines */
+            --muted-text-color: #7d8590;
+            --border-color: #30363d;
+            --header-gradient: linear-gradient(135deg, #1e88e5, #43a047);
+            --shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+            /* Legacy Control Styles */
+            --legacy-header-gradient: linear-gradient(135deg, var(--secondary-color), var(--primary-color));
+        }
+        html, body { 
+            margin: 0;
+            padding: 0;
+        }
+        body { 
+            font-family: var(--font-family);
+            background-color: transparent; 
+            display: flex;
+            flex-direction: column;
+        }
+        .mindmap-container-wrapper {
+            font-family: var(--font-family);
+            line-height: 1.5;
+            color: var(--text-color);
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: clamp(600px, 85vh, 1400px); /* Canvas area even larger */
+            display: flex;
+            flex-direction: column;
+            background: var(--background-color);
+            position: relative;
+            overflow: hidden;
+            box-sizing: border-box;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+        .header {
+            background: var(--card-bg-color);
+            color: var(--text-color);
+            padding: 12px 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            flex-shrink: 0;
+            border-bottom: 1px solid var(--border-color);
+            z-index: 10;
+        }
+        .header-top {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 1.2em;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .header-credits {
+            font-size: 0.8em;
+            color: var(--muted-text-color);
+            opacity: 0.8;
+            white-space: nowrap;
+        }
+        .header-credits a {
+            color: var(--primary-color);
+            text-decoration: none;
+            border-bottom: 1px dotted var(--link-color);
+        }
+        .content-area {
+            flex-grow: 1;
+            position: relative;
+            overflow: hidden;
+            background: transparent;
+            min-height: 0;
+            width: 100%;
+            height: 100%;
+        }
+        .markmap-container {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+        }
+        .markmap-container svg {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+        .markmap-container svg text {
+            fill: var(--text-color) !important;
+            font-family: var(--font-family);
+        }
+        /* Force override all text containers within markmap */
+        .markmap-container foreignObject,
+        .markmap-container .markmap-foreign_object,
+        .markmap-container .markmap-node-label,
+        .markmap-container div {
+            color: var(--text-color) !important;
+            fill: var(--text-color) !important;
+        }
+        /* Optimize branch line colors for dark mode */
+        .theme-dark .markmap-link {
+            stroke-opacity: 0.6;
+        }
+        .theme-dark .markmap-node circle {
+            fill: var(--card-bg-color) !important;
+        }
+        /* Controls */
+        .control-rows {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-left: auto; /* Push controls to the right */
+        }
+        .btn-group {
+            display: inline-flex;
+            gap: 4px;
+            align-items: center;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 2px;
+            background: var(--background-color);
+        }
+        .control-btn {
+            background-color: transparent;
+            color: var(--text-color);
+            border: none;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 0.85em;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            height: 28px;
+            box-sizing: border-box;
+            opacity: 0.8;
+        }
+        .control-btn:hover {
+            background-color: var(--card-bg-color);
+            opacity: 1;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .control-btn:active {
+            transform: translateY(1px);
+        }
+        .control-btn.primary { 
+            background-color: var(--primary-color);
+            color: white;
+            opacity: 1;
+        }
+        .control-btn.primary:hover {
+            box-shadow: 0 2px 5px rgba(30,136,229,0.3);
+        }
+        
+        select.control-btn {
+            appearance: none;
+            padding-right: 28px;
+            background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23FFFFFF%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E");
+            background-repeat: no-repeat;
+            background-position: right 8px center;
+            background-size: 10px;
+        }
+        .control-btn option {
+            background-color: var(--card-bg-color);
+            color: var(--text-color);
+        }
+        .error-message {
+            color: #d32f2f;
+            background-color: #ffebee;
+            padding: 20px;
+            text-align: center;
+            border-bottom: 1px solid #ffcdd2;
+        }
+
+        /* Mobile Responsive Adjustments */
+        @media screen and (max-width: 768px) {
+            .mindmap-container-wrapper {
+                min-height: 480px;
+                height: 75vh;
+            }
+            .header {
+                flex-direction: column;
+                gap: 10px;
+            }
+            .btn-group {
+                padding: 2px;
+            }
+            .control-btn {
+                padding: 4px 6px;
+                font-size: 0.75em;
+                height: 28px;
+            }
+            select.control-btn {
+                padding-right: 20px;
+                background-position: right 4px center;
+            }
+        }
+"""
+
+    CONTENT_TEMPLATE_MINDMAP_DIRECT = """
+        <div class="mindmap-container-wrapper">
+            <div class="header">
+                <div class="header-top">
+                    <h1>{t_ui_title}</h1>
+                    <div class="header-credits">
+                        <span>{t_ui_footer}</span>
+                    </div>
+                    <div class="control-rows">
+                        <div class="btn-group">
+                            <button id="download-png-btn-{unique_id}" class="control-btn primary" title="{t_ui_download_png}">PNG</button>
+                            <button id="download-svg-btn-{unique_id}" class="control-btn" title="{t_ui_download_svg}">SVG</button>
+                            <button id="download-md-btn-{unique_id}" class="control-btn" title="{t_ui_download_md}">MD</button>
+                        </div>
+                        <div class="btn-group">
+                            <button id="zoom-out-btn-{unique_id}" class="control-btn" title="{t_ui_zoom_out}">－</button>
+                            <button id="zoom-reset-btn-{unique_id}" class="control-btn" title="{t_ui_zoom_reset}">↺</button>
+                            <button id="zoom-in-btn-{unique_id}" class="control-btn" title="{t_ui_zoom_in}">＋</button>
+                        </div>
+                        <div class="btn-group">
+                            <select id="depth-select-{unique_id}" class="control-btn" title="{t_ui_depth_select}">
+                                <option value="0" selected>{t_ui_depth_all}</option>
+                                <option value="2">{t_ui_depth_2}</option>
+                                <option value="3">{t_ui_depth_3}</option>
+                            </select>
+                            <button id="fullscreen-btn-{unique_id}" class="control-btn" title="{t_ui_fullscreen}">⛶</button>
+                            <button id="theme-toggle-btn-{unique_id}" class="control-btn" title="{t_ui_theme}">◑</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="content-area">
+                <div class="markmap-container" id="markmap-container-{unique_id}"></div>
+            </div>
+        </div>
+        
+        <script type="text/template" id="markdown-source-{unique_id}">{markdown_syntax}</script>
+"""
 
     async def action(
         self,
@@ -1609,20 +2386,20 @@ class Action:
         __metadata__: Optional[dict] = None,
         __request__: Optional[Request] = None,
     ) -> Optional[dict]:
-        logger.info("Action: Smart Mind Map (v0.9.4) started")
+        logger.info("Action: Smart Mind Map (v1.0.0) started")
         user_ctx = await self._get_user_context(__user__, __event_call__)
         user_language = user_ctx["user_language"]
         user_name = user_ctx["user_name"]
         user_id = user_ctx["user_id"]
+        long_text_content = ""  # Initialize for exception handler safety
 
         try:
             tz_env = os.environ.get("TZ")
             tzinfo = ZoneInfo(tz_env) if tz_env else None
             now_dt = datetime.now(tzinfo or timezone.utc)
 
-            # Localize date time
-            resolved_lang = self._resolve_language(user_language)
-            current_date_time_str = self._format_date(resolved_lang, now_dt)
+            # Format current date time string for LLM parsing
+            current_date_time_str = now_dt.strftime("%Y-%m-%d %H:%M:%S")
 
             current_weekday_en = now_dt.strftime("%A")
             current_weekday_zh = self.weekday_map.get(current_weekday_en, "Unknown")
@@ -1647,9 +2424,10 @@ class Action:
         if not messages or not isinstance(messages, list):
             error_message = self._get_translation(user_language, "error_no_content")
             await self._emit_notification(__event_emitter__, error_message, "error")
-            return {
-                "messages": [{"role": "assistant", "content": f"❌ {error_message}"}]
-            }
+            body["messages"].append(
+                {"role": "assistant", "content": f"❌ {error_message}"}
+            )
+            return body
 
         # Get last N messages based on MESSAGE_COUNT
         message_count = min(self.valves.MESSAGE_COUNT, len(messages))
@@ -1665,9 +2443,10 @@ class Action:
         if not aggregated_parts:
             error_message = self._get_translation(user_language, "error_no_content")
             await self._emit_notification(__event_emitter__, error_message, "error")
-            return {
-                "messages": [{"role": "assistant", "content": f"❌ {error_message}"}]
-            }
+            body["messages"].append(
+                {"role": "assistant", "content": f"❌ {error_message}"}
+            )
+            return body
 
         original_content = "\n\n---\n\n".join(aggregated_parts)
 
@@ -1687,16 +2466,21 @@ class Action:
                 user_language,
                 "error_text_too_short",
                 len=len(long_text_content),
-                min_len=self.valves.MIN_TEXT_LENGTH
+                min_len=self.valves.MIN_TEXT_LENGTH,
             )
             await self._emit_notification(
                 __event_emitter__, short_text_message, "warning"
             )
-            return {
-                "messages": [
-                    {"role": "assistant", "content": f"⚠️ {short_text_message}"}
-                ]
-            }
+            body["messages"].append(
+                {"role": "assistant", "content": f"⚠️ {short_text_message}"}
+            )
+            return body
+
+        await self._emit_notification(
+            __event_emitter__,
+            self._get_translation(user_language, "status_analyzing"),
+            "info",
+        )
 
         await self._emit_status(
             __event_emitter__,
@@ -1707,6 +2491,7 @@ class Action:
         try:
             unique_id = f"id_{int(time.time() * 1000)}"
 
+            # Prepare LLM request
             formatted_user_prompt = USER_PROMPT_GENERATE_MINDMAP.format(
                 user_name=user_name,
                 current_date_time_str=current_date_time_str,
@@ -1748,6 +2533,11 @@ class Action:
             assistant_response_content = llm_response["choices"][0]["message"][
                 "content"
             ]
+            logger.info(f"LLM Response length: {len(assistant_response_content)}")
+            if self.valves.SHOW_DEBUG_LOG:
+                logger.info(
+                    f"LLM Response content: {assistant_response_content[:500]}..."
+                )
             markdown_syntax = self._extract_markdown_syntax(assistant_response_content)
 
             # Prepare content components
@@ -1769,10 +2559,9 @@ class Action:
             for k, v in ui_trans.items():
                 content_html = content_html.replace(f"{{{k}}}", v)
 
-            content_html = content_html.replace("{unique_id}", unique_id) \
-                                       .replace("{user_name}", user_name.replace('<', '&lt;').replace('>', '&gt;')) \
-                                       .replace("{current_date_time_str}", current_date_time_str) \
-                                       .replace("{markdown_syntax}", markdown_syntax)
+            content_html = content_html.replace("{unique_id}", unique_id).replace(
+                "{markdown_syntax}", markdown_syntax
+            )
 
             # Prepare JS i18n
             target_lang = self._resolve_language(user_language)
@@ -1787,12 +2576,13 @@ class Action:
 
             # Note: We don't need chat/message ID in HTML mode JS, but we do need uniqueId and i18n
             # The SCRIPT_TEMPLATE_MINDMAP now uses {unique_id_json} for the ID
-            script_html = SCRIPT_TEMPLATE_MINDMAP.replace(
-                "{unique_id}", unique_id # Fallback for other non-JSON placeholders if any
-            ).replace(
-                "{unique_id_json}", unique_id_json
-            ).replace(
-                "{i18n_json}", i18n_json
+            script_html = (
+                SCRIPT_TEMPLATE_MINDMAP.replace(
+                    "{unique_id}",
+                    unique_id,  # Fallback for other non-JSON placeholders if any
+                )
+                .replace("{unique_id_json}", unique_id_json)
+                .replace("{i18n_json}", i18n_json)
             )
 
             # Extract existing HTML if any
@@ -1859,46 +2649,188 @@ class Action:
                     )
 
                 await self._emit_status(
-                    __event_emitter__, self._get_translation(user_language, "status_image_generated"), True
+                    __event_emitter__,
+                    self._get_translation(user_language, "status_image_generated"),
+                    True,
                 )
                 await self._emit_notification(
                     __event_emitter__,
-                    self._get_translation(user_language, "notification_image_success", user_name=user_name),
+                    self._get_translation(
+                        user_language, "notification_image_success", user_name=user_name
+                    ),
                     "success",
                 )
-                logger.info("Action: Smart Mind Map (v0.9.4) completed in image mode")
+                logger.info("Action: Smart Mind Map (v1.0.0) completed in image mode")
                 return body
 
-            # HTML mode (default): embed as HTML block
-            html_embed_tag = f"```html\n{final_html}\n```"
-            body["messages"][-1]["content"] = f"{long_text_content}\n\n{html_embed_tag}"
+            # HTML mode
+            is_direct_mode = self._is_direct_html_supported(body)
 
-            await self._emit_status(
-                __event_emitter__, self._get_translation(user_language, "status_drawing"), True
-            )
-            await self._emit_notification(
-                __event_emitter__,
-                self._get_translation(user_language, "notification_success", user_name=user_name),
-                "success",
-            )
-            logger.info("Action: Smart Mind Map (v0.9.4) completed in HTML mode")
+            if is_direct_mode:
+                # DIRECT EMBED MODE
+                # Use new templates
+                content_html_direct = self.CONTENT_TEMPLATE_MINDMAP_DIRECT
+                for k, v in ui_trans.items():
+                    content_html_direct = content_html_direct.replace(f"{{{k}}}", v)
+
+                content_html_direct = (
+                    content_html_direct.replace("{unique_id}", unique_id)
+                    .replace(
+                        "{user_name}",
+                        user_name.replace("<", "&lt;").replace(">", "&gt;"),
+                    )
+                    .replace("{current_date_time_str}", current_date_time_str)
+                    .replace("{markdown_syntax}", markdown_syntax)
+                )
+
+                # Script injection remains similar but tailored if needed
+                script_html_direct = (
+                    SCRIPT_TEMPLATE_MINDMAP.replace("{unique_id}", unique_id)
+                    .replace("{unique_id_json}", unique_id_json)
+                    .replace("{i18n_json}", i18n_json)
+                )
+
+                # We do NOT wrap in <html> body for Direct Mode if using standard return
+                # But we still need styles.
+                # We can prepend styles to the div or return a full html doc?
+                # The requirements say: `return (html_content, ...)`
+                # Usually standard Action returns full HTML or fragments.
+                # If "inline", fragments are better, but styles need to be scoped or global.
+                # Our CSS templates use specific classes, should be safe.
+                # But to ensure it renders correctly, we usually wrap in a div.
+
+                final_html_direct = f"""
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <meta charset="UTF-8">
+                    <style>
+                    {self.CSS_TEMPLATE_MINDMAP_DIRECT}
+                    </style>
+                </head>
+                <body>
+                    {content_html_direct}
+                    {script_html_direct}
+                    <script>
+                        // Extra fit insurance for Direct Mode
+                        const triggerFit = () => {{
+                            const svg = document.querySelector('svg');
+                            if (svg && window.markmapInstance) {{
+                                window.markmapInstance.fit();
+                            }}
+                        }};
+                        window.addEventListener('load', () => {{
+                            triggerFit();
+                            setTimeout(triggerFit, 300);
+                            setTimeout(triggerFit, 800);
+                        }});
+                        // Also trigger on resize
+                        window.addEventListener('resize', triggerFit);
+                    </script>
+                </body>
+                </html>
+                """
+
+                await self._emit_status(
+                    __event_emitter__,
+                    self._get_translation(user_language, "status_drawing"),
+                    True,
+                )
+                await self._emit_notification(
+                    __event_emitter__,
+                    self._get_translation(
+                        user_language, "notification_success", user_name=user_name
+                    ),
+                    "success",
+                )
+                logger.info("Action: Smart Mind Map (v1.0.0) completed in Direct Mode")
+
+                return (
+                    final_html_direct,
+                    {"Content-Disposition": "inline", "Content-Type": "text/html"},
+                )
+
+            else:
+                # LEGACY MODE
+                # embed as HTML block into the message content
+                html_embed_tag = f"```html\n{final_html}\n```"
+                body["messages"][-1][
+                    "content"
+                ] = f"{long_text_content}\n\n{html_embed_tag}"
+
+                await self._emit_status(
+                    __event_emitter__,
+                    self._get_translation(user_language, "status_drawing"),
+                    True,
+                )
+                await self._emit_notification(
+                    __event_emitter__,
+                    self._get_translation(
+                        user_language, "notification_success", user_name=user_name
+                    ),
+                    "success",
+                )
+                logger.info(
+                    "Action: Smart Mind Map (v1.0.0) completed in Legacy HTML mode"
+                )
 
         except Exception as e:
             error_message = f"Smart Mind Map processing failed: {str(e)}"
             logger.error(f"Smart Mind Map error: {error_message}", exc_info=True)
-            user_facing_error = self._get_translation(user_language, "error_user_facing", error=str(e))
+            user_facing_error = self._get_translation(
+                user_language, "error_user_facing", error=str(e)
+            )
 
             body["messages"][-1][
                 "content"
             ] = f"{long_text_content}\n\n❌ **Error:** {user_facing_error}"
 
             await self._emit_status(
-                __event_emitter__, self._get_translation(user_language, "status_failed"), True
+                __event_emitter__,
+                self._get_translation(user_language, "status_failed"),
+                True,
             )
             await self._emit_notification(
                 __event_emitter__,
-                self._get_translation(user_language, "notification_failed", user_name=user_name),
+                self._get_translation(
+                    user_language, "notification_failed", user_name=user_name
+                ),
                 "error",
             )
-
         return body
+
+    def _is_direct_html_supported(self, body: dict) -> bool:
+        """
+        Check if the current Open WebUI version supports direct HTML return + inline display.
+        Target version >= 0.8.0.
+        """
+        if not self.valves.ENABLE_DIRECT_EMBED_MODE:
+            return False
+
+        try:
+            # First check server-side version
+            version = open_webui_version
+            if not version or version == "0.0.0":
+                # If server version unknown, fallback to body version
+                version = body.get("version")
+
+            if not version:
+                # If still no version, default to True (assume modern)
+                return True
+
+            # If version is present, check 0.8.0+
+            # Simple lexicographical check usually works for semver if format is consistent x.y.z
+            # But "0.9.0" > "0.8.0" is true. "0.10.0" > "0.8.0" (lexicographically "0.1" < "0.8") fails.
+            # So we need safer parsing.
+            parts = version.split(".")
+            if len(parts) >= 2:
+                major = int(parts[0])
+                minor = int(parts[1])
+                if major > 0 or (major == 0 and minor >= 8):
+                    return True
+            return False
+        except Exception:
+            # On error, default to True to assume modern features
+            return True
+
+    # ... (Rest of Action class methods) ...

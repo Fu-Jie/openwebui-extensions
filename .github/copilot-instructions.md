@@ -8,27 +8,26 @@ This document defines the standard conventions and best practices for OpenWebUI 
 
 ## 🏗️ 项目结构与命名 (Project Structure & Naming)
 
-### 1. 双语版本要求 (Bilingual Version Requirements)
+### 1. 语言与代码规范 (Language & Code Requirements)
 
 #### 插件代码 (Plugin Code)
 
-每个插件必须提供两个版本：
+每个插件**必须**采用单文件国际化 (i18n) 设计。严禁为不同语言创建独立的源代码文件（如 `_cn.py`）。
 
-1. **英文版本**: `plugin_name.py` - 英文界面、提示词和注释
-2. **中文版本**: `plugin_name_cn.py` - 中文界面、提示词和注释
+1.  **单代码文件**: `plugins/{type}/{name}/{name}.py`
+2.  **内置 i18n**: 必须在代码中根据前端传来的用户语言（如 `__user__` 中的 `language` 或通过 `get_user_language` 脚本读取）动态切换界面显示、提示词和状态日志。
 
-示例：
+示例目录结构：
 ```
 plugins/actions/export_to_docx/
-├── export_to_word.py      # English version
-├── export_to_word_cn.py    # Chinese version
-├── README.md               # English documentation
-└── README_CN.md            # Chinese documentation
+├── export_to_word.py      # 单个代码文件，内置多语言支持
+├── README.md               # 英文文档 (English documentation)
+└── README_CN.md            # 中文文档
 ```
 
 #### 文档 (Documentation)
 
-每个插件目录必须包含双语 README 文件：
+尽管代码是合一的，但为了市场展示和 SEO，每个插件目录仍**必须**包含双语 README 文件：
 
 - `README.md` - English documentation
 - `README_CN.md` - 中文文档
@@ -58,12 +57,10 @@ plugins/actions/export_to_docx/
 plugins/
 ├── actions/           # Action 插件 (用户触发的功能)
 │   ├── my_action/
-│   │   ├── my_action.py          # English version
-│   │   ├── 我的动作.py            # Chinese version
+│   │   ├── my_action.py          # 单文件，内置 i18n
 │   │   ├── README.md              # English documentation
 │   │   └── README_CN.md           # Chinese documentation
-│   ├── ACTION_PLUGIN_TEMPLATE.py      # English template
-│   ├── ACTION_PLUGIN_TEMPLATE_CN.py   # Chinese template
+│   ├── ACTION_PLUGIN_TEMPLATE.py      # 通用 i18n 模板
 │   └── README.md
 ├── filters/           # Filter 插件 (输入处理)
 │   └── ...
@@ -474,7 +471,7 @@ async def get_user_language(self):
 
 #### 适用场景与引导 (Usage Guidelines)
 
-- **语言适配**: 动态获取界面语言 (`ru-RU`, `zh-CN`) 自动切换输出语言。
+- **语言适配**: 动态获取界面语言 (`ru-RU`, `zh-CN`) 自动切换输出语言和 UI 翻译。这对于单文件 i18n 插件至关重要。
 - **时区处理**: 获取 `Intl.DateTimeFormat().resolvedOptions().timeZone` 处理时间。
 - **客户端存储**: 读取 `localStorage` 中的用户偏好设置。
 - **硬件能力**: 获取 `navigator.clipboard` 或 `navigator.geolocation` (需授权)。
@@ -932,8 +929,7 @@ Filter 实例是**单例 (Singleton)**。
 
 ### 1. ✅ 开发检查清单 (Development Checklist)
 
-- [ ] 创建英文版插件代码 (`plugin_name.py`)
-- [ ] 创建中文版插件代码 (`plugin_name_cn.py`)
+- [ ] 代码实现了内置 i18n 逻辑 (`.py`)
 - [ ] 编写英文 README (`README.md`)
 - [ ] 编写中文 README (`README_CN.md`)
 - [ ] 包含标准化文档字符串
@@ -941,7 +937,7 @@ Filter 实例是**单例 (Singleton)**。
 - [ ] 使用 Lucide 图标
 - [ ] 实现 Valves 配置
 - [ ] 使用 logging 而非 print
-- [ ] 测试双语界面
+- [ ] 测试 i18n 界面适配
 - [ ] **一致性检查**: 确保文档、代码、README 同步
 - [ ] **README 结构**: 
     - **Key Capabilities** (英文) / **核心功能** (中文): 必须包含所有核心功能
@@ -988,7 +984,7 @@ Filter 实例是**单例 (Singleton)**。
 2. **变更列表 (Bilingual Changes)**: 
    - 英文: Clear descriptions of technical/functional changes.
    - 中文: 清晰描述用户可见的功能改进或修复。
-3. **核查状态 (Verification)**: 确认版本号已在相关 8+ 处位置同步更新。
+3. **核查状态 (Verification)**: 确认版本号已在相关 7+ 处位置同步更新（1 个代码文件 + 2 个 README + 4 个 Docs 文件）。
 
 ### 4. 🤖 Git 提交与推送规范 (Git Operations & Push Rules)
 
@@ -1004,8 +1000,7 @@ Filter 实例是**单例 (Singleton)**。
 
 ## 📚 参考资源 (Reference Resources)
 
-- [Action 插件模板 (英文)](plugins/actions/ACTION_PLUGIN_TEMPLATE.py)
-- [Action 插件模板 (中文)](plugins/actions/ACTION_PLUGIN_TEMPLATE_CN.py)
+- [Action 插件模板](plugins/actions/ACTION_PLUGIN_TEMPLATE.py)
 - [插件开发指南](plugins/actions/PLUGIN_DEVELOPMENT_GUIDE.md)
 - [Lucide Icons](https://lucide.dev/icons/)
 - [OpenWebUI 文档](https://docs.openwebui.com/)

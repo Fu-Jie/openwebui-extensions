@@ -1,7 +1,7 @@
 # Smart Mind Map（智能思维导图）
 
 <span class="category-badge action">Action</span>
-<span class="version-badge">v0.9.2</span>
+<span class="version-badge">v1.0.0</span>
 
 智能分析文本内容，生成交互式思维导图，帮助你更直观地理解信息结构。
 
@@ -17,7 +17,8 @@ Smart Mind Map 会将文本转换成漂亮的交互式思维导图。插件会�
 - :material-gesture-swipe: **丰富控制**：缩放/重置、展开层级（全部/2/3 级）与全屏
 - :material-palette: **主题感知**：自动检测 OpenWebUI 亮/暗色主题并支持手动切换
 - :material-download: **一键导出**：下载高分辨率 PNG、复制 SVG 或 Markdown
-- :material-translate: **多语言**：输出语言与输入文本一致
+- :material-translate: **内置 i18n 语言识别**：单个文件自动检测控制台前端语言，无需繁杂的各种语言包版本。
+- :material-arrow-all: **直出全屏版体验 (需配置开启)**：新版直出渲染抛开沙盒限制，纵情铺满屏幕，享受原生的图表体验。
 
 ---
 
@@ -50,6 +51,7 @@ Smart Mind Map 会将文本转换成漂亮的交互式思维导图。插件会�
 | `MIN_TEXT_LENGTH` | integer | `100` | 开始分析所需的最少字符数 |
 | `CLEAR_PREVIOUS_HTML` | boolean | `false` | 生成新导图时是否清除之前的插件 HTML |
 | `MESSAGE_COUNT` | integer | `1` | 用于生成的最近消息数量（1–5） |
+| `ENABLE_DIRECT_EMBED_MODE` | boolean | `false` | 是否开启沉浸式直出模式 (需要 Open WebUI 0.8.0+ ) |
 
 ---
 

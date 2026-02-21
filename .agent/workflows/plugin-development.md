@@ -12,11 +12,11 @@ Reference: `.github/copilot-instructions.md`
 
 ### Bilingual Requirement
 
-Every plugin **MUST** have bilingual versions for both code and documentation:
+Every plugin **MUST** have a single internationalized code file and bilingual documentation:
 
-- **Code**:
-  - English: `plugins/{type}/{name}/{name}.py`
-  - Chinese: `plugins/{type}/{name}/{name_cn}.py` (or `中文名.py`)
+- **Code (i18n)**:
+  - `plugins/{type}/{name}/{name}.py`
+  - The single `.py` file must implement internal i18n (e.g., using `navigator.language` or backend headers) to support multiple languages natively, rather than splitting into separate files.
 - **README**:
   - English: `plugins/{type}/{name}/README.md`
   - Chinese: `plugins/{type}/{name}/README_CN.md`
@@ -81,14 +81,13 @@ Reference: `.github/workflows/release.yml`
 - **Release Information Compliance**: When a release is requested, the agent must generate a standard release summary (English commit title + bilingual bullet points) as defined in Section 3 & 5.
 - **Default Action (Prepare Only)**: When performing a version bump or update, the agent should update all files locally but **STOP** before committing. Present the changes and the **proposed Release/Commit Message** to the user and wait for explicit confirmation to commit/push.
 - **Consistency**: When bumping, update version in **ALL** locations:
-  1. English Code (`.py`)
-  2. Chinese Code (`.py`)
-  3. English README (`README.md`)
-  4. Chinese README (`README_CN.md`)
-  5. Docs Index (`docs/.../index.md`)
-  6. Docs Index CN (`docs/.../index.zh.md`)
-  7. Docs Detail (`docs/.../{name}.md`)
-  8. Docs Detail CN (`docs/.../{name}.zh.md`)
+  1. Code (`.py`)
+  2. English README (`README.md`)
+  3. Chinese README (`README_CN.md`)
+  4. Docs Index (`docs/.../index.md`)
+  5. Docs Index CN (`docs/.../index.zh.md`)
+  6. Docs Detail (`docs/.../{name}.md`)
+  7. Docs Detail CN (`docs/.../{name}.zh.md`)
 
 ### Automated Release Process
 
@@ -120,7 +119,7 @@ When the user confirms a release, the agent **MUST** follow these content standa
    - Before committing, present a "Release Draft" containing:
      - **Title**: e.g., `Release v0.1.1: [Plugin Name] - [Brief Summary]`
      - **Changelog**: English-only list of commits since the last release, including hashes (e.g., `896de02 docs(config): reorder antigravity model alias example`).
-     - **Verification Status**: Confirm all 8+ files have been updated and synced.
+     - **Verification Status**: Confirm all 7+ files have been updated and synced.
 3. **Internal Documentation**: Ensure "What's New" sections in READMEs and `docs/` match exactly the changes being released.
 
 ### Pull Request Check
@@ -134,7 +133,7 @@ When the user confirms a release, the agent **MUST** follow these content standa
 
 Before committing:
 
-- [ ] Code is bilingual and functional?
+- [ ] Code is internal i18n supported (`.py`) and fully functional?
 - [ ] Docstrings have updated version?
 - [ ] READMEs are updated and bilingual?
 - [ ] **Key Capabilities** in READMEs still cover all legacy core features + new features?
