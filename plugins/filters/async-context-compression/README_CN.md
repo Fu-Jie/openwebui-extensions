@@ -31,7 +31,7 @@
 - ✅ **智能模型匹配**: 自定义模型自动继承基础模型的阈值配置。
 - ⚠ **多模态支持**: 图片内容会被保留，但其 Token **不参与计算**。请相应调整阈值。
 
-详细的工作原理和流程请参考 [工作流程指南](WORKFLOW_GUIDE_CN.md)。
+详细的工作原理和流程请参考 [工作流程指南](https://github.com/Fu-Jie/openwebui-extensions/blob/main/plugins/filters/async-context-compression/WORKFLOW_GUIDE_CN.md)。
 
 ---
 
