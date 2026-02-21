@@ -947,8 +947,10 @@ Filter 实例是**单例 (Singleton)**。
 
 任何插件的**新增、修改或移除**，必须同时更新：
 1. **插件代码** (version)
-2. **项目文档** (`docs/`)
-3. **自述文件** (`README.md`)
+2. **插件自述文件** (`plugins/{type}/{name}/README.md` & `README_CN.md`)
+3. **项目文档** (`docs/plugins/{type}/{name}.md` & `.zh.md`)
+4. **项目文档索引** (`docs/plugins/{type}/index.md` & `index.zh.md` — 版本号)
+5. **项目根 README** (`README.md` & `README_CN.md` — 更新日期徽章 `![updated](https://img.shields.io/badge/YYYY--MM--DD-gray?style=flat)` 必须同步为发布当天日期)
 
 ### 3.  发布工作流 (Release Workflow)
 
