@@ -693,7 +693,7 @@ CSS_TEMPLATE_MINDMAP = """
         .content-area {
             padding: 0;
             flex: 1 1 0;
-            background: transparent;
+            background: var(--card-bg-color);
             position: relative;
             overflow: hidden;
             width: 100%;
@@ -2204,7 +2204,7 @@ class Action:
             flex-grow: 1;
             position: relative;
             overflow: hidden;
-            background: transparent;
+            background: var(--card-bg-color);
             min-height: 0;
             width: 100%;
             height: 100%;
