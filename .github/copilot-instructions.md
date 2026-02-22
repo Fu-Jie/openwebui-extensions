@@ -478,7 +478,117 @@ async def get_user_language(self):
 
 **注意**: 即使插件有 `Valves` 配置，也应优先尝试自动探测，提升用户体验。
 
-### 8. 智能代理文件交付规范 (Agent File Delivery Standards)
+### 8. 国际化 (i18n) 适配规范 (Internationalization Standards)
+
+开发供全球用户使用的插件时，必须预置多语言支持（如中文、英文等）。
+
+#### i18n 字典定义
+
+在文件顶部定义 `TRANSLATIONS` 字典存储多语言字符串：
+
+```python
+TRANSLATIONS = {
+    "en-US": {
+        "status_starting": "Smart Mind Map is starting...",
+    },
+    "zh-CN": {
+        "status_starting": "智能思维导图正在启动...",
+    },
+    # ... 其他语言
+}
+
+# 语言回退映射 (Fallback Map)
+FALLBACK_MAP = {
+    "zh": "zh-CN",
+    "zh-TW": "zh-CN",
+    "zh-HK": "zh-CN",
+    "en": "en-US",
+    "en-GB": "en-US"
+}
+```
+
+#### 获取当前用户真实语言 (Robust Language Detection)
+
+Open WebUI 的前端（localStorage）并未自动同步语言设置到后端数据库或通过标准 API 参数传递。为了获取精准的用户偏好语言，**必须**使用多层级回退机制（Multi-level Fallback）：
+`JS 动态探测 (localStorage)` > `HTTP 浏览器头 (Accept-Language)` > `用户 Profile 默认设置` > `en-US`
+
+> **注意！防卡死指南 (Anti-Deadlock Guide)**
+> 在通过 `__event_call__` 执行前端 JS 脚本时，如果前端脚本不慎抛出异常 (`Exception`) 会导致回调函数 `cb()` 永不执行，这会让后端的 `asyncio` 永远阻塞并卡死整个请求队列！
+> **必须**做两重防护：
+> 1. JS 内部包裹 `try...catch` 保证必须有 `return`。
+> 2. 后端使用 `asyncio.wait_for` 设置强制超时（建议 2 秒）。
+
+```python
+import asyncio
+from fastapi import Request
+
+async def _get_user_context(
+    self,
+    __user__: Optional[dict],
+    __event_call__: Optional[callable] = None,
+    __request__: Optional[Request] = None,
+) -> dict:
+    user_language = __user__.get("language", "en-US") if __user__ else "en-US"
+    
+    # 1st Fallback: HTTP Accept-Language header
+    if __request__ and hasattr(__request__, "headers") and "accept-language" in __request__.headers:
+        raw_lang = __request__.headers.get("accept-language", "")
+        if raw_lang:
+            user_language = raw_lang.split(",")[0].split(";")[0]
+
+    # 2nd Fallback (Best): Execute JS in frontend to read localStorage
+    if __event_call__:
+        try:
+            js_code = """
+                try {
+                    return (
+                        document.documentElement.lang ||
+                        localStorage.getItem('locale') || 
+                        navigator.language || 
+                        'en-US'
+                    );
+                } catch (e) {
+                    return 'en-US';
+                }
+            """
+            # 【致命！】必须设置 wait_for 防止前端无响应卡死后端
+            frontend_lang = await asyncio.wait_for(
+                __event_call__({"type": "execute", "data": {"code": js_code}}),
+                timeout=2.0
+            )
+            if frontend_lang and isinstance(frontend_lang, str):
+                user_language = frontend_lang
+        except Exception as e:
+            pass # fallback to accept-language or en-US
+
+    return {
+        "user_language": user_language,
+        # ... user_name, user_id etc.
+    }
+```
+
+#### 实际使用 (Usage in Action/Filter)
+
+在 Action 或者 Filter 执行时引用这套上下文获取机制，然后传入映射器获取最终翻译：
+
+```python
+async def action(
+    self, 
+    body: dict, 
+    __user__: Optional[dict] = None,
+    __event_call__: Optional[callable] = None, 
+    __request__: Optional[Request] = None,
+    **kwargs
+) -> Optional[dict]:
+    
+    user_ctx = await self._get_user_context(__user__, __event_call__, __request__)
+    user_lang = user_ctx["user_language"]
+    
+    # 获取多语言文本 (通过你的 translation.get() 扩展)
+    # start_msg = self._get_translation(user_lang, "status_starting")
+```
+
+### 9. 智能代理文件交付规范 (Agent File Delivery Standards)
 
 在开发具备文件生成能力的智能代理插件（如 GitHub Copilot SDK 集成）时，必须遵循以下标准流程，以确保文件在不同存储后端（本地/S3）下的可用性并绕过不必要的 RAG 处理。
 
@@ -498,7 +608,7 @@ async def get_user_language(self):
 - 代理应始终将“当前目录”视为其受保护所在的私有工作空间。
 - `publish_file_from_workspace` 的参数 `filename` 仅需传入相对于当前目录的文件名。
 
-### 9. Copilot SDK 插件工具定义规范 (Copilot SDK Tool Definition Standards)
+### 10. Copilot SDK 插件工具定义规范 (Copilot SDK Tool Definition Standards)
 
 在为 GitHub Copilot SDK 开发自定义工具时，为了确保大模型能正确识别参数（避免生成空的 `properties` Schema），必须遵循以下定义模式：
 
@@ -531,6 +641,63 @@ my_tool = define_tool(
 1.  **params_type**: 必须在 `define_tool` 中使用此参数。这是防止大模型幻觉认为工具“无参数”的唯一可靠方法。
 2.  **Field 描述**: 在 `BaseModel` 中使用 `Field(..., description="...")` 为每个参数提供详细的描述信息。
 3.  **Required vs Optional**: 明确标注必填项（无默认值）和可选项（带 `default`）。
+
+### 11. Copilot SDK 流式渲染与工具卡片规范 (Streaming & Tool Card Standards)
+
+在处理大模型的思维链（Reasoning）输出和工具调用（Tool Calls）时，为了确保能完美兼容 OpenWebUI 0.8.x 前端的 Markdown 解析器及原生折叠 UI 组件，必须遵循以下极度严格的输出格式规范。
+
+#### 思维链流式渲染 (Reasoning Streaming)
+
+为了让前端能够正确显示“Thinking...”的折叠框和 Spinner 动画，**必须**使用原生的 `<think>` 标签。
+
+- **正确的标签包裹**:
+  ```html
+  <think>
+  这里是思考过程...
+  </think>
+  ```
+- **关键细节**:
+  - **标签闭合检测**: 必须在代码内部维护状态（如 `state["thinking_started"]`）。当（1）正文内容即将开始输出，或（2）工具调用触发 (`tool.execution_start`) 时，**必须优先输出 `\n</think>\n` 强制闭合标签**。如果不闭合，后续的正文或工具面板会被全部吞进思考框内，导致页面完全崩坏！
+  - **不要手动拼装**: 严禁通过手动输出 `<details type="reasoning">` 等大段 HTML 来模拟思考过程，这种方式极易在流式片段发送中破坏前端 DOM 树并导致错位。
+
+#### 工具调用原生卡片 (Native Tool Calls Block)
+
+为了在对话界面中生成标准、原生的下拉折叠“工具调用”卡片，当 `event_type == "tool.execution_complete"` 时，必须向队列输出如下严格格式的 HTML：
+
+```python
+# 必须转义属性中的双引号为 &quot;
+args_for_attr = args_json_str.replace('"', "&quot;")
+result_for_attr = result_content.replace('"', "&quot;")
+
+tool_block = (
+    f'\\n<details type="tool_calls"'
+    f' id="{tool_call_id}"'
+    f' name="{tool_name}"'
+    f' arguments="{args_for_attr}"'
+    f' result="{result_for_attr}"'
+    f' done="true">\\n'
+    f"<summary>Tool Executed</summary>\\n"
+    f"</details>\\n\\n"
+)
+queue.put_nowait(tool_block)
+```
+
+- **致命避坑点 (Critical Pitfalls)**:
+  1. **属性转义 (Extremely Important)**: `<details>` 内的 `arguments` 和 `result` 属性**必须**将内部的所有双引号 `"` 替换为 `&quot;`。因为 OpenWebUI 前端提取这些数据的 Regex 是严格的 `="([^"]*)"`，一旦内容中出现原生双引号，就会被瞬间截断，导致参数被渲染为空并引发解析错误！
+  2. **换行符要求**: `<details ...>` 尖括号闭合后紧接着的内容**必须换行**（即 `>\\n`），否则 Markdown 扩展引擎无法将其识别为独立的 UI Block。
+  3. **去除冗余通知**: 不要在 `tool.execution_start` 事件中提前向对话流输出普通的 `🔧 Executing...` 纯文本块，这会导致最终页面上同时出现两块工具提示（一个文本，一个折叠卡片）。
+
+#### Debug 信息的解耦 (Decoupling Debug Logs)
+
+对于连接建立、运行环境、缓存加载等属于 *脚本自身运行状态* 的 Debug 信息：
+- **禁止**: 不要将这些内容 yield 到最终的回答数据流（或塞进 `<think>` 标签内），这会污染回答的纯粹性。
+- **推荐**: 统一使用 OpenWebUI 顶部的原生状态反馈气泡（Status Events）：
+  ```python
+  await __event_emitter__({
+      "type": "status",
+      "data": {"description": "连接建立，正在等待响应...", "done": True}
+  })
+  ```
 
 ---
 

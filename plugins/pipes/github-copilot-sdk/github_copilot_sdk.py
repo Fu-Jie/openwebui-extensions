@@ -1,12 +1,12 @@
 """
 title: GitHub Copilot Official SDK Pipe
 author: Fu-Jie
-author_url: https://github.com/Fu-Jie/awesome-openwebui
+author_url: https://github.com/Fu-Jie/openwebui-extensions
 funding_url: https://github.com/open-webui
 openwebui_id: ce96f7b4-12fc-4ac3-9a01-875713e69359
 description: Integrate GitHub Copilot SDK. Supports dynamic models, multi-turn conversation, streaming, multimodal input, infinite sessions, and frontend debug logging.
-version: 0.6.2
-requirements: github-copilot-sdk==0.1.23
+version: 0.7.0
+requirements: github-copilot-sdk==0.1.25
 """
 
 import os
@@ -226,10 +226,7 @@ class Pipe:
             default=300,
             description="Timeout for each stream chunk (seconds)",
         )
-        COPILOT_CLI_VERSION: str = Field(
-            default="0.0.406",
-            description="Specific Copilot CLI version to install/enforce (e.g. '0.0.406'). Leave empty for latest.",
-        )
+
         EXCLUDE_KEYWORDS: str = Field(
             default="",
             description="Exclude models containing these keywords (comma separated, e.g.: codex, haiku)",
@@ -360,6 +357,116 @@ class Pipe:
     _env_setup_done = False  # Track if env setup has been completed
     _last_update_check = 0  # Timestamp of last CLI update check
 
+    TRANSLATIONS = {
+        "en-US": {
+            "status_conn_est": "Connection established, waiting for response...",
+            "status_reasoning_inj": "Reasoning Effort injected: {effort}",
+            "debug_agent_working_in": "Agent working in: {path}",
+            "debug_mcp_servers": "🔌 Connected MCP Servers: {servers}",
+            "publish_success": "File published successfully.",
+            "publish_hint_html": "Link: [View {filename}]({view_url}) | [Download]({download_url})",
+            "publish_hint_default": "Link: [Download {filename}]({download_url})",
+        },
+        "zh-CN": {
+            "status_conn_est": "已建立连接，等待响应...",
+            "status_reasoning_inj": "已注入推理级别：{effort}",
+            "debug_agent_working_in": "Agent 工作目录: {path}",
+            "debug_mcp_servers": "🔌 已连接 MCP 服务器: {servers}",
+            "publish_success": "文件发布成功。",
+            "publish_hint_html": "链接: [查看 {filename}]({view_url}) | [下载]({download_url})",
+            "publish_hint_default": "链接: [下载 {filename}]({download_url})",
+        },
+        "zh-HK": {
+            "status_conn_est": "已建立連接，等待響應...",
+            "status_reasoning_inj": "已注入推理級別：{effort}",
+            "debug_agent_working_in": "Agent 工作目錄: {path}",
+            "debug_mcp_servers": "🔌 已連接 MCP 伺服器: {servers}",
+            "publish_success": "文件發布成功。",
+            "publish_hint_html": "連結: [查看 {filename}]({view_url}) | [下載]({download_url})",
+            "publish_hint_default": "連結: [下載 {filename}]({download_url})",
+        },
+        "zh-TW": {
+            "status_conn_est": "已建立連接，等待響應...",
+            "status_reasoning_inj": "已注入推理級別：{effort}",
+            "debug_agent_working_in": "Agent 工作目錄: {path}",
+            "debug_mcp_servers": "🔌 已連接 MCP 伺服器: {servers}",
+            "publish_success": "文件發布成功。",
+            "publish_hint_html": "連結: [查看 {filename}]({view_url}) | [下載]({download_url})",
+            "publish_hint_default": "連結: [下載 {filename}]({download_url})",
+        },
+        "ja-JP": {
+            "status_conn_est": "接続が確立されました。応答を待っています...",
+            "status_reasoning_inj": "推論レベルが注入されました：{effort}",
+            "debug_agent_working_in": "Agent 作業ディレクトリ: {path}",
+            "debug_mcp_servers": "🔌 接続済み MCP サーバー: {servers}",
+        },
+        "ko-KR": {
+            "status_conn_est": "연결이 설정되었습니다. 응답을 기다리는 중...",
+            "status_reasoning_inj": "추론 수준 설정됨: {effort}",
+            "debug_agent_working_in": "Agent 작업 디렉토리: {path}",
+            "debug_mcp_servers": "🔌 연결된 MCP 서버: {servers}",
+        },
+        "fr-FR": {
+            "status_conn_est": "Connexion établie, en attente de réponse...",
+            "status_reasoning_inj": "Effort de raisonnement injecté : {effort}",
+            "debug_agent_working_in": "Répertoire de travail de l'Agent : {path}",
+            "debug_mcp_servers": "🔌 Serveurs MCP connectés : {servers}",
+        },
+        "de-DE": {
+            "status_conn_est": "Verbindung hergestellt, warte auf Antwort...",
+            "status_reasoning_inj": "Argumentationsaufwand injiziert: {effort}",
+            "debug_agent_working_in": "Agent-Arbeitsverzeichnis: {path}",
+            "debug_mcp_servers": "🔌 Verbundene MCP-Server: {servers}",
+        },
+        "es-ES": {
+            "status_conn_est": "Conexión establecida, esperando respuesta...",
+            "status_reasoning_inj": "Nivel de razonamiento inyectado: {effort}",
+            "debug_agent_working_in": "Directorio de trabajo del Agente: {path}",
+            "debug_mcp_servers": "🔌 Servidores MCP conectados: {servers}",
+        },
+        "it-IT": {
+            "status_conn_est": "Connessione stabilita, in attesa di risposta...",
+            "status_reasoning_inj": "Livello di ragionamento iniettato: {effort}",
+            "debug_agent_working_in": "Directory di lavoro dell'Agente: {path}",
+            "debug_mcp_servers": "🔌 Server MCP connessi: {servers}",
+        },
+        "ru-RU": {
+            "status_conn_est": "Соединение установлено, ожидание ответа...",
+            "status_reasoning_inj": "Уровень рассуждения внедрен: {effort}",
+            "debug_agent_working_in": "Рабочий каталог Агента: {path}",
+            "debug_mcp_servers": "🔌 Подключенные серверы MCP: {servers}",
+        },
+        "vi-VN": {
+            "status_conn_est": "Đã thiết lập kết nối, đang chờ phản hồi...",
+            "status_reasoning_inj": "Cấp độ suy luận đã được áp dụng: {effort}",
+            "debug_agent_working_in": "Thư mục làm việc của Agent: {path}",
+            "debug_mcp_servers": "🔌 Các máy chủ MCP đã kết nối: {servers}",
+        },
+        "id-ID": {
+            "status_conn_est": "Koneksi terjalin, menunggu respons...",
+            "status_reasoning_inj": "Tingkat penalaran diterapkan: {effort}",
+            "debug_agent_working_in": "Direktori kerja Agent: {path}",
+            "debug_mcp_servers": "🔌 Server MCP yang terhubung: {servers}",
+        },
+    }
+
+    FALLBACK_MAP = {
+        "zh": "zh-CN",
+        "zh-TW": "zh-TW",
+        "zh-HK": "zh-HK",
+        "en": "en-US",
+        "en-GB": "en-US",
+        "ja": "ja-JP",
+        "ko": "ko-KR",
+        "fr": "fr-FR",
+        "de": "de-DE",
+        "es": "es-ES",
+        "it": "it-IT",
+        "ru": "ru-RU",
+        "vi": "vi-VN",
+        "id": "id-ID",
+    }
+
     def __init__(self):
         self.type = "pipe"
         self.id = "github_copilot_sdk"
@@ -389,6 +496,83 @@ class Pipe:
                 logger.info("[Database] ✅ Successfully created chat_todos table.")
         except Exception as e:
             logger.error(f"[Database] ❌ Initialization failed: {str(e)}")
+
+    def _resolve_language(self, user_language: str) -> str:
+        """Normalize user language code to a supported translation key."""
+        if not user_language:
+            return "en-US"
+        if user_language in self.TRANSLATIONS:
+            return user_language
+        lang_base = user_language.split("-")[0]
+        if user_language in self.FALLBACK_MAP:
+            return self.FALLBACK_MAP[user_language]
+        if lang_base in self.FALLBACK_MAP:
+            return self.FALLBACK_MAP[lang_base]
+        return "en-US"
+
+    def _get_translation(self, lang: str, key: str, **kwargs) -> str:
+        """Helper function to get translated string for a key."""
+        lang_key = self._resolve_language(lang)
+        trans_map = self.TRANSLATIONS.get(lang_key, self.TRANSLATIONS["en-US"])
+        text = trans_map.get(key, self.TRANSLATIONS["en-US"].get(key, key))
+        if kwargs:
+            try:
+                text = text.format(**kwargs)
+            except Exception as e:
+                logger.warning(f"Translation formatting failed for {key}: {e}")
+        return text
+
+    async def _get_user_context(self, __user__, __event_call__=None, __request__=None):
+        """Extract basic user context with safe fallbacks including JS localStorage."""
+        if isinstance(__user__, (list, tuple)):
+            user_data = __user__[0] if __user__ else {}
+        elif isinstance(__user__, dict):
+            user_data = __user__
+        else:
+            user_data = {}
+
+        user_id = user_data.get("id", "unknown_user")
+        user_name = user_data.get("name", "User")
+        user_language = user_data.get("language", "en-US")
+
+        if (
+            __request__
+            and hasattr(__request__, "headers")
+            and "accept-language" in __request__.headers
+        ):
+            raw_lang = __request__.headers.get("accept-language", "")
+            if raw_lang:
+                user_language = raw_lang.split(",")[0].split(";")[0]
+
+        if __event_call__:
+            try:
+                js_code = """
+                    try {
+                        return (
+                            document.documentElement.lang ||
+                            localStorage.getItem('locale') || 
+                            localStorage.getItem('language') || 
+                            navigator.language || 
+                            'en-US'
+                        );
+                    } catch (e) {
+                        return 'en-US';
+                    }
+                """
+                frontend_lang = await asyncio.wait_for(
+                    __event_call__({"type": "execute", "data": {"code": js_code}}),
+                    timeout=2.0,
+                )
+                if frontend_lang and isinstance(frontend_lang, str):
+                    user_language = frontend_lang
+            except Exception as e:
+                pass
+
+        return {
+            "user_id": user_id,
+            "user_name": user_name,
+            "user_language": user_language,
+        }
 
     @contextlib.contextmanager
     def _db_session(self):
@@ -611,6 +795,8 @@ class Pipe:
             user_data = {}
 
         user_id = user_data.get("id") or user_data.get("user_id")
+        user_lang = user_data.get("language") or "en-US"
+        is_admin = user_data.get("role") == "admin"
         if not user_id:
             return None
 
@@ -746,10 +932,7 @@ class Pipe:
                     dest_path = Path(UPLOAD_DIR) / f"{file_id}_{safe_filename}"
                     await asyncio.to_thread(shutil.copy2, target_path, dest_path)
 
-                    try:
-                        db_path = str(os.path.relpath(dest_path, DATA_DIR))
-                    except:
-                        db_path = str(dest_path)
+                    db_path = str(dest_path)
 
                     file_form = FileForm(
                         id=file_id,
@@ -769,12 +952,37 @@ class Pipe:
 
                 # 5. Result
                 download_url = f"/api/v1/files/{file_id}/content"
+                view_url = download_url
+                is_html = safe_filename.lower().endswith(".html")
+
+                # For HTML files, if user is admin, provide a direct view link (/content/html)
+                if is_html and is_admin:
+                    view_url = f"{download_url}/html"
+
+                # Localized output
+                msg = self._get_translation(user_lang, "publish_success")
+                if is_html and is_admin:
+                    hint = self._get_translation(
+                        user_lang,
+                        "publish_hint_html",
+                        filename=safe_filename,
+                        view_url=view_url,
+                        download_url=download_url,
+                    )
+                else:
+                    hint = self._get_translation(
+                        user_lang,
+                        "publish_hint_default",
+                        filename=safe_filename,
+                        download_url=download_url,
+                    )
+
                 return {
                     "file_id": file_id,
                     "filename": safe_filename,
                     "download_url": download_url,
-                    "message": "File published successfully.",
-                    "hint": f"Link: [Download {safe_filename}]({download_url})",
+                    "message": msg,
+                    "hint": hint,
                 }
             except Exception as e:
                 return {"error": str(e)}
@@ -1921,10 +2129,6 @@ class Pipe:
             "on_post_tool_use": on_post_tool_use,
         }
 
-    def _get_user_context(self):
-        """Helper to get user context (placeholder for future use)."""
-        return {}
-
     def _get_chat_context(
         self,
         body: dict,
@@ -2327,25 +2531,11 @@ class Pipe:
         token: str = None,
         enable_mcp: bool = True,
         enable_cache: bool = True,
-        skip_cli_install: bool = False,
+        skip_cli_install: bool = False,  # Kept for call-site compatibility, no longer used
         __event_emitter__=None,
+        user_lang: str = "en-US",
     ):
-        """Setup environment variables and verify Copilot CLI. Dynamic Token Injection."""
-        def emit_status_sync(description: str, done: bool = False):
-            if not __event_emitter__:
-                return
-            try:
-                loop = asyncio.get_running_loop()
-                loop.create_task(
-                    __event_emitter__(
-                        {
-                            "type": "status",
-                            "data": {"description": description, "done": done},
-                        }
-                    )
-                )
-            except Exception:
-                pass
+        """Setup environment variables and resolve Copilot CLI path from SDK bundle."""
 
         # 1. Real-time Token Injection (Always updates on each call)
         effective_token = token or self.valves.GH_TOKEN
@@ -2353,8 +2543,6 @@ class Pipe:
             os.environ["GH_TOKEN"] = os.environ["GITHUB_TOKEN"] = effective_token
 
         if self._env_setup_done:
-            # If done, we only sync MCP if called explicitly or in debug mode
-            # To improve speed, we avoid redundant file I/O here for regular requests
             if debug_enabled:
                 self._sync_mcp_config(
                     __event_call__,
@@ -2365,186 +2553,46 @@ class Pipe:
             return
 
         os.environ["COPILOT_AUTO_UPDATE"] = "false"
-        self._emit_debug_log_sync(
-            "Disabled CLI auto-update (COPILOT_AUTO_UPDATE=false)",
-            __event_call__,
-            debug_enabled=debug_enabled,
-        )
 
-        # 2. CLI Path Discovery
-        cli_path = "/usr/local/bin/copilot"
-        if os.environ.get("COPILOT_CLI_PATH"):
-            cli_path = os.environ["COPILOT_CLI_PATH"]
-
-        target_version = self.valves.COPILOT_CLI_VERSION.strip()
-        found = False
-        current_version = None
-
-        def get_cli_version(path):
-            try:
-                output = (
-                    subprocess.check_output(
-                        [path, "--version"], stderr=subprocess.STDOUT
-                    )
-                    .decode()
-                    .strip()
-                )
-                import re
-
-                match = re.search(r"(\d+\.\d+\.\d+)", output)
-                return match.group(1) if match else output
-            except Exception:
-                return None
-
-        # Check existing version
-        if os.path.exists(cli_path):
-            found = True
-            current_version = get_cli_version(cli_path)
+        # 2. CLI Path Discovery (priority: env var > PATH > SDK bundle)
+        cli_path = os.environ.get("COPILOT_CLI_PATH", "")
+        found = bool(cli_path and os.path.exists(cli_path))
 
         if not found:
             sys_path = shutil.which("copilot")
             if sys_path:
                 cli_path = sys_path
                 found = True
-                current_version = get_cli_version(cli_path)
 
         if not found:
-            pkg_path = os.path.join(os.path.dirname(__file__), "bin", "copilot")
-            if os.path.exists(pkg_path):
-                cli_path = pkg_path
-                found = True
-                current_version = get_cli_version(cli_path)
-
-        # 3. Installation/Update Logic
-        should_install = not found
-        install_reason = "CLI not found"
-        if found and target_version:
-            norm_target = target_version.lstrip("v")
-            norm_current = current_version.lstrip("v") if current_version else ""
-
-            # Only install if target version is GREATER than current version
             try:
-                from packaging.version import parse as parse_version
+                from copilot.client import _get_bundled_cli_path
 
-                if parse_version(norm_target) > parse_version(norm_current):
-                    should_install = True
-                    install_reason = (
-                        f"Upgrade needed ({current_version} -> {target_version})"
-                    )
-                elif parse_version(norm_target) < parse_version(norm_current):
-                    self._emit_debug_log_sync(
-                        f"Current version ({current_version}) is newer than specified ({target_version}). Skipping downgrade.",
-                        __event_call__,
-                        debug_enabled=debug_enabled,
-                    )
-            except Exception as e:
-                # Fallback to string comparison if packaging is not available
-                if norm_target != norm_current:
-                    should_install = True
-                    install_reason = (
-                        f"Version mismatch ({current_version} != {target_version})"
-                    )
+                bundled_path = _get_bundled_cli_path()
+                if bundled_path and os.path.exists(bundled_path):
+                    cli_path = bundled_path
+                    found = True
+            except ImportError:
+                pass
 
-        if should_install and not skip_cli_install:
-            self._emit_debug_log_sync(
-                f"Installing/Updating Copilot CLI: {install_reason}...",
-                __event_call__,
-                debug_enabled=debug_enabled,
-            )
-            emit_status_sync(
-                "🔧 正在安装/更新 Copilot CLI（首次可能需要 1-3 分钟）...",
-                done=False,
-            )
-            try:
-                env = os.environ.copy()
-                if target_version:
-                    env["VERSION"] = target_version
-                proc = subprocess.Popen(
-                    "curl -fsSL https://gh.io/copilot-install | bash",
-                    shell=True,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.STDOUT,
-                    text=True,
-                    bufsize=1,
-                    env=env,
-                )
-
-                progress_percent = -1
-                line_count = 0
-                while True:
-                    raw_line = proc.stdout.readline() if proc.stdout else ""
-                    if raw_line == "" and proc.poll() is not None:
-                        break
-
-                    line = (raw_line or "").strip()
-                    if not line:
-                        continue
-
-                    line_count += 1
-                    percent_match = re.search(r"(\d{1,3})%", line)
-                    if percent_match:
-                        try:
-                            pct = int(percent_match.group(1))
-                            if pct >= progress_percent + 5:
-                                progress_percent = pct
-                                emit_status_sync(
-                                    f"📦 Copilot CLI 安装中：{pct}%", done=False
-                                )
-                        except Exception:
-                            pass
-                    elif line_count % 20 == 0:
-                        emit_status_sync(
-                            f"📦 Copilot CLI 安装中：{line[:120]}", done=False
-                        )
-
-                return_code = proc.wait()
-                if return_code != 0:
-                    raise subprocess.CalledProcessError(
-                        return_code,
-                        "curl -fsSL https://gh.io/copilot-install | bash",
-                    )
-
-                # Re-verify
-                current_version = get_cli_version(cli_path)
-                emit_status_sync(
-                    f"✅ Copilot CLI 安装完成（v{current_version or target_version or 'latest'}）",
-                    done=False,
-                )
-            except Exception as e:
-                self._emit_debug_log_sync(
-                    f"CLI installation failed: {e}",
-                    __event_call__,
-                    debug_enabled=debug_enabled,
-                )
-                emit_status_sync(
-                    f"❌ Copilot CLI 安装失败：{str(e)[:120]}",
-                    done=True,
-                )
-        elif should_install and skip_cli_install:
-            self._emit_debug_log_sync(
-                f"Skipping CLI install during model listing: {install_reason}",
-                __event_call__,
-                debug_enabled=debug_enabled,
-            )
-
-        # 4. Finalize
-        cli_ready = bool(cli_path and os.path.exists(cli_path))
+        # 3. Finalize
+        cli_ready = found
         if cli_ready:
             os.environ["COPILOT_CLI_PATH"] = cli_path
+            # Add the CLI's parent directory to PATH so subprocesses can invoke `copilot` directly
+            cli_bin_dir = os.path.dirname(cli_path)
+            current_path = os.environ.get("PATH", "")
+            if cli_bin_dir and cli_bin_dir not in current_path.split(os.pathsep):
+                os.environ["PATH"] = cli_bin_dir + os.pathsep + current_path
 
         self.__class__._env_setup_done = cli_ready
         self.__class__._last_update_check = datetime.now().timestamp()
 
         self._emit_debug_log_sync(
-            f"Environment setup complete. CLI ready={cli_ready}. Path: {cli_path} (v{current_version})",
+            f"Environment setup complete. CLI ready={cli_ready}. Path: {cli_path}",
             __event_call__,
             debug_enabled=debug_enabled,
         )
-        if not skip_cli_install:
-            if cli_ready:
-                emit_status_sync("✅ Copilot CLI 已就绪", done=True)
-            else:
-                emit_status_sync("⚠️ Copilot CLI 尚未就绪，请稍后重试。", done=True)
 
     def _process_attachments(
         self,
@@ -2822,6 +2870,9 @@ class Pipe:
         effective_mcp = user_valves.ENABLE_MCP_SERVER
         effective_cache = user_valves.ENABLE_TOOL_CACHE
 
+        user_ctx = await self._get_user_context(__user__, __event_call__, __request__)
+        user_lang = user_ctx["user_language"]
+
         # 2. Setup environment with effective settings
         self._setup_env(
             __event_call__,
@@ -2830,11 +2881,12 @@ class Pipe:
             enable_mcp=effective_mcp,
             enable_cache=effective_cache,
             __event_emitter__=__event_emitter__,
+            user_lang=user_lang,
         )
 
         cwd = self._get_workspace_dir(user_id=user_id, chat_id=chat_id)
         await self._emit_debug_log(
-            f"Agent working in: {cwd} (Admin: {is_admin}, MCP: {effective_mcp})",
+            f"{self._get_translation(user_lang, 'debug_agent_working_in', path=cwd)} (Admin: {is_admin}, MCP: {effective_mcp})",
             __event_call__,
             debug_enabled=effective_debug,
         )
@@ -3269,9 +3321,9 @@ class Pipe:
             if body.get("stream", False):
                 init_msg = ""
                 if effective_debug:
-                    init_msg = f"> [Debug] Agent working in: {self._get_workspace_dir(user_id=user_id, chat_id=chat_id)}\n"
+                    init_msg = f"> [Debug] {self._get_translation(user_lang, 'debug_agent_working_in', path=self._get_workspace_dir(user_id=user_id, chat_id=chat_id))}\n"
                     if mcp_server_names:
-                        init_msg += f"> [Debug] 🔌 Connected MCP Servers: {', '.join(mcp_server_names)}\n"
+                        init_msg += f"> [Debug] {self._get_translation(user_lang, 'debug_mcp_servers', servers=', '.join(mcp_server_names))}\n"
 
                 # Transfer client ownership to stream_response
                 should_stop_client = False
@@ -3284,9 +3336,14 @@ class Pipe:
                     init_message=init_msg,
                     __event_call__=__event_call__,
                     __event_emitter__=__event_emitter__,
-                    reasoning_effort=effective_reasoning_effort,
+                    reasoning_effort=(
+                        effective_reasoning_effort
+                        if (is_reasoning and not is_byok_model)
+                        else "off"
+                    ),
                     show_thinking=show_thinking,
                     debug_enabled=effective_debug,
+                    user_lang=user_lang,
                 )
             else:
                 try:
@@ -3332,6 +3389,7 @@ class Pipe:
         reasoning_effort: str = "",
         show_thinking: bool = True,
         debug_enabled: bool = False,
+        user_lang: str = "en-US",
     ) -> AsyncGenerator:
         """
         Stream response from Copilot SDK, handling various event types.
@@ -3476,14 +3534,8 @@ class Pipe:
                     queue.put_nowait("\n</think>\n")
                     state["thinking_started"] = False
 
-                # Display tool call with improved formatting
-                if tool_args:
-                    tool_args_json = json.dumps(tool_args, indent=2, ensure_ascii=False)
-                    tool_display = f"\n\n<details>\n<summary>🔧 Executing Tool: {tool_name}</summary>\n\n**Parameters:**\n\n```json\n{tool_args_json}\n```\n\n</details>\n\n"
-                else:
-                    tool_display = f"\n\n<details>\n<summary>🔧 Executing Tool: {tool_name}</summary>\n\n*No parameters*\n\n</details>\n\n"
-
-                queue.put_nowait(tool_display)
+                # Note: We do NOT emit a done="false" card here to avoid card duplication
+                # (unless we have a way to update text which SSE content stream doesn't)
 
                 self._emit_debug_log_sync(
                     f"Tool Start: {tool_name}",
@@ -3600,31 +3652,55 @@ class Pipe:
                             )
                     # ------------------------
 
-                    # Try to detect content type for better formatting
-                    is_json = False
-                    try:
-                        json_obj = (
-                            json.loads(result_content)
-                            if isinstance(result_content, str)
-                            else result_content
+                    # --- Build native OpenWebUI 0.8.3 tool_calls block ---
+                    # Serialize input args (from execution_start)
+                    tool_args_for_block = {}
+                    if tool_call_id and tool_call_id in active_tools:
+                        tool_args_for_block = active_tools[tool_call_id].get(
+                            "arguments", {}
                         )
-                        if isinstance(json_obj, (dict, list)):
-                            result_content = json.dumps(
-                                json_obj, indent=2, ensure_ascii=False
-                            )
-                            is_json = True
-                    except:
-                        pass
 
-                    # Format based on content type
-                    if is_json:
-                        # JSON content: use code block with syntax highlighting
-                        result_display = f"\n<details>\n<summary>{status_icon} Tool Result: {tool_name}</summary>\n\n```json\n{result_content}\n```\n\n</details>\n\n"
-                    else:
-                        # Plain text: use text code block to preserve formatting and add line breaks
-                        result_display = f"\n<details>\n<summary>{status_icon} Tool Result: {tool_name}</summary>\n\n```text\n{result_content}\n```\n\n</details>\n\n"
+                    try:
+                        args_json_str = json.dumps(
+                            tool_args_for_block, ensure_ascii=False
+                        )
+                    except Exception:
+                        args_json_str = "{}"
 
-                    queue.put_nowait(result_display)
+                    def escape_html_attr(s: str) -> str:
+                        if not isinstance(s, str):
+                            return ""
+                        return (
+                            str(s)
+                            .replace("&", "&amp;")
+                            .replace("<", "&lt;")
+                            .replace(">", "&gt;")
+                            .replace('"', "&quot;")
+                            .replace("\n", "&#10;")
+                            .replace("\r", "&#13;")
+                        )
+
+                    # MUST escape both arguments and result with &quot; and &#10; to satisfy OpenWebUI's strict regex /="([^"]*)"/
+                    # OpenWebUI `marked` extension does not match multiline attributes properly without &#10;
+                    args_for_attr = (
+                        escape_html_attr(args_json_str) if args_json_str else "{}"
+                    )
+                    result_for_attr = escape_html_attr(result_content)
+
+                    # Emit the unified native tool_calls block:
+                    # OpenWebUI 0.8.3 frontend regex explicitly expects: name="xxx" arguments="..." result="..." done="true"
+                    # CRITICAL: <details> tag MUST be followed immediately by \n for the frontend Markdown extension to parse it!
+                    tool_block = (
+                        f'\n<details type="tool_calls"'
+                        f' id="{tool_call_id}"'
+                        f' name="{tool_name}"'
+                        f' arguments="{args_for_attr}"'
+                        f' result="{result_for_attr}"'
+                        f' done="true">\n'
+                        f"<summary>Tool Executed</summary>\n"
+                        f"</details>\n\n"
+                    )
+                    queue.put_nowait(tool_block)
 
             elif event_type == "tool.execution_progress":
                 # Tool execution progress update (for long-running tools)
@@ -3725,20 +3801,42 @@ class Pipe:
 
         # Safe initial yield with error handling
         try:
-            if debug_enabled and show_thinking:
-                yield "<think>\n"
+            if debug_enabled and __event_emitter__:
+                # Emit debug info as UI status rather than reasoning block
+                async def _emit_status(key: str, desc: str = None, **kwargs):
+                    try:
+                        final_desc = (
+                            desc
+                            if desc
+                            else self._get_translation(user_lang, key, **kwargs)
+                        )
+                        await __event_emitter__(
+                            {
+                                "type": "status",
+                                "data": {"description": final_desc, "done": True},
+                            }
+                        )
+                    except:
+                        pass
+
                 if init_message:
-                    yield init_message
+                    for line in init_message.split("\n"):
+                        if line.strip():
+                            clean_msg = line.replace("> [Debug] ", "").strip()
+                            asyncio.create_task(_emit_status("custom", desc=clean_msg))
 
                 if reasoning_effort and reasoning_effort != "off":
-                    yield f"> [Debug] Reasoning Effort injected: {reasoning_effort.upper()}\n"
+                    asyncio.create_task(
+                        _emit_status(
+                            "status_reasoning_inj", effort=reasoning_effort.upper()
+                        )
+                    )
 
-                yield "> [Debug] Connection established, waiting for response...\n"
-                state["thinking_started"] = True
+                asyncio.create_task(_emit_status("status_conn_est"))
         except Exception as e:
             # If initial yield fails, log but continue processing
             self._emit_debug_log_sync(
-                f"Initial yield warning: {e}",
+                f"Initial status warning: {e}",
                 __event_call__,
                 debug_enabled=debug_enabled,
             )
@@ -3766,12 +3864,21 @@ class Pipe:
                 except asyncio.TimeoutError:
                     if done.is_set():
                         break
-                    if state["thinking_started"]:
+                    if __event_emitter__ and debug_enabled:
                         try:
-                            yield f"> [Debug] Waiting for response ({self.valves.TIMEOUT}s exceeded)...\n"
+                            asyncio.create_task(
+                                __event_emitter__(
+                                    {
+                                        "type": "status",
+                                        "data": {
+                                            "description": f"Waiting for response ({self.valves.TIMEOUT}s exceeded)...",
+                                            "done": True,
+                                        },
+                                    }
+                                )
+                            )
                         except:
-                            # If yield fails during timeout, connection is gone
-                            break
+                            pass
                     continue
 
             while not queue.empty():

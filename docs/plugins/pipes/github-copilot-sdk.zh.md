@@ -1,6 +1,6 @@
 # GitHub Copilot SDK 官方管道
 
-**作者:** [Fu-Jie](https://github.com/Fu-Jie) | **版本:** 0.6.2 | **项目:** [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions) | **许可证:** MIT
+**作者:** [Fu-Jie](https://github.com/Fu-Jie) | **版本:** 0.7.0 | **项目:** [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions) | **许可证:** MIT
 
 这是一个用于 [OpenWebUI](https://github.com/open-webui/open-webui) 的高级 Pipe 函数，深度集成了 **GitHub Copilot SDK**。它不仅支持 **GitHub Copilot 官方模型**（如 `gpt-5.2-codex`, `claude-sonnet-4.5`, `gemini-3-pro`, `gpt-5-mini`），还支持 **BYOK (自带 Key)** 模式对接自定义服务商（OpenAI, Anthropic），并具备**严格的用户与会话级工作区隔离**能力，提供统一且安全的 Agent 交互体验。
 
@@ -14,12 +14,13 @@
 
 ---
 
-## ✨ 0.6.2 更新内容 (What's New)
+## ✨ 0.7.0 更新内容 (What's New)
 
-- **🛠️ 新增工作区产物工具**: 引入 `publish_file_from_workspace`。Agent 现在可以生成物理文件（如使用 Python 生成的 Excel/CSV 报表），并直接在聊天界面提供点击下载链接。
-- **⚙️ 工作流优化**: 提升了内部 Agent 物理工作区管理的可靠性与原子性。
-- **🛡️ 安全增强**: 精细化了隔离环境下系统资源的访问控制策略。
-- **🔧 性能微调**: 针对大上下文窗口优化了流式数据处理性能。
+- **🚀 CLI 免维护集成**: Copilot CLI 现在通过 `github-copilot-sdk` pip 包自动同步管理，彻底告别手动 `curl | bash` 安装问题。(v0.7.0)
+- **🧠 原生工具调用 UI**: 全面适配 **OpenWebUI 原生工具调用 UI** 与模型思考过程（思维链）展示。(v0.7.0)
+- **🏠 OpenWebUI v0.8.0+ 兼容性修复**: 通过切换为绝对路径注册发布文件，彻底解决了“Error getting file content”无法下载到本地的问题。(v0.7.0)
+- **🌐 全面的多语言支持**: 针对状态消息进行了 11 国语言的原生本地化 (中/英/日/韩/法/德/西/意/俄/越/印尼)。(v0.7.0)
+- **🧹 架构精简**: 重构了初始化逻辑并优化了推理状态显示，提供更轻量稳健的体验。(v0.7.0)
 
 ---
 
@@ -31,8 +32,8 @@
 - **♾️ 无限会话管理**: 智能上下文窗口管理与自动压缩算法，支持无限时长的对话交互。
 - **🧠 深度数据库集成**: 实时持久化 TOD·O 列表到 UI 进度条。
 - **🌊 深度推理展示**: 完整支持模型思考过程 (Thinking Process) 的流式渲染。
-- **🖼️ 智能多模态**: 完整支持图像识别与附件上传分析。
-- **⚡ 全生命周期文件 Agent**: 支持接收上传文件进行绕过 RAG 的深度分析，并将处理结果（如 Excel/报告）发布为下载链接实现闭环。
+- **🖼️ 智能多模态**: 完整支持图像识别与附件上传分析（绕过 RAG 直接访问原始二进制内容）。
+- **📤 工作区产物工具 (`publish_file_from_workspace`)**: Agent 可生成文件（Excel、CSV、HTML 报告等）并直接提供**持久化下载链接**。管理员还可额外获得通过 `/content/html` 接口的**聊天内 HTML 预览**链接。
 - **🖼️ 交互式伪影 (Artifacts)**: 自动渲染 Agent 生成的 HTML/JS 应用程序，直接在聊天界面交互。
 
 ---
@@ -95,7 +96,7 @@
 ### 1) 导入函数
 
 1. 打开 OpenWebUI，前往 **工作区** -> **函数**。
-2. 点击 **+** (创建函数)，完整粘贴 `github_copilot_sdk_cn.py` 的内容。
+2. 点击 **+** (创建函数)，完整粘贴 `github_copilot_sdk.py` 的内容。
 3. 点击保存并确保已启用。
 
 ### 2) 获取 Token (Get Token)
@@ -110,7 +111,7 @@
 
 - **Agent 无法识别文件？**: 请确保已安装并启用了 Files Filter 插件，否则原始文件会被 RAG 干扰。
 - **看不到 TODO 进度条？**: 进度条仅在 Agent 使用 `update_todo` 工具（通常是处理复杂任务）时出现。
-- **依赖安装**: 本管道会自动尝试安装 `github-copilot-sdk` (Python 包) 和 `github-copilot-cli` (官方二进制)。
+- **依赖安装**: 本管道会自动管理 `github-copilot-sdk` (Python 包) 并优先直接使用内置的二进制 CLI，无需手动干预。
 
 ---
 

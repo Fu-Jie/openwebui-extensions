@@ -9,6 +9,7 @@ icon_url: data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAw
 description: Intelligently analyzes text content and generates interactive mind maps to help users structure and visualize knowledge.
 """
 
+import asyncio
 import logging
 import os
 import re
@@ -1514,6 +1515,7 @@ class Action:
         self,
         __user__: Optional[Dict[str, Any]],
         __event_call__: Optional[Callable[[Any], Awaitable[None]]] = None,
+        __request__: Optional[Request] = None,
     ) -> Dict[str, str]:
         """Extract basic user context with safe fallbacks."""
         if isinstance(__user__, (list, tuple)):
@@ -1528,20 +1530,36 @@ class Action:
         # Default from profile
         user_language = user_data.get("language", "en-US")
 
-        # Priority: Document Lang > LocalStorage (Frontend) > Browser > Profile (Default)
+        # Level 1 Fallback: Accept-Language from __request__ headers
+        if (
+            __request__
+            and hasattr(__request__, "headers")
+            and "accept-language" in __request__.headers
+        ):
+            raw_lang = __request__.headers.get("accept-language", "")
+            if raw_lang:
+                user_language = raw_lang.split(",")[0].split(";")[0]
+
+        # Priority: Document Lang > LocalStorage (Frontend) > Browser > Request Header > Profile
         if __event_call__:
             try:
                 js_code = """
-                    return (
-                        document.documentElement.lang ||
-                        localStorage.getItem('locale') || 
-                        localStorage.getItem('language') || 
-                        navigator.language || 
-                        'en-US'
-                    );
+                    try {
+                        return (
+                            document.documentElement.lang ||
+                            localStorage.getItem('locale') || 
+                            localStorage.getItem('language') || 
+                            navigator.language || 
+                            'en-US'
+                        );
+                    } catch (e) {
+                        return 'en-US';
+                    }
                 """
-                frontend_lang = await __event_call__(
-                    {"type": "execute", "data": {"code": js_code}}
+                # Use asyncio.wait_for to prevent hanging if frontend fails to callback
+                frontend_lang = await asyncio.wait_for(
+                    __event_call__({"type": "execute", "data": {"code": js_code}}),
+                    timeout=2.0,
                 )
                 if frontend_lang and isinstance(frontend_lang, str):
                     user_language = frontend_lang
@@ -2387,7 +2405,7 @@ class Action:
         __request__: Optional[Request] = None,
     ) -> Optional[dict]:
         logger.info("Action: Smart Mind Map (v1.0.0) started")
-        user_ctx = await self._get_user_context(__user__, __event_call__)
+        user_ctx = await self._get_user_context(__user__, __event_call__, __request__)
         user_language = user_ctx["user_language"]
         user_name = user_ctx["user_name"]
         user_id = user_ctx["user_id"]
