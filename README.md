@@ -30,6 +30,12 @@ A collection of enhancements, plugins, and prompts for [OpenWebUI](https://githu
 | 5️⃣ | [Async Context Compression](https://openwebui.com/posts/async_context_compression_b1655bc8) | ![p5_version](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p5_version.json&style=flat) | ![p5_dl](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p5_dl.json&style=flat) | ![p5_vw](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p5_vw.json&style=flat) | ![updated](https://img.shields.io/badge/2026--02--21-gray?style=flat) |
 | 6️⃣ | [Export to Excel](https://openwebui.com/posts/export_mulit_table_to_excel_244b8f9d) | ![p6_version](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p6_version.json&style=flat) | ![p6_dl](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p6_dl.json&style=flat) | ![p6_vw](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p6_vw.json&style=flat) | ![updated](https://img.shields.io/badge/2026--02--13-gray?style=flat) |
 
+### 🛠️ Actively Developed Projects
+
+| Plugin | Version | Downloads | Views | 📅 Updated |
+| :---: | :--- | :---: | :---: | :---: | :---: |
+| 🆕 | [GitHub Copilot SDK Pipe](https://openwebui.com/posts/github_copilot_official_sdk_pipe_ce96f7b4) | ![v](https://img.shields.io/badge/v-0.7.0-blue?style=flat) | ![copilot_dl](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_post_aef940e01073e811a311c3a443d9c149_dl.json&style=flat) | ![copilot_vw](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_post_aef940e01073e811a311c3a443d9c149_vw.json&style=flat) | ![updated](https://img.shields.io/badge/2026--02--23-blue?style=flat) |
+
 ### 📈 Total Downloads Trend
 ![Activity](https://gist.githubusercontent.com/Fu-Jie/db3d95687075a880af6f1fba76d679c6/raw/chart.svg)
 
