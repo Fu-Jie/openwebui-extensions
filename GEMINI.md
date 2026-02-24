@@ -67,6 +67,8 @@ When the user invokes antigravity mode (high-speed iteration), enforce these saf
 | Small reversible edits | One logical change per file per operation |
 | Timeout guards | `asyncio.wait_for(..., timeout=2.0)` on all `__event_call__` JS executions |
 | Path sandbox | Verify every workspace path stays inside the repo root before read/write |
+| Source Sensing | Use `source-code-analyzer` skill for `../open-webui`, `../copilot-sdk` etc. `git pull` before analysis. |
+| External Auth  | **AUTHORIZED** to read (RO) from specified external paths (open-webui, copilot-sdk, etc.) for analysis. |
 | Fallback chains | API upload → DB + local copy; never a single point of failure |
 | Progressive status | `status(done=False)` at start, `status(done=True)` on end, `notification(error)` on failure |
 | Validate before emit | Check `emitter is not None` before every `await emitter(...)` |
