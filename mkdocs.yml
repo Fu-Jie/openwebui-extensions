@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=https://squidfunk.github.io/mkdocs-material/schema.json
 # MkDocs Configuration for OpenWebUI Extras
 # Site Information
 site_name: OpenWebUI Extensions
@@ -17,12 +18,12 @@ copyright: Copyright &copy; 2024 OpenWebUI Extensions Contributors
 theme:
   name: material
   language: en
-  
+
   # Logo and Icons
   icon:
     logo: material/robot-happy-outline
     repo: fontawesome/brands/github
-  
+
   # Color Palette with Light/Dark Toggle
   palette:
     # Light mode
@@ -33,7 +34,7 @@ theme:
       toggle:
         icon: material/brightness-7
         name: Switch to dark mode
-    
+
     # Dark mode
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
@@ -42,7 +43,7 @@ theme:
       toggle:
         icon: material/brightness-4
         name: Switch to light mode
-  
+
   # Navigation Features
   features:
     - navigation.tabs
@@ -59,7 +60,7 @@ theme:
     - content.code.annotate
     - content.tabs.link
     - toc.follow
-  
+
   # Custom fonts
   font:
     text: Roboto
@@ -94,6 +95,7 @@ plugins:
             Development: 开发指南
             Contributing: 贡献指南
             Plugin Development Guide: 插件开发指南
+            Copilot Engineering Plan: Copilot 工程化配置
             Documentation Guide: 文档编写指南
             Smart Mind Map: 智能思维导图
             Smart Infographic: 智能信息图
@@ -121,7 +123,7 @@ markdown_extensions:
   - toc:
       permalink: true
       toc_depth: 3
-  
+
   # Python Markdown Extensions
   - pymdownx.arithmatex:
       generic: true
@@ -163,9 +165,9 @@ extra:
   social:
     - icon: fontawesome/brands/github
       link: https://github.com/Fu-Jie/openwebui-extensions
-  
+
   generator: false
-  
+
   # Analytics (optional - add your tracking ID)
   # analytics:
   #   provider: google
@@ -179,33 +181,34 @@ extra_css:
 nav:
   - Home: index.md
   - Plugins:
-    - plugins/index.md
-    - Actions:
-      - plugins/actions/index.md
-      - Smart Mind Map: plugins/actions/smart-mind-map.md
-      - Smart Infographic: plugins/actions/smart-infographic.md
-      - Flash Card: plugins/actions/flash-card.md
-      - Export to Excel: plugins/actions/export-to-excel.md
-      - Export to Word: plugins/actions/export-to-word.md
-    - Filters:
-      - plugins/filters/index.md
-      - Async Context Compression: plugins/filters/async-context-compression.md
-      - Context Enhancement: plugins/filters/context-enhancement.md
-      - Multi-Model Context Merger: plugins/filters/multi-model-context-merger.md
-      - Web Gemini Multimodal Filter: plugins/filters/web-gemini-multimodel.md
-    - Pipes:
-      - plugins/pipes/index.md
-    - Pipelines:
-      - plugins/pipelines/index.md
-      - MoE Prompt Refiner: plugins/pipelines/moe-prompt-refiner.md
+      - plugins/index.md
+      - Actions:
+          - plugins/actions/index.md
+          - Smart Mind Map: plugins/actions/smart-mind-map.md
+          - Smart Infographic: plugins/actions/smart-infographic.md
+          - Flash Card: plugins/actions/flash-card.md
+          - Export to Excel: plugins/actions/export-to-excel.md
+          - Export to Word: plugins/actions/export-to-word.md
+      - Filters:
+          - plugins/filters/index.md
+          - Async Context Compression: plugins/filters/async-context-compression.md
+          - Context Enhancement: plugins/filters/context-enhancement.md
+          - Multi-Model Context Merger: plugins/filters/multi-model-context-merger.md
+          - Web Gemini Multimodal Filter: plugins/filters/web-gemini-multimodel.md
+      - Pipes:
+          - plugins/pipes/index.md
+      - Pipelines:
+          - plugins/pipelines/index.md
+          - MoE Prompt Refiner: plugins/pipelines/moe-prompt-refiner.md
   - Prompts:
-    - prompts/index.md
-    - prompts/library.md
+      - prompts/index.md
+      - prompts/library.md
   - Enhancements:
-    - enhancements/index.md
-    - enhancements/guide.md
+      - enhancements/index.md
+      - enhancements/guide.md
   - Development:
-    - development/index.md
-    - Plugin Development Guide: development/plugin-guide.md
-    - Documentation Guide: development/documentation-guide.md
+      - development/index.md
+      - Plugin Development Guide: development/plugin-guide.md
+      - Copilot Engineering Plan: development/copilot-engineering-plan.md
+      - Documentation Guide: development/documentation-guide.md
   - Contributing: contributing.md

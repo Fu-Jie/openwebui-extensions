@@ -24,6 +24,14 @@
 
     [:octicons-arrow-right-24: 阅读指南](documentation-guide.md)
 
+-   :material-robot:{ .lg .middle } **Copilot 工程化配置**
+
+    ---
+
+    面向 GitHub Copilot + Gemini CLI + 反重力开发模式的工程化设计文档。
+
+    [:octicons-arrow-right-24: 阅读文档](copilot-engineering-plan.md)
+
 -   :material-github:{ .lg .middle } **贡献指南**
 
     ---
@@ -164,5 +172,6 @@ user_language = __user__.get("language", "en-US")
 ## 资源
 
 - [完整开发指南](plugin-guide.md)
+- [Copilot 工程化配置](copilot-engineering-plan.md)
 - [插件示例](https://github.com/Fu-Jie/openwebui-extensions/tree/main/plugins)
 - [OpenWebUI 文档](https://docs.openwebui.com/)

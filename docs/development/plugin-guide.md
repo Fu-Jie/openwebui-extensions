@@ -7,11 +7,13 @@
 ## 📚 Table of Contents
 
 1. [Quick Start](#1-quick-start)
-2. [Core Concepts & SDK Details](#2-core-concepts-sdk-details)
-3. [Deep Dive into Plugin Types](#3-deep-dive-into-plugin-types)
-4. [Advanced Development Patterns](#4-advanced-development-patterns)
-5. [Best Practices & Design Principles](#5-best-practices-design-principles)
-6. [Troubleshooting](#6-troubleshooting)
+2. [Project Structure & Naming](#2-project-structure--naming)
+3. [Core Concepts & SDK Details](#3-core-concepts--sdk-details)
+4. [Deep Dive into Plugin Types](#4-deep-dive-into-plugin-types)
+5. [Advanced Development Patterns](#5-advanced-development-patterns)
+6. [Best Practices & Design Principles](#6-best-practices--design-principles)
+7. [Workflow & Process](#7-workflow--process)
+8. [Troubleshooting](#8-troubleshooting)
 
 ---
 
@@ -64,9 +66,39 @@ class Action:
 
 ---
 
-## 2. Core Concepts & SDK Details
+## 2. Project Structure & Naming
 
-### 2.1 ⚠️ Important: Sync vs Async
+### 2.1 Language & Code Requirements
+
+- **Single Code File**: `plugins/{type}/{name}/{name}.py`. Never create separate source files for different languages.
+- **Built-in i18n**: Must dynamically switch UI, prompts, and logs based on user language.
+- **Documentation**: Must include both `README.md` (English) and `README_CN.md` (Chinese).
+
+### 2.2 Docstring Standard
+
+Each plugin file must start with a standardized docstring:
+
+```python
+"""
+title: Plugin Name
+author: Fu-Jie
+author_url: https://github.com/Fu-Jie/openwebui-extensions
+funding_url: https://github.com/open-webui
+version: 0.1.0
+icon_url: data:image/svg+xml;base64,<base64-encoded-svg>
+requirements: dependency1==1.0.0, dependency2>=2.0.0
+description: Brief description of plugin functionality.
+"""
+```
+
+- **icon_url**: Required for Action plugins. Must be Base64 encoded SVG from [Lucide Icons](https://lucide.dev/icons/).
+- **requirements**: Only list dependencies not installed in the OpenWebUI environment.
+
+---
+
+## 3. Core Concepts & SDK Details
+
+### 3.1 ⚠️ Important: Sync vs Async
 
 OpenWebUI plugins run within an `asyncio` event loop.
 
@@ -75,7 +107,7 @@ OpenWebUI plugins run within an `asyncio` event loop.
     - **Pitfall**: Calling synchronous methods directly (e.g., `time.sleep`, `requests.get`) will freeze the entire server
     - **Solution**: Wrap synchronous calls using `await asyncio.to_thread(sync_func, ...)`
 
-### 2.2 Core Parameters
+### 3.2 Core Parameters
 
 All plugin methods (`inlet`, `outlet`, `pipe`, `action`) support injecting the following special parameters:
 
@@ -88,30 +120,43 @@ All plugin methods (`inlet`, `outlet`, `pipe`, `action`) support injecting the f
 | `__event_emitter__` | `func` | **One-way Notification**. Used to send Toast notifications or status bar updates |
 | `__event_call__` | `func` | **Two-way Interaction**. Used to execute JS code, show confirmation dialogs, or input boxes |
 
-### 2.3 Configuration System (Valves)
+### 3.3 Configuration System (Valves)
 
-- **`Valves`**: Global admin configuration
-- **`UserValves`**: User-level configuration (higher priority, overrides global)
+Use Pydantic BaseModel to define configurable parameters. All Valves fields must use **UPPER_SNAKE_CASE**.
 
 ```python
-class Filter:
+from pydantic import BaseModel, Field
+
+class Action:
     class Valves(BaseModel):
-        API_KEY: str = Field(default="", description="Global API Key")
-        
-    class UserValves(BaseModel):
-        API_KEY: str = Field(default="", description="User Private API Key")
-        
-    def inlet(self, body, __user__):
-        # Prioritize user's Key
-        user_valves = __user__.get("valves", self.UserValves())
-        api_key = user_valves.API_KEY or self.valves.API_KEY
+        SHOW_STATUS: bool = Field(default=True, description="Whether to show operation status updates.")
+        # ...
 ```
+
+### 3.4 Context Access
+
+All plugins **must** use `_get_user_context` and `_get_chat_context` methods to safely extract information, rather than accessing `__user__` or `body` directly.
+
+### 3.5 Event Emission & Logging
+
+- **Event Emission**: Implement helper methods `_emit_status` and `_emit_notification`.
+- **Frontend Console Debugging**: Highly recommended for real-time data flow viewing. Use `_emit_debug_log` to print structured debug logs in the browser console.
+- **Server-side Logging**: Use Python's standard `logging` module. Do not use `print()`.
+
+### 3.6 Database & File Storage
+
+- **Database**: Re-use Open WebUI's internal database connection (`open_webui.internal.db`).
+- **File Storage**: Implement multi-level fallback mechanisms (DB -> S3 -> Local -> URL -> API) to ensure compatibility across all storage configurations.
+
+### 3.7 Internationalization (i18n)
+
+Define a `TRANSLATIONS` dictionary and use a robust language detection mechanism (Multi-level Fallback: JS localStorage -> HTTP Accept-Language -> User Profile -> en-US).
 
 ---
 
-## 3. Deep Dive into Plugin Types
+## 4. Deep Dive into Plugin Types
 
-### 3.1 Action
+### 4.1 Action
 
 **Role**: Adds buttons below messages that trigger upon user click.
 
@@ -136,7 +181,7 @@ async def action(self, body, __event_call__):
     await __event_call__({"type": "execute", "data": {"code": js}})
 ```
 
-### 3.2 Filter
+### 4.2 Filter
 
 **Role**: Middleware that intercepts and modifies requests/responses.
 
@@ -157,7 +202,7 @@ async def inlet(self, body, __metadata__):
     return body
 ```
 
-### 3.3 Pipe
+### 4.3 Pipe
 
 **Role**: Custom Model/Agent.
 
@@ -182,18 +227,27 @@ class Pipe:
         return r.iter_lines()
 ```
 
+### 4.4 Copilot SDK Tool Definition Standards
+
+When developing custom tools for GitHub Copilot SDK, you **must** define a Pydantic `BaseModel` for parameters and explicitly reference it using `params_type` in `define_tool`.
+
+### 4.5 Copilot SDK Streaming & Tool Card Standards
+
+- **Reasoning Streaming**: Must use native `<think>` tags and ensure proper closure (`\n</think>\n`) before outputting main content or tool calls.
+- **Native Tool Calls Block**: Output strictly formatted HTML `<details type="tool_calls"...>` blocks. Ensure all double quotes in attributes are escaped as `&quot;`.
+
 ---
 
-## 4. Advanced Development Patterns
+## 5. Advanced Development Patterns
 
-### 4.1 Pipe & Filter Collaboration
+### 5.1 Pipe & Filter Collaboration
 
 Use `__request__.app.state` to share data between plugins:
 
 - **Pipe**: `__request__.app.state.search_results = [...]`
 - **Filter (Outlet)**: Read `search_results` and format them as citation links
 
-### 4.2 Async Background Tasks
+### 5.2 Async Background Tasks
 
 Execute time-consuming operations without blocking the user response:
 
@@ -209,7 +263,7 @@ async def background_job(self, chat_id):
     pass
 ```
 
-### 4.3 Calling Built-in LLM
+### 5.3 Calling Built-in LLM
 
 ```python
 from open_webui.utils.chat import generate_chat_completion
@@ -235,13 +289,13 @@ llm_response = await generate_chat_completion(
 )
 ```
 
-### 4.4 JS Render to Markdown (Data URL Embedding)
+### 5.4 JS Render to Markdown (Data URL Embedding)
 
 For scenarios requiring complex frontend rendering (e.g., AntV charts, Mermaid diagrams) but wanting **persistent pure Markdown output**, use the Data URL embedding pattern:
 
 #### Workflow
 
-```
+```text
 ┌──────────────────────────────────────────────────────────────┐
 │  1. Python Action                                             │
 │     ├── Analyze message content                               │
@@ -259,116 +313,28 @@ For scenarios requiring complex frontend rendering (e.g., AntV charts, Mermaid d
 └──────────────────────────────────────────────────────────────┘
 ```
 
-#### Python Side (Send JS for Execution)
+### 5.5 Agent File Delivery Standards (3-Step Delivery Protocol)
 
-```python
-async def action(self, body, __event_call__, __metadata__, ...):
-    chat_id = self._extract_chat_id(body, __metadata__)
-    message_id = self._extract_message_id(body, __metadata__)
-    
-    # Generate JS code
-    js_code = self._generate_js_code(
-        chat_id=chat_id,
-        message_id=message_id,
-        data=processed_data,
-    )
-    
-    # Execute JS
-    if __event_call__:
-        await __event_call__({
-            "type": "execute",
-            "data": {"code": js_code}
-        })
-```
-
-#### JavaScript Side (Render and Write-back)
-
-```javascript
-(async function() {
-    // 1. Load visualization library
-    if (typeof VisualizationLib === 'undefined') {
-        await new Promise((resolve, reject) => {
-            const script = document.createElement('script');
-            script.src = 'https://cdn.example.com/lib.min.js';
-            script.onload = resolve;
-            script.onerror = reject;
-            document.head.appendChild(script);
-        });
-    }
-    
-    // 2. Create offscreen container
-    const container = document.createElement('div');
-    container.style.cssText = 'position:absolute;left:-9999px;';
-    document.body.appendChild(container);
-    
-    // 3. Render visualization
-    const instance = new VisualizationLib({ container });
-    instance.render(data);
-    
-    // 4. Export to Data URL
-    const dataUrl = await instance.toDataURL({ type: 'svg', embedResources: true });
-    
-    // 5. Cleanup
-    instance.destroy();
-    document.body.removeChild(container);
-    
-    // 6. Generate Markdown image
-    const markdownImage = `![Chart](${dataUrl})`;
-    
-    // 7. Update message via API
-    const token = localStorage.getItem("token");
-    await fetch(`/api/v1/chats/${chatId}/messages/${messageId}/event`, {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${token}`
-        },
-        body: JSON.stringify({
-            type: "chat:message",
-            data: { content: originalContent + "\n\n" + markdownImage }
-        })
-    });
-})();
-```
-
-#### Benefits
-
-- **Pure Markdown Output**: Standard Markdown image syntax, no HTML code blocks
-- **Self-Contained**: Images embedded as Base64 Data URL, no external dependencies
-- **Persistent**: Via API write-back, images remain after page reload
-- **Cross-Platform**: Works on any client supporting Markdown images
-
-#### HTML Injection vs JS Render to Markdown
-
-| Feature | HTML Injection | JS Render + Markdown |
-|---------|----------------|----------------------|
-| Output Format | HTML code block | Markdown image |
-| Interactivity | ✅ Buttons, animations | ❌ Static image |
-| External Deps | Requires JS libraries | None (self-contained) |
-| Persistence | Depends on browser | ✅ Permanent |
-| File Export | Needs special handling | ✅ Direct export |
-| Use Case | Interactive content | Infographics, chart snapshots |
-
-#### Reference Implementations
-
-- `plugins/actions/infographic/infographic.py` - Production-ready implementation using AntV + Data URL
+1. **Write Local**: Create files in the current execution directory (`.`).
+2. **Publish**: Call `publish_file_from_workspace(filename='name.ext')`.
+3. **Display Link**: Present the returned `download_url` as a Markdown link.
 
 ---
 
-## 5. Best Practices & Design Principles
+## 6. Best Practices & Design Principles
 
-### 5.1 Naming & Positioning
+### 6.1 Naming & Positioning
 
 - **Short & Punchy**: e.g., "FlashCard", "DeepRead". Avoid generic terms like "Text Analysis Assistant"
 - **Complementary**: Don't reinvent the wheel; clarify what specific problem your plugin solves
 
-### 5.2 User Experience (UX)
+### 6.2 User Experience (UX)
 
 - **Timely Feedback**: Send a `notification` ("Generating...") before time-consuming operations
 - **Visual Appeal**: When Action outputs HTML, use modern CSS (rounded corners, shadows, gradients)
 - **Smart Guidance**: If text is too short, prompt the user: "Suggest entering more content for better results"
 
-### 5.3 Error Handling
+### 6.3 Error Handling
 
 !!! danger "Never fail silently"
     Always catch exceptions and inform the user via `__event_emitter__`.
@@ -384,9 +350,39 @@ except Exception as e:
     })
 ```
 
+### 6.4 Long-running Task Notifications
+
+If a foreground task is expected to take more than 3 seconds, implement a user notification mechanism (e.g., sending a notification every 5 seconds).
+
 ---
 
-## 6. Troubleshooting
+## 7. Workflow & Process
+
+### 7.1 Source-derived Knowledge (from `plugins/`)
+
+- **Input/context safety**: normalize multimodal text extraction, use `_get_user_context` / `_get_chat_context`, and protect frontend language detection with timeout guards.
+- **Long task UX**: emit immediate `status/notification`, then staged progress updates; keep full exception detail in backend logs.
+- **HTML merge strategy**: use stable wrapper markers (`OPENWEBUI_PLUGIN_OUTPUT`) and support both overwrite and merge modes.
+- **Theme consistency**: detect parent/system theme and apply theme-aware rendering/export styles for iframe-based outputs.
+- **Render-export-persist loop**: offscreen render (SVG/PNG) -> upload `/api/v1/files/` -> event update + persistence update to avoid refresh loss.
+- **DOCX production path**: `TITLE_SOURCE` fallback naming, reasoning-block stripping, native Word math (`latex2mathml + mathml2omml`), and citation/reference anchoring.
+- **File retrieval fallback chain**: DB inline -> S3 direct -> local path variants -> public URL -> internal API -> raw fields, with max-byte guards on each stage.
+- **Filter singleton discipline**: do not store request-scoped mutable state on `self`; compute from request context each run.
+- **Async compression pattern**: `inlet` summary injection + `outlet` background summary generation, with model-threshold override and system-message protection.
+- **Workspace/tool hardening**: explicit `params_type` schemas, strict path-boundary validation, and publish flow returning `/api/v1/files/{id}/content` with `skip_rag=true` metadata.
+- **MoE refinement pipeline**: detect aggregation prompts, parse segmented responses, and rewrite to synthesis-oriented master prompt with optional reroute model.
+
+### 7.2 Copilot Engineering Configuration
+
+- For repository-wide AI-assisted engineering setup (GitHub Copilot + Gemini CLI + antigravity mode), follow `docs/development/copilot-engineering-plan.md`.
+- This plan defines the shared contract for tool parameter schema/routing, file creation/publish protocol, rollback-safe delivery patterns, and streaming/tool-card compatibility.
+
+- **Consistency Maintenance**: Any addition, modification, or removal of a plugin must simultaneously update the plugin code, READMEs, project docs, doc indexes, and the root README.
+- **Release Workflow**: Pushing to `main` triggers automatic release. Ensure version numbers are updated and follow SemVer. Use Conventional Commits.
+
+---
+
+## 8. Troubleshooting
 
 ??? question "HTML not showing?"
     Ensure it's wrapped in a ` ```html ... ``` ` code block.

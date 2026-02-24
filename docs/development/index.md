@@ -24,6 +24,14 @@ Learn how to develop plugins and contribute to OpenWebUI Extensions.
 
     [:octicons-arrow-right-24: Read the Guide](documentation-guide.md)
 
+-   :material-robot:{ .lg .middle } **Copilot Engineering Plan**
+
+    ---
+
+    Engineering configuration for GitHub Copilot + Gemini CLI + antigravity development mode.
+
+    [:octicons-arrow-right-24: Read the Plan](copilot-engineering-plan.md)
+
 -   :material-github:{ .lg .middle } **Contributing**
 
     ---
@@ -164,5 +172,6 @@ user_language = __user__.get("language", "en-US")
 ## Resources
 
 - [Full Development Guide](plugin-guide.md)
+- [Copilot Engineering Plan](copilot-engineering-plan.md)
 - [Plugin Examples](https://github.com/Fu-Jie/openwebui-extensions/tree/main/plugins)
 - [OpenWebUI Documentation](https://docs.openwebui.com/)

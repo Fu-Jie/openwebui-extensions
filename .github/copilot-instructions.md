@@ -205,19 +205,56 @@ class Action:
 #### 用户上下文 (User Context)
 
 ```python
-def _get_user_context(self, __user__: Optional[Dict[str, Any]]) -> Dict[str, str]:
-    """安全提取用户上下文信息。"""
-    if isinstance(__user__, (list, tuple)):
-        user_data = __user__[0] if __user__ else {}
-    elif isinstance(__user__, dict):
-        user_data = __user__
-    else:
-        user_data = {}
+async def _get_user_context(
+    self,
+    __user__: Optional[dict],
+    __event_call__: Optional[callable] = None,
+    __request__: Optional[Request] = None,
+) -> dict:
+    """
+    Robust extraction of user context with multi-level fallback for language detection.
+    Priority: localStorage (via JS) > HTTP headers > User profile > en-US
+    """
+    user_data = __user__ if isinstance(__user__, dict) else {}
+    user_id = user_data.get("id", "unknown_user")
+    user_name = user_data.get("name", "User")
+    user_language = user_data.get("language", "en-US")
+
+    # 1. Fallback: HTTP Accept-Language header
+    if __request__ and hasattr(__request__, "headers"):
+        accept_lang = __request__.headers.get("accept-language", "")
+        if accept_lang:
+            user_language = accept_lang.split(",")[0].split(";")[0]
+
+    # 2. Priority: Frontend localStorage via JS (requires timeout protection)
+    if __event_call__:
+        try:
+            js_code = """
+                try {
+                    return (
+                        document.documentElement.lang ||
+                        localStorage.getItem('locale') || 
+                        navigator.language || 
+                        'en-US'
+                    );
+                } catch (e) {
+                    return 'en-US';
+                }
+            """
+            # MUST use wait_for with timeout (e.g., 2.0s) to prevent backend deadlock
+            frontend_lang = await asyncio.wait_for(
+                __event_call__({"type": "execute", "data": {"code": js_code}}),
+                timeout=2.0
+            )
+            if frontend_lang and isinstance(frontend_lang, str):
+                user_language = frontend_lang
+        except Exception:
+            pass # Fallback to existing language
 
     return {
-        "user_id": user_data.get("id", "unknown_user"),
-        "user_name": user_data.get("name", "User"),
-        "user_language": user_data.get("language", "en-US"),
+        "user_id": user_id,
+        "user_name": user_name,
+        "user_language": user_language,
     }
 ```
 
@@ -568,25 +605,30 @@ async def _get_user_context(
 ```
 
 #### 实际使用 (Usage in Action/Filter)
-
-在 Action 或者 Filter 执行时引用这套上下文获取机制，然后传入映射器获取最终翻译：
-
+ 
 ```python
-async def action(
-    self, 
-    body: dict, 
-    __user__: Optional[dict] = None,
-    __event_call__: Optional[callable] = None, 
-    __request__: Optional[Request] = None,
-    **kwargs
-) -> Optional[dict]:
+async def action(self, body: dict, __user__: Optional[dict] = None, __event_call__: Optional[callable] = None, ...):
+    user_ctx = await self._get_user_context(__user__, __event_call__)
+    lang = user_ctx["user_language"]
     
-    user_ctx = await self._get_user_context(__user__, __event_call__, __request__)
-    user_lang = user_ctx["user_language"]
-    
-    # 获取多语言文本 (通过你的 translation.get() 扩展)
-    # start_msg = self._get_translation(user_lang, "status_starting")
+    # Use helper to get localized string with optional formatting
+    msg = self._get_translation(lang, "status_starting", name=user_ctx["user_name"])
+    await self._emit_status(emitter, msg)
 ```
+
+#### 提示词中的语言一致性 (Language Consistency in Prompts)
+
+在为 LLM 生成系统提示词时，必须包含“输出语言与输入保持一致”的指令，以确保 i18n 逻辑在 AI 生成环节也不断裂。
+
+**标准指令示例**:
+- `Language`: All output must be in the exact same language as the input text provided by the user.
+- `Format Consistency`: Even if this system prompt is in English, if the user input is in Chinese, your output must be in Chinese.
+
+#### CJK 脚本的特殊考量 (CJK Script Considerations)
+
+当涉及字符长度限制（如思维导图标题、卡片摘要）时，应区分 CJK（中日韩）和拉丁脚本。
+- **CJK (zh, ja, ko)**: 通常应设置更小的字符数限制（如 10 字以内）。
+- **Latin (en, es, fr)**: 可设置较长的字符限制（如 5-8 个词或 35 字符）。
 
 ### 9. 智能代理文件交付规范 (Agent File Delivery Standards)
 
