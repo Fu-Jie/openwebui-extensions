@@ -1,12 +1,22 @@
 # Markdown 格式化过滤器 (Markdown Normalizer)
 
-**作者:** [Fu-Jie](https://github.com/Fu-Jie/openwebui-extensions) | **版本:** 1.2.4 | **项目:** [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions) | **许可证:** MIT
+**作者:** [Fu-Jie](https://github.com/Fu-Jie/openwebui-extensions) | **版本:** 1.2.7 | **项目:** [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions) | **许可证:** MIT
 
 这是一个用于 Open WebUI 的内容格式化过滤器，旨在修复 LLM 输出中常见的 Markdown 格式问题。它能确保代码块、LaTeX 公式、Mermaid 图表和其他 Markdown 元素被正确渲染。
 
-## 🔥 最新更新 v1.2.4
+## 🔥 最新更新 v1.2.7
 
-* **文档更新**: 同步了所有文档和代码文件的版本号。
+* **LaTeX 公式保护**: 增强了转义字符清理逻辑，自动保护 `$ $` 或 `$$ $$` 内的 LaTeX 命令（如 `\times`、`\nu`、`\theta`），防止渲染失效。
+* **扩展国际化 (i18n) 支持**: 现已支持 12 种语言，具备自动探测与回退机制。
+* **配置项优化**: 将 Valves 配置项的描述统一为英文，保持界面一致性。
+* **修复 Bug**: 
+    * 修复了 [Issue #49](https://github.com/Fu-Jie/openwebui-extensions/issues/49)：解决了当同一行存在多个加粗部分时，由于正则匹配过于贪婪导致中间内容丢失空格的问题。
+    * 修复了插件代码中的 `NameError` 错误，确保测试脚本能正常运行。
+
+## 🌐 多语言支持 (i18n)
+
+支持以下语言的界面与状态自动切换：
+`English`, `简体中文`, `繁體中文 (香港)`, `繁體中文 (台灣)`, `한국어`, `日本語`, `Français`, `Deutsch`, `Español`, `Italiano`, `Tiếng Việt`, `Bahasa Indonesia`
 
 ## ✨ 核心特性
 

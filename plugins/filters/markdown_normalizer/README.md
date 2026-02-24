@@ -1,12 +1,22 @@
 # Markdown Normalizer Filter
 
-**Author:** [Fu-Jie](https://github.com/Fu-Jie/openwebui-extensions) | **Version:** 1.2.4 | **Project:** [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions) | **License:** MIT
+**Author:** [Fu-Jie](https://github.com/Fu-Jie/openwebui-extensions) | **Version:** 1.2.7 | **Project:** [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions) | **License:** MIT
 
 A content normalizer filter for Open WebUI that fixes common Markdown formatting issues in LLM outputs. It ensures that code blocks, LaTeX formulas, Mermaid diagrams, and other Markdown elements are rendered correctly.
 
-## 🔥 What's New in v1.2.4
+## 🔥 What's New in v1.2.7
 
-* **Documentation Sync**: Synchronized version numbers across all documentation and code files.
+* **LaTeX Formula Protection**: Enhanced escape character cleaning to protect LaTeX commands like `\times`, `\nu`, and `\theta` from being corrupted.
+* **Expanded i18n Support**: Now supports 12 languages with automatic detection and fallback.
+* **Valves Optimization**: Optimized configuration descriptions to be English-only for better consistency.
+* **Bug Fixes**: 
+    * Resolved [Issue #49](https://github.com/Fu-Jie/openwebui-extensions/issues/49): Fixed a bug where consecutive bold parts on the same line caused spaces between them to be removed.
+    * Fixed a `NameError` in the plugin code that caused test collection failures.
+
+## 🌐 Multilingual Support
+
+Supports automatic interface and status switching for the following languages:
+`English`, `简体中文`, `繁體中文 (香港)`, `繁體中文 (台灣)`, `한국어`, `日本語`, `Français`, `Deutsch`, `Español`, `Italiano`, `Tiếng Việt`, `Bahasa Indonesia`.
 
 ## ✨ Core Features
 

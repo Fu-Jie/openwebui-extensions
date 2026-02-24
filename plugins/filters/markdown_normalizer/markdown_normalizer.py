@@ -3,13 +3,14 @@ title: Markdown Normalizer
 author: Fu-Jie
 author_url: https://github.com/Fu-Jie/openwebui-extensions
 funding_url: https://github.com/open-webui
-version: 1.2.4
+version: 1.2.7
 openwebui_id: baaa8732-9348-40b7-8359-7e009660e23c
-description: A content normalizer filter that fixes common Markdown formatting issues in LLM outputs, such as broken code blocks, LaTeX formulas, and list formatting.
+description: A content normalizer filter that fixes common Markdown formatting issues in LLM outputs, such as broken code blocks, LaTeX formulas, and list formatting. Including LaTeX command protection.
 """
 
 from pydantic import BaseModel, Field
-from typing import Optional, List, Callable, Dict
+from typing import Optional, List, Callable, Dict, Any
+from fastapi import Request
 import re
 import logging
 import asyncio
@@ -18,6 +19,217 @@ from dataclasses import dataclass, field
 
 # Configure logging
 logger = logging.getLogger(__name__)
+
+
+# i18n Translations
+TRANSLATIONS = {
+    "en-US": {
+        "status_prefix": "✓ Markdown Normalized",
+        "fix_escape": "Escape Characters",
+        "fix_thought": "Thought Tags",
+        "fix_details": "Details Tags",
+        "fix_code": "Code Blocks",
+        "fix_latex": "LaTeX Formulas",
+        "fix_list": "List Format",
+        "fix_close_code": "Close Code Blocks",
+        "fix_fullwidth": "Full-width Symbols",
+        "fix_mermaid": "Mermaid Syntax",
+        "fix_heading": "Heading Format",
+        "fix_table": "Table Format",
+        "fix_xml": "XML Cleanup",
+        "fix_emphasis": "Emphasis Spacing",
+        "fix_custom": "Custom Cleaner",
+    },
+    "zh-CN": {
+        "status_prefix": "✓ Markdown 已修复",
+        "fix_escape": "转义字符",
+        "fix_thought": "思维标签",
+        "fix_details": "Details标签",
+        "fix_code": "代码块",
+        "fix_latex": "LaTeX公式",
+        "fix_list": "列表格式",
+        "fix_close_code": "闭合代码块",
+        "fix_fullwidth": "全角符号",
+        "fix_mermaid": "Mermaid语法",
+        "fix_heading": "标题格式",
+        "fix_table": "表格格式",
+        "fix_xml": "XML清理",
+        "fix_emphasis": "强调空格",
+        "fix_custom": "自定义清理",
+    },
+    "zh-HK": {
+        "status_prefix": "✓ Markdown 已修復",
+        "fix_escape": "轉義字元",
+        "fix_thought": "思維標籤",
+        "fix_details": "Details標籤",
+        "fix_code": "程式碼區塊",
+        "fix_latex": "LaTeX公式",
+        "fix_list": "列表格式",
+        "fix_close_code": "閉合程式碼區塊",
+        "fix_fullwidth": "全形符號",
+        "fix_mermaid": "Mermaid語法",
+        "fix_heading": "標題格式",
+        "fix_table": "表格格式",
+        "fix_xml": "XML清理",
+        "fix_emphasis": "強調空格",
+        "fix_custom": "自訂清理",
+    },
+    "zh-TW": {
+        "status_prefix": "✓ Markdown 已修復",
+        "fix_escape": "轉義字元",
+        "fix_thought": "思維標籤",
+        "fix_details": "Details標籤",
+        "fix_code": "程式碼區塊",
+        "fix_latex": "LaTeX公式",
+        "fix_list": "列表格式",
+        "fix_close_code": "閉合程式碼區塊",
+        "fix_fullwidth": "全形符號",
+        "fix_mermaid": "Mermaid語法",
+        "fix_heading": "標題格式",
+        "fix_table": "表格格式",
+        "fix_xml": "XML清理",
+        "fix_emphasis": "強調空格",
+        "fix_custom": "自訂清理",
+    },
+    "ko-KR": {
+        "status_prefix": "✓ Markdown 정규화됨",
+        "fix_escape": "이스케이프 문자",
+        "fix_thought": "생각 태그",
+        "fix_details": "Details 태그",
+        "fix_code": "코드 블록",
+        "fix_latex": "LaTeX 공식",
+        "fix_list": "목록 형식",
+        "fix_close_code": "코드 블록 닫기",
+        "fix_fullwidth": "전각 기호",
+        "fix_mermaid": "Mermaid 구문",
+        "fix_heading": "제목 형식",
+        "fix_table": "표 형식",
+        "fix_xml": "XML 정리",
+        "fix_emphasis": "강조 공백",
+        "fix_custom": "사용자 정의 정리",
+    },
+    "ja-JP": {
+        "status_prefix": "✓ Markdown 正規化済み",
+        "fix_escape": "エスケープ文字",
+        "fix_thought": "思考タグ",
+        "fix_details": "Detailsタグ",
+        "fix_code": "コードブロック",
+        "fix_latex": "LaTeX数式",
+        "fix_list": "リスト形式",
+        "fix_close_code": "コードブロックを閉じる",
+        "fix_fullwidth": "全角記号",
+        "fix_mermaid": "Mermaid構文",
+        "fix_heading": "見出し形式",
+        "fix_table": "表形式",
+        "fix_xml": "XMLクリーンアップ",
+        "fix_emphasis": "強調の空白",
+        "fix_custom": "カスタムクリーナー",
+    },
+    "fr-FR": {
+        "status_prefix": "✓ Markdown normalisé",
+        "fix_escape": "Caractères d'échappement",
+        "fix_thought": "Balises de pensée",
+        "fix_details": "Balises Details",
+        "fix_code": "Blocs de code",
+        "fix_latex": "Formules LaTeX",
+        "fix_list": "Format de liste",
+        "fix_close_code": "Fermer les blocs de code",
+        "fix_fullwidth": "Symboles pleine largeur",
+        "fix_mermaid": "Syntaxe Mermaid",
+        "fix_heading": "Format de titre",
+        "fix_table": "Format de tableau",
+        "fix_xml": "Nettoyage XML",
+        "fix_emphasis": "Espacement d'emphase",
+        "fix_custom": "Nettoyeur personnalisé",
+    },
+    "de-DE": {
+        "status_prefix": "✓ Markdown normalisiert",
+        "fix_escape": "Escape-Zeichen",
+        "fix_thought": "Denk-Tags",
+        "fix_details": "Details-Tags",
+        "fix_code": "Code-Blöcke",
+        "fix_latex": "LaTeX-Formeln",
+        "fix_list": "Listenformat",
+        "fix_close_code": "Code-Blöcke schließen",
+        "fix_fullwidth": "Vollbreite Symbole",
+        "fix_mermaid": "Mermaid-Syntax",
+        "fix_heading": "Überschriftenformat",
+        "fix_table": "Tabellenformat",
+        "fix_xml": "XML-Bereinigung",
+        "fix_emphasis": "Hervorhebungsabstände",
+        "fix_custom": "Benutzerdefinierter Reiniger",
+    },
+    "es-ES": {
+        "status_prefix": "✓ Markdown normalizado",
+        "fix_escape": "Caracteres de escape",
+        "fix_thought": "Etiquetas de pensamiento",
+        "fix_details": "Etiquetas de Details",
+        "fix_code": "Bloques de código",
+        "fix_latex": "Fórmulas LaTeX",
+        "fix_list": "Formato de lista",
+        "fix_close_code": "Cerrar bloques de código",
+        "fix_fullwidth": "Símbolos de ancho completo",
+        "fix_mermaid": "Sintaxis Mermaid",
+        "fix_heading": "Formato de encabezado",
+        "fix_table": "Formato de tabla",
+        "fix_xml": "Limpieza XML",
+        "fix_emphasis": "Espaciado de énfasis",
+        "fix_custom": "Limpiador personalizado",
+    },
+    "it-IT": {
+        "status_prefix": "✓ Markdown normalizzato",
+        "fix_escape": "Caratteri di escape",
+        "fix_thought": "Tag di pensiero",
+        "fix_details": "Tag Details",
+        "fix_code": "Blocchi di codice",
+        "fix_latex": "Formule LaTeX",
+        "fix_list": "Formato elenco",
+        "fix_close_code": "Chiudi blocchi di codice",
+        "fix_fullwidth": "Simboli a larghezza intera",
+        "fix_mermaid": "Sintassi Mermaid",
+        "fix_heading": "Formato intestazione",
+        "fix_table": "Formato tabella",
+        "fix_xml": "Pulizia XML",
+        "fix_emphasis": "Spaziatura enfasi",
+        "fix_custom": "Pulitore personalizzato",
+    },
+    "vi-VN": {
+        "status_prefix": "✓ Markdown đã chuẩn hóa",
+        "fix_escape": "Ký tự thoát",
+        "fix_thought": "Thẻ suy nghĩ",
+        "fix_details": "Thẻ Details",
+        "fix_code": "Khối mã",
+        "fix_latex": "Công thức LaTeX",
+        "fix_list": "Định dạng danh sách",
+        "fix_close_code": "Đóng khối mã",
+        "fix_fullwidth": "Ký tự toàn chiều rộng",
+        "fix_mermaid": "Cú pháp Mermaid",
+        "fix_heading": "Định dạng tiêu đề",
+        "fix_table": "Định dạng bảng",
+        "fix_xml": "Dọn dẹp XML",
+        "fix_emphasis": "Khoảng cách nhấn mạnh",
+        "fix_custom": "Trình dọn dẹp tùy chỉnh",
+    },
+    "id-ID": {
+        "status_prefix": "✓ Markdown dinormalisasi",
+        "fix_escape": "Karakter escape",
+        "fix_thought": "Tag pemikiran",
+        "fix_details": "Tag Details",
+        "fix_code": "Blok kode",
+        "fix_latex": "Formula LaTeX",
+        "fix_list": "Format daftar",
+        "fix_close_code": "Tutup blok kode",
+        "fix_fullwidth": "Simbol lebar penuh",
+        "fix_mermaid": "Sintaks Mermaid",
+        "fix_heading": "Format heading",
+        "fix_table": "Format tabel",
+        "fix_xml": "Pembersihan XML",
+        "fix_emphasis": "Spasi penekanan",
+        "fix_custom": "Pembersih kustom",
+    },
+}
+
+
 
 
 @dataclass
@@ -96,7 +308,7 @@ class ContentNormalizer:
             r"(\[/)(?![\"])(.*?)(?<![\"])(/\])|"  # [/.../] Parallelogram
             r"(\[\\)(?![\"])(.*?)(?<![\"])(\\\])|"  # [\...\] Parallelogram Alt
             r"(\[/)(?![\"])(.*?)(?<![\"])(\\\])|"  # [/...\] Trapezoid
-            r"(\[\\)(?![\"])(.*?)(?<![\"])(/\])|"  # [\.../] Trapezoid Alt
+            r"(\[\\)(?![\"])(.*?)(?<![\"])(\/\])|"  # [\.../] Trapezoid Alt
             r"(\()(?![\"])([^)]*?)(?<![\"])(\))|"  # (...) Round - Modified to be safer
             r"(\[)(?![\"])(.*?)(?<![\"])(\])|"  # [...] Square
             r"(\{)(?![\"])(.*?)(?<![\"])(\})|"  # {...} Rhombus
@@ -115,7 +327,7 @@ class ContentNormalizer:
         # NOTE: We use [^\n] instead of . to prevent cross-line matching.
         # Supports: * (italic), ** (bold), *** (bold+italic), _ (italic), __ (bold), ___ (bold+italic)
         "emphasis_spacing": re.compile(
-            r"(?<!\*|_)(\*{1,3}|_{1,3})(?P<inner>[^\n]*?)(\1)(?!\*|_)"
+            r"(?<!\*|_)(\*{1,3}|_{1,3})(?P<inner>(?:(?!\1)[^\n])*?)(\1)(?!\*|_)"
         ),
     }
 
@@ -247,30 +459,27 @@ class ContentNormalizer:
             return content
 
     def _fix_escape_characters(self, content: str) -> str:
-        """Fix excessive escape characters
+        """Fix excessive escape characters while protecting LaTeX and code blocks."""
 
-        If enable_escape_fix_in_code_blocks is False (default), this method will only
-        fix escape characters outside of code blocks to avoid breaking valid code
-        examples (e.g., JSON strings with \\n, regex patterns, etc.).
-        """
-        if self.config.enable_escape_fix_in_code_blocks:
-            # Apply globally (original behavior)
-            content = content.replace("\\r\\n", "\n")
-            content = content.replace("\\n", "\n")
-            content = content.replace("\\t", "\t")
-            content = content.replace("\\\\", "\\")
-            return content
-        else:
-            # Apply only outside code blocks (safe mode)
-            parts = content.split("```")
-            for i in range(
-                0, len(parts), 2
-            ):  # Even indices are markdown text (not code)
-                parts[i] = parts[i].replace("\\r\\n", "\n")
-                parts[i] = parts[i].replace("\\n", "\n")
-                parts[i] = parts[i].replace("\\t", "\t")
-                parts[i] = parts[i].replace("\\\\", "\\")
-            return "```".join(parts)
+        def clean_text(text: str) -> str:
+            # Only fix \n and double backslashes, skip \t as it's dangerous for LaTeX (\times, \theta)
+            text = text.replace("\\r\\n", "\n")
+            text = text.replace("\\n", "\n")
+            text = text.replace("\\\\", "\\")
+            return text
+
+        # 1. Protect code blocks
+        parts = content.split("```")
+        for i in range(0, len(parts), 2):  # Even indices are text
+            # 2. Protect LaTeX formulas within text
+            # Split by $ to find inline/block math
+            sub_parts = parts[i].split("$")
+            for j in range(0, len(sub_parts), 2):  # Even indices are non-math text
+                sub_parts[j] = clean_text(sub_parts[j])
+
+            parts[i] = "$".join(sub_parts)
+
+        return "```".join(parts)
 
     def _fix_thought_tags(self, content: str) -> str:
         """Normalize thought tags: unify naming and fix spacing"""
@@ -390,11 +599,6 @@ class ContentNormalizer:
             if "mermaid" in lang_line:
                 # Protect edge labels (text between link start and arrow) from being modified
                 # by temporarily replacing them with placeholders.
-                # Covers all Mermaid link types:
-                #   - Solid line:  A -- text --> B, A -- text --o B, A -- text --x B
-                #   - Dotted line: A -. text .-> B, A -. text .-o B
-                #   - Thick line:  A == text ==> B, A == text ==o B
-                #   - No arrow:    A -- text --- B
                 edge_labels = []
 
                 def protect_edge_label(m):
@@ -404,7 +608,6 @@ class ContentNormalizer:
                     edge_labels.append((start, label, arrow))
                     return f"___EDGE_LABEL_{len(edge_labels)-1}___"
 
-                # Comprehensive edge label pattern for all Mermaid link types
                 edge_label_pattern = (
                     r"(--|-\.|\=\=)\s+(.+?)\s+(--+[>ox]?|--+\|>|\.-[>ox]?|=+[>ox]?)"
                 )
@@ -435,12 +638,6 @@ class ContentNormalizer:
 
     def _fix_headings(self, content: str) -> str:
         """Fix missing space in headings: #Heading -> # Heading"""
-        # We only fix if it's not inside a code block.
-        # But splitting by code block is expensive.
-        # Given headings usually don't appear inside code blocks without space in valid code (except comments),
-        # we might risk false positives in comments like `#TODO`.
-        # To be safe, let's split by code blocks.
-
         parts = content.split("```")
         for i in range(0, len(parts), 2):  # Even indices are markdown text
             parts[i] = self._PATTERNS["heading_space"].sub(r"\1 \2", parts[i])
@@ -467,44 +664,34 @@ class ContentNormalizer:
             inner = match.group("inner")
 
             # Recursive step: Fix emphasis spacing INSIDE the current block first
-            # This ensures that ** _ italic _ ** becomes ** _italic_ ** before we strip outer spaces.
             inner = self._PATTERNS["emphasis_spacing"].sub(replacer, inner)
 
-            # If no leading/trailing whitespace, nothing to fix at this level
             stripped_inner = inner.strip()
             if stripped_inner == inner:
                 return f"{symbol}{inner}{symbol}"
 
-            # Safeguard: If inner content is just whitespace, don't touch it
             if not stripped_inner:
                 return match.group(0)
 
-            # Safeguard: If it looks like a math expression or list of variables (e.g. " * 3 * " or " _ b _ ")
-            # If the symbol is surrounded by spaces in the original text, it's likely an operator.
+            # Heuristic checks
             if inner.startswith(" ") and inner.endswith(" "):
-                # If it's single '*' or '_', and both sides have spaces, it's almost certainly an operator.
-                if symbol in ["*", "_"]:
-                    return match.group(0)
+                if symbol == "*":
+                    if not any(c.isalpha() for c in inner):
+                        return match.group(0)
 
-            # Safeguard: List marker protection
-            # If symbol is single '*' and inner content starts with whitespace followed by emphasis markers,
-            # this is likely a list item like "*   **bold**" - don't merge them.
-            # Pattern: "*   **text**" should NOT become "***text**"
             if symbol == "*" and inner.lstrip().startswith(("*", "_")):
                 return match.group(0)
 
-            # Extended list marker protection:
-            # If symbol is single '*' and inner starts with multiple spaces (list indentation pattern),
-            # this is likely a list item like "*   text" - don't strip the spaces.
-            # Pattern: "*   U16 forward **Kuang**" should NOT become "*U16 forward **Kuang**"
             if symbol == "*" and inner.startswith("   "):
+                return match.group(0)
+
+            if symbol in stripped_inner:
                 return match.group(0)
 
             return f"{symbol}{stripped_inner}{symbol}"
 
         parts = content.split("```")
-        for i in range(0, len(parts), 2):  # Even indices are markdown text
-            # We use a while loop to handle overlapping or multiple occurrences at the top level
+        for i in range(0, len(parts), 2):
             while True:
                 new_part = self._PATTERNS["emphasis_spacing"].sub(replacer, parts[i])
                 if new_part == parts[i]:
@@ -517,82 +704,201 @@ class Filter:
     class Valves(BaseModel):
         priority: int = Field(
             default=50,
-            description="Priority level. Higher runs later (recommended to run after other filters).",
+            description="Priority level (lower = earlier).",
         )
         enable_escape_fix: bool = Field(
-            default=True, description="Fix excessive escape characters (\\n, \\t, etc.)"
+            default=True,
+            description="Fix excessive escape characters (\\n, \\t, etc.).",
         )
         enable_escape_fix_in_code_blocks: bool = Field(
             default=False,
-            description="Apply escape fix inside code blocks (⚠️ Warning: May break valid code like JSON strings or regex patterns. Default: False for safety)",
+            description="Apply escape fix inside code blocks (Warning: May break valid code).",
         )
         enable_thought_tag_fix: bool = Field(
-            default=True, description="Normalize </thought> tags"
+            default=True,
+            description="Normalize thought tags (<think> -> <thought>).",
         )
         enable_details_tag_fix: bool = Field(
             default=True,
-            description="Normalize <details> tags (add blank line after </details> and handle self-closing tags)",
+            description="Normalize <details> tags (add blank line after closing tag).",
         )
         enable_code_block_fix: bool = Field(
             default=True,
-            description="Fix code block formatting (indentation, newlines)",
+            description="Fix code block formatting (indentation, newlines).",
         )
         enable_latex_fix: bool = Field(
-            default=True, description="Normalize LaTeX formulas (\\[ -> $$, \\( -> $)"
+            default=True,
+            description="Normalize LaTeX formulas (\\[ -> $$, \\( -> $).",
         )
         enable_list_fix: bool = Field(
-            default=False, description="Fix list item newlines (Experimental)"
+            default=False,
+            description="Fix list item newlines (Experimental).",
         )
         enable_unclosed_block_fix: bool = Field(
-            default=True, description="Auto-close unclosed code blocks"
+            default=True,
+            description="Auto-close unclosed code blocks.",
         )
         enable_fullwidth_symbol_fix: bool = Field(
-            default=False, description="Fix full-width symbols in code blocks"
+            default=False,
+            description="Fix full-width symbols in code blocks.",
         )
         enable_mermaid_fix: bool = Field(
             default=True,
-            description="Fix common Mermaid syntax errors (e.g. unquoted labels)",
+            description="Fix common Mermaid syntax errors (e.g. unquoted labels).",
         )
         enable_heading_fix: bool = Field(
             default=True,
-            description="Fix missing space in headings (#Header -> # Header)",
+            description="Fix missing space in headings (#Header -> # Header).",
         )
         enable_table_fix: bool = Field(
-            default=True, description="Fix missing closing pipe in tables"
+            default=True,
+            description="Fix missing closing pipe in tables.",
         )
         enable_xml_tag_cleanup: bool = Field(
-            default=True, description="Cleanup leftover XML tags"
+            default=True,
+            description="Cleanup leftover XML tags.",
         )
         enable_emphasis_spacing_fix: bool = Field(
             default=False,
-            description="Fix spaces inside **emphasis** (e.g. ** text ** -> **text**)",
+            description="Fix spaces inside **emphasis** (e.g. ** text ** -> **text**).",
         )
         show_status: bool = Field(
-            default=True, description="Show status notification when fixes are applied"
+            default=True,
+            description="Show status notification when fixes are applied.",
         )
         show_debug_log: bool = Field(
-            default=True, description="Print debug logs to browser console (F12)"
+            default=True,
+            description="Print debug logs to browser console (F12).",
         )
 
     def __init__(self):
         self.valves = self.Valves()
+        self.fallback_map = {
+            "zh": "zh-CN",
+            "en": "en-US",
+            "ko": "ko-KR",
+            "ja": "ja-JP",
+            "fr": "fr-FR",
+            "de": "de-DE",
+            "es": "es-ES",
+            "it": "it-IT",
+            "vi": "vi-VN",
+            "id": "id-ID",
+            "es-AR": "es-ES",
+            "es-MX": "es-ES",
+            "fr-CA": "fr-FR",
+            "en-CA": "en-US",
+            "en-GB": "en-US",
+            "en-AU": "en-US",
+            "de-AT": "de-DE",
+        }
+
+    def _resolve_language(self, lang: str) -> str:
+        """Resolve the best matching language code from the TRANSLATIONS dict."""
+        target_lang = lang
+
+        # 1. Direct match
+        if target_lang in TRANSLATIONS:
+            return target_lang
+
+        # 2. Variant fallback (explicit mapping)
+        if target_lang in self.fallback_map:
+            target_lang = self.fallback_map[target_lang]
+            if target_lang in TRANSLATIONS:
+                return target_lang
+
+        # 3. Base language fallback (e.g. fr-BE -> fr-FR)
+        if "-" in lang:
+            base_lang = lang.split("-")[0]
+            for supported_lang in TRANSLATIONS:
+                if supported_lang.startswith(base_lang + "-"):
+                    return supported_lang
+
+        # 4. Final Fallback to en-US
+        return "en-US"
+
+    def _get_translation(self, lang: str, key: str, **kwargs) -> str:
+        """Get translated string for the given language and key."""
+        target_lang = self._resolve_language(lang)
+
+        # Retrieve dictionary
+        lang_dict = TRANSLATIONS.get(target_lang, TRANSLATIONS["en-US"])
+
+        # Get string
+        text = lang_dict.get(key, TRANSLATIONS["en-US"].get(key, key))
+
+        # Format if arguments provided
+        if kwargs:
+            try:
+                text = text.format(**kwargs)
+            except Exception as e:
+                logger.warning(f"Translation formatting failed for {key}: {e}")
+
+        return text
+
+    async def _get_user_context(
+        self,
+        __user__: Optional[dict],
+        __event_call__: Optional[Callable] = None,
+        __request__: Optional[Request] = None,
+    ) -> dict:
+        """
+        Robust extraction of user context with multi-level fallback for language detection.
+        Priority: localStorage (via JS) > HTTP headers > User profile > en-US
+        """
+        user_data = __user__ if isinstance(__user__, dict) else {}
+        user_id = user_data.get("id", "unknown_user")
+        user_name = user_data.get("name", "User")
+        user_language = user_data.get("language", "en-US")
+
+        # 1. Fallback: HTTP Accept-Language header
+        if __request__ and hasattr(__request__, "headers"):
+            accept_lang = __request__.headers.get("accept-language", "")
+            if accept_lang:
+                user_language = accept_lang.split(",")[0].split(";")[0]
+
+        # 2. Priority: Frontend localStorage via JS (requires timeout protection)
+        if __event_call__:
+            try:
+                js_code = """
+                    try {
+                        return (
+                            document.documentElement.lang ||
+                            localStorage.getItem('locale') || 
+                            navigator.language || 
+                            'en-US'
+                        );
+                    } catch (e) {
+                        return 'en-US';
+                    }
+                """
+                # MUST use wait_for with timeout to prevent backend deadlock
+                frontend_lang = await asyncio.wait_for(
+                    __event_call__({"type": "execute", "data": {"code": js_code}}),
+                    timeout=2.0,
+                )
+                if frontend_lang and isinstance(frontend_lang, str):
+                    user_language = frontend_lang
+            except Exception:
+                pass  # Fallback to existing language
+
+        return {
+            "user_id": user_id,
+            "user_name": user_name,
+            "user_language": user_language,
+        }
 
     def _get_chat_context(
         self, body: dict, __metadata__: Optional[dict] = None
     ) -> Dict[str, str]:
-        """
-        Unified extraction of chat context information (chat_id, message_id).
-        Prioritizes extraction from body, then metadata.
-        """
+        """Unified extraction of chat context information"""
         chat_id = ""
         message_id = ""
 
-        # 1. Try to get from body
         if isinstance(body, dict):
             chat_id = body.get("chat_id", "")
-            message_id = body.get("id", "")  # message_id is usually 'id' in body
+            message_id = body.get("id", "")
 
-            # Check body.metadata as fallback
             if not chat_id or not message_id:
                 body_metadata = body.get("metadata", {})
                 if isinstance(body_metadata, dict):
@@ -601,7 +907,6 @@ class Filter:
                     if not message_id:
                         message_id = body_metadata.get("message_id", "")
 
-        # 2. Try to get from __metadata__ (as supplement)
         if __metadata__ and isinstance(__metadata__, dict):
             if not chat_id:
                 chat_id = __metadata__.get("chat_id", "")
@@ -614,19 +919,42 @@ class Filter:
         }
 
     def _contains_html(self, content: str) -> bool:
-        """Check if content contains HTML tags (to avoid breaking HTML output)"""
-        # Removed common Mermaid-compatible tags like br, b, i, strong, em, span
+        """Check if content contains HTML tags"""
         pattern = r"<\s*/?\s*(?:html|head|body|div|p|hr|ul|ol|li|table|thead|tbody|tfoot|tr|td|th|img|a|code|pre|blockquote|h[1-6]|script|style|form|input|button|label|select|option|iframe|link|meta|title)\b"
         return bool(re.search(pattern, content, re.IGNORECASE))
 
-    async def _emit_status(self, __event_emitter__, applied_fixes: List[str]):
-        """Emit status notification"""
+    async def _emit_status(
+        self, __event_emitter__, applied_fixes: List[str], lang: str
+    ):
+        """Emit status notification with i18n support"""
         if not self.valves.show_status or not applied_fixes:
             return
 
-        description = "✓ Markdown Normalized"
-        if applied_fixes:
-            description += f": {', '.join(applied_fixes)}"
+        # Map internal fix IDs to i18n keys
+        fix_key_map = {
+            "Fix Escape Chars": "fix_escape",
+            "Normalize Thought Tags": "fix_thought",
+            "Normalize Details Tags": "fix_details",
+            "Fix Code Blocks": "fix_code",
+            "Normalize LaTeX": "fix_latex",
+            "Fix List Format": "fix_list",
+            "Close Code Blocks": "fix_close_code",
+            "Fix Full-width Symbols": "fix_fullwidth",
+            "Fix Mermaid Syntax": "fix_mermaid",
+            "Fix Headings": "fix_heading",
+            "Fix Tables": "fix_table",
+            "Cleanup XML Tags": "fix_xml",
+            "Fix Emphasis Spacing": "fix_emphasis",
+            "Custom Cleaner": "fix_custom",
+        }
+
+        prefix = self._get_translation(lang, "status_prefix")
+        translated_fixes = [
+            self._get_translation(lang, fix_key_map.get(fix, fix))
+            for fix in applied_fixes
+        ]
+
+        description = f"{prefix}: {', '.join(translated_fixes)}"
 
         try:
             await __event_emitter__(
@@ -639,7 +967,7 @@ class Filter:
                 }
             )
         except Exception as e:
-            print(f"Error emitting status: {e}")
+            logger.error(f"Error emitting status: {e}")
 
     async def _emit_debug_log(
         self,
@@ -654,7 +982,6 @@ class Filter:
             return
 
         try:
-            # Construct JS code
             js_code = f"""
                 (async function() {{
                     console.group("🛠️ Markdown Normalizer Debug");
@@ -665,7 +992,6 @@ class Filter:
                     console.groupEnd();
                 }})();
             """
-
             await __event_call__(
                 {
                     "type": "execute",
@@ -673,7 +999,8 @@ class Filter:
                 }
             )
         except Exception as e:
-            print(f"Error emitting debug log: {e}")
+            # We don't want to fail the whole normalization if debug logging fails
+            pass
 
     async def outlet(
         self,
@@ -682,21 +1009,17 @@ class Filter:
         __event_emitter__=None,
         __event_call__=None,
         __metadata__: Optional[dict] = None,
+        __request__: Optional[Request] = None,
     ) -> dict:
-        """
-        Process the response body to normalize Markdown content.
-        """
+        """Process response body"""
         if "messages" in body and body["messages"]:
             last = body["messages"][-1]
             content = last.get("content", "") or ""
 
             if last.get("role") == "assistant" and isinstance(content, str):
-                # Skip if content looks like HTML to avoid breaking it
                 if self._contains_html(content):
                     return body
 
-                # Skip if content contains tool output markers (native function calling)
-                # Pattern: ""&quot;...&quot;"" or tool_call_id or <details type="tool_calls"...>
                 if (
                     '""&quot;' in content
                     or "tool_call_id" in content
@@ -704,7 +1027,6 @@ class Filter:
                 ):
                     return body
 
-                # Configure normalizer based on valves
                 config = NormalizerConfig(
                     enable_escape_fix=self.valves.enable_escape_fix,
                     enable_escape_fix_in_code_blocks=self.valves.enable_escape_fix_in_code_blocks,
@@ -723,18 +1045,19 @@ class Filter:
                 )
 
                 normalizer = ContentNormalizer(config)
-
-                # Execute normalization
                 new_content = normalizer.normalize(content)
 
-                # Update content if changed
                 if new_content != content:
                     last["content"] = new_content
 
-                    # Emit status if enabled
                     if __event_emitter__:
+                        user_ctx = await self._get_user_context(
+                            __user__, __event_call__, __request__
+                        )
                         await self._emit_status(
-                            __event_emitter__, normalizer.applied_fixes
+                            __event_emitter__,
+                            normalizer.applied_fixes,
+                            user_ctx["user_language"],
                         )
                         chat_ctx = self._get_chat_context(body, __metadata__)
                         await self._emit_debug_log(
