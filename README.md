@@ -35,7 +35,7 @@ A collection of enhancements, plugins, and prompts for [OpenWebUI](https://githu
 
 | Status | Plugin | Version | Downloads | Views | 📅 Updated |
 | :---: | :--- | :---: | :---: | :---: | :---: |
-| 🆕 | [GitHub Copilot SDK Pipe](https://openwebui.com/posts/github_copilot_official_sdk_pipe_ce96f7b4) | ![v](https://img.shields.io/badge/v-0.7.0-blue?style=flat) | ![copilot_dl](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_post_aef940e01073e811a311c3a443d9c149_dl.json&style=flat) | ![copilot_vw](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_post_aef940e01073e811a311c3a443d9c149_vw.json&style=flat) | ![updated](https://img.shields.io/badge/2026--02--23-blue?style=flat) |
+| 🆕 | [GitHub Copilot SDK Pipe](https://openwebui.com/posts/github_copilot_official_sdk_pipe_ce96f7b4) | ![v](https://img.shields.io/badge/v-0.8.0-blue?style=flat) | ![copilot_dl](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_post_aef940e01073e811a311c3a443d9c149_dl.json&style=flat) | ![copilot_vw](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_post_aef940e01073e811a311c3a443d9c149_vw.json&style=flat) | ![updated](https://img.shields.io/badge/2026--02--25-blue?style=flat) |
 
 ### 📈 Total Downloads Trend
 

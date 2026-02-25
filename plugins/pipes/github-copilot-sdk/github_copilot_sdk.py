@@ -5,7 +5,7 @@ author_url: https://github.com/Fu-Jie/openwebui-extensions
 funding_url: https://github.com/open-webui
 openwebui_id: ce96f7b4-12fc-4ac3-9a01-875713e69359
 description: Integrate GitHub Copilot SDK. Supports dynamic models, multi-turn conversation, streaming, multimodal input, infinite sessions, and frontend debug logging.
-version: 0.7.0
+version: 0.8.0
 requirements: github-copilot-sdk==0.1.25
 """
 
@@ -17,11 +17,9 @@ import tempfile
 import asyncio
 import logging
 import shutil
-import subprocess
 import hashlib
 import aiohttp
 import contextlib
-import traceback
 from pathlib import Path
 from typing import Optional, Union, AsyncGenerator, List, Any, Dict, Literal, Tuple
 from types import SimpleNamespace
@@ -46,6 +44,7 @@ from open_webui.models.tools import Tools
 from open_webui.models.users import Users
 from open_webui.models.files import Files, FileForm
 from open_webui.config import UPLOAD_DIR, DATA_DIR
+from open_webui.storage.provider import Storage
 import mimetypes
 import uuid
 import shutil
@@ -138,7 +137,8 @@ BASE_GUIDELINES = (
     "     - **Philosophy**: Visual Artifacts (HTML/Mermaid) and Downloadable Files are **COMPLEMENTARY**. Always aim to provide BOTH: instant visual insight in the chat AND a persistent file for the user to keep.\n"
     "     - **The Rule**: When the user needs to *possess* data (download/export), you MUST publish it. Creating a local file alone is useless because the user cannot access your container.\n"
     "     - **Implicit Requests**: If asked to 'export', 'get link', or 'save', automatically trigger this sequence.\n"
-    "     - **Execution Sequence**: 1. **Write Local**: Create file in `.` (current directory). 2. **Publish**: Call `publish_file_from_workspace(filename='your_file.ext')`. 3. **Link**: Present the `download_url` as a Markdown link.\n"
+    "     - **Execution Sequence**: 1. **Write Local**: Create file in `.` (current directory). 2. **Publish**: Call `publish_file_from_workspace(filename='your_file.ext')`. 3. **Link**: Present the result based on file type. **For HTML files**: the tool returns both `download_url` (raw file) and `view_url` (`/content/html` format). You MUST present `view_url` as a **[Preview]** link that opens directly in the browser, AND `download_url` as a **[Download]** link. **For image files** (.png, .jpg, .gif, .svg, etc.): embed directly using `![caption](download_url)` — NEVER use a text link for images. For all other files: present `download_url` as a single download link.\n"
+    "     - **URL Format is STRICT**: File links MUST be relative paths starting with `/api/v1/files/` (for example: `/api/v1/files/{id}/content` or `/api/v1/files/{id}/content/html`). NEVER output `api/...` (missing leading slash). NEVER prepend any domain (such as `https://example.com/...`) even if a domain appears in conversation context.\n"
     "     - **Bypass RAG**: This protocol automatically handles S3 storage and bypasses RAG, ensuring 100% accurate data delivery.\n"
     "6. **TODO Visibility**: Every time you call the `update_todo` tool, you **MUST** immediately follow up with a beautifully formatted **Markdown summary** of the current TODO list. Use task checkboxes (`- [ ]`), progress indicators, and clear headings so the user can see the status directly in the chat.\n"
     "7. **Python Execution Standard**: For ANY task requiring Python logic (not just data analysis), you **MUST NOT** embed multi-line code directly in a shell command (e.g., using `python -c` or `<< 'EOF'`).\n"
@@ -197,10 +197,6 @@ class Pipe:
             default=True,
             description="Enable Direct MCP Client connection (Recommended).",
         )
-        ENABLE_TOOL_CACHE: bool = Field(
-            default=True,
-            description="Cache OpenWebUI tools and MCP servers (performance optimization).",
-        )
         REASONING_EFFORT: Literal["low", "medium", "high", "xhigh"] = Field(
             default="medium",
             description="Reasoning effort level (low, medium, high). Only affects standard Copilot models (not BYOK).",
@@ -250,6 +246,10 @@ class Pipe:
         OPENWEBUI_UPLOAD_PATH: str = Field(
             default="/app/backend/data/uploads",
             description="Path to OpenWebUI uploads directory (for file processing).",
+        )
+        MODEL_CACHE_TTL: int = Field(
+            default=3600,
+            description="Model list cache TTL in seconds. Set to 0 to disable cache (always fetch). Default: 3600 (1 hour).",
         )
 
         BYOK_TYPE: Literal["openai", "anthropic"] = Field(
@@ -314,10 +314,6 @@ class Pipe:
             default=True,
             description="Enable dynamic MCP server loading (overrides global).",
         )
-        ENABLE_TOOL_CACHE: bool = Field(
-            default=True,
-            description="Enable Tool/MCP configuration caching for this user.",
-        )
 
         # BYOK User Overrides
         BYOK_API_KEY: str = Field(
@@ -352,8 +348,7 @@ class Pipe:
     _model_cache: List[dict] = []  # Model list cache
     _standard_model_ids: set = set()  # Track standard model IDs
     _last_byok_config_hash: str = ""  # Track BYOK config for cache invalidation
-    _tool_cache = None  # Cache for converted OpenWebUI tools
-    _mcp_server_cache = None  # Cache for MCP server config
+    _last_model_cache_time: float = 0  # Timestamp of last model cache refresh
     _env_setup_done = False  # Track if env setup has been completed
     _last_update_check = 0  # Timestamp of last CLI update check
 
@@ -717,46 +712,32 @@ class Pipe:
         uv = self._get_user_valves(__user__)
         enable_tools = uv.ENABLE_OPENWEBUI_TOOLS
         enable_openapi = uv.ENABLE_OPENAPI_SERVER
-        enable_cache = uv.ENABLE_TOOL_CACHE
 
-        # 2. If all tool types are disabled, return empty immediately
+        # 2. Publish tool is always injected, regardless of other settings
+        chat_ctx = self._get_chat_context(body, __metadata__)
+        chat_id = chat_ctx.get("chat_id")
+        file_tool = self._get_publish_file_tool(__user__, chat_id, __request__)
+        final_tools = [file_tool] if file_tool else []
+
+        # 3. If all OpenWebUI tool types are disabled, skip loading and return early
         if not enable_tools and not enable_openapi:
-            return []
+            return final_tools
 
-        # 3. Check Cache
-        if enable_cache and self._tool_cache is not None:
-            await self._emit_debug_log(
-                "ℹ️ Using cached OpenWebUI tools.", __event_call__
-            )
-            # Create a shallow copy to append user-specific tools without polluting cache
-            tools = list(self._tool_cache)
+        # 4. Extract chat-level tool selection (P4: user selection from Chat UI)
+        chat_tool_ids = None
+        if __metadata__ and isinstance(__metadata__, dict):
+            chat_tool_ids = __metadata__.get("tool_ids") or None
 
-            # Inject File Publish Tool
-            chat_ctx = self._get_chat_context(body, __metadata__)
-            chat_id = chat_ctx.get("chat_id")
-            file_tool = self._get_publish_file_tool(__user__, chat_id, __request__)
-            if file_tool:
-                tools.append(file_tool)
-
-            return tools
-
-        # Load OpenWebUI tools dynamically
+        # 5. Load OpenWebUI tools dynamically (always fresh, no cache)
         openwebui_tools = await self._load_openwebui_tools(
             body=body,
             __user__=__user__,
             __event_call__=__event_call__,
             enable_tools=enable_tools,
             enable_openapi=enable_openapi,
+            chat_tool_ids=chat_tool_ids,
         )
 
-        # Update Cache
-        if enable_cache:
-            self._tool_cache = openwebui_tools
-            await self._emit_debug_log(
-                "✅ OpenWebUI tools cached for subsequent requests.", __event_call__
-            )
-
-        # Log details only when cache is cold
         if openwebui_tools:
             tool_names = [t.name for t in openwebui_tools]
             await self._emit_debug_log(
@@ -770,15 +751,7 @@ class Pipe:
                         __event_call__,
                     )
 
-        # Create a shallow copy to append user-specific tools without polluting cache
-        final_tools = list(openwebui_tools)
-
-        # Inject File Publish Tool
-        chat_ctx = self._get_chat_context(body, __metadata__)
-        chat_id = chat_ctx.get("chat_id")
-        file_tool = self._get_publish_file_tool(__user__, chat_id, __request__)
-        if file_tool:
-            final_tools.append(file_tool)
+        final_tools.extend(openwebui_tools)
 
         return final_tools
 
@@ -892,7 +865,9 @@ class Pipe:
                         import aiohttp
 
                         base_url = str(__request__.base_url).rstrip("/")
-                        upload_url = f"{base_url}/api/v1/files/"
+                        # ?process=false skips RAG processing AND the
+                        # ALLOWED_FILE_EXTENSIONS restriction (which blocks html/htm)
+                        upload_url = f"{base_url}/api/v1/files/?process=false"
 
                         async with aiohttp.ClientSession() as session:
                             with open(target_path, "rb") as f:
@@ -925,14 +900,25 @@ class Pipe:
                     except Exception as e:
                         logger.error(f"API upload failed: {e}")
 
-                # 4. Fallback: Manual DB Insert (Local only)
+                # 4. Fallback: Use Storage.upload_file directly (S3/Local/GCS/Azure compatible)
                 if not api_success:
                     file_id = str(uuid.uuid4())
                     safe_filename = target_path.name
-                    dest_path = Path(UPLOAD_DIR) / f"{file_id}_{safe_filename}"
-                    await asyncio.to_thread(shutil.copy2, target_path, dest_path)
+                    storage_filename = f"{file_id}_{safe_filename}"
 
-                    db_path = str(dest_path)
+                    def _upload_via_storage():
+                        with open(target_path, "rb") as f:
+                            _, stored_path = Storage.upload_file(
+                                f,
+                                storage_filename,
+                                {
+                                    "OpenWebUI-User-Id": user_id,
+                                    "OpenWebUI-File-Id": file_id,
+                                },
+                            )
+                        return stored_path
+
+                    db_path = await asyncio.to_thread(_upload_via_storage)
 
                     file_form = FileForm(
                         id=file_id,
@@ -943,7 +929,7 @@ class Pipe:
                             "name": safe_filename,
                             "content_type": mimetypes.guess_type(safe_filename)[0]
                             or "text/plain",
-                            "size": os.path.getsize(dest_path),
+                            "size": os.path.getsize(target_path),
                             "source": "copilot_workspace_publish",
                             "skip_rag": True,
                         },
@@ -952,16 +938,16 @@ class Pipe:
 
                 # 5. Result
                 download_url = f"/api/v1/files/{file_id}/content"
-                view_url = download_url
-                is_html = safe_filename.lower().endswith(".html")
+                is_html = safe_filename.lower().endswith((".html", ".htm"))
 
-                # For HTML files, if user is admin, provide a direct view link (/content/html)
-                if is_html and is_admin:
+                # For HTML files, provide a direct view link (/content/html) for browser preview
+                view_url = None
+                if is_html:
                     view_url = f"{download_url}/html"
 
                 # Localized output
                 msg = self._get_translation(user_lang, "publish_success")
-                if is_html and is_admin:
+                if is_html:
                     hint = self._get_translation(
                         user_lang,
                         "publish_hint_html",
@@ -977,13 +963,16 @@ class Pipe:
                         download_url=download_url,
                     )
 
-                return {
+                result = {
                     "file_id": file_id,
                     "filename": safe_filename,
                     "download_url": download_url,
                     "message": msg,
                     "hint": hint,
                 }
+                if is_html and view_url:
+                    result["view_url"] = view_url
+                return result
             except Exception as e:
                 return {"error": str(e)}
 
@@ -1206,6 +1195,31 @@ class Pipe:
             params_type=ParamsModel,
         )(_tool)
 
+    def _read_tool_server_connections(self) -> list:
+        """
+        Read tool server connections directly from the database to avoid stale
+        in-memory state in multi-worker deployments.
+        Falls back to the in-memory PersistentConfig value if DB read fails.
+        """
+        try:
+            from open_webui.config import get_config
+
+            config_data = get_config()
+            connections = config_data.get("tool_server", {}).get("connections", None)
+            if connections is not None:
+                return connections if isinstance(connections, list) else []
+        except Exception as e:
+            logger.debug(
+                f"[Tools] DB config read failed, using in-memory fallback: {e}"
+            )
+
+        # Fallback: in-memory value (may be stale in multi-worker)
+        if hasattr(TOOL_SERVER_CONNECTIONS, "value") and isinstance(
+            TOOL_SERVER_CONNECTIONS.value, list
+        ):
+            return TOOL_SERVER_CONNECTIONS.value
+        return []
+
     def _build_openwebui_request(self, user: dict = None, token: str = None):
         """Build a more complete request-like object with dynamically loaded OpenWebUI configs."""
         # Dynamically build config from the official registry
@@ -1219,12 +1233,9 @@ class Pipe:
             setattr(config, item.env_name, val)
 
         # Critical Fix: Explicitly sync TOOL_SERVER_CONNECTIONS to ensure OpenAPI tools work
-        # PERSISTENT_CONFIG_REGISTRY might not contain TOOL_SERVER_CONNECTIONS in all versions
-        if not hasattr(config, "TOOL_SERVER_CONNECTIONS"):
-            if hasattr(TOOL_SERVER_CONNECTIONS, "value"):
-                config.TOOL_SERVER_CONNECTIONS = TOOL_SERVER_CONNECTIONS.value
-            else:
-                config.TOOL_SERVER_CONNECTIONS = TOOL_SERVER_CONNECTIONS
+        # Read directly from DB to avoid stale in-memory state in multi-worker deployments
+        fresh_connections = self._read_tool_server_connections()
+        config.TOOL_SERVER_CONNECTIONS = fresh_connections
 
         app_state = SimpleNamespace(
             config=config,
@@ -1282,6 +1293,7 @@ class Pipe:
         __event_call__=None,
         enable_tools: bool = True,
         enable_openapi: bool = True,
+        chat_tool_ids: Optional[list] = None,
     ):
         """Load OpenWebUI tools and convert them to Copilot SDK tools."""
         if isinstance(__user__, (list, tuple)):
@@ -1300,17 +1312,20 @@ class Pipe:
 
         # --- PROBE LOG ---
         if __event_call__:
-            conn_status = "Missing"
-            if hasattr(TOOL_SERVER_CONNECTIONS, "value"):
-                val = TOOL_SERVER_CONNECTIONS.value
-                conn_status = (
-                    f"List({len(val)})" if isinstance(val, list) else str(type(val))
-                )
+            conn_list = self._read_tool_server_connections()
+            conn_summary = []
+            for i, s in enumerate(conn_list):
+                if isinstance(s, dict):
+                    s_id = s.get("info", {}).get("id") or s.get("id") or str(i)
+                    s_type = s.get("type", "openapi")
+                    s_enabled = s.get("config", {}).get("enable", False)
+                    conn_summary.append(
+                        {"id": s_id, "type": s_type, "enable": s_enabled}
+                    )
 
             await self._emit_debug_log(
-                f"[Tools Debug] Entry. UserID: {user_id}, EnableTools: {enable_tools}, EnableOpenAPI: {enable_openapi}, Connections: {conn_status}",
+                f"[Tools] TOOL_SERVER_CONNECTIONS ({len(conn_summary)} entries): {conn_summary}",
                 __event_call__,
-                debug_enabled=True,
             )
         # -----------------
 
@@ -1327,66 +1342,84 @@ class Pipe:
 
         # 2. Get OpenAPI Tool Server tools
         if enable_openapi:
-            if hasattr(TOOL_SERVER_CONNECTIONS, "value"):
-                raw_connections = TOOL_SERVER_CONNECTIONS.value
+            raw_connections = self._read_tool_server_connections()
 
-                # Handle Pydantic model vs List vs Dict
-                connections = []
-                if isinstance(raw_connections, list):
-                    connections = raw_connections
-                elif hasattr(raw_connections, "dict"):
-                    connections = raw_connections.dict()
-                elif hasattr(raw_connections, "model_dump"):
-                    connections = raw_connections.model_dump()
+            # Handle Pydantic model vs List vs Dict
+            connections = []
+            if isinstance(raw_connections, list):
+                connections = raw_connections
+            elif hasattr(raw_connections, "dict"):
+                connections = raw_connections.dict()
+            elif hasattr(raw_connections, "model_dump"):
+                connections = raw_connections.model_dump()
 
-                # Debug logging for connections
+            # Debug logging for connections
+            if self.valves.DEBUG:
+                await self._emit_debug_log(
+                    f"[Tools] Found {len(connections)} server connections (Type: {type(raw_connections)})",
+                    __event_call__,
+                )
+
+            for idx, server in enumerate(connections):
+                # Handle server item type
+                s_type = (
+                    server.get("type", "openapi")
+                    if isinstance(server, dict)
+                    else getattr(server, "type", "openapi")
+                )
+
+                # P2: config.enable check — skip admin-disabled servers
+                s_config = (
+                    server.get("config", {})
+                    if isinstance(server, dict)
+                    else getattr(server, "config", {})
+                )
+                s_enabled = (
+                    s_config.get("enable", False)
+                    if isinstance(s_config, dict)
+                    else getattr(s_config, "enable", False)
+                )
+                if not s_enabled:
+                    if self.valves.DEBUG:
+                        await self._emit_debug_log(
+                            f"[Tools] Skipped disabled server at index {idx}",
+                            __event_call__,
+                        )
+                    continue
+
+                # Handle server ID: Priority info.id > server.id > index
+                s_id = None
+                if isinstance(server, dict):
+                    info = server.get("info", {})
+                    s_id = info.get("id") or server.get("id")
+                else:
+                    info = getattr(server, "info", {})
+                    if isinstance(info, dict):
+                        s_id = info.get("id")
+                    else:
+                        s_id = getattr(info, "id", None)
+
+                    if not s_id:
+                        s_id = getattr(server, "id", None)
+
+                if not s_id:
+                    s_id = str(idx)
+
                 if self.valves.DEBUG:
                     await self._emit_debug_log(
-                        f"[Tools] Found {len(connections)} server connections (Type: {type(raw_connections)})",
+                        f"[Tools] Checking Server: ID={s_id}, Type={s_type}",
                         __event_call__,
                     )
 
-                for idx, server in enumerate(connections):
-                    # Handle server item type
-                    s_type = (
-                        server.get("type", "openapi")
-                        if isinstance(server, dict)
-                        else getattr(server, "type", "openapi")
+                if s_type == "openapi":
+                    # Ensure we don't add empty IDs, though fallback to idx should prevent this
+                    if s_id:
+                        tool_ids.append(f"server:{s_id}")
+                elif self.valves.DEBUG:
+                    await self._emit_debug_log(
+                        f"[Tools] Skipped non-OpenAPI server: {s_id} ({s_type})",
+                        __event_call__,
                     )
-
-                    # Handle server ID: Priority info.id > server.id > index
-                    s_id = None
-                    if isinstance(server, dict):
-                        info = server.get("info", {})
-                        s_id = info.get("id") or server.get("id")
-                    else:
-                        info = getattr(server, "info", {})
-                        if isinstance(info, dict):
-                            s_id = info.get("id")
-                        else:
-                            s_id = getattr(info, "id", None)
-
-                        if not s_id:
-                            s_id = getattr(server, "id", None)
-
-                    if not s_id:
-                        s_id = str(idx)
-
-                    if self.valves.DEBUG:
-                        await self._emit_debug_log(
-                            f"[Tools] Checking Server: ID={s_id}, Type={s_type}",
-                            __event_call__,
-                        )
-
-                    if s_type == "openapi":
-                        # Ensure we don't add empty IDs, though fallback to idx should prevent this
-                        if s_id:
-                            tool_ids.append(f"server:{s_id}")
-                    elif self.valves.DEBUG:
-                        await self._emit_debug_log(
-                            f"[Tools] Skipped non-OpenAPI server: {s_id} ({s_type})",
-                            __event_call__,
-                        )
 
         if (
             not tool_ids and not enable_tools
@@ -1396,6 +1429,16 @@ class Pipe:
                     "[Tools] No tool IDs found and built-ins disabled.", __event_call__
                 )
             return []
+
+        # P4: Chat tool_ids whitelist — only active when user explicitly selected tools
+        if chat_tool_ids:
+            chat_tool_ids_set = set(chat_tool_ids)
+            filtered = [tid for tid in tool_ids if tid in chat_tool_ids_set]
+            await self._emit_debug_log(
+                f"[Tools] tool_ids whitelist active: {len(tool_ids)} → {len(filtered)} (selected: {chat_tool_ids})",
+                __event_call__,
+            )
+            tool_ids = filtered
 
         if self.valves.DEBUG and tool_ids:
             await self._emit_debug_log(
@@ -1469,7 +1512,28 @@ class Pipe:
         # Fetch Built-in Tools (Web Search, Memory, etc.)
         if enable_tools:
             try:
+                # Resolve real model dict from DB to respect meta.builtinTools config
+                model_dict = {}
+                model_id = body.get("model", "") if isinstance(body, dict) else ""
+                if model_id:
+                    try:
+                        from open_webui.models.models import Models as _Models
+
+                        model_record = _Models.get_model_by_id(model_id)
+                        if model_record:
+                            model_dict = {"info": model_record.model_dump()}
+                    except Exception:
+                        pass
+
                 # Get builtin tools
+                # Open all feature gates so filtering is driven solely by
+                # model.meta.builtinTools (defaults to all-enabled when absent).
+                all_features = {
+                    "memory": True,
+                    "web_search": True,
+                    "image_generation": True,
+                    "code_interpreter": True,
+                }
                 builtin_tools = get_builtin_tools(
                     self._build_openwebui_request(user_data),
                     {
@@ -1477,16 +1541,8 @@ class Pipe:
                         "__chat_id__": extra_params.get("__chat_id__"),
                         "__message_id__": extra_params.get("__message_id__"),
                     },
-                    model={
-                        "info": {
-                            "meta": {
-                                "capabilities": {
-                                    "web_search": True,
-                                    "image_generation": True,
-                                }
-                            }
-                        }
-                    },  # Mock capabilities to allow all globally enabled tools
+                    features=all_features,
+                    model=model_dict,  # model.meta.builtinTools controls which categories are active
                 )
                 if builtin_tools:
                     tools_dict.update(builtin_tools)
@@ -1504,16 +1560,15 @@ class Pipe:
         tool_metadata_cache = {}
         server_metadata_cache = {}
 
-        # Pre-build server metadata cache from TOOL_SERVER_CONNECTIONS
-        if hasattr(TOOL_SERVER_CONNECTIONS, "value"):
-            for server in TOOL_SERVER_CONNECTIONS.value:
-                server_id = server.get("id") or server.get("info", {}).get("id")
-                if server_id:
-                    info = server.get("info", {})
-                    server_metadata_cache[server_id] = {
-                        "name": info.get("name") or server_id,
-                        "description": info.get("description", ""),
-                    }
+        # Pre-build server metadata cache from DB-fresh tool server connections
+        for server in self._read_tool_server_connections():
+            server_id = server.get("id") or server.get("info", {}).get("id")
+            if server_id:
+                info = server.get("info", {})
+                server_metadata_cache[server_id] = {
+                    "name": info.get("name") or server_id,
+                    "description": info.get("description", ""),
+                }
 
         for tool_name, tool_def in tools_dict.items():
             tool_id = tool_def.get("tool_id", "")
@@ -1578,7 +1633,10 @@ class Pipe:
         return converted_tools
 
     def _parse_mcp_servers(
-        self, __event_call__=None, enable_mcp: bool = True, enable_cache: bool = True
+        self,
+        __event_call__=None,
+        enable_mcp: bool = True,
+        chat_tool_ids: Optional[list] = None,
     ) -> Optional[dict]:
         """
         Dynamically load MCP servers from OpenWebUI TOOL_SERVER_CONNECTIONS.
@@ -1587,23 +1645,40 @@ class Pipe:
         if not enable_mcp:
             return None
 
-        # Check Cache
-        if enable_cache and self._mcp_server_cache is not None:
-            return self._mcp_server_cache
-
         mcp_servers = {}
 
-        # Iterate over OpenWebUI Tool Server Connections
-        if hasattr(TOOL_SERVER_CONNECTIONS, "value"):
-            connections = TOOL_SERVER_CONNECTIONS.value
-        else:
-            connections = []
+        # Read MCP servers directly from DB to avoid stale in-memory cache
+        connections = self._read_tool_server_connections()
+
+        if __event_call__:
+            mcp_summary = []
+            for s in connections if isinstance(connections, list) else []:
+                if isinstance(s, dict) and s.get("type") == "mcp":
+                    s_id = s.get("info", {}).get("id") or s.get("id", "?")
+                    s_enabled = s.get("config", {}).get("enable", False)
+                    mcp_summary.append({"id": s_id, "enable": s_enabled})
+            self._emit_debug_log_sync(
+                f"[MCP] TOOL_SERVER_CONNECTIONS MCP entries ({len(mcp_summary)}): {mcp_summary}",
+                __event_call__,
+            )
 
         for conn in connections:
             if conn.get("type") == "mcp":
                 info = conn.get("info", {})
                 # Use ID from info or generate one
                 raw_id = info.get("id", f"mcp-server-{len(mcp_servers)}")
+
+                # P2: config.enable check — skip admin-disabled servers
+                mcp_config = conn.get("config", {})
+                if not mcp_config.get("enable", False):
+                    self._emit_debug_log_sync(
+                        f"[MCP] Skipped disabled server: {raw_id}", __event_call__
+                    )
+                    continue
+
+                # P4: chat_tool_ids whitelist — if user selected tools, only include matching servers
+                if chat_tool_ids and f"server:{raw_id}" not in chat_tool_ids:
+                    continue
 
                 # Sanitize server_id (using same logic as tools)
                 server_id = re.sub(r"[^a-zA-Z0-9_-]", "_", raw_id)
@@ -1636,7 +1711,6 @@ class Pipe:
                     headers.update(custom_headers)
 
                 # Get filtering configuration
-                mcp_config = conn.get("config", {})
                 function_filter = mcp_config.get("function_name_filter_list", "")
 
                 allowed_tools = ["*"]
@@ -1657,10 +1731,6 @@ class Pipe:
                 self._emit_debug_log_sync(
                     f"🔌 MCP Integrated: {server_id}", __event_call__
                 )
-
-        # Update Cache
-        if self.valves.ENABLE_TOOL_CACHE:
-            self._mcp_server_cache = mcp_servers
 
         return mcp_servers if mcp_servers else None
 
@@ -1899,6 +1969,22 @@ class Pipe:
                         )
                     break
 
+        # Append Code Interpreter Warning
+        code_interpreter_warning = (
+            "\n\n[System Note]\n"
+            "The `execute_code` tool (builtin category: `code_interpreter`) executes code in a remote, ephemeral environment. "
+            "It cannot access files in your local workspace or persist changes. "
+            "Use it only for calculation or logic verification, not for file manipulation."
+            "\n"
+            "For links returned by `publish_file_from_workspace`, URL formatting is strict: "
+            "always use relative paths that start with `/api/v1/files/`. "
+            "Do not output `api/...` and do not prepend any domain."
+        )
+        if system_prompt_content:
+            system_prompt_content += code_interpreter_warning
+        else:
+            system_prompt_content = code_interpreter_warning.strip()
+
         return system_prompt_content, system_prompt_source
 
     def _get_workspace_dir(self, user_id: str = None, chat_id: str = None) -> str:
@@ -1969,7 +2055,7 @@ class Pipe:
         is_admin: bool = False,
         user_id: str = None,
         enable_mcp: bool = True,
-        enable_cache: bool = True,
+        chat_tool_ids: Optional[list] = None,
         __event_call__=None,
     ):
         """Build SessionConfig for Copilot SDK."""
@@ -2018,7 +2104,7 @@ class Pipe:
         }
 
         mcp_servers = self._parse_mcp_servers(
-            __event_call__, enable_mcp=enable_mcp, enable_cache=enable_cache
+            __event_call__, enable_mcp=enable_mcp, chat_tool_ids=chat_tool_ids
         )
 
         # Prepare session config parameters
@@ -2061,12 +2147,12 @@ class Pipe:
 
         if mcp_servers:
             session_params["mcp_servers"] = mcp_servers
-            # Critical Fix: When using MCP, available_tools must be None to allow dynamic discovery
-            session_params["available_tools"] = None
-        else:
-            session_params["available_tools"] = (
-                [t.name for t in custom_tools] if custom_tools else None
-            )
+
+        # Always set available_tools=None so the Copilot CLI's built-in tools
+        # (e.g. bash, create_file) remain accessible alongside our custom tools.
+        # Custom tools are registered via the 'tools' param; whitelist filtering
+        # via available_tools would silently block CLI built-ins.
+        session_params["available_tools"] = None
 
         if provider_config:
             session_params["provider"] = provider_config
@@ -2338,7 +2424,7 @@ class Pipe:
 
         # 1. Environment Setup (Only if needed or not done)
         if needs_setup:
-            self._setup_env(token=token, skip_cli_install=True)
+            self._setup_env(token=token)
             self.__class__._last_update_check = now
         else:
             # Still inject token for BYOK real-time updates
@@ -2380,6 +2466,19 @@ class Pipe:
         current_config_str = f"{token}|{uv.BYOK_BASE_URL or self.valves.BYOK_BASE_URL}|{uv.BYOK_API_KEY or self.valves.BYOK_API_KEY}|{self.valves.BYOK_BEARER_TOKEN}"
         current_config_hash = hashlib.md5(current_config_str.encode()).hexdigest()
 
+        # TTL-based cache expiry
+        cache_ttl = self.valves.MODEL_CACHE_TTL
+        if (
+            self._model_cache
+            and cache_ttl > 0
+            and (now - self.__class__._last_model_cache_time) > cache_ttl
+        ):
+            if self.valves.DEBUG:
+                logger.info(
+                    f"[Pipes] Model cache expired (TTL={cache_ttl}s). Invalidating."
+                )
+            self.__class__._model_cache = []
+
         if (
             self._model_cache
             and self.__class__._last_byok_config_hash != current_config_hash
@@ -2397,8 +2496,12 @@ class Pipe:
             if self.valves.DEBUG:
                 logger.info("[Pipes] Refreshing model cache...")
             try:
-                # Use effective token for fetching
-                self._setup_env(token=token, skip_cli_install=True)
+                # Use effective token for fetching.
+                # If COPILOT_CLI_PATH is missing (e.g. env cleared after worker restart),
+                # force a full re-discovery by resetting _env_setup_done first.
+                if not os.environ.get("COPILOT_CLI_PATH"):
+                    self.__class__._env_setup_done = False
+                self._setup_env(token=token)
 
                 # Fetch BYOK models if configured
                 byok = []
@@ -2478,7 +2581,24 @@ class Pipe:
                     )
 
                 self._model_cache = standard + byok
+                self.__class__._last_model_cache_time = now
                 if not self._model_cache:
+                    has_byok = bool(
+                        (uv.BYOK_BASE_URL or self.valves.BYOK_BASE_URL)
+                        and (
+                            uv.BYOK_API_KEY
+                            or self.valves.BYOK_API_KEY
+                            or uv.BYOK_BEARER_TOKEN
+                            or self.valves.BYOK_BEARER_TOKEN
+                        )
+                    )
+                    if not token and not has_byok:
+                        return [
+                            {
+                                "id": "no_token",
+                                "name": "⚠️ No credentials configured. Please set GH_TOKEN or BYOK settings in Valves.",
+                            }
+                        ]
                     return [
                         {
                             "id": "warming_up",
@@ -2530,8 +2650,6 @@ class Pipe:
         debug_enabled: bool = False,
         token: str = None,
         enable_mcp: bool = True,
-        enable_cache: bool = True,
-        skip_cli_install: bool = False,  # Kept for call-site compatibility, no longer used
         __event_emitter__=None,
         user_lang: str = "en-US",
     ):
@@ -2548,7 +2666,6 @@ class Pipe:
                     __event_call__,
                     debug_enabled,
                     enable_mcp=enable_mcp,
-                    enable_cache=enable_cache,
                 )
             return
 
@@ -2762,7 +2879,6 @@ class Pipe:
         __event_call__=None,
         debug_enabled: bool = False,
         enable_mcp: bool = True,
-        enable_cache: bool = True,
     ):
         """Sync MCP configuration to ~/.copilot/config.json."""
         path = os.path.expanduser("~/.copilot/config.json")
@@ -2786,9 +2902,7 @@ class Pipe:
                     pass
             return
 
-        mcp = self._parse_mcp_servers(
-            __event_call__, enable_mcp=enable_mcp, enable_cache=enable_cache
-        )
+        mcp = self._parse_mcp_servers(__event_call__, enable_mcp=enable_mcp)
         if not mcp:
             return
         try:
@@ -2866,9 +2980,13 @@ class Pipe:
         )
         chat_id = chat_ctx.get("chat_id") or "default"
 
-        # Determine effective MCP and cache settings
+        # Determine effective MCP settings
         effective_mcp = user_valves.ENABLE_MCP_SERVER
-        effective_cache = user_valves.ENABLE_TOOL_CACHE
+
+        # P4: Chat tool_ids whitelist — extract once, reuse for both OpenAPI and MCP
+        chat_tool_ids = None
+        if __metadata__ and isinstance(__metadata__, dict):
+            chat_tool_ids = __metadata__.get("tool_ids") or None
 
         user_ctx = await self._get_user_context(__user__, __event_call__, __request__)
         user_lang = user_ctx["user_language"]
@@ -2879,7 +2997,6 @@ class Pipe:
             debug_enabled=effective_debug,
             token=effective_token,
             enable_mcp=effective_mcp,
-            enable_cache=effective_cache,
             __event_emitter__=__event_emitter__,
             user_lang=user_lang,
         )
@@ -3125,7 +3242,7 @@ class Pipe:
 
             # Check MCP Servers
             mcp_servers = self._parse_mcp_servers(
-                __event_call__, enable_mcp=effective_mcp, enable_cache=effective_cache
+                __event_call__, enable_mcp=effective_mcp, chat_tool_ids=chat_tool_ids
             )
             mcp_server_names = list(mcp_servers.keys()) if mcp_servers else []
             if mcp_server_names:
@@ -3180,15 +3297,13 @@ class Pipe:
                     mcp_servers = self._parse_mcp_servers(
                         __event_call__,
                         enable_mcp=effective_mcp,
-                        enable_cache=effective_cache,
+                        chat_tool_ids=chat_tool_ids,
                     )
                     if mcp_servers:
                         resume_params["mcp_servers"] = mcp_servers
-                        resume_params["available_tools"] = None
-                    else:
-                        resume_params["available_tools"] = (
-                            [t.name for t in custom_tools] if custom_tools else None
-                        )
+
+                    # Always None: let CLI built-ins (bash etc.) remain available.
+                    resume_params["available_tools"] = None
 
                     # Always inject the latest system prompt in 'replace' mode
                     # This handles both custom models and user-defined system messages
@@ -3274,7 +3389,7 @@ class Pipe:
                     is_admin=is_admin,
                     user_id=user_id,
                     enable_mcp=effective_mcp,
-                    enable_cache=effective_cache,
+                    chat_tool_ids=chat_tool_ids,
                     __event_call__=__event_call__,
                 )
 

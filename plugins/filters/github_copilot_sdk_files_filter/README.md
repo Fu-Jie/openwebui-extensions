@@ -1,10 +1,15 @@
 # GitHub Copilot SDK Files Filter
 
-**Author:** [Fu-Jie](https://github.com/Fu-Jie/openwebui-extensions) | **Version:** 0.1.2 | **Project:** [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions) | **License:** MIT
+**Author:** [Fu-Jie](https://github.com/Fu-Jie/openwebui-extensions) | **Version:** 0.1.3 | **Project:** [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions) | **License:** MIT
 
 This is a dedicated **companion filter plugin** designed specifically for the [GitHub Copilot SDK Pipe](https://openwebui.com/posts/github_copilot_official_sdk_pipe_ce96f7b4).
 
 Its core mission is to **protect user-uploaded files from being "pre-processed" by the OpenWebUI core system, ensuring that the Copilot Agent receives the raw files for autonomous analysis.**
+
+## ✨ v0.1.3 Updates (What's New)
+
+- **🔍 BYOK Model ID Matching Fixed**: Now correctly identifies models in `github_copilot_official_sdk_pipe.xxx` format via prefix matching, in addition to keyword fallback for backward compatibility. (v0.1.3)
+- **🐛 Dual-channel Debug Log**: Added `show_debug_log` valve. When enabled, logs are written to both server-side logger and browser console (`console.group`). (v0.1.3)
 
 ## 🎯 Why is this needed?
 
@@ -49,5 +54,5 @@ Default settings work for most users:
 
 ## ⚠️ Important Notes
 
-* **Must be used with Copilot SDK Pipe**: If you install this plugin without the main Pipe plugin, uploaded files will simply "disappear" (as no subsequent plugin will look for them).
-* **Gemini Filter Compatibility**: Fully compatible with the Gemini Multimodal Filter. Just ensure priorities don't conflict.
+- **Must be used with Copilot SDK Pipe**: If you install this plugin without the main Pipe plugin, uploaded files will simply "disappear" (as no subsequent plugin will look for them).
+- **Gemini Filter Compatibility**: Fully compatible with the Gemini Multimodal Filter. Just ensure priorities don't conflict.

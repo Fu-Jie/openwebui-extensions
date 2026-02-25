@@ -62,7 +62,7 @@ Filter 充当消息管线中的中间件：
 
     专门用于绕过 OpenWebUI 默认 RAG 机制的过滤器，针对 GitHub Copilot SDK 模型。确保 Agent 能够接收到原始文件进行自主分析。
 
-    **版本：** 0.1.2
+    **版本：** 0.1.3
 
     [:octicons-arrow-right-24: 查看文档](github-copilot-sdk-files-filter.zh.md)
 
