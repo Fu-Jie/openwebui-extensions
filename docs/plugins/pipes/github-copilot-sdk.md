@@ -1,6 +1,6 @@
 # GitHub Copilot SDK Pipe for OpenWebUI
 
-**Author:** [Fu-Jie](https://github.com/Fu-Jie) | **Version:** 0.7.0 | **Project:** [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions) | **License:** MIT
+**Author:** [Fu-Jie](https://github.com/Fu-Jie) | **Version:** 0.8.0 | **Project:** [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions) | **License:** MIT
 
 This is an advanced Pipe function for [OpenWebUI](https://github.com/open-webui/open-webui) that integrates the official [GitHub Copilot SDK](https://github.com/github/copilot-sdk). It enables you to use **GitHub Copilot models** (e.g., `gpt-5.2-codex`, `claude-sonnet-4.5`,`gemini-3-pro`, `gpt-5-mini`) **AND** your own models via **BYOK** (OpenAI, Anthropic) directly within OpenWebUI, providing a unified agentic experience with **strict User & Chat-level Workspace Isolation**.
 
@@ -14,13 +14,23 @@ This is an advanced Pipe function for [OpenWebUI](https://github.com/open-webui/
 
 ---
 
-## ✨ v0.7.0 Updates (What's New)
+## ✨ v0.8.0 Updates (What's New)
 
-- **🚀 Integrated CLI Management**: The Copilot CLI is now automatically managed and bundled via the `github-copilot-sdk` pip package. (v0.7.0)
-- **🧠 Native Tool Call UI**: Full adaptation to **OpenWebUI's native tool call UI** and thinking process visualization. (v0.7.0)
-- **🏠 OpenWebUI v0.8.0+ Fix**: Resolved "Error getting file content" download failure by switching to absolute path registration for published files. (v0.7.0)
-- **🌐 Comprehensive Multi-language Support**: Native localization for status messages in 11 languages (EN, ZH, JA, KO, FR, DE, ES, IT, RU, VI, ID). (v0.7.0)
-- **🧹 Architecture Cleanup**: Refactored core setup and optimized reasoning status display for a leaner experience. (v0.7.0)
+- **🎛️ Conditional Tool Filtering (P1~P4)**: Four-priority tool permission system. **Default ON**: If no tools are selected in Chat UI (P4), all enabled tools are active. **Whitelist Mode**: Once specific tools are checked, the whitelist strictly filters both OpenWebUI tools and MCP servers. Admin-level `config.enable` (P2) allows global server disabling. (v0.8.0)
+- **🔧 File Publish Reliability**: Fixed `Error getting file content` across all storage backends (local/S3/GCS/Azure) by using `Storage.upload_file()` directly in the fallback path. HTML files are no longer blocked by `ALLOWED_FILE_EXTENSIONS` (`?process=false` always applied). (v0.8.0)
+- **🌐 HTML Direct Access Link**: When `publish_file_from_workspace` publishes an HTML file, the plugin also provides a directly accessible HTML link for instant in-chat preview/opening. (v0.8.0)
+- **🔒 Strict File URL Format**: Published file links must be relative paths starting with `/api/v1/files/` (e.g., `/api/v1/files/{id}/content/html`). Do not use `api/...` and do not prepend any domain. (v0.8.0)
+- **🛠️ CLI Built-in Tools Always Available**: `available_tools` is now always `None`, ensuring Copilot CLI built-ins (e.g. `bash`, `create_file`) are never silently blocked regardless of MCP configuration. (v0.8.0)
+- **📌 Publish Tool Always Injected**: `publish_file_from_workspace` is no longer lost when `ENABLE_OPENWEBUI_TOOLS` is disabled. (v0.8.0)
+- **⚠️ Code Interpreter Limitation**: The `code_interpreter` tool runs in a remote, ephemeral environment. A system prompt warning now clarifies that it cannot access local files or persist changes. (v0.8.0)
+
+### 🐞 Bug Fixes in v0.8.0
+
+- Fixed `{"detail":"[ERROR: Error getting file content]"}` when publishing files under object storage backends by replacing fallback manual copy/DB writes with `Storage.upload_file()`.
+- Fixed HTML artifact upload being rejected by `ALLOWED_FILE_EXTENSIONS` by always appending `?process=false` on file upload API calls.
+- Fixed invalid artifact links generated as `api/...` or domain-prefixed absolute URLs; links are now constrained to `/api/v1/files/...` relative paths.
+- Fixed Copilot CLI built-ins being silently unavailable when no server tools were configured/loaded (which resulted in `available_tools=[]`); now `available_tools` remains `None`.
+- Fixed `publish_file_from_workspace` disappearing when `ENABLE_OPENWEBUI_TOOLS` was disabled.
 
 ---
 
@@ -33,8 +43,20 @@ This is an advanced Pipe function for [OpenWebUI](https://github.com/open-webui/
 - **🧠 Deep Database Integration**: Real-time persistence of TOD·O lists for long-running workflows.
 - **🌊 Advanced Streaming**: Full support for thinking process/Chain of Thought visualization.
 - **🖼️ Intelligent Multimodal**: Vision capabilities and raw file analysis support (bypasses RAG for direct binary access).
-- **📤 Workspace Artifacts (`publish_file_from_workspace`)**: Agents can generate files (Excel, CSV, HTML reports, etc.) and provide **persistent download links** directly in the chat.
+- **📤 Workspace Artifacts (`publish_file_from_workspace`)**: Agents can generate files (Excel, CSV, HTML reports, etc.) and provide **persistent download links** directly in the chat. For HTML files, a direct-access HTML link is also provided.
 - **🖼️ Interactive Artifacts**: Automatically renders HTML/JS apps generated by the agent directly in the chat interface.
+
+---
+
+## 🧩 Companion Files Filter (Required for raw files)
+
+`GitHub Copilot SDK Files Filter` is the companion plugin that prevents OpenWebUI's default RAG pre-processing from consuming uploaded files before the Pipe receives them.
+
+- **What it does**: Moves uploaded files to `copilot_files` so the Pipe can access raw binaries directly.
+- **Why it matters**: Without it, uploaded files may be parsed/vectorized early and the Agent may lose direct raw-file access.
+- **v0.1.3 highlights**:
+  - BYOK model-id matching fix (supports `github_copilot_official_sdk_pipe.xxx` prefixes).
+  - Optional dual-channel debug log (`show_debug_log`) to backend logger + browser console.
 
 ---
 
@@ -104,6 +126,15 @@ If this plugin has been useful, a **Star** on [OpenWebUI Extensions](https://git
 1. Visit [GitHub Token Settings](https://github.com/settings/tokens?type=beta).
 2. Create **Fine-grained token**, granting **Account permissions** -> **Copilot Requests** access.
 3. Paste the generated Token into the `GH_TOKEN` field in Valves.
+
+### 3) Authentication Requirement (Mandatory)
+
+You MUST configure **at least one** credential source:
+
+- `GH_TOKEN` (GitHub Copilot subscription route), or
+- `BYOK_API_KEY` (OpenAI/Anthropic route).
+
+If neither is configured, the model list will not appear.
 
 ---
 

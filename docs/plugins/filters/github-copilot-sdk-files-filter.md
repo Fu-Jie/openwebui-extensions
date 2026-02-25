@@ -1,8 +1,13 @@
-# GitHub Copilot SDK Files Filter (v0.1.2)
+# GitHub Copilot SDK Files Filter (v0.1.3)
 
 This is a dedicated **companion filter plugin** designed specifically for the [GitHub Copilot SDK Pipe](../pipes/github-copilot-sdk.md).
 
 Its core mission is to **protect user-uploaded files from being "pre-processed" by the OpenWebUI core system, ensuring that the Copilot Agent receives the raw files for autonomous analysis.**
+
+## ✨ v0.1.3 Updates (What's New)
+
+- **🔍 BYOK Model ID Matching Fixed**: Now correctly identifies models in `github_copilot_official_sdk_pipe.xxx` format via prefix matching, in addition to keyword fallback for backward compatibility. (v0.1.3)
+- **🐛 Dual-channel Debug Log**: Added `show_debug_log` valve. When enabled, logs are written to both server-side logger and browser console (`console.group`). (v0.1.3)
 
 ## 🎯 Why is this needed?
 
@@ -48,6 +53,6 @@ Default settings work for most users unless you have specific needs:
 
 ## ⚠️ Important Notes
 
-* **Must be used with Copilot SDK Pipe**: If you install this plugin without the main Pipe plugin, uploaded files will simply "disappear" (as no subsequent plugin will look for them in `copilot_files`).
-* **Gemini Filter Compatibility**: This plugin is fully compatible with the Gemini Multimodal Filter. As long as the priority is set correctly (This Plugin < Gemini Plugin), they can coexist without interference.
-* **Physical File Path**: Ensure the `OPENWEBUI_UPLOAD_PATH` is correctly set in the Pipe plugin Valves for the actual file transport to work.
+- **Must be used with Copilot SDK Pipe**: If you install this plugin without the main Pipe plugin, uploaded files will simply "disappear" (as no subsequent plugin will look for them in `copilot_files`).
+- **Gemini Filter Compatibility**: This plugin is fully compatible with the Gemini Multimodal Filter. As long as the priority is set correctly (This Plugin < Gemini Plugin), they can coexist without interference.
+- **Physical File Path**: Ensure the `OPENWEBUI_UPLOAD_PATH` is correctly set in the Pipe plugin Valves for the actual file transport to work.

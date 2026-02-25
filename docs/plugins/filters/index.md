@@ -82,7 +82,7 @@ Filters act as middleware in the message pipeline:
 
     A specialized filter to bypass OpenWebUI's default RAG for GitHub Copilot SDK models. It ensures the Agent receives raw files for autonomous analysis.
 
-    **Version:** 0.1.2
+    **Version:** 0.1.3
 
     [:octicons-arrow-right-24: Documentation](github-copilot-sdk-files-filter.md)
 

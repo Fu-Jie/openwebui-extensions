@@ -1,6 +1,6 @@
 # GitHub Copilot SDK 官方管道
 
-**作者:** [Fu-Jie](https://github.com/Fu-Jie) | **版本:** 0.7.0 | **项目:** [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions) | **许可证:** MIT
+**作者:** [Fu-Jie](https://github.com/Fu-Jie) | **版本:** 0.8.0 | **项目:** [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions) | **许可证:** MIT
 
 这是一个用于 [OpenWebUI](https://github.com/open-webui/open-webui) 的高级 Pipe 函数，深度集成了 **GitHub Copilot SDK**。它不仅支持 **GitHub Copilot 官方模型**（如 `gpt-5.2-codex`, `claude-sonnet-4.5`, `gemini-3-pro`, `gpt-5-mini`），还支持 **BYOK (自带 Key)** 模式对接自定义服务商（OpenAI, Anthropic），并具备**严格的用户与会话级工作区隔离**能力，提供统一且安全的 Agent 交互体验。
 
@@ -14,13 +14,23 @@
 
 ---
 
-## ✨ 0.7.0 更新内容 (What's New)
+## ✨ 0.8.0 更新内容 (What's New)
 
-- **🚀 CLI 免维护集成**: Copilot CLI 现在通过 `github-copilot-sdk` pip 包自动同步管理，彻底告别手动 `curl | bash` 安装问题。(v0.7.0)
-- **🧠 原生工具调用 UI**: 全面适配 **OpenWebUI 原生工具调用 UI** 与模型思考过程（思维链）展示。(v0.7.0)
-- **🏠 OpenWebUI v0.8.0+ 兼容性修复**: 通过切换为绝对路径注册发布文件，彻底解决了“Error getting file content”无法下载到本地的问题。(v0.7.0)
-- **🌐 全面的多语言支持**: 针对状态消息进行了 11 国语言的原生本地化 (中/英/日/韩/法/德/西/意/俄/越/印尼)。(v0.7.0)
-- **🧹 架构精简**: 重构了初始化逻辑并优化了推理状态显示，提供更轻量稳健的体验。(v0.7.0)
+- **🎛️ 条件工具过滤 (P1~P4)**: 四优先级工具权限体系。**默认全开**: 若未在 Chat UI (P4) 勾选任何工具，则默认启用所有工具；**白名单模式**: 一旦勾选特定工具，即刻进入严格过滤模式，且 MCP server 同步受控；管理员亦可通过 `config.enable` (P2) 全局禁用工具服务器。(v0.8.0)
+- **🔧 文件发布全面修复**: 通过在回退路径直接调用 `Storage.upload_file()`，彻底修复了所有存储后端（local/S3/GCS/Azure）下的 `Error getting file content` 问题；同时上传时自动携带 `?process=false`，HTML 文件不再被 `ALLOWED_FILE_EXTENSIONS` 拦截。(v0.8.0)
+- **🌐 HTML 直达链接**: 当 `publish_file_from_workspace` 发布的是 HTML 文件时，插件会额外提供可直接访问的 HTML 链接，便于在聊天中即时预览/打开。(v0.8.0)
+- **🔒 文件链接格式严格约束**: 发布链接必须是以 `/api/v1/files/` 开头的相对路径（例如 `/api/v1/files/{id}/content/html`）。禁止使用 `api/...`，也禁止拼接任何域名。(v0.8.0)
+- **🛠️ CLI 内置工具始终可用**: `available_tools` 统一设为 `None`，Copilot CLI 内置工具（如 `bash`、`create_file`）无论 MCP 配置如何都不会被静默屏蔽。(v0.8.0)
+- **📌 发布工具始终注入**: 即使 `ENABLE_OPENWEBUI_TOOLS` 关闭，`publish_file_from_workspace` 工具也不再丢失。(v0.8.0)
+- **⚠️ 代码解释器限制**: `code_interpreter` 工具运行在远程临时环境中。系统提示词现已包含警告，明确指出该工具无法访问本地文件或持久化更改。(v0.8.0)
+
+### 🐞 v0.8.0 Bug 修复说明
+
+- 修复了对象存储后端发布文件时出现的 `{"detail":"[ERROR: Error getting file content]"}`，回退路径从手动复制/写库改为 `Storage.upload_file()`。
+- 修复了 HTML 产物被 `ALLOWED_FILE_EXTENSIONS` 拦截的问题，上传接口统一追加 `?process=false`。
+- 修复了产物链接偶发被生成成 `api/...` 或带域名绝对 URL 的问题，现统一限制为 `/api/v1/files/...` 相对路径。
+- 修复了在未配置/未加载任何 server 工具时（最终出现 `available_tools=[]`）Copilot CLI 内置工具被静默禁用的问题，现统一保持 `available_tools=None`。
+- 修复了 `ENABLE_OPENWEBUI_TOOLS` 关闭时 `publish_file_from_workspace` 工具丢失的问题。
 
 ---
 
@@ -35,6 +45,18 @@
 - **🖼️ 智能多模态**: 完整支持图像识别与附件上传分析（绕过 RAG 直接访问原始二进制内容）。
 - **📤 工作区产物工具 (`publish_file_from_workspace`)**: Agent 可生成文件（Excel、CSV、HTML 报告等）并直接提供**持久化下载链接**。管理员还可额外获得通过 `/content/html` 接口的**聊天内 HTML 预览**链接。
 - **🖼️ 交互式伪影 (Artifacts)**: 自动渲染 Agent 生成的 HTML/JS 应用程序，直接在聊天界面交互。
+
+---
+
+## 🧩 配套 Files Filter（原始文件必备）
+
+`GitHub Copilot SDK Files Filter` 是本 Pipe 的配套插件，用于阻止 OpenWebUI 默认 RAG 在 Pipe 接手前抢先处理上传文件。
+
+- **作用**: 将上传文件移动到 `copilot_files`，让 Pipe 能直接读取原始二进制。
+- **必要性**: 若未安装，文件可能被提前解析/向量化，Agent 难以拿到原始文件。
+- **v0.1.3 重点**:
+  - 修复 BYOK 模型 ID 识别（支持 `github_copilot_official_sdk_pipe.xxx` 前缀匹配）。
+  - 新增双通道调试日志（`show_debug_log`）：后端 logger + 浏览器控制台。
 
 ---
 
@@ -104,6 +126,15 @@
 1. 访问 [GitHub Token 设置](https://github.com/settings/tokens?type=beta)。
 2. 创建 **Fine-grained token**，授予 **Account permissions** -> **Copilot Requests** 访问权限。
 3. 将生成的 Token 填入插件的 `GH_TOKEN` 配置项中。
+
+### 3) 认证配置要求（必填）
+
+你必须至少配置以下一种凭据：
+
+- `GH_TOKEN`（GitHub Copilot 官方订阅路径），或
+- `BYOK_API_KEY`（OpenAI/Anthropic 自带 Key 路径）。
+
+如果两者都未配置，模型列表将不会出现。
 
 ---
 

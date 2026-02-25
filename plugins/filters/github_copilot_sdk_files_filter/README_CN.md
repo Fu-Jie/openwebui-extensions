@@ -1,10 +1,15 @@
 # GitHub Copilot SDK 文件过滤器
 
-**作者:** [Fu-Jie](https://github.com/Fu-Jie/openwebui-extensions) | **版本:** 0.1.2 | **项目:** [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions) | **许可证:** MIT
+**作者:** [Fu-Jie](https://github.com/Fu-Jie/openwebui-extensions) | **版本:** 0.1.3 | **项目:** [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions) | **许可证:** MIT
 
 这是一个专门为 [GitHub Copilot SDK Pipe](https://openwebui.com/posts/github_copilot_official_sdk_pipe_ce96f7b4) 设计的**伴侣过滤器插件**。
 
 它的核心使命是：**保护用户上传的文件不被 OpenWebUI 核心系统“抢先处理”，确保 Copilot Agent 能够接收到原始文件并进行自主分析。**
+
+## ✨ 0.1.3 更新内容 (What's New)
+
+- **🔍 BYOK 模型 ID 匹配修复**: 新增前缀匹配（`github_copilot_official_sdk_pipe.xxx` 格式），修复 BYOK 模型无法被正确识别的问题，关键词兜底保持向后兼容。(v0.1.3)
+- **🐛 双通道调试日志**: 新增 `show_debug_log` 配置项，启用后同时向后端日志和浏览器控制台（`console.group`）输出调试信息。(v0.1.3)
 
 ## 🎯 为什么需要它？
 
@@ -47,5 +52,5 @@
 
 ## ⚠️ 注意事项
 
-* **必须配合 Copilot SDK Pipe 使用**：如果你没有安装主 Pipe 插件，本插件将导致上传的文件“凭空消失”。
-* **Gemini Filter 兼容性**：已完美兼容 Gemini 多模态过滤器。只要优先级设置正确，它们可以共存互不干扰。
+- **必须配合 Copilot SDK Pipe 使用**：如果你没有安装主 Pipe 插件，本插件将导致上传的文件“凭空消失”。
+- **Gemini Filter 兼容性**：已完美兼容 Gemini 多模态过滤器。只要优先级设置正确，它们可以共存互不干扰。
