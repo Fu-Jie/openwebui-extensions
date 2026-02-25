@@ -36,6 +36,33 @@ This folder contains reusable Agent Skills for GitHub Copilot / VS Code custom a
   - Purpose: Single-file spreadsheet operations workflow without LibreOffice.
   - Entry: `xlsx-single-file/SKILL.md`
 
+---
+
+## Release Pipeline Skills
+
+These four skills form a complete release pipeline and are designed to be used in sequence:
+
+```
+release-prep  →  pr-submitter  →  pr-reviewer  →  release-finalizer
+ (prepare)       (push & PR)      (respond to review)  (merge & close issue)
+```
+
+- **release-prep**
+  - Purpose: Full release preparation — version sync across 7+ files, bilingual release notes creation, consistency check, and commit.
+  - Entry: `release-prep/SKILL.md`
+
+- **pr-submitter**
+  - Purpose: Shell-escape-safe PR submission — writes body to temp file, validates sections, pushes branch, creates PR via `gh pr create --body-file`.
+  - Entry: `pr-submitter/SKILL.md`
+
+- **pr-reviewer**
+  - Purpose: Fetch PR review comments, categorize feedback, implement fixes, commit and push, reply to reviewers.
+  - Entry: `pr-reviewer/SKILL.md`
+
+- **release-finalizer**
+  - Purpose: Merge release PR to main with proper commit message, auto-link and close related issues, post closing messages.
+  - Entry: `release-finalizer/SKILL.md`
+
 ## Notes
 
 - Skill definitions follow the expected location pattern:
