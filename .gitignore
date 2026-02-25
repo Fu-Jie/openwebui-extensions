@@ -136,6 +136,8 @@ logs/
 # Temporary files
 *.tmp
 *.temp
+.temp/
+.build/
 
 # OpenWebUI specific
 # Add any specific ignores for OpenWebUI plugins if needed

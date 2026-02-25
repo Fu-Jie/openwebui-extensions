@@ -20,6 +20,13 @@ This skill covers:
 
 It **stops before** `git push` or `gh pr create`. Use the `pr-submitter` skill for those steps.
 
+### Temporary File Convention
+
+Any temporary files created during release prep (e.g., draft changelogs) must:
+- Be written to the project's `.temp/` directory, **NOT** system `/tmp`
+- Be cleaned up before commit using `rm -f .temp/file_name`
+- Never be committed to git (add `.temp/` to `.gitignore`)
+
 ---
 
 ## Workflow
