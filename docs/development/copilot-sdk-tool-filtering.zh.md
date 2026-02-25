@@ -158,11 +158,6 @@ for server in connections:
         continue  # 立即跳过，硬性拦截
 ```
 
-    if not is_enabled:
-        continue  # 立即跳过，硬性拦截
-
-```
-
 ### 2. 内置工具直接透传给 OpenWebUI 处理
 
 插件调用 OpenWebUI 的 `get_builtin_tools(request, extra_params, model)` 时，将 `model` 原样传入即可。OpenWebUI 内部会自动读取 `model.info.meta.builtinTools` 来决定哪些内置工具生效：
