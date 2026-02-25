@@ -16,7 +16,7 @@ This is an advanced Pipe function for [OpenWebUI](https://github.com/open-webui/
 
 ## ✨ v0.9.0 Updates (What's New)
 
-- **🛠️ Workspace Skills Support**: Define custom tools directly in your workspace's `.copilot-skills/` directory using the `@define_tool` decorator. The SDK will auto-discover and register them. See [Workspace Skills Guide](#workspace-skills) for details. (v0.9.0)
+- **🛠️ Workspace Custom Tools**: Define custom tools directly in your workspace's `.copilot-skills/` directory using the `@define_tool` decorator. The SDK will auto-discover and register them. See [Workspace Custom Tools Guide](#workspace-custom-tools) for details. (v0.9.0)
 
 ---
 

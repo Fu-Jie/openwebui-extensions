@@ -197,9 +197,9 @@ class Pipe:
             default=True,
             description="Enable Direct MCP Client connection (Recommended).",
         )
-        ENABLE_WORKSPACE_SKILLS: bool = Field(
+        ENABLE_WORKSPACE_TOOLS: bool = Field(
             default=True,
-            description="Enable loading custom tools from {workspace}/.copilot-skills/ directory. Skills are auto-discovered and registered by the SDK.",
+            description="Enable loading custom tools from {workspace}/.copilot-skills/ directory. Tools are auto-discovered and registered by the SDK.",
         )
         REASONING_EFFORT: Literal["low", "medium", "high", "xhigh"] = Field(
             default="medium",
@@ -2166,11 +2166,11 @@ class Pipe:
             cwd=resolved_cwd, __event_call__=__event_call__
         )
 
-        # Enable workspace skills if configured
-        if self.valves.ENABLE_WORKSPACE_SKILLS:
-            workspace_skills_dir = str(Path(resolved_cwd) / ".copilot-skills")
-            if Path(workspace_skills_dir).exists():
-                session_params["skill_directories"] = [workspace_skills_dir]
+        # Enable workspace custom tools if configured
+        if self.valves.ENABLE_WORKSPACE_TOOLS:
+            workspace_tools_dir = str(Path(resolved_cwd) / ".copilot-skills")
+            if Path(workspace_tools_dir).exists():
+                session_params["skill_directories"] = [workspace_tools_dir]
 
         return SessionConfig(**session_params)
 

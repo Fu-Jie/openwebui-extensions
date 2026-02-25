@@ -44,7 +44,7 @@
 
 - **🔑 灵活鉴权与 BYOK**: 支持 GitHub Copilot 官方订阅 (PAT) 或自带 Key (OpenAI/Anthropic)。
 - **🔌 通用工具协议**: 原生支持 **MCP (Model Context Protocol)**、OpenAPI 以及 OpenWebUI 内置工具。
-- **�️ 工作区技能**: 在 `.copilot-skills/` 目录中使用 `@define_tool` 装饰器定义自定义工具，SDK 自动发现和注册。
+- **🛠️ 工作区自定义工具**: 在 `.copilot-skills/` 目录中使用 `@define_tool` 装饰器定义自定义工具。SDK 自动发现和注册。
 - **�🛡️ 物理级工作区隔离**: 强制执行严格的用户特定沙箱，确保数据隐私与文件安全。
 - **♾️ 无限会话管理**: 智能上下文窗口管理与自动压缩算法，支持无限时长的对话交互。
 - **🧠 深度数据库集成**: 实时持久化 TOD·O 列表到 UI 进度条。
@@ -79,7 +79,7 @@
 | `ENABLE_OPENWEBUI_TOOLS` | `True` | 启用 OpenWebUI 工具 (包括定义工具和内置工具)。 |
 | `ENABLE_OPENAPI_SERVER` | `True` | 启用 OpenAPI 工具服务器连接。 |
 | `ENABLE_MCP_SERVER` | `True` | 启用直接 MCP 客户端连接 (推荐)。 |
-| `ENABLE_WORKSPACE_SKILLS` | `True` | 启用从 `{workspace}/.copilot-skills/` 目录加载自定义工具。技能由 SDK 自动发现。 |
+| `ENABLE_WORKSPACE_TOOLS` | `True` | 启用从 `{workspace}/.copilot-skills/` 目录加载自定义工具。工具由 SDK 自动发现。 |
 | `REASONING_EFFORT` | `medium` | 推理强度：low, medium, high。 |
 | `SHOW_THINKING` | `True` | 显示模型推理/思考过程。 |
 | `INFINITE_SESSION` | `True` | 启用无限会话 (自动上下文压缩)。 |

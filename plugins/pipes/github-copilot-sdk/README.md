@@ -16,7 +16,7 @@ This is an advanced Pipe function for [OpenWebUI](https://github.com/open-webui/
 
 ## ✨ v0.9.0 Updates (What's New)
 
-- **🛠️ Workspace Skills Support**: Define custom tools directly in your workspace's `.copilot-skills/` directory using the `@define_tool` decorator. The SDK will auto-discover and register them. See [Workspace Skills Guide](#workspace-skills) for details. (v0.9.0)
+- **🛠️ Workspace Custom Tools**: Define custom tools directly in your workspace's `.copilot-skills/` directory using the `@define_tool` decorator. The SDK will auto-discover and register them. See [Workspace Custom Tools Guide](#workspace-custom-tools) for details. (v0.9.0)
 
 ---
 
@@ -44,7 +44,7 @@ This is an advanced Pipe function for [OpenWebUI](https://github.com/open-webui/
 
 - **🔑 Flexible Auth & BYOK**: Official Copilot subscriptions (PAT) or Bring Your Own Key (OpenAI/Anthropic).
 - **🔌 Universal Tool Protocol**: Native support for **MCP (Model Context Protocol)**, OpenAPI, and OpenWebUI built-in tools.
-- **�️ Workspace Skills**: Define custom tools in `.copilot-skills/` directory using `@define_tool` decorator. Auto-discovered and registered by the SDK.
+- **🛠️ Workspace Custom Tools**: Define custom tools in `.copilot-skills/` directory using `@define_tool` decorator. Auto-discovered and registered by the SDK.
 - **�🛡️ Sandbox Workspace Isolation**: Strict per-session sandboxing for data privacy and security.
 - **♾️ Infinite Session Management**: Smart context window management with automatic compaction for indefinite conversation capability.
 - **🧠 Deep Database Integration**: Real-time persistence of TOD·O lists for long-running workflows.
@@ -79,7 +79,7 @@ Administrators define the default behavior for all users in the function setting
 | `ENABLE_OPENWEBUI_TOOLS` | `True` | Enable OpenWebUI Tools (includes defined Tools and Built-in Tools). |
 | `ENABLE_OPENAPI_SERVER` | `True` | Enable OpenAPI Tool Server connection. |
 | `ENABLE_MCP_SERVER` | `True` | Enable Direct MCP Client connection (Recommended). |
-| `ENABLE_WORKSPACE_SKILLS` | `True` | Enable loading custom tools from `{workspace}/.copilot-skills/` directory. Skills are auto-discovered by the SDK. |
+| `ENABLE_WORKSPACE_TOOLS` | `True` | Enable loading custom tools from `{workspace}/.copilot-skills/` directory. Tools are auto-discovered by the SDK. |
 | `REASONING_EFFORT` | `medium` | Reasoning effort level: low, medium, high. |
 | `SHOW_THINKING` | `True` | Show model reasoning/thinking process. |
 | `INFINITE_SESSION` | `True` | Enable Infinite Sessions (automatic context compaction). |
@@ -107,9 +107,9 @@ Standard users can override these settings in their individual Profile/Function 
 
 ---
 
-## 🛠️ Workspace Skills
+## 🛠️ Workspace Custom Tools
 
-With Workspace Skills, you can define custom tools directly in your workspace without modifying the plugin code. The SDK will automatically discover and register them for use in conversations.
+With Workspace Custom Tools, you can define custom tools directly in your workspace without modifying the plugin code. The SDK will automatically discover and register them for use in conversations.
 
 ### Setup
 
@@ -139,13 +139,13 @@ With Workspace Skills, you can define custom tools directly in your workspace wi
        return {"results": [...]}
    ```
 
-4. Enable `ENABLE_WORKSPACE_SKILLS` in Valves (default: ON).
+4. Enable `ENABLE_WORKSPACE_TOOLS` in Valves (default: ON).
 
-5. Start a conversation and use your custom tools: *"Use the search_custom_db tool to find..."*
+5. Start a conversation and use your custom tools in the Agent conversation.
 
-### Examples
+### Code Examples
 
-**Example: Custom Web Search Tool**
+**Example 1: Custom Web Search Tool**
 ```python
 from copilot import define_tool
 
