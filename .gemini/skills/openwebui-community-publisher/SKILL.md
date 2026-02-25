@@ -7,7 +7,9 @@ description: Automatically publishes plugin update posts to openwebui.com.
 
 ## Overview
 
-This skill automates the process of publishing plugin release notes and announcements directly to the OpenWebUI Community (openwebui.com).
+This skill automates the process of creating **new** plugin release notes and announcements directly on the OpenWebUI Community (openwebui.com).
+
+**Note**: This skill is exclusively for **new post creation**. Do NOT use this for updating existing posts, as updates are managed separately via dedicated scripts.
 
 ## Prerequisites
 
