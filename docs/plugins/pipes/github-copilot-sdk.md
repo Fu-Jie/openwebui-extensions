@@ -1,6 +1,6 @@
 # GitHub Copilot SDK Pipe for OpenWebUI
 
-**Author:** [Fu-Jie](https://github.com/Fu-Jie) | **Version:** 0.8.0 | **Project:** [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions) | **License:** MIT
+**Author:** [Fu-Jie](https://github.com/Fu-Jie) | **Version:** 0.9.0 | **Project:** [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions) | **License:** MIT
 
 This is an advanced Pipe function for [OpenWebUI](https://github.com/open-webui/open-webui) that integrates the official [GitHub Copilot SDK](https://github.com/github/copilot-sdk). It enables you to use **GitHub Copilot models** (e.g., `gpt-5.2-codex`, `claude-sonnet-4.5`,`gemini-3-pro`, `gpt-5-mini`) **AND** your own models via **BYOK** (OpenAI, Anthropic) directly within OpenWebUI, providing a unified agentic experience with **strict User & Chat-level Workspace Isolation**.
 
@@ -14,7 +14,13 @@ This is an advanced Pipe function for [OpenWebUI](https://github.com/open-webui/
 
 ---
 
-## ✨ v0.8.0 Updates (What's New)
+## ✨ v0.9.0 Updates (What's New)
+
+- **🛠️ Workspace Skills Support**: Define custom tools directly in your workspace's `.copilot-skills/` directory using the `@define_tool` decorator. The SDK will auto-discover and register them. See [Workspace Skills Guide](#workspace-skills) for details. (v0.9.0)
+
+---
+
+## ✨ v0.8.0 Updates (Archive)
 
 - **🎛️ Conditional Tool Filtering (P1~P4)**: Four-priority tool permission system. **Default ON**: If no tools are selected in Chat UI (P4), all enabled tools are active. **Whitelist Mode**: Once specific tools are checked, the whitelist strictly filters both OpenWebUI tools and MCP servers. Admin-level `config.enable` (P2) allows global server disabling. (v0.8.0)
 - **🔧 File Publish Reliability**: Fixed `Error getting file content` across all storage backends (local/S3/GCS/Azure) by using `Storage.upload_file()` directly in the fallback path. HTML files are no longer blocked by `ALLOWED_FILE_EXTENSIONS` (`?process=false` always applied). (v0.8.0)

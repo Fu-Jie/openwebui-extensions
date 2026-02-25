@@ -5,7 +5,7 @@ author_url: https://github.com/Fu-Jie/openwebui-extensions
 funding_url: https://github.com/open-webui
 openwebui_id: ce96f7b4-12fc-4ac3-9a01-875713e69359
 description: Integrate GitHub Copilot SDK. Supports dynamic models, multi-turn conversation, streaming, multimodal input, infinite sessions, and frontend debug logging.
-version: 0.8.0
+version: 0.9.0
 requirements: github-copilot-sdk==0.1.25
 """
 
@@ -196,6 +196,10 @@ class Pipe:
         ENABLE_MCP_SERVER: bool = Field(
             default=True,
             description="Enable Direct MCP Client connection (Recommended).",
+        )
+        ENABLE_WORKSPACE_SKILLS: bool = Field(
+            default=True,
+            description="Enable loading custom tools from {workspace}/.copilot-skills/ directory. Skills are auto-discovered and registered by the SDK.",
         )
         REASONING_EFFORT: Literal["low", "medium", "high", "xhigh"] = Field(
             default="medium",
@@ -2161,6 +2165,12 @@ class Pipe:
         session_params["hooks"] = self._build_session_hooks(
             cwd=resolved_cwd, __event_call__=__event_call__
         )
+
+        # Enable workspace skills if configured
+        if self.valves.ENABLE_WORKSPACE_SKILLS:
+            workspace_skills_dir = str(Path(resolved_cwd) / ".copilot-skills")
+            if Path(workspace_skills_dir).exists():
+                session_params["skill_directories"] = [workspace_skills_dir]
 
         return SessionConfig(**session_params)
 

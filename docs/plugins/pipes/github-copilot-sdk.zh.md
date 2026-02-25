@@ -14,7 +14,13 @@
 
 ---
 
-## ✨ 0.8.0 更新内容 (What's New)
+## ✨ 0.9.0 更新内容 (What's New)
+
+- **🛠️ 工作区技能支持**: 在工作区的 `.copilot-skills/` 目录中使用 `@define_tool` 装饰器定义自定义工具。SDK 会自动发现并注册它们。详见 [工作区技能指南](#工作区技能) 部分。(v0.9.0)
+
+---
+
+## ✨ 0.8.0 更新内容 (存档)
 
 - **🎛️ 条件工具过滤 (P1~P4)**: 四优先级工具权限体系。**默认全开**: 若未在 Chat UI (P4) 勾选任何工具，则默认启用所有工具；**白名单模式**: 一旦勾选特定工具，即刻进入严格过滤模式，且 MCP server 同步受控；管理员亦可通过 `config.enable` (P2) 全局禁用工具服务器。(v0.8.0)
 - **🔧 文件发布全面修复**: 通过在回退路径直接调用 `Storage.upload_file()`，彻底修复了所有存储后端（local/S3/GCS/Azure）下的 `Error getting file content` 问题；同时上传时自动携带 `?process=false`，HTML 文件不再被 `ALLOWED_FILE_EXTENSIONS` 拦截。(v0.8.0)

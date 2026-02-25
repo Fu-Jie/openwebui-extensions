@@ -1,6 +1,6 @@
 # GitHub Copilot SDK 官方管道
 
-**作者:** [Fu-Jie](https://github.com/Fu-Jie/openwebui-extensions) | **版本:** 0.8.0 | **项目:** [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions) | **许可证:** MIT
+**作者:** [Fu-Jie](https://github.com/Fu-Jie/openwebui-extensions) | **版本:** 0.9.0 | **项目:** [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions) | **许可证:** MIT
 
 这是一个用于 [OpenWebUI](https://github.com/open-webui/open-webui) 的高级 Pipe 函数，深度集成了 **GitHub Copilot SDK**。它不仅支持 **GitHub Copilot 官方模型**（如 `gpt-5.2-codex`, `claude-sonnet-4.5`, `gemini-3-pro`, `gpt-5-mini`），还支持 **BYOK (自带 Key)** 模式对接自定义服务商（OpenAI, Anthropic），并具备**严格的用户与会话级工作区隔离**能力，提供统一且安全的 Agent 交互体验。
 
@@ -14,7 +14,13 @@
 
 ---
 
-## ✨ 0.8.0 更新内容 (What's New)
+## ✨ 0.9.0 更新内容 (What's New)
+
+- **🛠️ 工作区技能 (Workspace Skills)**: 直接在工作区的 `.copilot-skills/` 目录中使用 `@define_tool` 装饰器定义自定义工具。SDK 会自动发现并注册它们。详见 [工作区技能指南](#工作区技能) 部分。(v0.9.0)
+
+---
+
+## ✨ 0.8.0 更新内容 (存档)
 
 - **🎛️ 条件工具过滤 (P1~P4)**: 四优先级工具权限体系。**默认全开**: 若未在 Chat UI (P4) 勾选任何工具，则默认启用所有工具；**白名单模式**: 一旦勾选特定工具，即刻进入严格过滤模式，且 MCP server 同步受控；管理员亦可通过 `config.enable` (P2) 全局禁用工具服务器。(v0.8.0)
 - **🔧 文件发布全面修复**: 通过在回退路径直接调用 `Storage.upload_file()`，彻底修复了所有存储后端（local/S3/GCS/Azure）下的 `Error getting file content` 问题；同时上传时自动携带 `?process=false`，HTML 文件不再被 `ALLOWED_FILE_EXTENSIONS` 拦截。(v0.8.0)
@@ -38,7 +44,8 @@
 
 - **🔑 灵活鉴权与 BYOK**: 支持 GitHub Copilot 官方订阅 (PAT) 或自带 Key (OpenAI/Anthropic)。
 - **🔌 通用工具协议**: 原生支持 **MCP (Model Context Protocol)**、OpenAPI 以及 OpenWebUI 内置工具。
-- **🛡️ 物理级工作区隔离**: 强制执行严格的用户特定沙箱，确保数据隐私与文件安全。
+- **�️ 工作区技能**: 在 `.copilot-skills/` 目录中使用 `@define_tool` 装饰器定义自定义工具，SDK 自动发现和注册。
+- **�🛡️ 物理级工作区隔离**: 强制执行严格的用户特定沙箱，确保数据隐私与文件安全。
 - **♾️ 无限会话管理**: 智能上下文窗口管理与自动压缩算法，支持无限时长的对话交互。
 - **🧠 深度数据库集成**: 实时持久化 TOD·O 列表到 UI 进度条。
 - **🌊 深度推理展示**: 完整支持模型思考过程 (Thinking Process) 的流式渲染。
@@ -72,6 +79,7 @@
 | `ENABLE_OPENWEBUI_TOOLS` | `True` | 启用 OpenWebUI 工具 (包括定义工具和内置工具)。 |
 | `ENABLE_OPENAPI_SERVER` | `True` | 启用 OpenAPI 工具服务器连接。 |
 | `ENABLE_MCP_SERVER` | `True` | 启用直接 MCP 客户端连接 (推荐)。 |
+| `ENABLE_WORKSPACE_SKILLS` | `True` | 启用从 `{workspace}/.copilot-skills/` 目录加载自定义工具。技能由 SDK 自动发现。 |
 | `REASONING_EFFORT` | `medium` | 推理强度：low, medium, high。 |
 | `SHOW_THINKING` | `True` | 显示模型推理/思考过程。 |
 | `INFINITE_SESSION` | `True` | 启用无限会话 (自动上下文压缩)。 |
@@ -142,7 +150,79 @@
 
 ---
 
-## 📋 常见问题与依赖 (Troubleshooting)
+## �️ 工作区技能
+
+通过工作区技能功能，您可以直接在工作区中定义自定义工具，无需修改插件代码。SDK 会自动发现并注册它们供对话使用。
+
+### 设置步骤
+
+1. 在工作区根目录创建 `.copilot-skills/` 目录：
+   ```
+   your-workspace/
+   └── .copilot-skills/
+       ├── custom_search.py          # 您的自定义工具
+       ├── data_processor.py         # 更多工具
+       └── README.md                 # 可选：使用指南
+   ```
+
+2. 复制 `workspace_skills_example.py`（从插件目录）到 `.copilot-skills/` 作为模板参考。
+
+3. 使用 `@define_tool` 装饰器定义工具：
+   ```python
+   from pydantic import BaseModel, Field
+   from copilot import define_tool
+
+   class SearchParams(BaseModel):
+       query: str = Field(..., description="搜索查询")
+       limit: int = Field(default=10, description="最大结果数")
+
+   @define_tool(description="搜索您的自定义数据库")
+   async def search_custom_db(query: str, limit: int = 10) -> dict:
+       # 您的实现
+       return {"results": [...]}
+   ```
+
+4. 在 Valves 中启用 `ENABLE_WORKSPACE_SKILLS`（默认启用）。
+
+5. 开始对话并使用您的自定义工具：*"使用 search_custom_db 工具搜索..."*
+
+### 示例
+
+**示例 1：自定义网页搜索工具**
+```python
+from copilot import define_tool
+
+@define_tool(description="使用自定义 API 搜索网页")
+async def web_search(query: str, limit: int = 5) -> dict:
+    import httpx  # 或其他 HTTP 客户端
+    # 实现搜索逻辑
+    return {"results": [...]}
+```
+
+**示例 2：本地数据库查询工具**
+```python
+from pydantic import BaseModel, Field
+from copilot import define_tool
+
+class QueryParams(BaseModel):
+    sql: str = Field(..., description="SQL 查询")
+
+@define_tool(description="查询本地数据库")
+async def query_database(sql: str) -> dict:
+    # 连接数据库并执行查询
+    return {"data": [...]}
+```
+
+### 限制条件
+
+- 工具必须使用 `copilot` 模块提供的 `@define_tool` 装饰器定义。
+- 工具必须是异步函数或可调用对象。
+- 外部依赖应在 OpenWebUI 环境中安装。
+- 工具名称会自动转换为 snake_case 格式。
+
+---
+
+## �📋 常见问题与依赖 (Troubleshooting)
 
 - **Agent 无法识别文件？**: 请确保已安装并启用了 Files Filter 插件，否则原始文件会被 RAG 干扰。
 - **看不到 TODO 进度条？**: 进度条仅在 Agent 使用 `update_todo` 工具（通常是处理复杂任务）时出现。

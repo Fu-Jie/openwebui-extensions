@@ -1,6 +1,6 @@
 # GitHub Copilot SDK Pipe for OpenWebUI
 
-**Author:** [Fu-Jie](https://github.com/Fu-Jie) | **Version:** 0.8.0 | **Project:** [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions) | **License:** MIT
+**Author:** [Fu-Jie](https://github.com/Fu-Jie) | **Version:** 0.9.0 | **Project:** [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions) | **License:** MIT
 
 This is an advanced Pipe function for [OpenWebUI](https://github.com/open-webui/open-webui) that integrates the official [GitHub Copilot SDK](https://github.com/github/copilot-sdk). It enables you to use **GitHub Copilot models** (e.g., `gpt-5.2-codex`, `claude-sonnet-4.5`,`gemini-3-pro`, `gpt-5-mini`) **AND** your own models via **BYOK** (OpenAI, Anthropic) directly within OpenWebUI, providing a unified agentic experience with **strict User & Chat-level Workspace Isolation**.
 
@@ -14,7 +14,13 @@ This is an advanced Pipe function for [OpenWebUI](https://github.com/open-webui/
 
 ---
 
-## ✨ v0.8.0 Updates (What's New)
+## ✨ v0.9.0 Updates (What's New)
+
+- **🛠️ Workspace Skills Support**: Define custom tools directly in your workspace's `.copilot-skills/` directory using the `@define_tool` decorator. The SDK will auto-discover and register them. See [Workspace Skills Guide](#workspace-skills) for details. (v0.9.0)
+
+---
+
+## ✨ v0.8.0 Updates (Archive)
 
 - **🎛️ Conditional Tool Filtering (P1~P4)**: Four-priority tool permission system. **Default ON**: If no tools are selected in Chat UI (P4), all enabled tools are active. **Whitelist Mode**: Once specific tools are checked, the whitelist strictly filters both OpenWebUI tools and MCP servers. Admin-level `config.enable` (P2) allows global server disabling. (v0.8.0)
 - **🔧 File Publish Reliability**: Fixed `Error getting file content` across all storage backends (local/S3/GCS/Azure) by using `Storage.upload_file()` directly in the fallback path. HTML files are no longer blocked by `ALLOWED_FILE_EXTENSIONS` (`?process=false` always applied). (v0.8.0)
@@ -38,7 +44,8 @@ This is an advanced Pipe function for [OpenWebUI](https://github.com/open-webui/
 
 - **🔑 Flexible Auth & BYOK**: Official Copilot subscriptions (PAT) or Bring Your Own Key (OpenAI/Anthropic).
 - **🔌 Universal Tool Protocol**: Native support for **MCP (Model Context Protocol)**, OpenAPI, and OpenWebUI built-in tools.
-- **🛡️ Sandbox Workspace Isolation**: Strict per-session sandboxing for data privacy and security.
+- **�️ Workspace Skills**: Define custom tools in `.copilot-skills/` directory using `@define_tool` decorator. Auto-discovered and registered by the SDK.
+- **�🛡️ Sandbox Workspace Isolation**: Strict per-session sandboxing for data privacy and security.
 - **♾️ Infinite Session Management**: Smart context window management with automatic compaction for indefinite conversation capability.
 - **🧠 Deep Database Integration**: Real-time persistence of TOD·O lists for long-running workflows.
 - **🌊 Advanced Streaming**: Full support for thinking process/Chain of Thought visualization.
@@ -72,6 +79,7 @@ Administrators define the default behavior for all users in the function setting
 | `ENABLE_OPENWEBUI_TOOLS` | `True` | Enable OpenWebUI Tools (includes defined Tools and Built-in Tools). |
 | `ENABLE_OPENAPI_SERVER` | `True` | Enable OpenAPI Tool Server connection. |
 | `ENABLE_MCP_SERVER` | `True` | Enable Direct MCP Client connection (Recommended). |
+| `ENABLE_WORKSPACE_SKILLS` | `True` | Enable loading custom tools from `{workspace}/.copilot-skills/` directory. Skills are auto-discovered by the SDK. |
 | `REASONING_EFFORT` | `medium` | Reasoning effort level: low, medium, high. |
 | `SHOW_THINKING` | `True` | Show model reasoning/thinking process. |
 | `INFINITE_SESSION` | `True` | Enable Infinite Sessions (automatic context compaction). |
@@ -96,6 +104,78 @@ Standard users can override these settings in their individual Profile/Function 
 | `MAX_MULTIPLIER` | Maximum allowed billing multiplier override. |
 | `EXCLUDE_KEYWORDS` | Exclude models containing these keywords. |
 | `BYOK_API_KEY` | Use your personal OpenAI/Anthropic API Key. |
+
+---
+
+## 🛠️ Workspace Skills
+
+With Workspace Skills, you can define custom tools directly in your workspace without modifying the plugin code. The SDK will automatically discover and register them for use in conversations.
+
+### Setup
+
+1. Create a `.copilot-skills/` directory at the root of your workspace:
+   ```
+   your-workspace/
+   └── .copilot-skills/
+       ├── custom_search.py       # Your custom tools
+       ├── data_processor.py      # More tools
+       └── README.md              # Optional: usage guide
+   ```
+
+2. Copy `workspace_skills_example.py` (from the plugin directory) to `.copilot-skills/` as a starting template.
+
+3. Define tools using `@define_tool` decorator:
+   ```python
+   from pydantic import BaseModel, Field
+   from copilot import define_tool
+
+   class SearchParams(BaseModel):
+       query: str = Field(..., description="Search query")
+       limit: int = Field(default=10, description="Max results")
+
+   @define_tool(description="Search your custom database")
+   async def search_custom_db(query: str, limit: int = 10) -> dict:
+       # Your implementation
+       return {"results": [...]}
+   ```
+
+4. Enable `ENABLE_WORKSPACE_SKILLS` in Valves (default: ON).
+
+5. Start a conversation and use your custom tools: *"Use the search_custom_db tool to find..."*
+
+### Examples
+
+**Example: Custom Web Search Tool**
+```python
+from copilot import define_tool
+
+@define_tool(description="Search the web using your custom API")
+async def web_search(query: str, limit: int = 5) -> dict:
+    import httpx  # or your preferred HTTP client
+    # Implement search logic
+    return {"results": [...]}
+```
+
+**Example: Local Database Query Tool**
+```python
+from pydantic import BaseModel, Field
+from copilot import define_tool
+
+class QueryParams(BaseModel):
+    sql: str = Field(..., description="SQL query")
+
+@define_tool(description="Query local database")
+async def query_database(sql: str) -> dict:
+    # Connect to your database and execute query
+    return {"data": [...]}
+```
+
+### Limitations
+
+- Tools must be defined using the `@define_tool` decorator from `copilot` module.
+- Tools must be async functions or callable objects.
+- External dependencies should be installed in your OpenWebUI environment.
+- Tool names are automatically converted to snake_case.
 
 ---
 
