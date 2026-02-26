@@ -117,7 +117,7 @@ System Prompts are managed in the `docs/prompts/` directory:
 
 Standalone frontend extensions to supercharge your Open WebUI:
 
-- **[Open WebUI Prompt Plus](https://github.com/Fu-Jie/open-webui-prompt-plus)**: An all-in-one prompt management suite featuring AI-powered prompt generation, spotlight-style quick search, and advanced category organization.
+- **[Open WebUI Prompt Plus](https://github.com/Fu-Jie/open-webui-prompt-plus)** [![Newsletter](https://img.shields.io/badge/OpenWebUI_Newsletter-Featured-blue?style=flat-square)](https://openwebui.com/blog/newsletter-january-28-2026): An all-in-one prompt management suite featuring AI-powered prompt generation, spotlight-style quick search, and advanced category organization.
 
 ## 📖 Documentation
 

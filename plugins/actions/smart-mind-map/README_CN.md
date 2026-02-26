@@ -4,6 +4,8 @@
 
 **作者:** [Fu-Jie](https://github.com/Fu-Jie) | **版本:** 1.0.0 | **项目:** [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions) | **许可证:** MIT
 
+> 🏆 **OpenWebUI 官方推荐** — 本插件获得 OpenWebUI 社区 Newsletter 官方推荐：[2026 年 2 月 3 日](https://openwebui.com/blog/open-webui-community-newsletter-february-3rd-2026)
+
 ## v1.0.0 最新更新
 
 ### 嵌入式直出与 UI 细节全线重构

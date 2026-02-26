@@ -5,6 +5,8 @@
 
 智能分析文本内容，生成交互式思维导图，帮助你更直观地理解信息结构。
 
+> 🏆 **OpenWebUI 官方推荐** — 获得 OpenWebUI 社区 Newsletter 官方推荐：[2026 年 2 月 3 日](https://openwebui.com/blog/open-webui-community-newsletter-february-3rd-2026)
+
 ---
 
 ## 概览

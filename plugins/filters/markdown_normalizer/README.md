@@ -4,6 +4,8 @@
 
 A content normalizer filter for Open WebUI that fixes common Markdown formatting issues in LLM outputs. It ensures that code blocks, LaTeX formulas, Mermaid diagrams, and other Markdown elements are rendered correctly.
 
+> 🏆 **Featured by OpenWebUI Official** — This plugin was recommended in the official OpenWebUI Community Newsletter: [January 28, 2026](https://openwebui.com/blog/newsletter-january-28-2026)
+
 ## 🔥 What's New in v1.2.7
 
 * **LaTeX Formula Protection**: Enhanced escape character cleaning to protect LaTeX commands like `\times`, `\nu`, and `\theta` from being corrupted.
