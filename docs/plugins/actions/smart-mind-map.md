@@ -5,7 +5,7 @@
 
 Intelligently analyzes text content and generates interactive mind maps for better visualization and understanding.
 
-> 🏆 **Featured by OpenWebUI Official** — Recommended in the official OpenWebUI Community Newsletter: [January 28, 2026](https://openwebui.com/blog/newsletter-january-28-2026) · [February 3, 2026](https://openwebui.com/blog/open-webui-community-newsletter-february-3rd-2026)
+> 🏆 **Featured by OpenWebUI Official** — Recommended in the official OpenWebUI Community Newsletter: [February 3, 2026](https://openwebui.com/blog/open-webui-community-newsletter-february-3rd-2026)
 
 ---
 
