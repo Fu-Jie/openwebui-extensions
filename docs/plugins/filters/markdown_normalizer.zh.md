@@ -4,6 +4,8 @@
 
 这是一个用于 Open WebUI 的内容格式化过滤器，旨在修复 LLM 输出中常见的 Markdown 格式问题。它能确保代码块、LaTeX 公式、Mermaid 图表和其他 Markdown 元素被正确渲染。
 
+> 🏆 **OpenWebUI 官方推荐** — 获得 OpenWebUI 社区 Newsletter 官方推荐：[2026 年 1 月 28 日](https://openwebui.com/blog/newsletter-january-28-2026) · [2026 年 2 月 3 日](https://openwebui.com/blog/open-webui-community-newsletter-february-3rd-2026)
+
 ## 🔥 最新更新 v1.2.7
 
 * **LaTeX 公式保护**: 增强了转义字符清理逻辑，自动保护 `$ $` 或 `$$ $$` 内的 LaTeX 命令（如 `\times`、`\nu`、`\theta`），防止渲染失效。
