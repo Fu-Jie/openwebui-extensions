@@ -56,7 +56,7 @@ A collection of enhancements, plugins, and prompts for [OpenWebUI](https://githu
 
 #### 📺 Demo: Visual Skills & Data Analysis
 
-![GitHub Copilot SDK Skill Demo](./docs/assets/videos/skill_visual_agents.mov)
+<video src="./docs/assets/videos/skill_visual_agents.mov" controls="controls" style="max-width: 100%; border-radius: 12px;"></video>
 > *In this demo, the Agent installs a visual enhancement skill and automatically generates an interactive dashboard from World Cup data.*
 
 #### 🌟 Featured Real-World Cases
