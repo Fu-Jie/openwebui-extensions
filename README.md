@@ -54,6 +54,11 @@ A collection of enhancements, plugins, and prompts for [OpenWebUI](https://githu
 - **📊 Interactive Delivery**: Professional **File Delivery Protocol** for instant HTML artifacts and persistent downloadable results.
 - **🛠️ Deterministic Toolchain**: Built-in specialized tools for skill lifecycles (`manage_skills`) and system optimization.
 
+#### 📺 Demo: Visual Skills & Data Analysis
+
+![GitHub Copilot SDK Skill Demo](./docs/assets/videos/skill_visual_agents.mov)
+> *In this demo, the Agent installs a visual enhancement skill and automatically generates an interactive dashboard from World Cup data.*
+
 #### 🌟 Featured Real-World Cases
 
 - **[GitHub Star Forecasting](./docs/plugins/pipes/star-prediction-example.md)**: Automatically parsing CSV data, writing analysis scripts, and generating interactive growth dashboards.
