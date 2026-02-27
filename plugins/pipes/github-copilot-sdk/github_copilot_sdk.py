@@ -157,7 +157,7 @@ BASE_GUIDELINES = (
     "   - **Artifacts mode** (`embed_type='artifacts'`): You MUST provide the **[Preview]** and **[Download]** links, AND then you MUST output the provided `html_embed` (the iframe) wrapped within a ```html code block to enable the interactive preview.\n"
     "   - **Process Visibility**: While raw code is often replaced by links/frames, you SHOULD provide a **very brief Markdown summary** of the component's structure or key features (e.g., 'Generated login form with validation') before publishing. This keeps the user informed of the 'processing' progress.\n"
     "   - **Game/App Controls**: If your HTML includes keyboard controls (e.g., arrow keys, spacebar for games), you MUST include `event.preventDefault()` in your `keydown` listeners to prevent the parent browser page from scrolling.\n"
-    "4. **Images & Files**: ALWAYS embed generated images (including GIF files) directly using `![caption](url)`. GIF files are treated as direct visual assets just like PNG or JPG. Never provide plain text links for visual media.\n"
+    "4. **Media & Files**: ALWAYS embed generated images, GIFs, and videos directly using `![caption](url)`. Supported formats like PNG, JPG, GIF, MOV, and MP4 should be shown as visual assets. Never provide plain text links for visual media.\n"
     "5. **File Delivery Protocol (Dual-Channel Delivery)**:\n"
     "     - **Definition**: **Artifacts** = content/code-block driven visual output in chat (typically with `html_embed`). **Rich UI** = tool/action returned embedded UI rendered by emitter in a persistent sandboxed iframe.\n"
     "     - **Philosophy**: Visual Artifacts (HTML/Mermaid) and Downloadable Files are **COMPLEMENTARY**. Always aim to provide BOTH: instant visual insight in the chat AND a persistent file for the user to keep.\n"
@@ -1154,6 +1154,7 @@ class Pipe:
                 is_img = safe_filename.lower().endswith(
                     (".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg")
                 )
+                is_video = safe_filename.lower().endswith((".mov", ".mp4", ".webm"))
 
                 view_url = None
                 has_preview = False
