@@ -153,8 +153,9 @@ BASE_GUIDELINES = (
     "3. **Interactive Artifacts (HTML)**: **Premium Delivery Protocol**: For web applications, you MUST perform two actions:\n"
     "   - 1. **Persist**: Create the file in the workspace (e.g., `index.html`) for project structure.\n"
     "   - 2. **Publish & Embed**: Call `publish_file_from_workspace(filename='your_file.html')`. This will automatically trigger the **Premium Experience** by directly embedding the interactive component using the action-style return.\n"
-    "   - **CRITICAL**: When using this protocol, **DO NOT** output the raw HTML code in a code block. Provide ONLY the **[Preview]** and **[Download]** links returned by the tool. The interactive embed will appear automatically after your message finishes.\n"
-    "   - **Process Visibility**: While raw code is forbidden, you SHOULD provide a **very brief Markdown summary** of the component's structure or key features (e.g., 'Generated login form with validation') before publishing. This keeps the user informed of the 'processing' progress.\n"
+    "   - **CRITICAL**: When using this protocol in **Rich UI mode** (`embed_type='richui'`), **DO NOT** output the raw HTML code in a code block. Provide ONLY the **[Preview]** and **[Download]** links returned by the tool. The interactive embed will appear automatically after your message finishes.\n"
+    "   - **Artifacts mode** (`embed_type='artifacts'`): You MUST provide the **[Preview]** and **[Download]** links, AND then you MUST output the provided `html_embed` (the iframe) wrapped within a ```html code block to enable the interactive preview.\n"
+    "   - **Process Visibility**: While raw code is often replaced by links/frames, you SHOULD provide a **very brief Markdown summary** of the component's structure or key features (e.g., 'Generated login form with validation') before publishing. This keeps the user informed of the 'processing' progress.\n"
     "   - **Game/App Controls**: If your HTML includes keyboard controls (e.g., arrow keys, spacebar for games), you MUST include `event.preventDefault()` in your `keydown` listeners to prevent the parent browser page from scrolling.\n"
     "4. **Images & Files**: ALWAYS embed generated images/files directly using `![caption](url)`. Never provide plain text links.\n"
     "5. **File Delivery Protocol (Dual-Channel Delivery)**:\n"
@@ -164,7 +165,7 @@ BASE_GUIDELINES = (
     "     - **Implicit Requests**: If asked to 'export', 'get link', or 'save', automatically trigger this sequence.\n"
     "     - **Execution Sequence**: 1. **Write Local**: Create file. 2. **Publish**: Call `publish_file_from_workspace`. 3. **Response Structure**:\n"
     "        - **For PDF files**: You MUST output ONLY Markdown links from the tool output (preview + download). **CRITICAL: NEVER output iframe/html_embed for PDF.**\n"
-    "        - **For HTML files**: choose mode by complexity/environment. **Artifacts mode** (`embed_type='artifacts'`): output [Preview]/[Download], then output `html_embed` in a ```html code block. **Rich UI mode** (`embed_type='richui'`): output ONLY [Preview]/[Download]; do NOT output iframe/html block because Rich UI will render automatically via emitter."
+    "        - **For HTML files**: choose mode by complexity/environment. **Artifacts mode** (`embed_type='artifacts'`): output [Preview]/[Download], then MISSION-CRITICAL: output the provided `html_embed` value wrapped EXACTLY within a ```html code block. **Rich UI mode** (`embed_type='richui'`): output ONLY [Preview]/[Download]; do NOT output iframe/html block because Rich UI will render automatically via emitter.\n"
     "     - **URL Format**: You MUST use the **ABSOLUTE URLs** provided in the tool output. NEVER modify them.\n"
     "     - **Bypass RAG**: This protocol automatically handles S3 storage and bypasses RAG, ensuring 100% accurate data delivery.\n"
     "6. **TODO Visibility**: Every time you call the `update_todo` tool, you **MUST** immediately follow up with a beautifully formatted **Markdown summary** of the current TODO list. Use task checkboxes (`- [ ]`), progress indicators, and clear headings so the user can see the status directly in the chat.\n"
@@ -1184,6 +1185,8 @@ class Pipe:
                     )
                     if embed_type == "richui":
                         hint += "\n\nCRITICAL: You are in 'richui' mode. DO NOT output an HTML code block or iframe in your message. Just output the links above."
+                    elif embed_type == "artifacts":
+                        hint += "\n\nIMPORTANT: You are in 'artifacts' mode. You MUST wrap the provided 'html_embed' (the iframe) inside a ```html code block in your response to enable the interactive preview."
                 elif has_preview:
                     hint = self._get_translation(
                         user_lang,
