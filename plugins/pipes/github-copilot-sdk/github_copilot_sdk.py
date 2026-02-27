@@ -4,8 +4,8 @@ author: Fu-Jie
 author_url: https://github.com/Fu-Jie/openwebui-extensions
 funding_url: https://github.com/open-webui
 openwebui_id: ce96f7b4-12fc-4ac3-9a01-875713e69359
-description: Integrate GitHub Copilot SDK. Supports dynamic models, multi-turn conversation, streaming, multimodal input, infinite sessions, and frontend debug logging.
-version: 0.8.0
+description: Integrate GitHub Copilot SDK. Supports dynamic models, multi-turn conversation, streaming, multimodal input, infinite sessions, bidirectional OpenWebUI Skills bridge, and manage_skills tool.
+version: 0.9.0
 requirements: github-copilot-sdk==0.1.25
 """
 
@@ -18,6 +18,12 @@ import asyncio
 import logging
 import shutil
 import hashlib
+import time
+import subprocess
+import tarfile
+import zipfile
+import urllib.parse
+import urllib.request
 import aiohttp
 import contextlib
 from pathlib import Path
@@ -43,11 +49,15 @@ from open_webui.utils.tools import get_tools as get_openwebui_tools, get_builtin
 from open_webui.models.tools import Tools
 from open_webui.models.users import Users
 from open_webui.models.files import Files, FileForm
-from open_webui.config import UPLOAD_DIR, DATA_DIR
 from open_webui.storage.provider import Storage
 import mimetypes
 import uuid
-import shutil
+
+# Get OpenWebUI version for capability detection
+try:
+    from open_webui.env import VERSION as open_webui_version
+except ImportError:
+    open_webui_version = "0.0.0"
 
 # Open WebUI internal database (re-use shared connection)
 try:
@@ -124,21 +134,38 @@ BASE_GUIDELINES = (
     "  - `/app/build`: Compiled frontend assets (assets, static, pyodide, index.html).\n"
     "- **Rich Python Environment**: You can natively import and use any installed OpenWebUI dependencies. You have access to a wealth of libraries (e.g., for data processing, utility functions). However, you **MUST NOT** install new packages in the global environment. If you need additional dependencies, you must create a virtual environment within your designated workspace directory.\n"
     "- **Tool Availability**: You may have access to various tools (OpenWebUI Built-ins, Custom Tools, OpenAPI Servers, or MCP Servers) depending on the user's current configuration. If tools are visible in your session metadata, use them proactively to enhance your task execution.\n"
+    "- **Skills vs Tools — CRITICAL DISTINCTION**:\n"
+    "  - **Tools** (`bash`, `create_file`, `view_file`, custom functions, MCP tools, etc.) are **executable functions** you call directly. They take inputs, run code or API calls, and return results.\n"
+    "  - **Skills** are **context-injected Markdown instructions** (from `SKILL.md` files in a skill directory). They are NOT callable functions and NOT shell commands. When the Copilot SDK detects intent, it reads the relevant `SKILL.md` and injects its content into your context automatically — you then follow those instructions using your standard tools.\n"
+    "  - **Skill directory structure**: A skill lives in a subdirectory under the Skills Directory. **Only `SKILL.md` is required** — all other contents are optional resources that the skill may provide:\n"
+    "    - `scripts/` — helper Python or shell scripts; invoke via `bash` / `python3` **only when SKILL.md instructs you to**.\n"
+    "    - `references/` — supplementary Markdown documents (detailed workflows, examples); read with `view_file` as directed.\n"
+    "    - `templates/` — file templates to copy or fill in as part of the skill workflow.\n"
+    "    - Any other supporting files (data, configs, assets) — treat them as resources described in `SKILL.md`.\n"
+    "  - **Rule**: Always start by reading `SKILL.md`. It is the authoritative entry point. Other files in the directory only matter if `SKILL.md` references them.\n"
+    "  - **Deterministic skill management**: For install/list/create/edit/delete/show operations, MUST use the `manage_skills` tool (do not rely on skill auto-trigger).\n"
+    "  - **NEVER run a skill name as a shell command** (e.g., do NOT run `docx` or any skill name via `bash`). The skill name is not a binary. Scripts inside `scripts/` are helpers to be called explicitly as instructed.\n"
+    "  - **How to identify a skill**: Skills appear in your context as injected instruction blocks (usually with a heading matching the skill name). Tools appear in your available-tools list.\n"
     "\n"
     "**Formatting & Presentation Directives:**\n"
     "1. **Markdown Excellence**: Leverage full **Markdown** capabilities (headers, bold, italics, tables, lists) to structure your response professionally for the chat interface.\n"
     "2. **Advanced Visualization**: Use **Mermaid** for flowcharts/diagrams and **LaTeX** for math. **IMPORTANT**: Always wrap Mermaid code within a standard ` ```mermaid ` code block to ensure it is rendered correctly by the UI.\n"
-    "3. **Interactive Artifacts (HTML)**: Standalone HTML code blocks (HTML+CSS+JS) will be **AUTOMATICALLY RENDERED** as interactive web pages within the chat. **Dual Delivery Protocol**: For web applications, you MUST perform two actions:\n"
+    "3. **Interactive Artifacts (HTML)**: **Premium Delivery Protocol**: For web applications, you MUST perform two actions:\n"
     "   - 1. **Persist**: Create the file in the workspace (e.g., `index.html`) for project structure.\n"
-    "   - 2. **Render**: Immediately output the SAME code in a ` ```html ` block so the user can interact with it.\n"
-    "   - **Result**: The user gets both a saved file AND a live app. Never force the user to choose one over the other.\n"
+    "   - 2. **Publish & Embed**: Call `publish_file_from_workspace(filename='your_file.html')`. This will automatically trigger the **Premium Experience** by directly embedding the interactive component using the action-style return.\n"
+    "   - **CRITICAL**: When using this protocol, **DO NOT** output the raw HTML code in a code block. Provide ONLY the **[Preview]** and **[Download]** links returned by the tool. The interactive embed will appear automatically after your message finishes.\n"
+    "   - **Process Visibility**: While raw code is forbidden, you SHOULD provide a **very brief Markdown summary** of the component's structure or key features (e.g., 'Generated login form with validation') before publishing. This keeps the user informed of the 'processing' progress.\n"
+    "   - **Game/App Controls**: If your HTML includes keyboard controls (e.g., arrow keys, spacebar for games), you MUST include `event.preventDefault()` in your `keydown` listeners to prevent the parent browser page from scrolling.\n"
     "4. **Images & Files**: ALWAYS embed generated images/files directly using `![caption](url)`. Never provide plain text links.\n"
     "5. **File Delivery Protocol (Dual-Channel Delivery)**:\n"
+    "     - **Definition**: **Artifacts** = content/code-block driven visual output in chat (typically with `html_embed`). **Rich UI** = tool/action returned embedded UI rendered by emitter in a persistent sandboxed iframe.\n"
     "     - **Philosophy**: Visual Artifacts (HTML/Mermaid) and Downloadable Files are **COMPLEMENTARY**. Always aim to provide BOTH: instant visual insight in the chat AND a persistent file for the user to keep.\n"
     "     - **The Rule**: When the user needs to *possess* data (download/export), you MUST publish it. Creating a local file alone is useless because the user cannot access your container.\n"
     "     - **Implicit Requests**: If asked to 'export', 'get link', or 'save', automatically trigger this sequence.\n"
-    "     - **Execution Sequence**: 1. **Write Local**: Create file in `.` (current directory). 2. **Publish**: Call `publish_file_from_workspace(filename='your_file.ext')`. 3. **Link**: Present the result based on file type. **For HTML files**: the tool returns both `download_url` (raw file) and `view_url` (`/content/html` format). You MUST present `view_url` as a **[Preview]** link that opens directly in the browser, AND `download_url` as a **[Download]** link. **For image files** (.png, .jpg, .gif, .svg, etc.): embed directly using `![caption](download_url)` — NEVER use a text link for images. For all other files: present `download_url` as a single download link.\n"
-    "     - **URL Format is STRICT**: File links MUST be relative paths starting with `/api/v1/files/` (for example: `/api/v1/files/{id}/content` or `/api/v1/files/{id}/content/html`). NEVER output `api/...` (missing leading slash). NEVER prepend any domain (such as `https://example.com/...`) even if a domain appears in conversation context.\n"
+    "     - **Execution Sequence**: 1. **Write Local**: Create file. 2. **Publish**: Call `publish_file_from_workspace`. 3. **Response Structure**:\n"
+    "        - **For PDF files**: You MUST output ONLY Markdown links from the tool output (preview + download). **CRITICAL: NEVER output iframe/html_embed for PDF.**\n"
+    "        - **For HTML files**: choose mode by complexity/environment. **Artifacts mode** (`embed_type='artifacts'`): output [Preview]/[Download], then output `html_embed` in a ```html code block. **Rich UI mode** (`embed_type='richui'`): output ONLY [Preview]/[Download]; do NOT output iframe/html block because Rich UI will render automatically via emitter."
+    "     - **URL Format**: You MUST use the **ABSOLUTE URLs** provided in the tool output. NEVER modify them.\n"
     "     - **Bypass RAG**: This protocol automatically handles S3 storage and bypasses RAG, ensuring 100% accurate data delivery.\n"
     "6. **TODO Visibility**: Every time you call the `update_todo` tool, you **MUST** immediately follow up with a beautifully formatted **Markdown summary** of the current TODO list. Use task checkboxes (`- [ ]`), progress indicators, and clear headings so the user can see the status directly in the chat.\n"
     "7. **Python Execution Standard**: For ANY task requiring Python logic (not just data analysis), you **MUST NOT** embed multi-line code directly in a shell command (e.g., using `python -c` or `<< 'EOF'`).\n"
@@ -160,7 +187,7 @@ ADMIN_EXTENSIONS = (
     "You have detected that the current user is an **ADMINISTRATOR**. You are granted additional 'God Mode' perspective:\n"
     "- **Full OS Interaction**: You can use shell tools to deep-dive into any container process or system configuration.\n"
     "- **Database Access**: You can connect to the **OpenWebUI Database** directly using credentials found in environment variables (e.g., `DATABASE_URL`).\n"
-    "- **Copilot SDK & Metadata**: You can inspect your own session state in `/root/.copilot/session-state/` and core configuration in `/root/.copilot/config.json` to debug session persistence.\n"
+    "- **Copilot SDK & Metadata**: You can inspect your own session state and core configuration in the Copilot SDK config directory to debug session persistence.\n"
     "- **Environment Secrets**: You are permitted to read and analyze environment variables and system-wide secrets for diagnostic purposes.\n"
     "**SECURITY NOTE**: Do NOT leak these sensitive internal details to non-admin users if you are ever switched to a lower privilege context.\n"
 )
@@ -171,12 +198,15 @@ USER_RESTRICTIONS = (
     "You have detected that the current user is a **REGULAR USER**. You must adhere to the following security boundaries:\n"
     "- **NO Environment Access**: You are strictly **FORBIDDEN** from accessing environment variables (e.g., via `env`, `printenv`, or Python's `os.environ`).\n"
     "- **NO Database Access**: You must **NOT** attempt to connect to or query the OpenWebUI database.\n"
-    "- **NO System Metadata Access**: Access to `/root/.copilot/` or any system-level configuration files is strictly **PROHIBITED**.\n"
+    "- **Limited Session Metadata Access (Own Session Only)**: You MAY read Copilot session information for the current user/current chat strictly for troubleshooting. Allowed scope includes session state under the configured `COPILOTSDK_CONFIG_DIR` (default path: `/app/backend/data/.copilot/session-state/{chat_id}/`). Access to other users' sessions or unrelated global metadata is strictly **PROHIBITED**.\n"
     "- **NO Writing Outside Workspace**: Any attempt to write files to `/root`, `/app`, `/etc`, or other system folders is a **SECURITY VIOLATION**. All generated code, HTML, or data artifacts MUST be saved strictly inside the `Your Isolated Workspace` path provided.\n"
-    "- **Interactive Delivery**: When creating web/HTML content, you MUST accompanying the file creation with a rendered Artifact (` ```html ` block). Providing *only* a file path for a web app is considered a poor user experience.\n"
+    "- **Formal Delivery**: Write the file to the workspace and call `publish_file_from_workspace`. You are strictly **FORBIDDEN** from outputting raw HTML code blocks in the conversation.\n"
     "- **Restricted Shell**: Use shell tools **ONLY** for operations within your isolated workspace sub-directory. You are strictly **PROHIBITED** from exploring or reading other users' workspace directories. Any attempt to probe system secrets or cross-user data will be logged as a security violation.\n"
+    "- **System Tools Availability**: You MAY use all tools provided by the system for this session to complete tasks, as long as you obey the security boundaries above.\n"
     "**SECURITY NOTE**: Your priority is to protect the platform's integrity while providing helpful assistance within these boundaries.\n"
 )
+
+# Skill management is handled by the `manage_skills` tool.
 
 
 class Pipe:
@@ -184,6 +214,10 @@ class Pipe:
         GH_TOKEN: str = Field(
             default="",
             description="GitHub Fine-grained Token (Requires 'Copilot Requests' permission)",
+        )
+        COPILOTSDK_CONFIG_DIR: str = Field(
+            default="",
+            description="Persistent directory for Copilot SDK config and session state (e.g. /app/backend/data/.copilot). If empty, auto-detects /app/backend/data/.copilot.",
         )
         ENABLE_OPENWEBUI_TOOLS: bool = Field(
             default=True,
@@ -196,6 +230,18 @@ class Pipe:
         ENABLE_MCP_SERVER: bool = Field(
             default=True,
             description="Enable Direct MCP Client connection (Recommended).",
+        )
+        ENABLE_OPENWEBUI_SKILLS: bool = Field(
+            default=True,
+            description="Enable loading OpenWebUI model-attached skills into SDK skill directories.",
+        )
+        OPENWEBUI_SKILLS_SHARED_DIR: str = Field(
+            default="/app/backend/data/cache/copilot-openwebui-skills",
+            description="Shared cache directory for OpenWebUI skills converted to SDK SKILL.md format.",
+        )
+        DISABLED_SKILLS: str = Field(
+            default="",
+            description="Comma-separated skill names to disable in Copilot SDK session (e.g. docs-writer,webapp-testing).",
         )
         REASONING_EFFORT: Literal["low", "medium", "high", "xhigh"] = Field(
             default="medium",
@@ -314,6 +360,14 @@ class Pipe:
             default=True,
             description="Enable dynamic MCP server loading (overrides global).",
         )
+        ENABLE_OPENWEBUI_SKILLS: bool = Field(
+            default=True,
+            description="Enable loading OpenWebUI model-attached skills into SDK skill directories (user override).",
+        )
+        DISABLED_SKILLS: str = Field(
+            default="",
+            description="Comma-separated skill names to disable in Copilot SDK session (user override).",
+        )
 
         # BYOK User Overrides
         BYOK_API_KEY: str = Field(
@@ -352,96 +406,226 @@ class Pipe:
     _env_setup_done = False  # Track if env setup has been completed
     _last_update_check = 0  # Timestamp of last CLI update check
 
+    def _is_version_at_least(self, target: str) -> bool:
+        """Check if OpenWebUI version is at least the target version."""
+        try:
+            # Simple numeric comparison for speed and to avoid dependencies
+            def parse_v(v_str):
+                # Extract only numbers and dots
+                clean = re.sub(r"[^0-9.]", "", v_str)
+                return [int(x) for x in clean.split(".") if x]
+
+            return parse_v(open_webui_version) >= parse_v(target)
+        except Exception:
+            return False
+
     TRANSLATIONS = {
         "en-US": {
             "status_conn_est": "Connection established, waiting for response...",
             "status_reasoning_inj": "Reasoning Effort injected: {effort}",
+            "status_assistant_start": "Assistant is starting to think...",
+            "status_assistant_processing": "Assistant is processing your request...",
+            "status_still_working": "Still processing... ({seconds}s elapsed)",
+            "status_skill_invoked": "Detected and using skill: {skill}",
+            "status_tool_using": "Using tool: {name}...",
+            "status_tool_progress": "Tool progress: {name} ({progress}%) {msg}",
+            "status_tool_done": "Tool completed: {name}",
+            "status_tool_failed": "Tool failed: {name}",
+            "status_subagent_start": "Invoking sub-agent: {name}",
+            "status_compaction_start": "Optimizing session context...",
+            "status_compaction_complete": "Context optimization complete.",
+            "status_publishing_file": "Publishing artifact: {filename}",
+            "status_task_completed": "Task completed.",
+            "status_session_error": "Processing failed: {error}",
+            "status_no_skill_invoked": "No skill was invoked in this turn (DEBUG)",
             "debug_agent_working_in": "Agent working in: {path}",
             "debug_mcp_servers": "🔌 Connected MCP Servers: {servers}",
             "publish_success": "File published successfully.",
-            "publish_hint_html": "Link: [View {filename}]({view_url}) | [Download]({download_url})",
+            "publish_hint_html": "[View {filename}]({view_url}) | [Download]({download_url})",
+            "publish_hint_embed": "✨ Premium: Displayed directly via Action.",
             "publish_hint_default": "Link: [Download {filename}]({download_url})",
         },
         "zh-CN": {
             "status_conn_est": "已建立连接，等待响应...",
             "status_reasoning_inj": "已注入推理级别：{effort}",
+            "status_assistant_start": "助手开始思考...",
+            "status_assistant_processing": "助手正在处理您的请求...",
+            "status_still_working": "仍在处理中...（已耗时 {seconds} 秒）",
+            "status_skill_invoked": "已发现并使用技能：{skill}",
+            "status_tool_using": "正在使用工具：{name}...",
+            "status_tool_progress": "工具进度：{name} ({progress}%) {msg}",
+            "status_tool_done": "工具已完成：{name}",
+            "status_tool_failed": "工具执行失败：{name}",
+            "status_subagent_start": "正在调用子代理：{name}",
+            "status_compaction_start": "正在优化会话上下文...",
+            "status_compaction_complete": "上下文优化完成。",
+            "status_publishing_file": "正在发布成果物：{filename}",
+            "status_task_completed": "任务已完成。",
+            "status_session_error": "处理失败：{error}",
+            "status_no_skill_invoked": "本轮未触发任何技能（DEBUG）",
             "debug_agent_working_in": "Agent 工作目录: {path}",
             "debug_mcp_servers": "🔌 已连接 MCP 服务器: {servers}",
             "publish_success": "文件发布成功。",
-            "publish_hint_html": "链接: [查看 {filename}]({view_url}) | [下载]({download_url})",
+            "publish_hint_html": "[查看网页]({view_url}) | [下载文件]({download_url})",
+            "publish_hint_embed": "✨ 高级体验：组件已通过 Action 直接展示。",
             "publish_hint_default": "链接: [下载 {filename}]({download_url})",
         },
         "zh-HK": {
             "status_conn_est": "已建立連接，等待響應...",
             "status_reasoning_inj": "已注入推理級別：{effort}",
+            "status_assistant_start": "助手開始思考...",
+            "status_assistant_processing": "助手正在處理您的請求...",
+            "status_skill_invoked": "已發現並使用技能：{skill}",
+            "status_tool_using": "正在使用工具：{name}...",
+            "status_tool_progress": "工具進度：{name} ({progress}%) {msg}",
+            "status_subagent_start": "正在調用子代理：{name}",
+            "status_compaction_start": "正在優化會話上下文...",
+            "status_compaction_complete": "上下文優化完成。",
+            "status_publishing_file": "正在發布成果物：{filename}",
+            "status_no_skill_invoked": "本輪未觸發任何技能（DEBUG）",
             "debug_agent_working_in": "Agent 工作目錄: {path}",
             "debug_mcp_servers": "🔌 已連接 MCP 伺服器: {servers}",
             "publish_success": "文件發布成功。",
             "publish_hint_html": "連結: [查看 {filename}]({view_url}) | [下載]({download_url})",
+            "publish_hint_embed": "高級體驗：組件已通過 Action 直接展示。",
             "publish_hint_default": "連結: [下載 {filename}]({download_url})",
         },
         "zh-TW": {
             "status_conn_est": "已建立連接，等待響應...",
             "status_reasoning_inj": "已注入推理級別：{effort}",
+            "status_assistant_start": "助手開始思考...",
+            "status_assistant_processing": "助手正在處理您的請求...",
+            "status_skill_invoked": "已發現並使用技能：{skill}",
+            "status_tool_using": "正在使用工具：{name}...",
+            "status_tool_progress": "工具進度：{name} ({progress}%) {msg}",
+            "status_subagent_start": "正在調用子代理：{name}",
+            "status_compaction_start": "正在優化會話上下文...",
+            "status_compaction_complete": "上下文優化完成。",
+            "status_publishing_file": "正在發布成果物：{filename}",
+            "status_no_skill_invoked": "本輪未觸發任何技能（DEBUG）",
             "debug_agent_working_in": "Agent 工作目錄: {path}",
             "debug_mcp_servers": "🔌 已連接 MCP 伺服器: {servers}",
             "publish_success": "文件發布成功。",
             "publish_hint_html": "連結: [查看 {filename}]({view_url}) | [下載]({download_url})",
+            "publish_hint_embed": "高級體驗：組件已通過 Action 直接展示。",
             "publish_hint_default": "連結: [下載 {filename}]({download_url})",
         },
         "ja-JP": {
             "status_conn_est": "接続が確立されました。応答を待っています...",
             "status_reasoning_inj": "推論レベルが注入されました：{effort}",
-            "debug_agent_working_in": "Agent 作業ディレクトリ: {path}",
-            "debug_mcp_servers": "🔌 接続済み MCP サーバー: {servers}",
+            "status_skill_invoked": "スキルが検出され、使用されています：{skill}",
+            "status_publishing_file": "アーティファクトを公開中：{filename}",
+            "status_no_skill_invoked": "このターンではスキルは呼び出されませんでした (DEBUG)",
+            "debug_agent_working_in": "エージェントの作業ディレクトリ: {path}",
+            "debug_mcp_servers": "🔌 接続された MCP サーバー: {servers}",
+            "publish_success": "ファイルが正常に公開されました。",
+            "publish_hint_html": "リンク: [表示 {filename}]({view_url}) | [ダウンロード]({download_url})",
+            "publish_hint_embed": "プレミアム体験：コンポーネントはアクション経由で直接表示されました。",
+            "publish_hint_default": "リンク: [ダウンロード {filename}]({download_url})",
         },
         "ko-KR": {
             "status_conn_est": "연결이 설정되었습니다. 응답을 기다리는 중...",
-            "status_reasoning_inj": "추론 수준 설정됨: {effort}",
-            "debug_agent_working_in": "Agent 작업 디렉토리: {path}",
+            "status_reasoning_inj": "추론 노력이 주입되었습니다: {effort}",
+            "status_skill_invoked": "스킬이 감지되어 사용 중입니다: {skill}",
+            "status_publishing_file": "아티팩트 게시 중: {filename}",
+            "status_no_skill_invoked": "이 턴에는 스킬이 호출되지 않았습니다 (DEBUG)",
+            "debug_agent_working_in": "에이전트 작업 디렉토리: {path}",
             "debug_mcp_servers": "🔌 연결된 MCP 서버: {servers}",
+            "publish_success": "파일이 성공적으로 게시되었습니다.",
+            "publish_hint_html": "링크: [{filename} 보기]({view_url}) | [다운로드]({download_url})",
+            "publish_hint_embed": "프리미엄 경험: 구성 요소가 액션을 통해 직접 표시되었습니다.",
+            "publish_hint_default": "링크: [{filename} 다운로드]({download_url})",
         },
         "fr-FR": {
             "status_conn_est": "Connexion établie, en attente de réponse...",
             "status_reasoning_inj": "Effort de raisonnement injecté : {effort}",
-            "debug_agent_working_in": "Répertoire de travail de l'Agent : {path}",
+            "status_skill_invoked": "Compétence détectée et utilisée : {skill}",
+            "status_publishing_file": "Publication de l'artefact : {filename}",
+            "status_no_skill_invoked": "Aucune compétence invoquée pour ce tour (DEBUG)",
+            "debug_agent_working_in": "Agent travaillant dans : {path}",
             "debug_mcp_servers": "🔌 Serveurs MCP connectés : {servers}",
+            "publish_success": "Fichier publié avec succès.",
+            "publish_hint_html": "Lien : [Voir {filename}]({view_url}) | [Télécharger]({download_url})",
+            "publish_hint_embed": "Expérience Premium : Le composant est affiché directement via Action.",
+            "publish_hint_default": "Lien : [Télécharger {filename}]({download_url})",
         },
         "de-DE": {
             "status_conn_est": "Verbindung hergestellt, warte auf Antwort...",
-            "status_reasoning_inj": "Argumentationsaufwand injiziert: {effort}",
-            "debug_agent_working_in": "Agent-Arbeitsverzeichnis: {path}",
+            "status_reasoning_inj": "Schlussfolgerungsaufwand injiziert: {effort}",
+            "status_skill_invoked": "Skill erkannt und verwendet: {skill}",
+            "status_publishing_file": "Artifact wird veröffentlicht: {filename}",
+            "status_no_skill_invoked": "In dieser Runde wurde kein Skill aufgerufen (DEBUG)",
+            "debug_agent_working_in": "Agent arbeitet in: {path}",
             "debug_mcp_servers": "🔌 Verbundene MCP-Server: {servers}",
-        },
-        "es-ES": {
-            "status_conn_est": "Conexión establecida, esperando respuesta...",
-            "status_reasoning_inj": "Nivel de razonamiento inyectado: {effort}",
-            "debug_agent_working_in": "Directorio de trabajo del Agente: {path}",
-            "debug_mcp_servers": "🔌 Servidores MCP conectados: {servers}",
+            "publish_success": "Datei erfolgreich veröffentlicht.",
+            "publish_hint_html": "Link: [{filename} ansehen]({view_url}) | [Herunterladen]({download_url})",
+            "publish_hint_embed": "Premium-Erlebnis: Die Komponente wurde direkt per Action angezeigt.",
+            "publish_hint_default": "Link: [{filename} herunterladen]({download_url})",
         },
         "it-IT": {
             "status_conn_est": "Connessione stabilita, in attesa di risposta...",
-            "status_reasoning_inj": "Livello di ragionamento iniettato: {effort}",
-            "debug_agent_working_in": "Directory di lavoro dell'Agente: {path}",
+            "status_reasoning_inj": "Sforzo di ragionamento iniettato: {effort}",
+            "status_skill_invoked": "Skill rilevata e utilizzata: {skill}",
+            "status_publishing_file": "Pubblicazione dell'artefatto: {filename}",
+            "status_no_skill_invoked": "Nessuna skill invocata in questo turno (DEBUG)",
+            "debug_agent_working_in": "Agente al lavoro in: {path}",
             "debug_mcp_servers": "🔌 Server MCP connessi: {servers}",
+            "publish_success": "File pubblicato correttamente.",
+            "publish_hint_html": "Link: [Visualizza {filename}]({view_url}) | [Scarica]({download_url})",
+            "publish_hint_embed": "Esperienza Premium: il componente è stato visualizzato direttamente tramite Action.",
+            "publish_hint_default": "Link: [Scarica {filename}]({download_url})",
+        },
+        "es-ES": {
+            "status_conn_est": "Conexión establecida, esperando respuesta...",
+            "status_reasoning_inj": "Esfuerzo de razonamiento inyectado: {effort}",
+            "status_skill_invoked": "Habilidad detectada y utilizada: {skill}",
+            "status_publishing_file": "Publicando artefacto: {filename}",
+            "status_no_skill_invoked": "No se invocó ninguna habilidad en este turno (DEBUG)",
+            "debug_agent_working_in": "Agente trabajando en: {path}",
+            "debug_mcp_servers": "🔌 Servidores MCP conectados: {servers}",
+            "publish_success": "Archivo publicado con éxito.",
+            "publish_hint_html": "Enlace: [Ver {filename}]({view_url}) | [Descargar]({download_url})",
+            "publish_hint_embed": "Experiencia Premium: el componente se mostró directamente a través de Action.",
+            "publish_hint_default": "Enlace: [Descargar {filename}]({download_url})",
+        },
+        "vi-VN": {
+            "status_conn_est": "Đã thiết lập kết nối, đang chờ phản hồi...",
+            "status_reasoning_inj": "Nỗ lực suy luận đã được đưa vào: {effort}",
+            "status_skill_invoked": "Kỹ năng đã được phát hiện và sử dụng: {skill}",
+            "status_publishing_file": "Đang xuất bản thành phẩm: {filename}",
+            "status_no_skill_invoked": "Không có kỹ năng nào được gọi trong lượt này (DEBUG)",
+            "debug_agent_working_in": "Agent đang làm việc tại: {path}",
+            "debug_mcp_servers": "🔌 Các máy chủ MCP đã kết nối: {servers}",
+            "publish_success": "Tệp đã được xuất bản thành công.",
+            "publish_hint_html": "Liên kết: [Xem {filename}]({view_url}) | [Tải xuống]({download_url})",
+            "publish_hint_embed": "Trải nghiệm Cao cấp: Thành phần đã được hiển thị trực tiếp qua Action.",
+            "publish_hint_default": "Liên kết: [Tải xuống {filename}]({download_url})",
+        },
+        "id-ID": {
+            "status_conn_est": "Koneksi terjalin, menunggu respons...",
+            "status_reasoning_inj": "Upaya penalaran dimasukkan: {effort}",
+            "status_skill_invoked": "Keahlian terdeteksi và digunakan: {skill}",
+            "status_publishing_file": "Menerbitkan artefak: {filename}",
+            "status_no_skill_invoked": "Tidak ada keahlian yang dipanggil dalam giliran ini (DEBUG)",
+            "debug_agent_working_in": "Agen bekerja di: {path}",
+            "debug_mcp_servers": "🔌 Server MCP Terhubung: {servers}",
+            "publish_success": "File berhasil diterbitkan.",
+            "publish_hint_html": "Tautan: [Lihat {filename}]({view_url}) | [Unduh]({download_url})",
+            "publish_hint_embed": "Pengalaman Premium: Komponen ditampilkan secara langsung melalui Action.",
+            "publish_hint_default": "Tautan: [Unduh {filename}]({download_url})",
         },
         "ru-RU": {
             "status_conn_est": "Соединение установлено, ожидание ответа...",
             "status_reasoning_inj": "Уровень рассуждения внедрен: {effort}",
+            "status_skill_invoked": "Обнаружен и используется навык: {skill}",
+            "status_publishing_file": "Публикация файла: {filename}",
+            "status_no_skill_invoked": "На этом шаге навыки не вызывались (DEBUG)",
             "debug_agent_working_in": "Рабочий каталог Агента: {path}",
             "debug_mcp_servers": "🔌 Подключенные серверы MCP: {servers}",
-        },
-        "vi-VN": {
-            "status_conn_est": "Đã thiết lập kết nối, đang chờ phản hồi...",
-            "status_reasoning_inj": "Cấp độ suy luận đã được áp dụng: {effort}",
-            "debug_agent_working_in": "Thư mục làm việc của Agent: {path}",
-            "debug_mcp_servers": "🔌 Các máy chủ MCP đã kết nối: {servers}",
-        },
-        "id-ID": {
-            "status_conn_est": "Koneksi terjalin, menunggu respons...",
-            "status_reasoning_inj": "Tingkat penalaran diterapkan: {effort}",
-            "debug_agent_working_in": "Direktori kerja Agent: {path}",
-            "debug_mcp_servers": "🔌 Server MCP yang terhubung: {servers}",
+            "publish_success": "Файл успешно опубликован.",
+            "publish_hint_html": "Ссылка: [Просмотр {filename}]({view_url}) | [Скачать]({download_url})",
+            "publish_hint_embed": "Premium: компонент отображен напрямую через Action.",
+            "publish_hint_default": "Ссылка: [Скачать {filename}]({download_url})",
         },
     }
 
@@ -703,9 +887,11 @@ class Pipe:
         self,
         body: dict = None,
         __user__=None,
+        __event_emitter__=None,
         __event_call__=None,
         __request__=None,
         __metadata__=None,
+        pending_embeds: List[dict] = None,
     ):
         """Initialize custom tools based on configuration"""
         # 1. Determine effective settings (User override > Global)
@@ -716,8 +902,19 @@ class Pipe:
         # 2. Publish tool is always injected, regardless of other settings
         chat_ctx = self._get_chat_context(body, __metadata__)
         chat_id = chat_ctx.get("chat_id")
-        file_tool = self._get_publish_file_tool(__user__, chat_id, __request__)
+        file_tool = self._get_publish_file_tool(
+            __user__,
+            chat_id,
+            __request__,
+            __event_emitter__=__event_emitter__,
+            pending_embeds=pending_embeds,
+        )
         final_tools = [file_tool] if file_tool else []
+
+        # Skill management tool is always injected for deterministic operations
+        manage_skills_tool = self._get_manage_skills_tool(__user__, chat_id)
+        if manage_skills_tool:
+            final_tools.append(manage_skills_tool)
 
         # 3. If all OpenWebUI tool types are disabled, skip loading and return early
         if not enable_tools and not enable_openapi:
@@ -732,10 +929,12 @@ class Pipe:
         openwebui_tools = await self._load_openwebui_tools(
             body=body,
             __user__=__user__,
+            __event_emitter__=__event_emitter__,
             __event_call__=__event_call__,
             enable_tools=enable_tools,
             enable_openapi=enable_openapi,
             chat_tool_ids=chat_tool_ids,
+            __metadata__=__metadata__,
         )
 
         if openwebui_tools:
@@ -755,7 +954,14 @@ class Pipe:
 
         return final_tools
 
-    def _get_publish_file_tool(self, __user__, chat_id, __request__=None):
+    def _get_publish_file_tool(
+        self,
+        __user__,
+        chat_id,
+        __request__=None,
+        __event_emitter__=None,
+        pending_embeds: List[dict] = None,
+    ):
         """
         Create a tool to publish files from the workspace to a downloadable URL.
         """
@@ -776,27 +982,61 @@ class Pipe:
         # Resolve workspace directory
         workspace_dir = Path(self._get_workspace_dir(user_id=user_id, chat_id=chat_id))
 
+        # Resolve host from request for absolute URLs
+        base_url = ""
+        if __request__ and hasattr(__request__, "base_url"):
+            base_url = str(__request__.base_url).rstrip("/")
+        elif __request__ and hasattr(__request__, "url"):
+            # Fallback for different request implementations
+            try:
+                from urllib.parse import urljoin, urlparse
+
+                parsed = urlparse(str(__request__.url))
+                base_url = f"{parsed.scheme}://{parsed.netloc}"
+            except Exception:
+                pass
+
         # Define parameter schema explicitly for the SDK
         class PublishFileParams(BaseModel):
             filename: str = Field(
                 ...,
-                description="The EXACT name of the file you just created in the current directory (e.g., 'report.csv'). REQUIRED.",
+                description=(
+                    "The relative path of the file to publish (e.g., 'report.html', 'data/results.csv'). "
+                    "The tool will return internal access URLs starting with `/api/v1/files/`. "
+                    "You MUST use these specific relative paths as is in your response."
+                ),
+            )
+            embed_type: Literal["artifacts", "richui"] = Field(
+                default="artifacts",
+                description=(
+                    "Rendering style for HTML files. For PDF files, embedding is disabled and you MUST only provide preview/download Markdown links from tool output. "
+                    "Use 'artifacts' for HTML (Default: output html_embed iframe inside a ```html code block; no height limit). "
+                    "Use 'richui' for HTML (emitter-based integrated preview). DO NOT output html_embed in richui mode; it is rendered automatically. "
+                    "Only 'artifacts' and 'richui' are supported."
+                ),
             )
 
-        async def publish_file_from_workspace(filename: Any) -> dict:
+        async def publish_file_from_workspace(filename: Any) -> Union[dict, tuple]:
             """
             Publishes a file from the local chat workspace to a downloadable URL.
+            If the file is HTML, it will also be directly embedded as an interactive component.
             """
             try:
                 # 1. Robust Parameter Extraction
+                embed_type = "artifacts"
                 # Case A: filename is a Pydantic model (common when using params_type)
                 if hasattr(filename, "model_dump"):  # Pydantic v2
-                    filename = filename.model_dump().get("filename")
+                    data = filename.model_dump()
+                    filename = data.get("filename")
+                    embed_type = data.get("embed_type", "artifacts")
                 elif hasattr(filename, "dict"):  # Pydantic v1
-                    filename = filename.dict().get("filename")
+                    data = filename.dict()
+                    filename = data.get("filename")
+                    embed_type = data.get("embed_type", "artifacts")
 
                 # Case B: filename is a dict
                 if isinstance(filename, dict):
+                    embed_type = filename.get("embed_type") or embed_type
                     filename = (
                         filename.get("filename")
                         or filename.get("file")
@@ -812,11 +1052,15 @@ class Pipe:
 
                             data = json.loads(filename)
                             if isinstance(data, dict):
+                                embed_type = data.get("embed_type") or embed_type
                                 filename = (
                                     data.get("filename") or data.get("file") or filename
                                 )
                         except:
                             pass
+
+                if embed_type not in ("artifacts", "richui"):
+                    embed_type = "artifacts"
 
                 # 2. Final String Validation
                 if (
@@ -837,80 +1081,41 @@ class Pipe:
                     target_path = target_path.resolve()
                     if not str(target_path).startswith(str(workspace_dir.resolve())):
                         return {
-                            "error": f"Access denied: File must be within the current chat workspace."
+                            "error": f"Security violation: path traversal detected.",
+                            "filename": filename,
                         }
                 except Exception as e:
-                    return {"error": f"Path validation failed: {e}"}
+                    return {
+                        "error": f"Invalid filename format: {e}",
+                        "filename": filename,
+                    }
 
                 if not target_path.exists() or not target_path.is_file():
                     return {
-                        "error": f"File '{filename}' not found in chat workspace. Ensure you saved it to the CURRENT DIRECTORY (.)."
+                        "error": f"File not found in workspace: {filename}",
+                        "workspace": str(workspace_dir),
+                        "hint": "Ensure the file was successfully written using shell commands or create_file tool before publishing.",
                     }
 
-                # 3. Upload via API (S3 Compatible)
-                api_success = False
-                file_id = None
-                safe_filename = filename
-
-                token = None
-                if __request__:
-                    auth_header = __request__.headers.get("Authorization")
-                    if auth_header and auth_header.startswith("Bearer "):
-                        token = auth_header.split(" ")[1]
-                    if not token and "token" in __request__.cookies:
-                        token = __request__.cookies.get("token")
-
-                if token:
-                    try:
-                        import aiohttp
-
-                        base_url = str(__request__.base_url).rstrip("/")
-                        # ?process=false skips RAG processing AND the
-                        # ALLOWED_FILE_EXTENSIONS restriction (which blocks html/htm)
-                        upload_url = f"{base_url}/api/v1/files/?process=false"
-
-                        async with aiohttp.ClientSession() as session:
-                            with open(target_path, "rb") as f:
-                                data = aiohttp.FormData()
-                                data.add_field("file", f, filename=target_path.name)
-                                import json
-
-                                data.add_field(
-                                    "metadata",
-                                    json.dumps(
-                                        {
-                                            "source": "copilot_workspace_publish",
-                                            "skip_rag": True,
-                                        }
-                                    ),
-                                )
-
-                                async with session.post(
-                                    upload_url,
-                                    data=data,
-                                    headers={"Authorization": f"Bearer {token}"},
-                                ) as resp:
-                                    if resp.status == 200:
-                                        api_result = await resp.json()
-                                        file_id = api_result.get("id")
-                                        safe_filename = api_result.get(
-                                            "filename", target_path.name
-                                        )
-                                        api_success = True
-                    except Exception as e:
-                        logger.error(f"API upload failed: {e}")
-
-                # 4. Fallback: Use Storage.upload_file directly (S3/Local/GCS/Azure compatible)
-                if not api_success:
-                    file_id = str(uuid.uuid4())
+                # 3. Handle Storage & File ID
+                # We check if file already exists in OpenWebUI DB to avoid duplicates
+                try:
                     safe_filename = target_path.name
-                    storage_filename = f"{file_id}_{safe_filename}"
+                    # deterministic ID based on user + workspace path + filename
+                    file_key = f"{user_id}:{workspace_dir}:{safe_filename}"
+                    file_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, file_key))
+                except Exception as e:
+                    file_id = str(uuid.uuid4())
+
+                existing_file = await asyncio.to_thread(Files.get_file_by_id, file_id)
+                if not existing_file:
 
                     def _upload_via_storage():
+                        # Open file and upload to storage provider (S3 or Local)
                         with open(target_path, "rb") as f:
                             _, stored_path = Storage.upload_file(
                                 f,
-                                storage_filename,
+                                f"{file_id}_{safe_filename}",
                                 {
                                     "OpenWebUI-User-Id": user_id,
                                     "OpenWebUI-File-Id": file_id,
@@ -936,18 +1141,50 @@ class Pipe:
                     )
                     await asyncio.to_thread(Files.insert_new_file, user_id, file_form)
 
-                # 5. Result
-                download_url = f"/api/v1/files/{file_id}/content"
-                is_html = safe_filename.lower().endswith((".html", ".htm"))
+                # 5. Result Construction
+                raw_id = str(file_id).split("/")[-1]
+                rel_download_url = f"/api/v1/files/{raw_id}/content"
+                download_url = (
+                    f"{base_url}{rel_download_url}" if base_url else rel_download_url
+                )
 
-                # For HTML files, provide a direct view link (/content/html) for browser preview
+                is_html = safe_filename.lower().endswith((".html", ".htm"))
+                is_pdf = safe_filename.lower().endswith(".pdf")
+
                 view_url = None
+                has_preview = False
+
+                # Capability Check: Rich UI requires OpenWebUI >= 0.8.0
+                rich_ui_supported = self._is_version_at_least("0.8.0")
+
                 if is_html:
                     view_url = f"{download_url}/html"
+                    has_preview = True
+                elif is_pdf:
+                    view_url = download_url
+                    # Add download flag to absolute URL carefully
+                    sep = "&" if "?" in download_url else "?"
+                    download_url = f"{download_url}{sep}download=1"
+                    has_preview = True
 
                 # Localized output
                 msg = self._get_translation(user_lang, "publish_success")
-                if is_html:
+                if is_html and rich_ui_supported:
+                    # Specific sequence for HTML
+                    hint = (
+                        self._get_translation(user_lang, "publish_hint_embed")
+                        + "\n\n"
+                        + self._get_translation(
+                            user_lang,
+                            "publish_hint_html",
+                            filename=safe_filename,
+                            view_url=view_url,
+                            download_url=download_url,
+                        )
+                    )
+                    if embed_type == "richui":
+                        hint += "\n\nCRITICAL: You are in 'richui' mode. DO NOT output an HTML code block or iframe in your message. Just output the links above."
+                elif has_preview:
                     hint = self._get_translation(
                         user_lang,
                         "publish_hint_html",
@@ -963,24 +1200,472 @@ class Pipe:
                         download_url=download_url,
                     )
 
-                result = {
-                    "file_id": file_id,
+                # Fallback for old versions
+                if is_html and not rich_ui_supported:
+                    hint += f"\n\n**NOTE**: Rich UI embedding is NOT supported in this OpenWebUI version ({open_webui_version}). You SHOULD output the HTML code block manually if the user needs to see the result immediately."
+
+                result_dict = {
+                    "file_id": raw_id,
                     "filename": safe_filename,
                     "download_url": download_url,
+                    "url_type": "internal_relative_path",
+                    "path_specification": "MUST_START_WITH_/api",
                     "message": msg,
                     "hint": hint,
+                    "rich_ui_supported": rich_ui_supported,
                 }
-                if is_html and view_url:
-                    result["view_url"] = view_url
-                return result
+                if has_preview and view_url:
+                    result_dict["view_url"] = view_url
+                    if is_html and embed_type == "artifacts":
+                        # Artifacts mode: standard iframe for the AI to output directly (Infinite height)
+                        iframe_html = (
+                            f'<iframe src="{view_url}" '
+                            f'style="width:100%; height:100vh; min-height:600px; border:none; border-radius:12px; '
+                            f'box-shadow: var(--shadow-lg);"></iframe>'
+                        )
+                        result_dict["html_embed"] = iframe_html
+                        # Note: We do NOT add to pending_embeds. The AI will output this in the message.
+                    elif embed_type == "richui":
+                        # In richui mode, we physically remove html_embed to prevent the AI from outputting it
+                        # The system will handle the rendering via emitter
+                        pass
+
+                # 6. Premium Rich UI Experience for HTML only (Direct Embed via emitter)
+                # We emit events directly ONLY IF embed_type is 'richui'.
+                # Note: Emission is now delayed until session.idle to avoid UI flicker and ensure reliability.
+                if is_html and embed_type == "richui" and rich_ui_supported:
+                    try:
+                        # For Rich UI Integrated view, we pass a clean iframe.
+                        # We use 60vh directly to avoid nested iframe height collapses.
+                        embed_content = (
+                            f'<iframe src="{view_url}" '
+                            f'style="width:100%; height:60vh; min-height:400px; border:none; border-radius:12px; '
+                            f'box-shadow: var(--shadow-lg);"></iframe>'
+                        )
+
+                        if pending_embeds is not None:
+                            pending_embeds.append(
+                                {
+                                    "filename": safe_filename,
+                                    "content": embed_content,
+                                    "type": "richui",
+                                }
+                            )
+                    except Exception as e:
+                        logger.error(f"Failed to prepare Rich UI embed: {e}")
+
+                return result_dict
+
             except Exception as e:
-                return {"error": str(e)}
+                logger.error(f"Publish error: {e}")
+                return {"error": str(e), "filename": filename}
 
         return define_tool(
             name="publish_file_from_workspace",
             description="Converts a file created in your local workspace into a downloadable URL. Use this tool AFTER writing a file to the current directory.",
             params_type=PublishFileParams,
         )(publish_file_from_workspace)
+
+    def _get_manage_skills_tool(self, __user__, chat_id):
+        """Create a deterministic standalone skill management tool.
+
+        Supports:
+        - install: install skill(s) from URL (GitHub tree URL / zip / tar.gz)
+        - list: list installed skills under shared directory
+        - create: create skill from current context content
+        - edit/show/delete: local skill CRUD
+        """
+        if isinstance(__user__, (list, tuple)):
+            user_data = __user__[0] if __user__ else {}
+        elif isinstance(__user__, dict):
+            user_data = __user__
+        else:
+            user_data = {}
+
+        user_id = user_data.get("id") or user_data.get("user_id")
+        if not user_id:
+            return None
+
+        workspace_dir = self._get_workspace_dir(user_id=user_id, chat_id=chat_id)
+        shared_dir = self._get_shared_skills_dir(workspace_dir)
+
+        class ManageSkillsParams(BaseModel):
+            action: Literal["list", "install", "create", "edit", "delete", "show"] = (
+                Field(
+                    ...,
+                    description="Operation to perform on skills.",
+                )
+            )
+            skill_name: Optional[str] = Field(
+                default=None,
+                description="Skill name for create/edit/delete/show operations.",
+            )
+            url: Optional[Union[str, List[str]]] = Field(
+                default=None,
+                description=(
+                    "Source URL(s) for install operation. "
+                    "Accepts a single URL string or a list of URLs to install multiple skills at once."
+                ),
+            )
+            description: Optional[str] = Field(
+                default=None,
+                description="Skill description for create/edit.",
+            )
+            content: Optional[str] = Field(
+                default=None,
+                description="Skill instruction body (SKILL.md body) for create/edit.",
+            )
+            files: Optional[Dict[str, str]] = Field(
+                default=None,
+                description=(
+                    "Extra files to write into the skill folder alongside SKILL.md. "
+                    "Keys are relative filenames (e.g. 'template.md', 'examples/usage.py'), "
+                    "values are their text content. Useful for templates, example scripts, "
+                    "or any resource files the Copilot agent can read from the skill directory."
+                ),
+            )
+            force: Optional[bool] = Field(
+                default=False,
+                description="Force overwrite for install.",
+            )
+            dry_run: Optional[bool] = Field(
+                default=False,
+                description="Preview install without writing files.",
+            )
+            output_format: Optional[Literal["text", "json"]] = Field(
+                default="text",
+                description="Output format for list action.",
+            )
+
+        def _sanitize_skill_name(name: str) -> str:
+            clean = self._skill_dir_name_from_skill_name(name)
+            return re.sub(r"\s+", "-", clean)
+
+        def _normalize_github_archive_url(url: str) -> tuple[str, str]:
+            parsed = urllib.parse.urlparse(url)
+            path_parts = [p for p in parsed.path.split("/") if p]
+            # GitHub tree URL: /owner/repo/tree/branch/subpath
+            if parsed.netloc.endswith("github.com") and "tree" in path_parts:
+                tree_idx = path_parts.index("tree")
+                if tree_idx >= 2 and len(path_parts) > tree_idx + 1:
+                    owner = path_parts[0]
+                    repo = path_parts[1]
+                    branch = path_parts[tree_idx + 1]
+                    subpath = "/".join(path_parts[tree_idx + 2 :])
+                    archive_url = f"https://github.com/{owner}/{repo}/archive/refs/heads/{branch}.zip"
+                    return archive_url, subpath
+            return url, ""
+
+        def _extract_archive(archive_path: Path, dest_dir: Path) -> Path:
+            dest_dir.mkdir(parents=True, exist_ok=True)
+            if archive_path.suffix == ".zip":
+                with zipfile.ZipFile(archive_path, "r") as zf:
+                    zf.extractall(dest_dir)
+            elif archive_path.name.endswith(".tar.gz") or archive_path.suffix in {
+                ".tgz",
+                ".tar",
+            }:
+                with tarfile.open(archive_path, "r:*") as tf:
+                    tf.extractall(dest_dir)
+            else:
+                raise ValueError(f"Unsupported archive format: {archive_path.name}")
+
+            children = [p for p in dest_dir.iterdir() if p.is_dir()]
+            if len(children) == 1:
+                return children[0]
+            return dest_dir
+
+        def _discover_skill_dirs(root: Path, subpath: str = "") -> List[Path]:
+            target = root / subpath if subpath else root
+            target = target.resolve()
+            if not target.exists() or not target.is_dir():
+                raise ValueError(
+                    f"Skill source path not found in archive: {subpath or str(root)}"
+                )
+
+            if (target / "SKILL.md").exists() or (target / "README.md").exists():
+                return [target]
+
+            found = []
+            for child in target.iterdir():
+                if child.is_dir() and (
+                    (child / "SKILL.md").exists() or (child / "README.md").exists()
+                ):
+                    found.append(child)
+            if not found:
+                raise ValueError("No valid skill found (need SKILL.md or README.md)")
+            return found
+
+        def _copy_skill_dir(src_dir: Path, dest_root: Path, force: bool = False) -> str:
+            skill_name = _sanitize_skill_name(src_dir.name)
+            dest_dir = dest_root / skill_name
+            if dest_dir.exists():
+                if not force:
+                    raise FileExistsError(f"Skill already exists: {skill_name}")
+                shutil.rmtree(dest_dir)
+
+            shutil.copytree(src_dir, dest_dir)
+            readme = dest_dir / "README.md"
+            skill_md = dest_dir / "SKILL.md"
+            if not skill_md.exists() and readme.exists():
+                readme.rename(skill_md)
+            if not skill_md.exists():
+                raise ValueError(f"Installed directory missing SKILL.md: {skill_name}")
+            return skill_name
+
+        def _list_skills_text(skills: List[dict]) -> str:
+            if not skills:
+                return "No skills found"
+            lines = []
+            for s in skills:
+                lines.append(f"- {s['name']}: {s.get('description', '')}")
+            return "\n".join(lines)
+
+        async def manage_skills(params: Any) -> dict:
+            try:
+                if hasattr(params, "model_dump"):
+                    payload = params.model_dump(exclude_unset=True)
+                elif isinstance(params, dict):
+                    payload = params
+                else:
+                    payload = {}
+
+                action = str(payload.get("action", "")).strip().lower()
+                skill_name = (payload.get("skill_name") or "").strip()
+                _raw_url = payload.get("url") or ""
+                if isinstance(_raw_url, list):
+                    source_urls = [u.strip() for u in _raw_url if u and u.strip()]
+                    source_url = source_urls[0] if source_urls else ""
+                else:
+                    source_url = str(_raw_url).strip()
+                    source_urls = [source_url] if source_url else []
+                skill_desc = (payload.get("description") or "").strip()
+                skill_body = (payload.get("content") or "").strip()
+                force = bool(payload.get("force", False))
+                dry_run = bool(payload.get("dry_run", False))
+                output_format = (
+                    str(payload.get("output_format", "text")).strip().lower()
+                )
+
+                if action == "list":
+                    entries = []
+                    root = Path(shared_dir)
+                    if root.exists():
+                        for child in sorted(
+                            root.iterdir(), key=lambda p: p.name.lower()
+                        ):
+                            if not child.is_dir():
+                                continue
+                            skill_md = child / "SKILL.md"
+                            if not skill_md.exists():
+                                continue
+                            name, desc, _ = self._parse_skill_md_meta(
+                                skill_md.read_text(encoding="utf-8"), child.name
+                            )
+                            entries.append(
+                                {
+                                    "name": name or child.name,
+                                    "dir_name": child.name,
+                                    "description": desc,
+                                    "path": str(skill_md),
+                                }
+                            )
+                    if output_format == "json":
+                        return {"skills": entries, "count": len(entries)}
+                    return {"count": len(entries), "text": _list_skills_text(entries)}
+
+                if action == "install":
+                    if not source_urls:
+                        return {"error": "Missing required argument: url"}
+
+                    all_installed: List[str] = []
+                    errors: List[str] = []
+
+                    for _url in source_urls:
+                        archive_url, subpath = _normalize_github_archive_url(_url)
+                        tmp_dir = Path(tempfile.mkdtemp(prefix="skill-install-"))
+                        try:
+                            suffix = ".zip"
+                            if archive_url.endswith(".tar.gz"):
+                                suffix = ".tar.gz"
+                            elif archive_url.endswith(".tgz"):
+                                suffix = ".tgz"
+                            archive_path = tmp_dir / f"download{suffix}"
+
+                            await asyncio.to_thread(
+                                urllib.request.urlretrieve,
+                                archive_url,
+                                str(archive_path),
+                            )
+                            extracted_root = _extract_archive(
+                                archive_path, tmp_dir / "extract"
+                            )
+                            candidates = _discover_skill_dirs(extracted_root, subpath)
+
+                            for candidate in candidates:
+                                if dry_run:
+                                    all_installed.append(
+                                        _sanitize_skill_name(candidate.name)
+                                    )
+                                else:
+                                    all_installed.append(
+                                        _copy_skill_dir(
+                                            candidate, Path(shared_dir), force=force
+                                        )
+                                    )
+                        except Exception as e:
+                            errors.append(f"{_url}: {e}")
+                        finally:
+                            shutil.rmtree(tmp_dir, ignore_errors=True)
+
+                    if not dry_run and all_installed:
+                        # Immediately sync new skills to OW DB so frontend
+                        # reflects them without needing a new request.
+                        try:
+                            await asyncio.to_thread(
+                                self._sync_openwebui_skills, workspace_dir, user_id
+                            )
+                        except Exception:
+                            pass
+
+                    return {
+                        "success": len(errors) == 0,
+                        "action": "install",
+                        "dry_run": dry_run,
+                        "installed": all_installed,
+                        "count": len(all_installed),
+                        **({"errors": errors} if errors else {}),
+                    }
+
+                if action in {"create", "edit", "show", "delete"}:
+                    if not skill_name:
+                        return {
+                            "error": "Missing required argument: skill_name for this action"
+                        }
+                    dir_name = self._skill_dir_name_from_skill_name(skill_name)
+                    skill_dir = Path(shared_dir) / dir_name
+                    skill_md = skill_dir / "SKILL.md"
+
+                    if action == "show":
+                        if not skill_dir.exists():
+                            return {"error": f"Skill not found: {dir_name}"}
+                        # Return SKILL.md content plus a listing of all other files
+                        skill_md_content = (
+                            skill_md.read_text(encoding="utf-8")
+                            if skill_md.exists()
+                            else ""
+                        )
+                        other_files = []
+                        for f in sorted(skill_dir.rglob("*")):
+                            if f.is_file() and f.name not in ("SKILL.md", ".owui_id"):
+                                rel = str(f.relative_to(skill_dir))
+                                other_files.append(rel)
+                        return {
+                            "skill_name": dir_name,
+                            "path": str(skill_dir),
+                            "skill_md": skill_md_content,
+                            "other_files": other_files,
+                        }
+
+                    if action == "delete":
+                        if not skill_dir.exists():
+                            return {"error": f"Skill not found: {dir_name}"}
+                        # Remove from OW DB before deleting local dir, otherwise
+                        # next-request sync will recreate the directory from DB.
+                        owui_id_file = skill_dir / ".owui_id"
+                        if owui_id_file.exists():
+                            owui_id = owui_id_file.read_text(encoding="utf-8").strip()
+                            if owui_id:
+                                try:
+                                    from open_webui.models.skills import Skills
+
+                                    Skills.delete_skill_by_id(owui_id)
+                                except Exception:
+                                    pass
+                        shutil.rmtree(skill_dir)
+                        return {
+                            "success": True,
+                            "action": "delete",
+                            "skill_name": dir_name,
+                            "path": str(skill_dir),
+                        }
+
+                    # create / edit
+                    if action == "create" and skill_dir.exists() and not force:
+                        return {
+                            "error": f"Skill already exists: {dir_name}. Use force=true to overwrite."
+                        }
+
+                    if action == "edit" and not skill_md.exists():
+                        return {
+                            "error": f"Skill not found: {dir_name}. Create it first."
+                        }
+
+                    existing_content = ""
+                    if skill_md.exists():
+                        existing_content = skill_md.read_text(encoding="utf-8")
+
+                    parsed_name, parsed_desc, parsed_body = self._parse_skill_md_meta(
+                        existing_content, dir_name
+                    )
+
+                    final_name = skill_name or parsed_name or dir_name
+                    final_desc = skill_desc or parsed_desc or final_name
+                    final_body = (
+                        skill_body or parsed_body or "Describe how to use this skill."
+                    )
+
+                    skill_dir.mkdir(parents=True, exist_ok=True)
+                    final_content = self._build_skill_md_content(
+                        final_name, final_desc, final_body
+                    )
+                    skill_md.write_text(final_content, encoding="utf-8")
+
+                    # Write any extra files into the skill folder.
+                    # These are accessible to the Copilot SDK agent but not synced to OW DB.
+                    extra_files = payload.get("files") or {}
+                    if not isinstance(extra_files, dict):
+                        return {
+                            "error": "Invalid 'files' parameter: must be a dictionary of {filename: content} pairs"
+                        }
+
+                    written_files = []
+                    for rel_path, file_content in extra_files.items():
+                        # Sanitize: prevent absolute paths or path traversal
+                        rel = Path(rel_path)
+                        if rel.is_absolute() or any(part == ".." for part in rel.parts):
+                            continue
+                        dest = skill_dir / rel
+                        dest.parent.mkdir(parents=True, exist_ok=True)
+                        dest.write_text(file_content, encoding="utf-8")
+                        written_files.append(str(rel))
+
+                    # Immediately sync to OW DB so frontend reflects the change.
+                    try:
+                        await asyncio.to_thread(
+                            self._sync_openwebui_skills, workspace_dir, user_id
+                        )
+                    except Exception:
+                        pass
+
+                    return {
+                        "success": True,
+                        "action": action,
+                        "skill_name": dir_name,
+                        "skill_dir": str(skill_dir),
+                        "skill_md": str(skill_md),
+                        "extra_files_written": written_files,
+                    }
+
+                return {"error": f"Unsupported action: {action}"}
+            except Exception as e:
+                return {"error": str(e)}
+
+        return define_tool(
+            name="manage_skills",
+            description="Manage skills deterministically: install/list/create/edit/delete/show. Supports creating skill content from current context.",
+            params_type=ManageSkillsParams,
+        )(manage_skills)
 
     def _json_schema_to_python_type(self, schema: dict) -> Any:
         """Convert JSON Schema type to Python type for Pydantic models."""
@@ -1015,8 +1700,12 @@ class Pipe:
 
         return Any
 
-    def _convert_openwebui_tool(
-        self, tool_name: str, tool_dict: dict, __event_call__=None
+    def _convert_openwebui_tool_to_sdk(
+        self,
+        tool_name: str,
+        tool_dict: dict,
+        __event_emitter__=None,
+        __event_call__=None,
     ):
         """Convert OpenWebUI tool definition to Copilot SDK tool."""
         # Sanitize tool name to match pattern ^[a-zA-Z0-9_-]+$
@@ -1156,11 +1845,36 @@ class Pipe:
 
                 result = await tool_callable(**payload)
 
-                # Special handling for OpenAPI tools which return (data, headers) tuple
+                # Support v0.8.0+ Action-style returns (tuple with  headers)
                 if isinstance(result, tuple) and len(result) == 2:
                     data, headers = result
                     # Basic heuristic to detect response headers (aiohttp headers or dict)
                     if hasattr(headers, "get") and hasattr(headers, "items"):
+                        # If Content-Disposition is 'inline', it's a Direct HTML/Embed result
+                        if (
+                            "inline"
+                            in str(headers.get("Content-Disposition", "")).lower()
+                        ):
+                            if __event_emitter__:
+                                await __event_emitter__(
+                                    {
+                                        "type": "embeds",
+                                        "data": {"embeds": [data]},
+                                    }
+                                )
+                            # Return a status dict instead of raw HTML for the LLM's Tool UI block
+                            return {
+                                "status": "success",
+                                "ui_intent": "direct_artifact_embed",
+                                "message": "The interactive component has been displayed directly in the chat interface.",
+                                "preview": (
+                                    str(data)[:100] + "..."
+                                    if isinstance(data, str)
+                                    else "[Binary Data]"
+                                ),
+                            }
+
+                        # Standard tuple return for OpenAPI tools etc.
                         if self.valves.DEBUG:
                             await self._emit_debug_log(
                                 f"✅ {sanitized_tool_name} returned tuple, extracting data.",
@@ -1290,10 +2004,12 @@ class Pipe:
         self,
         body: dict = None,
         __user__=None,
+        __event_emitter__=None,
         __event_call__=None,
         enable_tools: bool = True,
         enable_openapi: bool = True,
         chat_tool_ids: Optional[list] = None,
+        __metadata__: Optional[dict] = None,
     ):
         """Load OpenWebUI tools and convert them to Copilot SDK tools."""
         if isinstance(__user__, (list, tuple)):
@@ -1526,13 +2242,16 @@ class Pipe:
                         pass
 
                 # Get builtin tools
-                # Open all feature gates so filtering is driven solely by
-                # model.meta.builtinTools (defaults to all-enabled when absent).
+                # Code interpreter is STRICT opt-in: only enabled when request
+                # explicitly sets feature code_interpreter=true. Missing means disabled.
+                code_interpreter_enabled = self._is_code_interpreter_feature_enabled(
+                    body, __metadata__
+                )
                 all_features = {
                     "memory": True,
                     "web_search": True,
                     "image_generation": True,
-                    "code_interpreter": True,
+                    "code_interpreter": code_interpreter_enabled,
                 }
                 builtin_tools = get_builtin_tools(
                     self._build_openwebui_request(user_data),
@@ -1617,13 +2336,15 @@ class Pipe:
                     ].get("description")
 
         converted_tools = []
-        for tool_name, tool_def in tools_dict.items():
+        for tool_name, t_dict in tools_dict.items():
             try:
-                converted_tools.append(
-                    self._convert_openwebui_tool(
-                        tool_name, tool_def, __event_call__=__event_call__
-                    )
+                copilot_tool = self._convert_openwebui_tool_to_sdk(
+                    tool_name,
+                    t_dict,
+                    __event_emitter__=__event_emitter__,
+                    __event_call__=__event_call__,
                 )
+                converted_tools.append(copilot_tool)
             except Exception as e:
                 await self._emit_debug_log(
                     f"Failed to load OpenWebUI tool '{tool_name}': {e}",
@@ -1860,12 +2581,482 @@ class Pipe:
 
         return self._dedupe_preserve_order(model_ids)
 
+    def _parse_csv_items(self, value: Optional[str]) -> List[str]:
+        if not value or not isinstance(value, str):
+            return []
+        items = [item.strip() for item in value.split(",")]
+        return self._dedupe_preserve_order([item for item in items if item])
+
+    def _is_manage_skills_intent(self, text: str) -> bool:
+        """Detect whether the user is asking to manage/install skills.
+
+        When true, route to the deterministic `manage_skills` tool workflow.
+        """
+        if not text or not isinstance(text, str):
+            return False
+
+        t = text.lower()
+
+        patterns = [
+            r"\bskills?-manager\b",
+            r"\binstall\b.*\bskills?\b",
+            r"\binstall\b.*github\.com/.*/skills",
+            r"\bmanage\b.*\bskills?\b",
+            r"\blist\b.*\bskills?\b",
+            r"\bdelete\b.*\bskills?\b",
+            r"\bremove\b.*\bskills?\b",
+            r"\bedit\b.*\bskills?\b",
+            r"\bupdate\b.*\bskills?\b",
+            r"安装.*技能",
+            r"安装.*skills?",
+            r"管理.*技能",
+            r"管理.*skills?",
+            r"列出.*技能",
+            r"删除.*技能",
+            r"编辑.*技能",
+            r"更新.*技能",
+            r"skills码",
+            r"skill\s*code",
+        ]
+
+        for p in patterns:
+            if re.search(p, t):
+                return True
+        return False
+
+    def _collect_skill_names_for_routing(
+        self,
+        resolved_cwd: str,
+        user_id: str,
+        enable_openwebui_skills: bool,
+    ) -> List[str]:
+        """Collect current skill names from shared directory."""
+        skill_names: List[str] = []
+
+        def _scan_skill_dir(parent_dir: str):
+            parent = Path(parent_dir)
+            if not parent.exists() or not parent.is_dir():
+                return
+            for skill_dir in parent.iterdir():
+                if not skill_dir.is_dir():
+                    continue
+                skill_md = skill_dir / "SKILL.md"
+                if not skill_md.exists():
+                    continue
+                try:
+                    content = skill_md.read_text(encoding="utf-8")
+                    parsed_name, _, _ = self._parse_skill_md_meta(
+                        content, skill_dir.name
+                    )
+                    skill_names.append(parsed_name or skill_dir.name)
+                except Exception:
+                    skill_names.append(skill_dir.name)
+
+        if enable_openwebui_skills:
+            shared_dir = self._sync_openwebui_skills(resolved_cwd, user_id)
+        else:
+            shared_dir = self._get_shared_skills_dir(resolved_cwd)
+        _scan_skill_dir(shared_dir)
+
+        return self._dedupe_preserve_order(skill_names)
+
+    def _skill_dir_name_from_skill_name(self, skill_name: str) -> str:
+        name = (skill_name or "owui-skill").strip()
+        name = re.sub(r'[<>:"/\\|?*\x00-\x1f\x7f]+', "_", name)
+        name = name.strip().strip(".")
+        if not name:
+            name = "owui-skill"
+        return name[:128]
+
+    def _get_copilot_config_dir(self) -> str:
+        """Get the effective directory for Copilot SDK config/metadata."""
+        # 1. Valve override
+        if getattr(self.valves, "COPILOTSDK_CONFIG_DIR", ""):
+            return os.path.expanduser(self.valves.COPILOTSDK_CONFIG_DIR)
+
+        # 2. Container persistence (Shared data volume)
+        if os.path.exists("/app/backend/data"):
+            path = "/app/backend/data/.copilot"
+            try:
+                os.makedirs(path, exist_ok=True)
+                return path
+            except Exception as e:
+                logger.warning(f"Failed to create .copilot dir in data volume: {e}")
+
+        # 3. Fallback to standard path
+        return os.path.expanduser("~/.copilot")
+
+    def _get_shared_skills_dir(self, resolved_cwd: str) -> str:
+        """Returns (and creates) the unified shared skills directory.
+
+        Both OpenWebUI page skills and pipe-installed skills live here.
+        The directory is persistent and shared across all sessions.
+        """
+        shared_base = Path(self.valves.OPENWEBUI_SKILLS_SHARED_DIR or "").expanduser()
+        if not shared_base.is_absolute():
+            shared_base = Path(resolved_cwd) / shared_base
+        shared_dir = shared_base / "shared"
+        shared_dir.mkdir(parents=True, exist_ok=True)
+        return str(shared_dir)
+
+    def _parse_skill_md_meta(self, content: str, fallback_name: str) -> tuple:
+        """Parse SKILL.md content into (name, description, body).
+
+        Handles files with or without YAML frontmatter.
+        Strips quotes from frontmatter string values.
+        """
+        fm_match = re.match(r"^---\s*\n(.*?)\n---\s*\n", content, re.DOTALL)
+        if fm_match:
+            fm_text = fm_match.group(1)
+            body = content[fm_match.end() :].strip()
+            name = fallback_name
+            description = ""
+            for line in fm_text.split("\n"):
+                m = re.match(r"^name:\s*(.+)$", line)
+                if m:
+                    name = m.group(1).strip().strip("\"'")
+                m = re.match(r"^description:\s*(.+)$", line)
+                if m:
+                    description = m.group(1).strip().strip("\"'")
+            return name, description, body
+        # No frontmatter: try to extract H1 as name
+        h1_match = re.search(r"^#\s+(.+)$", content.strip(), re.MULTILINE)
+        name = h1_match.group(1).strip() if h1_match else fallback_name
+        return name, "", content.strip()
+
+    def _build_skill_md_content(self, name: str, description: str, body: str) -> str:
+        """Construct a SKILL.md file string from name, description, and body."""
+        desc_line = description or name
+        if any(c in desc_line for c in ":#\n"):
+            desc_line = f'"{desc_line}"'
+        return (
+            f"---\n"
+            f"name: {name}\n"
+            f"description: {desc_line}\n"
+            f"---\n\n"
+            f"# {name}\n\n"
+            f"{body}\n"
+        )
+
+    def _sync_openwebui_skills(self, resolved_cwd: str, user_id: str) -> str:
+        """Bidirectionally sync skills between OpenWebUI DB and the shared/ directory.
+
+        Sync rules (per skill):
+          DB → File: if a skill exists in OpenWebUI but has no directory entry, or the
+                     DB is newer than the file → write/update SKILL.md in shared/.
+          File → DB: if a skill directory has no .owui_id or the file is newer than the
+                     DB entry → create/update the skill in OpenWebUI DB.
+
+        Change detection uses MD5 content hash (skip if identical) then falls back to
+        timestamp comparison (db.updated_at vs file mtime) to determine direction.
+
+        A `.owui_id` marker file inside each skill directory tracks the OpenWebUI skill ID.
+        Skills installed via pipe that have no OpenWebUI counterpart are registered in DB.
+        If a directory has `.owui_id` but the corresponding OpenWebUI skill is gone,
+        the local directory is removed (UI is source of truth for deletions).
+
+        Returns the shared skills directory path (always, even on sync failure).
+        """
+        shared_dir = Path(self._get_shared_skills_dir(resolved_cwd))
+
+        try:
+            from open_webui.models.skills import Skills, SkillForm, SkillMeta
+
+            sync_stats = {
+                "db_to_file_updates": 0,
+                "db_to_file_creates": 0,
+                "file_to_db_updates": 0,
+                "file_to_db_creates": 0,
+                "file_to_db_links": 0,
+                "orphan_dir_deletes": 0,
+            }
+
+            # ------------------------------------------------------------------
+            # Step 1: Load all accessible OpenWebUI skills
+            # ------------------------------------------------------------------
+            owui_by_id: Dict[str, dict] = {}
+            for skill in Skills.get_skills_by_user_id(user_id, "read") or []:
+                if not skill or not getattr(skill, "is_active", False):
+                    continue
+                content = (getattr(skill, "content", "") or "").strip()
+                sk_id = str(getattr(skill, "id", "") or "")
+                sk_name = (getattr(skill, "name", "") or sk_id or "owui-skill").strip()
+                if not sk_id or not sk_name or not content:
+                    continue
+                owui_by_id[sk_id] = {
+                    "id": sk_id,
+                    "name": sk_name,
+                    "description": (getattr(skill, "description", "") or "")
+                    .replace("\n", " ")
+                    .strip(),
+                    "content": content,
+                    "updated_at": getattr(skill, "updated_at", 0) or 0,
+                }
+
+            # ------------------------------------------------------------------
+            # Step 2: Load directory skills (shared/) and build lookup maps
+            # ------------------------------------------------------------------
+            dir_skills: Dict[str, dict] = {}  # dir_name → dict
+            for skill_dir in shared_dir.iterdir():
+                if not skill_dir.is_dir():
+                    continue
+                skill_md_path = skill_dir / "SKILL.md"
+                if not skill_md_path.exists():
+                    continue
+                owui_id_file = skill_dir / ".owui_id"
+                owui_id = (
+                    owui_id_file.read_text(encoding="utf-8").strip()
+                    if owui_id_file.exists()
+                    else None
+                )
+                try:
+                    file_content = skill_md_path.read_text(encoding="utf-8")
+                    file_mtime = skill_md_path.stat().st_mtime
+                except Exception:
+                    continue
+                dir_skills[skill_dir.name] = {
+                    "path": skill_dir,
+                    "owui_id": owui_id,
+                    "mtime": file_mtime,
+                    "content": file_content,
+                }
+
+            # Reverse map: owui_id → dir_name (for skills already linked)
+            id_to_dir: Dict[str, str] = {
+                info["owui_id"]: dn
+                for dn, info in dir_skills.items()
+                if info["owui_id"]
+            }
+
+            # ------------------------------------------------------------------
+            # Step 3: DB → File  (OpenWebUI skills written to shared/)
+            # ------------------------------------------------------------------
+            for sk_id, sk in owui_by_id.items():
+                expected_file_content = self._build_skill_md_content(
+                    sk["name"], sk["description"], sk["content"]
+                )
+
+                if sk_id in id_to_dir:
+                    dir_name = id_to_dir[sk_id]
+                    dir_info = dir_skills[dir_name]
+                    existing_hash = hashlib.md5(
+                        dir_info["content"].encode("utf-8", errors="replace")
+                    ).hexdigest()
+                    new_hash = hashlib.md5(
+                        expected_file_content.encode("utf-8", errors="replace")
+                    ).hexdigest()
+                    if (
+                        existing_hash != new_hash
+                        and sk["updated_at"] > dir_info["mtime"]
+                    ):
+                        # DB is newer — update file
+                        (dir_info["path"] / "SKILL.md").write_text(
+                            expected_file_content, encoding="utf-8"
+                        )
+                        dir_skills[dir_name]["content"] = expected_file_content
+                        dir_skills[dir_name]["mtime"] = (
+                            (dir_info["path"] / "SKILL.md").stat().st_mtime
+                        )
+                        sync_stats["db_to_file_updates"] += 1
+                else:
+                    # No directory for this OpenWebUI skill → create one
+                    dir_name = self._skill_dir_name_from_skill_name(sk["name"])
+                    # Avoid collision with existing dir names
+                    base = dir_name
+                    suffix = 1
+                    while dir_name in dir_skills:
+                        dir_name = f"{base}-{suffix}"
+                        suffix += 1
+                    skill_dir = shared_dir / dir_name
+                    skill_dir.mkdir(parents=True, exist_ok=True)
+                    (skill_dir / "SKILL.md").write_text(
+                        expected_file_content, encoding="utf-8"
+                    )
+                    (skill_dir / ".owui_id").write_text(sk_id, encoding="utf-8")
+                    dir_skills[dir_name] = {
+                        "path": skill_dir,
+                        "owui_id": sk_id,
+                        "mtime": (skill_dir / "SKILL.md").stat().st_mtime,
+                        "content": expected_file_content,
+                    }
+                    id_to_dir[sk_id] = dir_name
+                    sync_stats["db_to_file_creates"] += 1
+
+            # ------------------------------------------------------------------
+            # Step 4: File → DB  (directory skills written to OpenWebUI)
+            # ------------------------------------------------------------------
+            owui_by_name: Dict[str, str] = {
+                info["name"]: sid for sid, info in owui_by_id.items()
+            }
+
+            for dir_name, dir_info in dir_skills.items():
+                owui_id = dir_info["owui_id"]
+                file_content = dir_info["content"]
+                file_mtime = dir_info["mtime"]
+                parsed_name, parsed_desc, parsed_body = self._parse_skill_md_meta(
+                    file_content, dir_name
+                )
+
+                if owui_id and owui_id in owui_by_id:
+                    # Skill is linked to DB — check if file is newer and content differs
+                    db_info = owui_by_id[owui_id]
+                    # Re-construct what the file would look like from DB to compare
+                    db_file_content = self._build_skill_md_content(
+                        db_info["name"], db_info["description"], db_info["content"]
+                    )
+                    file_hash = hashlib.md5(
+                        file_content.encode("utf-8", errors="replace")
+                    ).hexdigest()
+                    db_hash = hashlib.md5(
+                        db_file_content.encode("utf-8", errors="replace")
+                    ).hexdigest()
+                    if file_hash != db_hash and file_mtime > db_info["updated_at"]:
+                        # File is newer — push to DB
+                        Skills.update_skill_by_id(
+                            owui_id,
+                            {
+                                "name": parsed_name,
+                                "description": parsed_desc or parsed_name,
+                                "content": parsed_body or file_content,
+                            },
+                        )
+                        sync_stats["file_to_db_updates"] += 1
+                elif owui_id and owui_id not in owui_by_id:
+                    # .owui_id points to a removed skill in OpenWebUI UI.
+                    # UI is source of truth — delete local dir.
+                    try:
+                        shutil.rmtree(dir_info["path"], ignore_errors=False)
+                        sync_stats["orphan_dir_deletes"] += 1
+                    except Exception as e:
+                        logger.warning(
+                            f"[Skills Sync] Failed to remove orphaned skill dir '{dir_info['path']}': {e}"
+                        )
+                else:
+                    # No OpenWebUI link — try to match by name, then create new
+                    matched_id = owui_by_name.get(parsed_name)
+                    if matched_id:
+                        # Link to existing skill with same name
+                        (dir_info["path"] / ".owui_id").write_text(
+                            matched_id, encoding="utf-8"
+                        )
+                        sync_stats["file_to_db_links"] += 1
+                        db_info = owui_by_id[matched_id]
+                        db_file_content = self._build_skill_md_content(
+                            db_info["name"], db_info["description"], db_info["content"]
+                        )
+                        file_hash = hashlib.md5(
+                            file_content.encode("utf-8", errors="replace")
+                        ).hexdigest()
+                        db_hash = hashlib.md5(
+                            db_file_content.encode("utf-8", errors="replace")
+                        ).hexdigest()
+                        if file_hash != db_hash and file_mtime > db_info["updated_at"]:
+                            Skills.update_skill_by_id(
+                                matched_id,
+                                {
+                                    "name": parsed_name,
+                                    "description": parsed_desc or parsed_name,
+                                    "content": parsed_body or file_content,
+                                },
+                            )
+                            sync_stats["file_to_db_updates"] += 1
+                    else:
+                        # Truly new skill from file — register in OpenWebUI
+                        new_skill = Skills.insert_new_skill(
+                            user_id=user_id,
+                            form_data=SkillForm(
+                                id=str(uuid.uuid4()),
+                                name=parsed_name,
+                                description=parsed_desc or parsed_name,
+                                content=parsed_body or file_content,
+                                meta=SkillMeta(),
+                                is_active=True,
+                            ),
+                        )
+                        if new_skill:
+                            new_id = str(getattr(new_skill, "id", "") or "")
+                            (dir_info["path"] / ".owui_id").write_text(
+                                new_id, encoding="utf-8"
+                            )
+                            sync_stats["file_to_db_creates"] += 1
+
+            logger.debug(f"[Skills Sync] Summary: {sync_stats}")
+
+        except ImportError:
+            # Running outside OpenWebUI environment — directory is still usable
+            pass
+        except Exception as e:
+            logger.debug(f"[Copilot] Skills sync failed: {e}", exc_info=True)
+
+        return str(shared_dir)
+
+    def _resolve_session_skill_config(
+        self,
+        resolved_cwd: str,
+        user_id: str,
+        enable_openwebui_skills: bool,
+        disabled_skills: Optional[List[str]] = None,
+    ) -> Dict[str, Any]:
+        skill_directories: List[str] = []
+
+        # Unified shared directory — always included.
+        # When enable_openwebui_skills is True, run bidirectional sync first so
+        # OpenWebUI page skills and directory skills are kept in sync.
+        if enable_openwebui_skills:
+            shared_dir = self._sync_openwebui_skills(resolved_cwd, user_id)
+        else:
+            shared_dir = self._get_shared_skills_dir(resolved_cwd)
+        skill_directories.append(shared_dir)
+
+        config: Dict[str, Any] = {}
+        if skill_directories:
+            config["skill_directories"] = self._dedupe_preserve_order(skill_directories)
+
+        if disabled_skills:
+            normalized_disabled = self._dedupe_preserve_order(disabled_skills)
+            if normalized_disabled:
+                config["disabled_skills"] = normalized_disabled
+
+        return config
+
+    def _is_code_interpreter_feature_enabled(
+        self, body: Optional[dict], __metadata__: Optional[dict] = None
+    ) -> bool:
+        """Code interpreter must be explicitly enabled by request feature flags."""
+
+        def _extract_flag(container: Any) -> Optional[bool]:
+            if not isinstance(container, dict):
+                return None
+            features = container.get("features")
+            if isinstance(features, dict) and "code_interpreter" in features:
+                return bool(features.get("code_interpreter"))
+            return None
+
+        # 1) top-level body.features
+        flag = _extract_flag(body)
+        if flag is not None:
+            return flag
+
+        # 2) body.metadata.features
+        if isinstance(body, dict):
+            flag = _extract_flag(body.get("metadata"))
+            if flag is not None:
+                return flag
+
+        # 3) injected __metadata__.features
+        flag = _extract_flag(__metadata__)
+        if flag is not None:
+            return flag
+
+        return False
+
     async def _extract_system_prompt(
         self,
         body: dict,
         messages: List[dict],
         request_model: str,
         real_model_id: str,
+        code_interpreter_enabled: bool = False,
         __event_call__=None,
         debug_enabled: bool = False,
     ) -> Tuple[Optional[str], str]:
@@ -1969,21 +3160,21 @@ class Pipe:
                         )
                     break
 
-        # Append Code Interpreter Warning
-        code_interpreter_warning = (
-            "\n\n[System Note]\n"
-            "The `execute_code` tool (builtin category: `code_interpreter`) executes code in a remote, ephemeral environment. "
-            "It cannot access files in your local workspace or persist changes. "
-            "Use it only for calculation or logic verification, not for file manipulation."
-            "\n"
-            "For links returned by `publish_file_from_workspace`, URL formatting is strict: "
-            "always use relative paths that start with `/api/v1/files/`. "
-            "Do not output `api/...` and do not prepend any domain."
-        )
-        if system_prompt_content:
-            system_prompt_content += code_interpreter_warning
-        else:
-            system_prompt_content = code_interpreter_warning.strip()
+        # Append Code Interpreter Warning only when feature is explicitly enabled
+        if code_interpreter_enabled:
+            code_interpreter_warning = (
+                "\n\n[System Note]\n"
+                "The `execute_code` tool (builtin category: `code_interpreter`) executes code in a remote, ephemeral environment. "
+                "It cannot access files in your local workspace or persist changes. "
+                "Use it only for calculation or logic verification, not for file manipulation."
+                "\n"
+                "always use relative paths that start with `/api/v1/files/`. "
+                "Do not output `api/...` and do not prepend any domain or protocol (e.g., NEVER use `https://same.ai/api/...`)."
+            )
+            if system_prompt_content:
+                system_prompt_content += code_interpreter_warning
+            else:
+                system_prompt_content = code_interpreter_warning.strip()
 
         return system_prompt_content, system_prompt_source
 
@@ -2016,29 +3207,74 @@ class Pipe:
 
         return cwd
 
-    def _build_client_config(
-        self, body: dict, user_id: str = None, chat_id: str = None
-    ) -> dict:
+    def _build_client_config(self, user_id: str = None, chat_id: str = None) -> dict:
         """Build CopilotClient config from valves and request body."""
         cwd = self._get_workspace_dir(user_id=user_id, chat_id=chat_id)
+        config_dir = self._get_copilot_config_dir()
+
+        # Set environment variable for SDK/CLI to pick up the new config location
+        os.environ["COPILOTSDK_CONFIG_DIR"] = config_dir
+
         client_config = {}
         if os.environ.get("COPILOT_CLI_PATH"):
             client_config["cli_path"] = os.environ["COPILOT_CLI_PATH"]
         client_config["cwd"] = cwd
+        client_config["config_dir"] = config_dir
 
         if self.valves.LOG_LEVEL:
             client_config["log_level"] = self.valves.LOG_LEVEL
 
         if self.valves.LOG_LEVEL:
             client_config["log_level"] = self.valves.LOG_LEVEL
+
+        # Setup persistent CLI tool installation directories
+        agent_env = dict(os.environ)
+        if os.path.exists("/app/backend/data"):
+            tools_dir = "/app/backend/data/.copilot_tools"
+            npm_dir = f"{tools_dir}/npm"
+            venv_dir = f"{tools_dir}/venv"
+
+            try:
+                os.makedirs(f"{npm_dir}/bin", exist_ok=True)
+
+                # Setup Python Virtual Environment to strictly protect system python
+                if not os.path.exists(f"{venv_dir}/bin/activate"):
+                    import subprocess
+                    import sys
+
+                    subprocess.run(
+                        [
+                            sys.executable,
+                            "-m",
+                            "venv",
+                            "--system-site-packages",
+                            venv_dir,
+                        ],
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                        check=True,
+                    )
+
+                agent_env["NPM_CONFIG_PREFIX"] = npm_dir
+                agent_env["VIRTUAL_ENV"] = venv_dir
+                agent_env.pop("PYTHONUSERBASE", None)
+                agent_env.pop("PIP_USER", None)
+
+                agent_env["PATH"] = (
+                    f"{npm_dir}/bin:{venv_dir}/bin:{agent_env.get('PATH', '')}"
+                )
+            except Exception as e:
+                logger.warning(f"Failed to setup Python venv or tool dirs: {e}")
 
         if self.valves.CUSTOM_ENV_VARS:
             try:
                 custom_env = json.loads(self.valves.CUSTOM_ENV_VARS)
                 if isinstance(custom_env, dict):
-                    client_config["env"] = custom_env
+                    agent_env.update(custom_env)
             except:
                 pass
+
+        client_config["env"] = agent_env
 
         return client_config
 
@@ -2055,11 +3291,26 @@ class Pipe:
         is_admin: bool = False,
         user_id: str = None,
         enable_mcp: bool = True,
+        enable_openwebui_skills: bool = True,
+        disabled_skills: Optional[List[str]] = None,
         chat_tool_ids: Optional[list] = None,
         __event_call__=None,
+        manage_skills_intent: bool = False,
     ):
         """Build SessionConfig for Copilot SDK."""
         from copilot.types import SessionConfig, InfiniteSessionConfig
+        import time
+
+        try:
+            # -time.timezone is offset in seconds. UTC+8 is 28800.
+            is_china_tz = (-time.timezone / 3600) == 8.0
+        except Exception:
+            is_china_tz = False
+
+        if is_china_tz:
+            pkg_mirror_hint = " (Note: Server is in UTC+8. You MUST append `-i https://pypi.tuna.tsinghua.edu.cn/simple` for pip/uv and `--registry=https://registry.npmmirror.com` for npm to prevent network timeouts.)"
+        else:
+            pkg_mirror_hint = " (Note: If network is slow or times out, proactively use a fast regional mirror suitable for the current timezone.)"
 
         infinite_session_config = None
         if self.valves.INFINITE_SESSION:
@@ -2074,22 +3325,62 @@ class Pipe:
         if system_prompt_content:
             system_parts.append(system_prompt_content.strip())
 
+        if manage_skills_intent:
+            system_parts.append(
+                "[Skill Management]\n"
+                "If the user wants to install, create, delete, edit, or list skills, use the `manage_skills` tool.\n"
+                "Supported operations: list, install, create, edit, delete, show.\n"
+                "When installing skills that require CLI tools, you MAY run installation commands.\n"
+                f"To avoid hanging the session, ALWAYS append `-q` or `--silent` to package managers, and confirm unattended installations (e.g., `npm install -g -q <pkg>` or `pip install -q <pkg>`).{pkg_mirror_hint}\n"
+                "When running `npm install -g`, it will automatically use prefix `/app/backend/data/.copilot_tools/npm`. No need to set the prefix manually, but you MUST be aware this is the installation target.\n"
+                "When running `pip install`, it operates within an isolated Python Virtual Environment (`VIRTUAL_ENV=/app/backend/data/.copilot_tools/venv`) that has access to system packages (`--system-site-packages`). This protects the system Python while allowing you to use pre-installed generic libraries. DO NOT attempt to bypass this isolation."
+            )
+
         # Calculate final path once to ensure consistency
         resolved_cwd = self._get_workspace_dir(user_id=user_id, chat_id=chat_id)
 
         # Inject explicit path context
+        config_dir = self._get_copilot_config_dir()
         path_context = (
             f"\n[Session Context]\n"
             f"- **Your Isolated Workspace**: `{resolved_cwd}`\n"
             f"- **Active User ID**: `{user_id}`\n"
             f"- **Active Chat ID**: `{chat_id}`\n"
+            f"- **Skills Directory**: `{self.valves.OPENWEBUI_SKILLS_SHARED_DIR}/shared/` — contains user-installed skills.\n"
+            f"- **Config Directory**: `{config_dir}` — system configuration (Restricted).\n"
+            f"- **CLI Tools Path**: `/app/backend/data/.copilot_tools/` — Global tools installed via npm or pip will automatically go here and be in your $PATH. Python tools are strictly isolated in a venv here.\n"
             "**CRITICAL INSTRUCTION**: You MUST use the above workspace for ALL file operations.\n"
             "- DO NOT create files in `/tmp` or any other system directories.\n"
             "- Always interpret 'current directory' as your Isolated Workspace."
         )
         system_parts.append(path_context)
 
+        # Available Native Tools Context
+        native_tools_context = (
+            "\n[Available Native System Tools]\n"
+            "The host environment is rich. Based on the official OpenWebUI Docker deployment baseline (backend image), the following CLI tools are expected to be preinstalled and globally available in $PATH:\n"
+            "- **Network/Data**: `curl`, `jq`, `netcat-openbsd`\n"
+            "- **Media/Doc**: `pandoc` (format conversion), `ffmpeg` (audio/video)\n"
+            "- **Build/System**: `git`, `gcc`, `make`, `build-essential`, `zstd`, `bash`\n"
+            "- **Python/Runtime**: `python3`, `pip3`, `uv`\n"
+            f"- **Package Mgr Guidance**: Prefer `uv pip install <pkg>` over plain `pip install` for speed and stability.{pkg_mirror_hint}\n"
+            "- **Verification Rule**: Before installing any CLI/tool dependency, first check availability with `which <tool>` or a lightweight version probe (e.g. `<tool> --version`).\n"
+            "- **Python Libs**: The active virtual environment inherits `--system-site-packages`. Advanced libraries like `pandas`, `numpy`, `pillow`, `opencv-python-headless`, `pypdf`, `langchain`, `playwright`, `httpx`, and `beautifulsoup4` are ALREADY installed. Try importing them before attempting to install.\n"
+        )
+        system_parts.append(native_tools_context)
+
         system_parts.append(BASE_GUIDELINES)
+
+        # Dynamic Capability Note: Rich UI (HTML Emitters/Iframes) requires OpenWebUI >= 0.8.0
+        if not self._is_version_at_least("0.8.0"):
+            version_note = (
+                f"\n**[CRITICAL VERSION NOTE]**\n"
+                f"The host OpenWebUI version is `{open_webui_version}`, which is older than 0.8.0.\n"
+                "- **Rich UI Disabled**: Integration features like `type: embeds` or automated iframe overlays are NOT supported.\n"
+                "- **Protocol Fallback**: You MUST NOT rely on the 'Premium Delivery Protocol' for visuals. Instead, you SHOULD output the HTML code block manually in your message if you want the user to see the result."
+            )
+            system_parts.append(version_note)
+
         if is_admin:
             system_parts.append(ADMIN_EXTENSIONS)
         else:
@@ -2162,6 +3453,30 @@ class Pipe:
             cwd=resolved_cwd, __event_call__=__event_call__
         )
 
+        session_params.update(
+            self._resolve_session_skill_config(
+                resolved_cwd=resolved_cwd,
+                user_id=user_id,
+                enable_openwebui_skills=enable_openwebui_skills,
+                disabled_skills=disabled_skills,
+            )
+        )
+
+        try:
+            skill_dirs_dbg = session_params.get("skill_directories") or []
+            if skill_dirs_dbg:
+                logger.info(f"[Copilot] skill_directories={skill_dirs_dbg}")
+                for sd in skill_dirs_dbg:
+                    path = Path(sd)
+                    skill_md_count = sum(
+                        1 for p in path.glob("*/SKILL.md") if p.is_file()
+                    )
+                    logger.info(
+                        f"[Copilot] skill_dir check: {sd} exists={path.exists()} skill_md_count={skill_md_count}"
+                    )
+        except Exception as e:
+            logger.debug(f"[Copilot] skill directory debug check failed: {e}")
+
         return SessionConfig(**session_params)
 
     def _build_session_hooks(self, cwd: str, __event_call__=None):
@@ -2173,7 +3488,6 @@ class Pipe:
 
         async def on_post_tool_use(input_data, invocation):
             result = input_data.get("result", "")
-            tool_name = input_data.get("toolName", "")
 
             # Logic to detect and move large files saved to /tmp
             # Pattern: Saved to: /tmp/copilot_result_xxxx.txt
@@ -2650,8 +3964,6 @@ class Pipe:
         debug_enabled: bool = False,
         token: str = None,
         enable_mcp: bool = True,
-        __event_emitter__=None,
-        user_lang: str = "en-US",
     ):
         """Setup environment variables and resolve Copilot CLI path from SDK bundle."""
 
@@ -2822,7 +4134,7 @@ class Pipe:
         self, reasoning_effort: str, __event_call__=None, debug_enabled: bool = False
     ):
         """
-        Dynamically update ~/.copilot/config.json if REASONING_EFFORT is set.
+        Dynamically update config.json if REASONING_EFFORT is set.
         This provides a fallback if API injection is ignored by the server.
         """
         if not reasoning_effort:
@@ -2831,8 +4143,8 @@ class Pipe:
         effort = reasoning_effort
 
         try:
-            # Target standard path ~/.copilot/config.json
-            config_path = os.path.expanduser("~/.copilot/config.json")
+            # Target dynamic config path
+            config_path = os.path.join(self._get_copilot_config_dir(), "config.json")
             config_dir = os.path.dirname(config_path)
 
             # Only proceed if directory exists (avoid creating trash types of files if path is wrong)
@@ -2857,7 +4169,7 @@ class Pipe:
                         json.dump(data, f, indent=4)
 
                     self._emit_debug_log_sync(
-                        f"Dynamically updated ~/.copilot/config.json: reasoning_effort='{effort}'",
+                        f"Dynamically updated config.json: reasoning_effort='{effort}'",
                         __event_call__,
                         debug_enabled=debug_enabled,
                     )
@@ -2880,8 +4192,8 @@ class Pipe:
         debug_enabled: bool = False,
         enable_mcp: bool = True,
     ):
-        """Sync MCP configuration to ~/.copilot/config.json."""
-        path = os.path.expanduser("~/.copilot/config.json")
+        """Sync MCP configuration to dynamic config.json."""
+        path = os.path.join(self._get_copilot_config_dir(), "config.json")
 
         # If disabled, we should ensure the config doesn't contain stale MCP info
         if not enable_mcp:
@@ -2906,7 +4218,7 @@ class Pipe:
         if not mcp:
             return
         try:
-            path = os.path.expanduser("~/.copilot/config.json")
+            path = os.path.join(self._get_copilot_config_dir(), "config.json")
             os.makedirs(os.path.dirname(path), exist_ok=True)
             data = {}
             if os.path.exists(path):
@@ -2982,6 +4294,10 @@ class Pipe:
 
         # Determine effective MCP settings
         effective_mcp = user_valves.ENABLE_MCP_SERVER
+        effective_openwebui_skills = user_valves.ENABLE_OPENWEBUI_SKILLS
+        effective_disabled_skills = self._parse_csv_items(
+            user_valves.DISABLED_SKILLS or self.valves.DISABLED_SKILLS
+        )
 
         # P4: Chat tool_ids whitelist — extract once, reuse for both OpenAPI and MCP
         chat_tool_ids = None
@@ -2997,8 +4313,6 @@ class Pipe:
             debug_enabled=effective_debug,
             token=effective_token,
             enable_mcp=effective_mcp,
-            __event_emitter__=__event_emitter__,
-            user_lang=user_lang,
         )
 
         cwd = self._get_workspace_dir(user_id=user_id, chat_id=chat_id)
@@ -3024,6 +4338,9 @@ class Pipe:
         # Parse user selected model
         request_model = body.get("model", "")
         real_model_id = request_model
+        code_interpreter_enabled = self._is_code_interpreter_feature_enabled(
+            body, __metadata__
+        )
 
         # Determine effective reasoning effort
         effective_reasoning_effort = (
@@ -3122,7 +4439,8 @@ class Pipe:
             messages,
             request_model,
             real_model_id,
-            __event_call__,
+            code_interpreter_enabled=code_interpreter_enabled,
+            __event_call__=__event_call__,
             debug_enabled=effective_debug,
         )
 
@@ -3152,21 +4470,21 @@ class Pipe:
             debug_enabled=effective_debug,
         )
 
-        # 1. Determine user role and construct guidelines
-        user_data = (
-            __user__[0] if isinstance(__user__, (list, tuple)) else (__user__ or {})
-        )
-        is_admin = user_data.get("role") == "admin"
-
-        system_parts = []
-        if system_prompt_content:
-            system_parts.append(system_prompt_content.strip())
-        system_parts.append(BASE_GUIDELINES)
-        if is_admin:
-            system_parts.append(ADMIN_EXTENSIONS)
-        else:
-            system_parts.append(USER_RESTRICTIONS)
-        final_system_msg = "\n".join(system_parts)
+        # Skill-manager intent diagnostics/routing hint (without disabling other skills).
+        manage_skills_intent = self._is_manage_skills_intent(last_text)
+        if manage_skills_intent:
+            try:
+                await self._emit_debug_log(
+                    "[Skills] Skill management intent detected. `manage_skills` tool routing enabled.",
+                    __event_call__,
+                    debug_enabled=effective_debug,
+                )
+            except Exception as e:
+                await self._emit_debug_log(
+                    f"[Skills] Skill-manager intent diagnostics failed: {e}",
+                    __event_call__,
+                    debug_enabled=effective_debug,
+                )
 
         # Determine prompt strategy
         # If we have a chat_id, we try to resume session.
@@ -3217,9 +4535,12 @@ class Pipe:
         if not is_byok_model:
             self._sync_copilot_config(effective_reasoning_effort, __event_call__)
 
+        # Shared state for delayed HTML embeds (Premium Experience)
+        pending_embeds = []
+
         # Initialize Client
         client = CopilotClient(
-            self._build_client_config(body, user_id=user_id, chat_id=chat_id)
+            self._build_client_config(user_id=user_id, chat_id=chat_id)
         )
         should_stop_client = True
         try:
@@ -3229,12 +4550,13 @@ class Pipe:
             custom_tools = await self._initialize_custom_tools(
                 body=body,
                 __user__=__user__,
+                __event_emitter__=__event_emitter__,
                 __event_call__=__event_call__,
                 __request__=__request__,
                 __metadata__=__metadata__,
+                pending_embeds=pending_embeds,
             )
             if custom_tools:
-                tool_names = [t.name for t in custom_tools]
                 await self._emit_debug_log(
                     f"Enabled {len(custom_tools)} tools (Custom/Built-in)",
                     __event_call__,
@@ -3258,7 +4580,6 @@ class Pipe:
 
             # Create or Resume Session
             session = None
-            is_new_session = True
 
             # Build BYOK Provider Config
             provider_config = None
@@ -3283,6 +4604,9 @@ class Pipe:
 
             if chat_id:
                 try:
+                    resolved_cwd = self._get_workspace_dir(
+                        user_id=user_id, chat_id=chat_id
+                    )
                     # Prepare resume config (Requires github-copilot-sdk >= 0.1.23)
                     resume_params = {
                         "model": real_model_id,
@@ -3305,29 +4629,73 @@ class Pipe:
                     # Always None: let CLI built-ins (bash etc.) remain available.
                     resume_params["available_tools"] = None
 
+                    resume_params.update(
+                        self._resolve_session_skill_config(
+                            resolved_cwd=resolved_cwd,
+                            user_id=user_id,
+                            enable_openwebui_skills=effective_openwebui_skills,
+                            disabled_skills=effective_disabled_skills,
+                        )
+                    )
+                    try:
+                        skill_dirs_dbg = resume_params.get("skill_directories") or []
+                        if skill_dirs_dbg:
+                            logger.info(
+                                f"[Copilot] resume skill_directories={skill_dirs_dbg}"
+                            )
+                            for sd in skill_dirs_dbg:
+                                path = Path(sd)
+                                skill_md_count = sum(
+                                    1 for p in path.glob("*/SKILL.md") if p.is_file()
+                                )
+                                logger.info(
+                                    f"[Copilot] resume skill_dir check: {sd} exists={path.exists()} skill_md_count={skill_md_count}"
+                                )
+                    except Exception as e:
+                        logger.debug(
+                            f"[Copilot] resume skill directory debug check failed: {e}"
+                        )
+
                     # Always inject the latest system prompt in 'replace' mode
                     # This handles both custom models and user-defined system messages
                     system_parts = []
                     if system_prompt_content:
                         system_parts.append(system_prompt_content.strip())
 
+                    if manage_skills_intent:
+                        system_parts.append(
+                            "[Skill Routing Hint]\n"
+                            "The user is asking to install/manage skills. Use the `manage_skills` tool first for deterministic operations "
+                            "(list/install/create/edit/delete/show). Do not run skill names as shell commands."
+                        )
+
                     # Calculate and inject path context for resumed session
-                    resolved_cwd = self._get_workspace_dir(
-                        user_id=user_id, chat_id=chat_id
-                    )
                     path_context = (
                         f"\n[Session Context]\n"
                         f"- **Your Isolated Workspace**: `{resolved_cwd}`\n"
                         f"- **Active User ID**: `{user_id}`\n"
                         f"- **Active Chat ID**: `{chat_id}`\n"
+                        f"- **Skills Directory**: `{self.valves.OPENWEBUI_SKILLS_SHARED_DIR}/shared/` — contains user skills (`SKILL.md`-based). For management operations, use the `manage_skills` tool.\n"
                         "**CRITICAL INSTRUCTION**: You MUST use the above workspace for ALL file operations.\n"
                         "- DO NOT create files in `/tmp` or any other system directories.\n"
+                        "- Use the `manage_skills` tool for skill install/list/create/edit/delete/show operations.\n"
                         "- If a tool output is too large, save it to a file within your workspace, NOT `/tmp`.\n"
                         "- Always interpret 'current directory' as your Isolated Workspace."
                     )
                     system_parts.append(path_context)
 
                     system_parts.append(BASE_GUIDELINES)
+
+                    # Dynamic Capability Note: Rich UI (HTML Emitters/Iframes) requires OpenWebUI >= 0.8.0
+                    if not self._is_version_at_least("0.8.0"):
+                        version_note = (
+                            f"\n**[CRITICAL VERSION NOTE]**\n"
+                            f"The host OpenWebUI version is `{open_webui_version}`, which is older than 0.8.0.\n"
+                            "- **Rich UI Disabled**: Integration features like `type: embeds` or automated iframe overlays are NOT supported.\n"
+                            "- **Protocol Fallback**: You MUST NOT rely on the 'Premium Delivery Protocol' for visuals. Instead, you SHOULD output the HTML code block manually in your message if you want the user to see the result."
+                        )
+                        system_parts.append(version_note)
+
                     if is_admin:
                         system_parts.append(ADMIN_EXTENSIONS)
                     else:
@@ -3368,7 +4736,6 @@ class Pipe:
                         f"Successfully resumed session {chat_id} with model {real_model_id}",
                         __event_call__,
                     )
-                    is_new_session = False
                 except Exception as e:
                     await self._emit_debug_log(
                         f"Session {chat_id} not found or failed to resume ({str(e)}), creating new.",
@@ -3376,7 +4743,6 @@ class Pipe:
                     )
 
             if session is None:
-                is_new_session = True
                 session_config = self._build_session_config(
                     chat_id,
                     real_model_id,
@@ -3389,6 +4755,9 @@ class Pipe:
                     is_admin=is_admin,
                     user_id=user_id,
                     enable_mcp=effective_mcp,
+                    enable_openwebui_skills=effective_openwebui_skills,
+                    disabled_skills=effective_disabled_skills,
+                    manage_skills_intent=manage_skills_intent,
                     chat_tool_ids=chat_tool_ids,
                     __event_call__=__event_call__,
                 )
@@ -3459,6 +4828,7 @@ class Pipe:
                     show_thinking=show_thinking,
                     debug_enabled=effective_debug,
                     user_lang=user_lang,
+                    pending_embeds=pending_embeds,
                 )
             else:
                 try:
@@ -3505,20 +4875,33 @@ class Pipe:
         show_thinking: bool = True,
         debug_enabled: bool = False,
         user_lang: str = "en-US",
+        pending_embeds: List[dict] = None,
     ) -> AsyncGenerator:
         """
         Stream response from Copilot SDK, handling various event types.
         Follows official SDK patterns for event handling and streaming.
         """
-        from copilot.generated.session_events import SessionEventType
-
         queue = asyncio.Queue()
         done = asyncio.Event()
         SENTINEL = object()
         # Use local state to handle concurrency and tracking
-        state = {"thinking_started": False, "content_sent": False}
+        state = {
+            "thinking_started": False,
+            "content_sent": False,
+            "last_status_desc": None,
+            "idle_reached": False,
+            "session_finalized": False,
+        }
         has_content = False  # Track if any content has been yielded
         active_tools = {}  # Map tool_call_id to tool_name
+        skill_invoked_in_turn = False
+        stream_start_ts = time.monotonic()
+        last_wait_status_ts = 0.0
+        wait_status_interval = 15.0
+
+        IDLE_SENTINEL = object()
+        ERROR_SENTINEL = object()
+        SENTINEL = object()
 
         def get_event_type(event) -> str:
             """Extract event type as string, handling both enum and string types."""
@@ -3554,8 +4937,109 @@ class Pipe:
             """
             event_type = get_event_type(event)
 
+            # --- Status Emission Helper ---
+            async def _emit_status_helper(description: str, is_done: bool = False):
+                if not __event_emitter__:
+                    return
+                try:
+                    # BLOCKING LOCK: If we are in the safe-haven of turn completion,
+                    # discard any stray async status updates from earlier pending tasks.
+                    if state.get(
+                        "session_finalized"
+                    ) and description != self._get_translation(
+                        user_lang, "status_task_completed"
+                    ):
+                        return
+
+                    # Optimized emission: we try to minimize context switches
+
+                    # 1. Close the OLD one if it's different
+                    if (
+                        state.get("last_status_desc")
+                        and state["last_status_desc"] != description
+                    ):
+                        try:
+                            await __event_emitter__(
+                                {
+                                    "type": "status",
+                                    "data": {
+                                        "description": state["last_status_desc"],
+                                        "done": True,
+                                    },
+                                }
+                            )
+                        except:
+                            pass
+
+                    # CRITICAL: Re-check session_finalized after the inner await above.
+                    # The coroutine may have been suspended at await point #1 while the
+                    # main loop set session_finalized=True and emitted the final done=True.
+                    # Without this re-check, the done=False emission below would fire
+                    # AFTER all finalization, becoming the last statusHistory entry
+                    # and leaving a permanent shimmer on the UI.
+                    if state.get(
+                        "session_finalized"
+                    ) and description != self._get_translation(
+                        user_lang, "status_task_completed"
+                    ):
+                        return
+
+                    # 2. Emit the requested status
+                    await __event_emitter__(
+                        {
+                            "type": "status",
+                            "data": {"description": description, "done": is_done},
+                        }
+                    )
+
+                    # 3. Track the active status
+                    if not is_done:
+                        state["last_status_desc"] = description
+                    elif state.get("last_status_desc") == description:
+                        state["last_status_desc"] = None
+                except:
+                    pass
+
+            def emit_status(desc: str, is_done: bool = False):
+                """Sync wrapper to schedule the async status emission."""
+                if __event_emitter__ and desc:
+                    # We use a task because this is often called from sync tool handlers
+                    asyncio.create_task(_emit_status_helper(desc, is_done))
+
+            # === Turn Management Events ===
+            if event_type == "assistant.turn_start":
+                self._emit_debug_log_sync(
+                    "Assistant Turn Started",
+                    __event_call__,
+                    debug_enabled=debug_enabled,
+                )
+
+                initial_status = self._get_translation(
+                    user_lang, "status_assistant_processing"
+                )
+                # Route through emit_status → _emit_status_helper so the session_finalized
+                # guard is respected. Direct create_task(__event_emitter__) bypasses the guard
+                # and can fire AFTER finalization, leaving a stale done=False spinner.
+                emit_status(initial_status)
+
+            elif event_type == "assistant.intent":
+                intent = safe_get_data_attr(event, "intent")
+                if intent:
+                    self._emit_debug_log_sync(
+                        f"Assistant Intent: {intent}",
+                        __event_call__,
+                        debug_enabled=debug_enabled,
+                    )
+                    emit_status(f"{intent}...")
+
             # === Message Delta Events (Primary streaming content) ===
-            if event_type == "assistant.message_delta":
+            elif event_type == "assistant.message_delta":
+                # Close any pending thinking status when content starts
+                if not state["content_sent"]:
+                    state["content_sent"] = True
+                    if state.get("last_status_desc"):
+                        emit_status(state["last_status_desc"], is_done=True)
+
                 # Official: event.data.delta_content for Python SDK
                 delta = safe_get_data_attr(
                     event, "delta_content"
@@ -3579,6 +5063,10 @@ class Pipe:
                 )
                 if content:
                     state["content_sent"] = True
+                    # Close current status
+                    if state.get("last_status_desc"):
+                        emit_status(state["last_status_desc"], is_done=True)
+
                     if state["thinking_started"]:
                         queue.put_nowait("\n</think>\n")
                         state["thinking_started"] = False
@@ -3618,6 +5106,33 @@ class Pipe:
                     if state["thinking_started"]:
                         queue.put_nowait(reasoning)
 
+            # === Skill Invocation Events ===
+            elif event_type == "skill.invoked":
+                nonlocal skill_invoked_in_turn
+                skill_invoked_in_turn = True
+                skill_name = (
+                    safe_get_data_attr(event, "name")
+                    or safe_get_data_attr(event, "skill_name")
+                    or safe_get_data_attr(event, "skill")
+                    or safe_get_data_attr(event, "id")
+                    or "unknown-skill"
+                )
+                skill_status_text = self._get_translation(
+                    user_lang, "status_skill_invoked", skill=skill_name
+                )
+
+                self._emit_debug_log_sync(
+                    f"Skill Invoked: {skill_name}",
+                    __event_call__,
+                    debug_enabled=debug_enabled,
+                )
+
+                # Make invocation visible in chat stream to avoid "skills loaded but feels unknown" confusion.
+                queue.put_nowait(f"\n> 🧩 **{skill_status_text}**\n")
+
+                # Also send status bubble when possible.
+                emit_status(skill_status_text, is_done=True)
+
             # === Tool Execution Events ===
             elif event_type == "tool.execution_start":
                 tool_name = (
@@ -3638,10 +5153,42 @@ class Pipe:
                 except:
                     pass
 
+                # Try to detect filename in arguments for better status (e.g., create_file, bash)
+                tool_status_text = self._get_translation(
+                    user_lang,
+                    "status_tool_using",
+                    name=tool_name,
+                )
+
+                # Enhanced filenames detection for common tools
+                filename_hint = (
+                    tool_args.get("filename")
+                    or tool_args.get("file")
+                    or tool_args.get("path")
+                )
+                if not filename_hint and tool_name == "bash":
+                    command = tool_args.get("command", "")
+                    # Detect output file from common bash redirect patterns (>>, >, tee, cat >)
+                    # Use alternation group (not char class) to avoid matching '|' pipe symbols
+                    match = re.search(r"(?:>>|>|tee|cat\s*>)\s*([^\s;&|<>]+)", command)
+                    if match:
+                        candidate = match.group(1).strip().split("/")[-1]
+                        # Only use as hint if it looks like a filename (has extension or is not a flag)
+                        if (
+                            candidate
+                            and not candidate.startswith("-")
+                            and "." in candidate
+                        ):
+                            filename_hint = candidate
+
+                if filename_hint:
+                    tool_status_text += f" ({filename_hint})"
+
                 if tool_call_id:
                     active_tools[tool_call_id] = {
                         "name": tool_name,
                         "arguments": tool_args,
+                        "status_text": tool_status_text if __event_emitter__ else None,
                     }
 
                 # Close thinking tag if open before showing tool
@@ -3649,8 +5196,8 @@ class Pipe:
                     queue.put_nowait("\n</think>\n")
                     state["thinking_started"] = False
 
-                # Note: We do NOT emit a done="false" card here to avoid card duplication
-                # (unless we have a way to update text which SSE content stream doesn't)
+                # Show status bubble for tool usage
+                emit_status(tool_status_text)
 
                 self._emit_debug_log_sync(
                     f"Tool Start: {tool_name}",
@@ -3662,13 +5209,17 @@ class Pipe:
                 tool_call_id = safe_get_data_attr(event, "tool_call_id", "")
                 tool_info = active_tools.get(tool_call_id)
 
-                # Handle both old string format and new dict format
-                if isinstance(tool_info, str):
+                tool_name = "tool"
+                status_text = None
+                if isinstance(tool_info, dict):
+                    tool_name = tool_info.get("name", "tool")
+                    status_text = tool_info.get("status_text")
+                elif isinstance(tool_info, str):
                     tool_name = tool_info
-                elif isinstance(tool_info, dict):
-                    tool_name = tool_info.get("name", "Unknown Tool")
-                else:
-                    tool_name = "Unknown Tool"
+
+                # Mark tool status as done if it was the last one
+                if status_text:
+                    emit_status(status_text, is_done=True)
 
                 # Try to get result content
                 result_content = ""
@@ -3685,6 +5236,11 @@ class Pipe:
                             result_content = json.dumps(
                                 result_obj, indent=2, ensure_ascii=False
                             )
+                    elif isinstance(result_obj, str):
+                        result_content = result_obj
+                    result_type = (
+                        safe_get_data_attr(event, "type", "success") or "success"
+                    )
                 except Exception as e:
                     self._emit_debug_log_sync(
                         f"Error extracting result: {e}",
@@ -3694,128 +5250,143 @@ class Pipe:
                     result_type = "failure"
                     result_content = f"Error: {str(e)}"
 
+                # User-friendly completion status (success/failure) after the tool finishes.
+                # We emit this as done=True so it cleanly replaces transient "Using tool..." states.
+                if str(result_type).lower() in {"success", "ok", "completed"}:
+                    emit_status(
+                        self._get_translation(
+                            user_lang, "status_tool_done", name=tool_name
+                        ),
+                        is_done=True,
+                    )
+                else:
+                    emit_status(
+                        self._get_translation(
+                            user_lang, "status_tool_failed", name=tool_name
+                        ),
+                        is_done=True,
+                    )
+
                 # Display tool result with improved formatting
-                if result_content:
-                    status_icon = "✅" if result_type == "success" else "❌"
+                # --- TODO Sync Logic (File + DB) ---
+                if tool_name == "update_todo" and result_type == "success":
+                    try:
+                        # Extract todo content with fallback strategy
+                        todo_text = ""
 
-                    # --- TODO Sync Logic (File + DB) ---
-                    if tool_name == "update_todo" and result_type == "success":
-                        try:
-                            # Extract todo content with fallback strategy
-                            todo_text = ""
+                        # 1. Try detailedContent (Best source)
+                        if isinstance(result_obj, dict) and result_obj.get(
+                            "detailedContent"
+                        ):
+                            todo_text = result_obj["detailedContent"]
+                        # 2. Try content (Second best)
+                        elif isinstance(result_obj, dict) and result_obj.get("content"):
+                            todo_text = result_obj["content"]
+                        elif hasattr(result_obj, "content"):
+                            todo_text = result_obj.content
 
-                            # 1. Try detailedContent (Best source)
-                            if isinstance(result_obj, dict) and result_obj.get(
-                                "detailedContent"
-                            ):
-                                todo_text = result_obj["detailedContent"]
-                            # 2. Try content (Second best)
-                            elif isinstance(result_obj, dict) and result_obj.get(
-                                "content"
-                            ):
-                                todo_text = result_obj["content"]
-                            elif hasattr(result_obj, "content"):
-                                todo_text = result_obj.content
-
-                            # 3. Fallback: If content is just a status message, try to recover from arguments
-                            if (
-                                not todo_text or len(todo_text) < 50
-                            ):  # Threshold to detect "TODO list updated"
-                                if tool_call_id in active_tools:
-                                    args = active_tools[tool_call_id].get(
-                                        "arguments", {}
+                        # 3. Fallback: If content is just a status message, try to recover from arguments
+                        if (
+                            not todo_text or len(todo_text) < 50
+                        ):  # Threshold to detect "TODO list updated"
+                            if tool_call_id in active_tools:
+                                args = active_tools[tool_call_id].get("arguments", {})
+                                if isinstance(args, dict) and "todos" in args:
+                                    todo_text = args["todos"]
+                                    self._emit_debug_log_sync(
+                                        f"Recovered TODO from arguments (Result was too short)",
+                                        __event_call__,
+                                        debug_enabled=debug_enabled,
                                     )
-                                    if isinstance(args, dict) and "todos" in args:
-                                        todo_text = args["todos"]
-                                        self._emit_debug_log_sync(
-                                            f"Recovered TODO from arguments (Result was too short)",
-                                            __event_call__,
-                                            debug_enabled=debug_enabled,
-                                        )
 
-                            if todo_text:
-                                # Use the explicit chat_id passed to stream_response
-                                target_chat_id = chat_id or "default"
+                        if todo_text:
+                            # Use the explicit chat_id passed to stream_response
+                            target_chat_id = chat_id or "default"
 
-                                # 1. Sync to file
-                                ws_dir = self._get_workspace_dir(
-                                    user_id=user_id, chat_id=target_chat_id
-                                )
-                                todo_path = os.path.join(ws_dir, "TODO.md")
-                                with open(todo_path, "w") as f:
-                                    f.write(todo_text)
+                            # 1. Sync to file
+                            ws_dir = self._get_workspace_dir(
+                                user_id=user_id, chat_id=target_chat_id
+                            )
+                            todo_path = os.path.join(ws_dir, "TODO.md")
+                            with open(todo_path, "w") as f:
+                                f.write(todo_text)
 
-                                # 2. Sync to Database & Emit Status
-                                self._save_todo_to_db(
-                                    target_chat_id,
-                                    todo_text,
-                                    __event_emitter__=__event_emitter__,
-                                    __event_call__=__event_call__,
-                                    debug_enabled=debug_enabled,
-                                )
+                            # 2. Sync to Database & Emit Status
+                            self._save_todo_to_db(
+                                target_chat_id,
+                                todo_text,
+                                __event_emitter__=__event_emitter__,
+                                __event_call__=__event_call__,
+                                debug_enabled=debug_enabled,
+                            )
 
-                                self._emit_debug_log_sync(
-                                    f"Synced TODO to file and DB (Chat: {target_chat_id})",
-                                    __event_call__,
-                                    debug_enabled=debug_enabled,
-                                )
-                        except Exception as sync_err:
                             self._emit_debug_log_sync(
-                                f"TODO Sync Failed: {sync_err}",
+                                f"Synced TODO to file and DB (Chat: {target_chat_id})",
                                 __event_call__,
                                 debug_enabled=debug_enabled,
                             )
-                    # ------------------------
-
-                    # --- Build native OpenWebUI 0.8.3 tool_calls block ---
-                    # Serialize input args (from execution_start)
-                    tool_args_for_block = {}
-                    if tool_call_id and tool_call_id in active_tools:
-                        tool_args_for_block = active_tools[tool_call_id].get(
-                            "arguments", {}
+                    except Exception as sync_err:
+                        self._emit_debug_log_sync(
+                            f"TODO Sync Failed: {sync_err}",
+                            __event_call__,
+                            debug_enabled=debug_enabled,
                         )
+                # ------------------------
 
-                    try:
-                        args_json_str = json.dumps(
-                            tool_args_for_block, ensure_ascii=False
-                        )
-                    except Exception:
-                        args_json_str = "{}"
-
-                    def escape_html_attr(s: str) -> str:
-                        if not isinstance(s, str):
-                            return ""
-                        return (
-                            str(s)
-                            .replace("&", "&amp;")
-                            .replace("<", "&lt;")
-                            .replace(">", "&gt;")
-                            .replace('"', "&quot;")
-                            .replace("\n", "&#10;")
-                            .replace("\r", "&#13;")
-                        )
-
-                    # MUST escape both arguments and result with &quot; and &#10; to satisfy OpenWebUI's strict regex /="([^"]*)"/
-                    # OpenWebUI `marked` extension does not match multiline attributes properly without &#10;
-                    args_for_attr = (
-                        escape_html_attr(args_json_str) if args_json_str else "{}"
+                # --- Build native OpenWebUI 0.8.3 tool_calls block ---
+                # Serialize input args (from execution_start)
+                tool_args_for_block = {}
+                if tool_call_id and tool_call_id in active_tools:
+                    tool_args_for_block = active_tools[tool_call_id].get(
+                        "arguments", {}
                     )
-                    result_for_attr = escape_html_attr(result_content)
+                    tool_name = active_tools[tool_call_id].get("name", tool_name)
 
-                    # Emit the unified native tool_calls block:
-                    # OpenWebUI 0.8.3 frontend regex explicitly expects: name="xxx" arguments="..." result="..." done="true"
-                    # CRITICAL: <details> tag MUST be followed immediately by \n for the frontend Markdown extension to parse it!
-                    tool_block = (
-                        f'\n<details type="tool_calls"'
-                        f' id="{tool_call_id}"'
-                        f' name="{tool_name}"'
-                        f' arguments="{args_for_attr}"'
-                        f' result="{result_for_attr}"'
-                        f' done="true">\n'
-                        f"<summary>Tool Executed</summary>\n"
-                        f"</details>\n\n"
+                try:
+                    args_json_str = json.dumps(tool_args_for_block, ensure_ascii=False)
+                except Exception:
+                    args_json_str = "{}"
+
+                def escape_html_attr(s: str) -> str:
+                    if not isinstance(s, str):
+                        return ""
+                    return (
+                        str(s)
+                        .replace("&", "&amp;")
+                        .replace("<", "&lt;")
+                        .replace(">", "&gt;")
+                        .replace('"', "&quot;")
+                        .replace("\n", "&#10;")
+                        .replace("\r", "&#13;")
                     )
-                    queue.put_nowait(tool_block)
+
+                # MUST escape both arguments and result with &quot; and &#10; to satisfy OpenWebUI's strict regex /="([^"]*)"/
+                args_for_attr = (
+                    escape_html_attr(args_json_str) if args_json_str else "{}"
+                )
+                # Use "Success" if result_content is empty to ensure card renders
+                result_for_attr = escape_html_attr(result_content or "Success")
+
+                # Emit the unified native tool_calls block:
+                # OpenWebUI 0.8.3 frontend regex explicitly expects: name="xxx" arguments="..." result="..." done="true"
+                tool_block = (
+                    f'\n<details type="tool_calls"'
+                    f' id="{tool_call_id}"'
+                    f' name="{tool_name}"'
+                    f' arguments="{args_for_attr}"'
+                    f' result="{result_for_attr}"'
+                    f' done="true">\n'
+                    f"<summary>Tool Executed</summary>\n"
+                    f"</details>\n\n"
+                )
+                state["content_sent"] = True
+                queue.put_nowait(tool_block)
+
+                self._emit_debug_log_sync(
+                    f"Tool Complete: {tool_name} - {result_type}",
+                    __event_call__,
+                    debug_enabled=debug_enabled,
+                )
 
             elif event_type == "tool.execution_progress":
                 # Tool execution progress update (for long-running tools)
@@ -3830,9 +5401,16 @@ class Pipe:
                 progress = safe_get_data_attr(event, "progress", 0)
                 message = safe_get_data_attr(event, "message", "")
 
-                if message:
-                    progress_display = f"\n> 🔄 **{tool_name}**: {message}\n"
-                    queue.put_nowait(progress_display)
+                status_text = self._get_translation(
+                    user_lang,
+                    "status_tool_progress",
+                    name=tool_name,
+                    progress=progress,
+                    msg=message,
+                )
+
+                # Route through emit_status to respect session_finalized guard
+                emit_status(status_text)
 
                 self._emit_debug_log_sync(
                     f"Tool Progress: {tool_name} - {progress}%",
@@ -3860,6 +5438,69 @@ class Pipe:
                     debug_enabled=debug_enabled,
                 )
 
+            # === Sub-agent Events ===
+            elif event_type == "subagent.started":
+                agent_name = safe_get_data_attr(event, "name") or "Agent"
+                self._emit_debug_log_sync(
+                    f"Sub-agent Started: {agent_name}",
+                    __event_call__,
+                    debug_enabled=debug_enabled,
+                )
+                emit_status(
+                    self._get_translation(
+                        user_lang, "status_subagent_start", name=agent_name
+                    )
+                )
+
+            elif event_type == "subagent.completed":
+                agent_name = safe_get_data_attr(event, "name") or "Agent"
+                self._emit_debug_log_sync(
+                    f"Sub-agent Completed: {agent_name}",
+                    __event_call__,
+                    debug_enabled=debug_enabled,
+                )
+                emit_status(
+                    self._get_translation(
+                        user_lang, "status_subagent_start", name=agent_name
+                    ),
+                    is_done=True,
+                )
+
+            elif event_type == "subagent.failed":
+                agent_name = safe_get_data_attr(event, "name") or "Agent"
+                error = safe_get_data_attr(event, "error") or "Unknown error"
+                self._emit_debug_log_sync(
+                    f"Sub-agent Failed: {agent_name} - {error}",
+                    __event_call__,
+                    debug_enabled=debug_enabled,
+                )
+                emit_status(
+                    self._get_translation(
+                        user_lang, "status_subagent_start", name=agent_name
+                    ),
+                    is_done=True,
+                )
+                self._emit_debug_log_sync(
+                    f"Sub-agent Failed: {agent_name} - {error}",
+                    __event_call__,
+                    debug_enabled=debug_enabled,
+                )
+
+            elif event_type == "assistant.turn_end":
+                self._emit_debug_log_sync(
+                    "Assistant Turn Ended",
+                    __event_call__,
+                    debug_enabled=debug_enabled,
+                )
+                if state.get("last_status_desc"):
+                    emit_status(state["last_status_desc"], is_done=True)
+
+                # Send the clean Task Completed status
+                emit_status(
+                    self._get_translation(user_lang, "status_task_completed"),
+                    is_done=True,
+                )
+
             # === Usage Statistics Events ===
             elif event_type == "assistant.usage":
                 # Token usage for current assistant turn
@@ -3873,27 +5514,44 @@ class Pipe:
                 # Cumulative session usage information
                 pass
 
+            elif event_type == "session.compaction_start":
+                self._emit_debug_log_sync(
+                    "Session Compaction Started",
+                    __event_call__,
+                    debug_enabled=debug_enabled,
+                )
+                emit_status(self._get_translation(user_lang, "status_compaction_start"))
+
             elif event_type == "session.compaction_complete":
                 self._emit_debug_log_sync(
                     "Session Compaction Completed",
                     __event_call__,
                     debug_enabled=debug_enabled,
                 )
+                emit_status(
+                    self._get_translation(user_lang, "status_compaction_complete"),
+                    is_done=True,
+                )
 
             elif event_type == "session.idle":
-                # Session finished processing - signal completion
-                done.set()
+                # Session finished processing - signal to the generator loop to finalize
+                state["idle_reached"] = True
                 try:
-                    queue.put_nowait(SENTINEL)
+                    queue.put_nowait(IDLE_SENTINEL)
                 except:
                     pass
 
             elif event_type == "session.error":
                 error_msg = safe_get_data_attr(event, "message", "Unknown Error")
+                emit_status(
+                    self._get_translation(
+                        user_lang, "status_session_error", error=error_msg
+                    ),
+                    is_done=True,
+                )
                 queue.put_nowait(f"\n[Error: {error_msg}]")
-                done.set()
                 try:
-                    queue.put_nowait(SENTINEL)
+                    queue.put_nowait(ERROR_SENTINEL)
                 except:
                     pass
 
@@ -3963,7 +5621,153 @@ class Pipe:
                         queue.get(), timeout=float(self.valves.TIMEOUT)
                     )
                     if chunk is SENTINEL:
+                        done.set()
                         break
+
+                    if chunk is IDLE_SENTINEL:
+                        # --- [FINAL STEP] Emit Rich UI Integrated View & Task Completion ---
+                        if __event_emitter__:
+                            try:
+                                # 1b. Clear any tracked last tool/intent status
+                                if state.get("last_status_desc"):
+                                    await __event_emitter__(
+                                        {
+                                            "type": "status",
+                                            "data": {
+                                                "description": state[
+                                                    "last_status_desc"
+                                                ],
+                                                "done": True,
+                                            },
+                                        }
+                                    )
+                                    state["last_status_desc"] = None
+
+                                # 1c. CRITICAL: Close all tool statuses and REWRITE their description
+                                # In some versions of OpenWebUI, just marking as done doesn't update the summary.
+                                # We explicitly change the text to 'Completed' to force UI refresh.
+                                for _tool_id, _tool_info in active_tools.items():
+                                    if isinstance(_tool_info, dict) and _tool_info.get(
+                                        "status_text"
+                                    ):
+                                        try:
+                                            # Append a checkmark to the tool status to force a string change
+                                            final_tool_status = f"✅ {_tool_info['status_text'].replace('...', '')}"
+                                            await __event_emitter__(
+                                                {
+                                                    "type": "status",
+                                                    "data": {
+                                                        "description": final_tool_status,
+                                                        "done": True,
+                                                    },
+                                                }
+                                            )
+                                        except Exception:
+                                            pass
+
+                                # 2. Emit Rich UI components (richui type)
+                                if pending_embeds:
+                                    for embed in pending_embeds:
+                                        if embed.get("type") == "richui":
+                                            # Status update
+                                            await __event_emitter__(
+                                                {
+                                                    "type": "status",
+                                                    "data": {
+                                                        "description": self._get_translation(
+                                                            user_lang,
+                                                            "status_publishing_file",
+                                                            filename=embed["filename"],
+                                                        ),
+                                                        "done": True,
+                                                    },
+                                                }
+                                            )
+                                            # Success notification
+                                            await __event_emitter__(
+                                                {
+                                                    "type": "notification",
+                                                    "data": {
+                                                        "type": "success",
+                                                        "content": self._get_translation(
+                                                            user_lang, "publish_success"
+                                                        ),
+                                                    },
+                                                }
+                                            )
+                                            # Standard OpenWebUI Embed Structure: type: "embeds", data: {"embeds": [content]}
+                                            await __event_emitter__(
+                                                {
+                                                    "type": "embeds",
+                                                    "data": {
+                                                        "embeds": [embed["content"]]
+                                                    },
+                                                }
+                                            )
+
+                                # 3. LOCK internal status emission for background tasks
+                                # (Stray Task A from tool.execution_complete will now be discarded)
+                                state["session_finalized"] = True
+
+                                # 4. [PULSE LOCK] Trigger a UI refresh by pulsing a non-done status
+                                # This forces OpenWebUI's summary line to re-evaluate the description.
+                                # 4. [PULSE LOCK] Trigger a UI refresh by pulsing a non-done status
+                                finalized_msg = "✔️ " + self._get_translation(
+                                    user_lang, "status_task_completed"
+                                )
+
+                                await __event_emitter__(
+                                    {
+                                        "type": "status",
+                                        "data": {
+                                            "description": finalized_msg,
+                                            "done": False,
+                                        },
+                                    }
+                                )
+
+                                # Increased window to ensure the 'done: False' is processed before the pipe closes
+                                await asyncio.sleep(0.2)
+
+                                # 5. FINAL emit
+                                await __event_emitter__(
+                                    {
+                                        "type": "status",
+                                        "data": {
+                                            "description": finalized_msg,
+                                            "done": True,
+                                            "hidden": False,
+                                        },
+                                    }
+                                )
+                            except Exception as emit_error:
+                                self._emit_debug_log_sync(
+                                    f"Final emission error: {emit_error}",
+                                    __event_call__,
+                                    debug_enabled=debug_enabled,
+                                )
+
+                        done.set()
+                        break
+
+                    if chunk is ERROR_SENTINEL:
+                        # Extract error message if possible or use default
+                        if __event_emitter__:
+                            try:
+                                await __event_emitter__(
+                                    {
+                                        "type": "status",
+                                        "data": {
+                                            "description": "Error during processing",
+                                            "done": True,
+                                        },
+                                    }
+                                )
+                            except:
+                                pass
+                        done.set()
+                        break
+
                     if chunk:
                         has_content = True
                         try:
@@ -3979,26 +5783,36 @@ class Pipe:
                 except asyncio.TimeoutError:
                     if done.is_set():
                         break
-                    if __event_emitter__ and debug_enabled:
+
+                    now_ts = time.monotonic()
+                    if __event_emitter__ and (
+                        now_ts - last_wait_status_ts >= wait_status_interval
+                    ):
+                        elapsed = int(now_ts - stream_start_ts)
                         try:
                             asyncio.create_task(
                                 __event_emitter__(
                                     {
                                         "type": "status",
                                         "data": {
-                                            "description": f"Waiting for response ({self.valves.TIMEOUT}s exceeded)...",
-                                            "done": True,
+                                            "description": self._get_translation(
+                                                user_lang,
+                                                "status_still_working",
+                                                seconds=elapsed,
+                                            ),
+                                            "done": False,
                                         },
                                     }
                                 )
                             )
-                        except:
+                        except Exception:
                             pass
+                        last_wait_status_ts = now_ts
                     continue
 
             while not queue.empty():
                 chunk = queue.get_nowait()
-                if chunk is SENTINEL:
+                if chunk in (SENTINEL, IDLE_SENTINEL, ERROR_SENTINEL):
                     break
                 if chunk:
                     has_content = True
@@ -4028,6 +5842,54 @@ class Pipe:
             except:
                 pass  # Connection already closed
         finally:
+            # Final Status Cleanup: Emergency mark all as done if not already
+            if __event_emitter__:
+                try:
+                    # Clear any specific tool/intent statuses tracked
+                    if state.get("last_status_desc"):
+                        await __event_emitter__(
+                            {
+                                "type": "status",
+                                "data": {
+                                    "description": state["last_status_desc"],
+                                    "done": True,
+                                },
+                            }
+                        )
+
+                    # Clear all active tool statuses before final completion status,
+                    # so Task completed remains the last visible summary in OpenWebUI.
+                    for tool_id, tool_info in active_tools.items():
+                        if isinstance(tool_info, dict) and tool_info.get("status_text"):
+                            try:
+                                await __event_emitter__(
+                                    {
+                                        "type": "status",
+                                        "data": {
+                                            "description": tool_info["status_text"],
+                                            "done": True,
+                                        },
+                                    }
+                                )
+                            except:
+                                pass
+
+                    # Final final confirmation to prevent any stuck status bubbles
+                    await __event_emitter__(
+                        {
+                            "type": "status",
+                            "data": {
+                                "description": self._get_translation(
+                                    user_lang, "status_task_completed"
+                                ),
+                                "done": True,
+                                "hidden": False,
+                            },
+                        }
+                    )
+                except:
+                    pass
+
             unsubscribe()
             # Cleanup client and session
             try:

@@ -1,50 +1,43 @@
 # GitHub Copilot SDK 官方管道
 
-**作者:** [Fu-Jie](https://github.com/Fu-Jie/openwebui-extensions) | **版本:** 0.8.0 | **项目:** [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions) | **许可证:** MIT
+**作者:** [Fu-Jie](https://github.com/Fu-Jie/openwebui-extensions) | **版本:** 0.9.0 | **项目:** [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions) | **许可证:** MIT
 
 这是一个用于 [OpenWebUI](https://github.com/open-webui/open-webui) 的高级 Pipe 函数，深度集成了 **GitHub Copilot SDK**。它不仅支持 **GitHub Copilot 官方模型**（如 `gpt-5.2-codex`, `claude-sonnet-4.5`, `gemini-3-pro`, `gpt-5-mini`），还支持 **BYOK (自带 Key)** 模式对接自定义服务商（OpenAI, Anthropic），并具备**严格的用户与会话级工作区隔离**能力，提供统一且安全的 Agent 交互体验。
 
 > [!IMPORTANT]
 > **核心伴侣组件**
 > 如需启用文件处理与数据分析能力，请务必安装 [GitHub Copilot SDK Files Filter](https://openwebui.com/posts/403a62ee-a596-45e7-be65-fab9cc249dd6)。
-
 > [!TIP]
 > **BYOK 模式无需订阅**
 > 如果您使用自带的 API Key (BYOK 模式对接 OpenAI/Anthropic)，**您不需要 GitHub Copilot 官方订阅**。只有在访问 GitHub 官方模型时才需要订阅。
 
 ---
 
-## ✨ 0.8.0 更新内容 (What's New)
+## ✨ 0.9.0 核心更新：技能革命与稳定性加固
 
-- **🎛️ 条件工具过滤 (P1~P4)**: 四优先级工具权限体系。**默认全开**: 若未在 Chat UI (P4) 勾选任何工具，则默认启用所有工具；**白名单模式**: 一旦勾选特定工具，即刻进入严格过滤模式，且 MCP server 同步受控；管理员亦可通过 `config.enable` (P2) 全局禁用工具服务器。(v0.8.0)
-- **🔧 文件发布全面修复**: 通过在回退路径直接调用 `Storage.upload_file()`，彻底修复了所有存储后端（local/S3/GCS/Azure）下的 `Error getting file content` 问题；同时上传时自动携带 `?process=false`，HTML 文件不再被 `ALLOWED_FILE_EXTENSIONS` 拦截。(v0.8.0)
-- **🌐 HTML 直达链接**: 当 `publish_file_from_workspace` 发布的是 HTML 文件时，插件会额外提供可直接访问的 HTML 链接，便于在聊天中即时预览/打开。(v0.8.0)
-- **🔒 文件链接格式严格约束**: 发布链接必须是以 `/api/v1/files/` 开头的相对路径（例如 `/api/v1/files/{id}/content/html`）。禁止使用 `api/...`，也禁止拼接任何域名。(v0.8.0)
-- **🛠️ CLI 内置工具始终可用**: `available_tools` 统一设为 `None`，Copilot CLI 内置工具（如 `bash`、`create_file`）无论 MCP 配置如何都不会被静默屏蔽。(v0.8.0)
-- **📌 发布工具始终注入**: 即使 `ENABLE_OPENWEBUI_TOOLS` 关闭，`publish_file_from_workspace` 工具也不再丢失。(v0.8.0)
-- **⚠️ 代码解释器限制**: `code_interpreter` 工具运行在远程临时环境中。系统提示词现已包含警告，明确指出该工具无法访问本地文件或持久化更改。(v0.8.0)
-
-### 🐞 v0.8.0 Bug 修复说明
-
-- 修复了对象存储后端发布文件时出现的 `{"detail":"[ERROR: Error getting file content]"}`，回退路径从手动复制/写库改为 `Storage.upload_file()`。
-- 修复了 HTML 产物被 `ALLOWED_FILE_EXTENSIONS` 拦截的问题，上传接口统一追加 `?process=false`。
-- 修复了产物链接偶发被生成成 `api/...` 或带域名绝对 URL 的问题，现统一限制为 `/api/v1/files/...` 相对路径。
-- 修复了在未配置/未加载任何 server 工具时（最终出现 `available_tools=[]`）Copilot CLI 内置工具被静默禁用的问题，现统一保持 `available_tools=None`。
-- 修复了 `ENABLE_OPENWEBUI_TOOLS` 关闭时 `publish_file_from_workspace` 工具丢失的问题。
+- **🧩 Copilot SDK Skills 原生支持**: 技能可作为一等上下文能力被加载和使用。
+- **🔄 OpenWebUI Skills 桥接**: 实现 OpenWebUI **工作区 > Skills** 与 SDK 技能目录的深度双向同步。
+- **🛠️ 确定性 `manage_skills` 工具**: 通过稳定工具契约完成技能的生命周期管理。
+- **🌊 状态栏逻辑加固**: 引入 `session_finalized` 多层锁定机制，彻底解决任务完成后状态栏回弹或卡死的问题。
+- **🗂️ 环境目录持久化**: 增强 `COPILOTSDK_CONFIG_DIR` 逻辑，确保会话状态跨容器重启稳定存在。
 
 ---
 
 ## ✨ 核心能力 (Key Capabilities)
 
-- **🔑 灵活鉴权与 BYOK**: 支持 GitHub Copilot 官方订阅 (PAT) 或自带 Key (OpenAI/Anthropic)。
-- **🔌 通用工具协议**: 原生支持 **MCP (Model Context Protocol)**、OpenAPI 以及 OpenWebUI 内置工具。
-- **🛡️ 物理级工作区隔离**: 强制执行严格的用户特定沙箱，确保数据隐私与文件安全。
-- **♾️ 无限会话管理**: 智能上下文窗口管理与自动压缩算法，支持无限时长的对话交互。
-- **🧠 深度数据库集成**: 实时持久化 TOD·O 列表到 UI 进度条。
-- **🌊 深度推理展示**: 完整支持模型思考过程 (Thinking Process) 的流式渲染。
-- **🖼️ 智能多模态**: 完整支持图像识别与附件上传分析（绕过 RAG 直接访问原始二进制内容）。
-- **📤 工作区产物工具 (`publish_file_from_workspace`)**: Agent 可生成文件（Excel、CSV、HTML 报告等）并直接在聊天中提供**持久化下载链接**。若为 HTML 文件，还会额外提供可直接访问的 HTML 链接。
-- **🖼️ 交互式伪影 (Artifacts)**: 自动渲染 Agent 生成的 HTML/JS 应用程序，直接在聊天界面交互。
+- **🔑 统一智能体验 (官方 + BYOK)**: 自由切换官方模型（o1, GPT-4o, Claude 3.5 Sonnet, Gemini 2.0 Flash）与自定义服务商（OpenAI, Anthropic），支持 **BYOK (自带 Key)** 模式。
+- **🛡️ 物理级工作区隔离**: 每个会话在独立的沙箱目录中运行。确保绝对的数据隐私，防止不同聊天间的文件污染，同时给予 Agent 完整的文件系统操作权限。
+- **🔌 通用工具协议**:
+  - **原生 MCP**: 高性能直连 Model Context Protocol 服务器。
+  - **OpenAPI 桥接**: 将任何外部 REST API 一键转换为 Agent 可调用的工具。
+  - **OpenWebUI 原生桥接**: 零配置接入现有的 OpenWebUI 工具及内置功能（网页搜索、记忆等）。
+- **🧩 OpenWebUI Skills 桥接**: 将简单的 OpenWebUI Markdown 指令转化为包含脚本、模板和数据的强大 SDK 技能文件夹。
+- **♾️ 无限会话管理**: 先进的上下文窗口管理，支持自动“压缩”（摘要提取 + TODO 列表持久化）。支持长达数周的项目跟踪而不会丢失核心上下文。
+- **📊 交互式产物与发布**:
+  - **实时 HTML/JS**: 瞬间渲染并交互 Agent 生成的应用程序、可视化看板或报告。
+  - **持久化发布**: Agent 可将生成的产物（Excel, CSV, 文档）发布至 OpenWebUI 文件存储，并在聊天中提供永久下载链接。
+- **🌊 极致交互体验**: 完整支持深度思考过程 (Thinking Process) 流式渲染、状态指示器以及长任务实时进度条。
+- **🧠 深度数据库集成**: TOD·O 列表与会话元数据的实时持久化，确保任务执行状态在 UI 上清晰可见。
 
 ---
 
@@ -69,9 +62,14 @@
 | 参数 | 默认值 | 说明 |
 | :--- | :--- | :--- |
 | `GH_TOKEN` | `""` | 全局 GitHub Token (需具备 'Copilot Requests' 权限)。 |
+| `COPILOTSDK_CONFIG_DIR` | `""` | SDK 配置与会话状态持久化目录 (例如: `/app/backend/data/.copilot`)。 |
 | `ENABLE_OPENWEBUI_TOOLS` | `True` | 启用 OpenWebUI 工具 (包括定义工具和内置工具)。 |
 | `ENABLE_OPENAPI_SERVER` | `True` | 启用 OpenAPI 工具服务器连接。 |
 | `ENABLE_MCP_SERVER` | `True` | 启用直接 MCP 客户端连接 (推荐)。 |
+| `ENABLE_OPENWEBUI_SKILLS` | `True` | 开启与 OpenWebUI **工作区 > Skills** 的双向同步桥接。 |
+| `OPENWEBUI_SKILLS_SHARED_DIR` | `/app/backend/data/cache/copilot-openwebui-skills` | OpenWebUI skills 转换后的共享缓存目录。 |
+| `GITHUB_SKILLS_SOURCE_URL` | `""` | 可选 GitHub tree 地址，用于批量导入 skills（例如 anthropic/skills）。 |
+| `DISABLED_SKILLS` | `""` | 逗号分隔的 skill 名称黑名单（如 `docs-writer,webapp-testing`）。 |
 | `REASONING_EFFORT` | `medium` | 推理强度：low, medium, high。 |
 | `SHOW_THINKING` | `True` | 显示模型推理/思考过程。 |
 | `INFINITE_SESSION` | `True` | 启用无限会话 (自动上下文压缩)。 |
@@ -91,11 +89,35 @@
 | 参数 | 说明 |
 | :--- | :--- |
 | `GH_TOKEN` | 使用个人的 GitHub Token。 |
-| `REASONING_EFFORT`| 个人偏好的推理强度。 |
+| `REASONING_EFFORT` | 个人偏好的推理强度。 |
 | `SHOW_THINKING` | 显示模型推理/思考过程。 |
 | `MAX_MULTIPLIER` | 最大允许的模型计费倍率覆盖。 |
 | `EXCLUDE_KEYWORDS` | 排除包含这些关键字的模型。 |
+| `ENABLE_OPENWEBUI_SKILLS` | 启用将当前用户可读的全部已启用 OpenWebUI skills 转换并加载为 SDK `SKILL.md` 目录。 |
+| `GITHUB_SKILLS_SOURCE_URL` | 为当前用户会话设置可选 GitHub tree 地址以批量导入 skills。 |
+| `DISABLED_SKILLS` | 为当前用户会话禁用指定 skills（逗号分隔）。 |
 | `BYOK_API_KEY` | 使用个人的 OpenAI/Anthropic API Key。 |
+
+---
+
+### 🌊 细粒度反馈与流畅体验 (Fluid UX)
+
+彻底告别复杂任务执行过程中的“卡顿”感：
+
+- **🔄 实时状态气泡**: 将 SDK 内部事件（如 `turn_start`, `compaction`, `subagent_started`）直接映射为 OpenWebUI 的状态栏信息。
+- **🧭 分阶段状态描述增强**: 状态栏会明确显示处理阶段（处理中、技能触发、工具执行、工具完成/失败、发布中、任务完成）。
+- **⏱️ 长任务心跳提示**: 长时间处理中会周期性显示“仍在处理中（已耗时 X 秒）”，避免用户误判为卡死。
+- **📈 工具执行进度追踪**: 长耗时工具（如代码分析）会在状态栏实时显示进度百分比及当前子任务描述。
+- **⚡ 即时响应反馈**: 从响应开始第一秒即显示“助手正在处理您的请求...”，减少等待空窗感。
+
+---
+
+### 🛡️ 智能版本兼容
+
+插件会自动根据您的 OpenWebUI 版本调整功能集：
+
+- **v0.8.0+**: 开启 Rich UI、实时状态气泡及集成 HTML 预览。
+- **旧版本**: 自动回退至标准 Markdown 代码块模式，确保最大稳定性。
 
 ---
 
@@ -142,10 +164,40 @@
 
 ---
 
+### 📤 增强型发布工具与交互式组件
+
+`publish_file_from_workspace` 现采用更清晰、可落地的交付规范：
+
+- **Artifacts 模式（`artifacts`，默认）**：返回 `[Preview]` + `[Download]`，并可附带 `html_embed`，在 ```html 代码块中直接渲染。
+- **Rich UI 模式（`richui`）**：仅返回 `[Preview]` + `[Download]`，由发射器自动触发集成式预览（消息中不输出 iframe 代码块）。
+- **📄 PDF 安全交付规则**：仅输出 Markdown 链接（可用时为 `[Preview]` + `[Download]`）。**禁止通过 iframe/html 方式嵌入 PDF。**
+- **⚡ 稳定双通道发布**：在本地与对象存储后端下，保持交互预览与持久下载链接一致可用。
+- **✅ 状态集成**：通过 OpenWebUI 状态栏实时反馈发布进度与完成状态。
+- **📘 发布工具指南（GitHub）**：[publish_file_from_workspace 工具指南（中文）](https://github.com/Fu-Jie/openwebui-extensions/blob/main/plugins/pipes/github-copilot-sdk/PUBLISH_FILE_FROM_WORKSPACE_CN.md)
+
+---
+
+### 🧩 OpenWebUI Skills 桥接与 `manage_skills` 工具
+
+SDK 现在具备与 OpenWebUI **工作区 > Skills** 的双向同步能力：
+
+- **🔄 自动同步**: 每次请求时，前端定义的技能会自动作为 `SKILL.md` 文件夹同步至 SDK 共享缓存，Agent 可直接调用。
+- **🛠️ `manage_skills` 工具**: 内置专业工具，赋予 Agent (或用户) 绝对的技能管理权。
+  - `list`: 列出所有已安装技能及描述。
+  - `install`: 从 GitHub URL (自动转换归档链接) 或直接从 `.zip`/`.tar.gz` 安装。
+  - `create`: 从当前会话内容创建新技能目录，支持写入 `SKILL.md` 及辅助资源文件 (脚本、模板)。
+  - `edit`: 更新现有技能文件夹。
+  - `delete`: 原子化删除本地目录及关联的数据库条目，防止僵尸技能复活。
+- **📁 完整的文件夹支持**: 不同于数据库中单文件存储，SDK 会加载技能的**整个目录**。这使得技能可以携带二进制脚本、数据文件或复杂模板。
+- **🌐 持久化共享缓存**: 技能存储在 `OPENWEBUI_SKILLS_SHARED_DIR/shared/`，跨会话及容器重启持久存在。
+- **📚 技能完整文档（GitHub）**: [manage_skills 工具指南（中文）](https://github.com/Fu-Jie/openwebui-extensions/blob/main/plugins/pipes/github-copilot-sdk/SKILLS_MANAGER_CN.md) | [Skills Best Practices（中文）](https://github.com/Fu-Jie/openwebui-extensions/blob/main/plugins/pipes/github-copilot-sdk/SKILLS_BEST_PRACTICES_CN.md)
+
+---
+
 ## 📋 常见问题与依赖 (Troubleshooting)
 
 - **Agent 无法识别文件？**: 请确保已安装并启用了 Files Filter 插件，否则原始文件会被 RAG 干扰。
-- **看不到 TODO 进度条？**: 进度条仅在 Agent 使用 `update_todo` 工具（通常是处理复杂任务）时出现。
+- **看不到状态更新或 TODO 进度条？**: 状态气泡会覆盖处理/工具阶段；而 TODO 进度条仅在 Agent 使用 `update_todo` 工具（通常是复杂任务）时出现。
 - **依赖安装**: 本管道会自动管理 `github-copilot-sdk` (Python 包) 并优先直接使用内置的二进制 CLI，无需手动干预。
 
 ---

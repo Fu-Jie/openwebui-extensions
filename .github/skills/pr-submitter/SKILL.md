@@ -19,6 +19,17 @@ This skill handles the final step of pushing a feature branch and creating a val
 
 ## Workflow
 
+### Step 0 — Initialize Temp Directory (Project-Based)
+
+For all temporary files, use the project's `.temp/` directory instead of system `/tmp`:
+
+```bash
+# Create temp directory if it doesn't exist
+mkdir -p .temp
+```
+
+**Why**: All temporary files stay within the project workspace, avoiding system `/tmp` pollution and better aligning with OpenWebUI workspace isolation principles.
+
 ### Step 1 — Pre-Flight Checks
 
 Run these checks before any push:
@@ -46,10 +57,10 @@ Gather:
 
 ### Step 3 — Build PR Body File (Shell-Escape-Safe)
 
-**Always write the body to a temp file.** Never embed multi-line markdown with special characters directly in a shell command.
+**Always write the body to a temp file in `.temp/` directory.** Never embed multi-line markdown with special characters directly in a shell command.
 
 ```bash
-cat > /tmp/pr_body.md << 'HEREDOC'
+cat > .temp/pr_body.md << 'HEREDOC'
 ## Summary
 
 Brief one-sentence description of what this PR accomplishes.
@@ -101,12 +112,12 @@ Before submitting, verify the body file contains expected sections:
 
 ```bash
 # Check key sections exist
-grep -q "## Summary" /tmp/pr_body.md && echo "✅ Summary" || echo "❌ Summary missing"
-grep -q "## Changes" /tmp/pr_body.md && echo "✅ Changes" || echo "❌ Changes missing"
-grep -q "## 变更摘要" /tmp/pr_body.md && echo "✅ CN Section" || echo "❌ CN Section missing"
+grep -q "## Summary" .temp/pr_body.md && echo "✅ Summary" || echo "❌ Summary missing"
+grep -q "## Changes" .temp/pr_body.md && echo "✅ Changes" || echo "❌ Changes missing"
+grep -q "## 变更摘要" .temp/pr_body.md && echo "✅ CN Section" || echo "❌ CN Section missing"
 
 # Preview the body
-cat /tmp/pr_body.md
+cat .temp/pr_body.md
 ```
 
 Ask the user to confirm the body content before proceeding.
@@ -126,7 +137,7 @@ gh pr create \
   --base main \
   --head $(git branch --show-current) \
   --title "<PR title from Step 2>" \
-  --body-file /tmp/pr_body.md
+  --body-file .temp/pr_body.md
 ```
 
 Always use `--body-file`, never `--body` with inline markdown.
@@ -151,8 +162,10 @@ gh pr edit <PR-NUMBER> --body-file /tmp/pr_body.md
 ### Step 8 — Cleanup
 
 ```bash
-rm -f /tmp/pr_body.md
+rm -f .temp/pr_body.md
 ```
+
+**Note**: The `.temp/` directory itself is preserved for reuse; only the individual PR body file is deleted. To fully clean up: `rm -rf .temp/`
 
 Report final PR URL to the user.
 
@@ -167,6 +180,8 @@ Report final PR URL to the user.
 | Newlines in `--body` | File-based only |
 | `$variable` expansion | Use `<< 'HEREDOC'` (quoted) |
 | Double quotes in body | Safe in heredoc file |
+| Temp file storage | Use `.temp/` dir, not `/tmp` |
+| Cleanup after use | Always delete temp file (keep dir) |
 
 ---
 
