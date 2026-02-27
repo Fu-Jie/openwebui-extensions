@@ -15,7 +15,7 @@ Pipes allow you to:
 
 ## Available Pipe Plugins
 
-- [GitHub Copilot SDK](github-copilot-sdk.md) (v0.9.0) - Official GitHub Copilot SDK integration. Features **Workspace Isolation**, **Database Persistence**, **Zero-config OpenWebUI Tool Bridge**, **BYOK** support, and **dynamic MCP discovery**. Supports streaming, multimodal, and infinite sessions. **NEW in v0.9.0: Workspace Custom Tools** — define custom tools in `.copilot-skills/`. [View Deep Dive](github-copilot-sdk-deep-dive.md) | [**View Advanced Tutorial**](github-copilot-sdk-tutorial.md).
+- [GitHub Copilot SDK](github-copilot-sdk.md) (v0.9.0) - Official GitHub Copilot SDK integration. Features **Workspace Isolation**, **Zero-config OpenWebUI Tool Bridge**, **BYOK** support, and **dynamic MCP discovery**. **NEW in v0.9.0: OpenWebUI Skills Bridge**, reinforced status bar stability, and persistent SDK config management. [View Deep Dive](github-copilot-sdk-deep-dive.md) | [**View Advanced Tutorial**](github-copilot-sdk-tutorial.md) | [**View Detailed Usage Guide**](github-copilot-sdk-usage-guide.md).
 - **[Case Study: GitHub 100 Star Growth Analysis](star-prediction-example.md)** - Learn how to use the GitHub Copilot SDK Pipe with Minimax 2.1 to automatically analyze CSV data and generate project growth reports.
 - **[Case Study: High-Quality Video to GIF Conversion](video-processing-example.md)** - See how the model uses system-level FFmpeg to accelerate, scale, and optimize colors for screen recordings.
 

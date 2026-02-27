@@ -14,44 +14,33 @@ This is an advanced Pipe function for [OpenWebUI](https://github.com/open-webui/
 
 ---
 
-## ✨ v0.9.0 Updates (What's New)
+## ✨ v0.9.0: The Skills Revolution & Stability Update
 
-- **🛠️ Workspace Custom Tools**: Define custom tools directly in your workspace's `.copilot-skills/` directory using the `@define_tool` decorator. The SDK will auto-discover and register them. See [Workspace Custom Tools Guide](#workspace-custom-tools) for details. (v0.9.0)
-
----
-
-## ✨ v0.8.0 Updates (Archive)
-
-- **🎛️ Conditional Tool Filtering (P1~P4)**: Four-priority tool permission system. **Default ON**: If no tools are selected in Chat UI (P4), all enabled tools are active. **Whitelist Mode**: Once specific tools are checked, the whitelist strictly filters both OpenWebUI tools and MCP servers. Admin-level `config.enable` (P2) allows global server disabling. (v0.8.0)
-- **🔧 File Publish Reliability**: Fixed `Error getting file content` across all storage backends (local/S3/GCS/Azure) by using `Storage.upload_file()` directly in the fallback path. HTML files are no longer blocked by `ALLOWED_FILE_EXTENSIONS` (`?process=false` always applied). (v0.8.0)
-- **🌐 HTML Direct Access Link**: When `publish_file_from_workspace` publishes an HTML file, the plugin also provides a directly accessible HTML link for instant in-chat preview/opening. (v0.8.0)
-- **🔒 Strict File URL Format**: Published file links must be relative paths starting with `/api/v1/files/` (e.g., `/api/v1/files/{id}/content/html`). Do not use `api/...` and do not prepend any domain. (v0.8.0)
-- **🛠️ CLI Built-in Tools Always Available**: `available_tools` is now always `None`, ensuring Copilot CLI built-ins (e.g. `bash`, `create_file`) are never silently blocked regardless of MCP configuration. (v0.8.0)
-- **📌 Publish Tool Always Injected**: `publish_file_from_workspace` is no longer lost when `ENABLE_OPENWEBUI_TOOLS` is disabled. (v0.8.0)
-- **⚠️ Code Interpreter Limitation**: The `code_interpreter` tool runs in a remote, ephemeral environment. A system prompt warning now clarifies that it cannot access local files or persist changes. (v0.8.0)
-
-### 🐞 Bug Fixes in v0.8.0
-
-- Fixed `{"detail":"[ERROR: Error getting file content]"}` when publishing files under object storage backends by replacing fallback manual copy/DB writes with `Storage.upload_file()`.
-- Fixed HTML artifact upload being rejected by `ALLOWED_FILE_EXTENSIONS` by always appending `?process=false` on file upload API calls.
-- Fixed invalid artifact links generated as `api/...` or domain-prefixed absolute URLs; links are now constrained to `/api/v1/files/...` relative paths.
-- Fixed Copilot CLI built-ins being silently unavailable when no server tools were configured/loaded (which resulted in `available_tools=[]`); now `available_tools` remains `None`.
-- Fixed `publish_file_from_workspace` disappearing when `ENABLE_OPENWEBUI_TOOLS` was disabled.
+- **🧩 Copilot SDK Skills Support**: Native support for Copilot SDK skill directories (`SKILL.md` + resources). Skills can now be loaded as first-class runtime context.
+- **🔄 OpenWebUI Skills Bridge**: Full bidirectional sync between OpenWebUI **Workspace > Skills** and SDK skill directories.
+- **🛠️ Deterministic `manage_skills` Tool**: Expert tool for stable install/create/list/edit/delete skill operations.
+- **🌊 Reinforced Status Bar**: Multi-layered locking mechanism (`session_finalized` guard) and atomic async delivery to prevent "stuck" indicators.
+- **⚡ Asynchronous Integrity**: Refactored status emission to route all updates through a centralized helper, ensuring atomic delivery and preventing race conditions in parallel execution streams.
+- **💓 Pulse-Lock Refresh**: Implemented a hardware-inspired "pulse" logic that forces a final UI state refresh at the end of each session, ensuring the status bar settling on "Task completed."
+- **🗂️ Persistent Config Directory**: Added `COPILOTSDK_CONFIG_DIR` for stable session-state persistence across container restarts.
 
 ---
 
 ## ✨ Key Capabilities
 
-- **🔑 Flexible Auth & BYOK**: Official Copilot subscriptions (PAT) or Bring Your Own Key (OpenAI/Anthropic).
-- **🔌 Universal Tool Protocol**: Native support for **MCP (Model Context Protocol)**, OpenAPI, and OpenWebUI built-in tools.
-- **🛠️ Workspace Custom Tools**: Define custom tools in `.copilot-skills/` directory using `@define_tool` decorator. Auto-discovered and registered by the SDK.
-- **�🛡️ Sandbox Workspace Isolation**: Strict per-session sandboxing for data privacy and security.
-- **♾️ Infinite Session Management**: Smart context window management with automatic compaction for indefinite conversation capability.
-- **🧠 Deep Database Integration**: Real-time persistence of TOD·O lists for long-running workflows.
-- **🌊 Advanced Streaming**: Full support for thinking process/Chain of Thought visualization.
-- **🖼️ Intelligent Multimodal**: Vision capabilities and raw file analysis support (bypasses RAG for direct binary access).
-- **📤 Workspace Artifacts (`publish_file_from_workspace`)**: Agents can generate files (Excel, CSV, HTML reports, etc.) and provide **persistent download links** directly in the chat. For HTML files, a direct-access HTML link is also provided.
-- **🖼️ Interactive Artifacts**: Automatically renders HTML/JS apps generated by the agent directly in the chat interface.
+- **🔑 Unified Intelligence (Official + BYOK)**: Seamlessly switch between official GitHub Copilot models (o1, GPT-4o, Claude 3.5 Sonnet, Gemini 2.0 Flash) and your own models (OpenAI, Anthropic) via **Bring Your Own Key** mode.
+- **🛡️ Physical Workspace Isolation**: Every session runs in its own isolated directory sandbox. This ensures absolute data privacy and prevents cross-chat file contamination while allowing the Agent full filesystem access.
+- **🔌 Universal Tool Protocol**:
+  - **Native MCP**: Direct, high-performance connection to Model Context Protocol servers.
+  - **OpenAPI Bridge**: Connect to any external REST API as an Agent tool.
+  - **OpenWebUI Native**: Zero-config bridge to your existing OpenWebUI tools and built-ins (Web Search, Memory, etc.).
+- **🧩 OpenWebUI Skills Bridge**: Transforms simple OpenWebUI Markdown instructions into powerful SDK skill folders complete with supporting scripts, templates, and data.
+- **♾️ Infinite Session Management**: Advanced context window management with automatic "Compaction" (summarization + list persistence). Carry out weeks-long projects without losing the core thread.
+- **📊 Interactive Artifacts & Publishing**:
+  - **Live HTML/JS**: Instantly render and interact with apps, dashboards, or reports generated by the Agent.
+  - **Persistent Publishing**: Agents can "publish" generated files (Excel, CSV, docs) to OpenWebUI's file storage, providing permanent download links.
+- **🌊 UX-First Streaming**: Full support for "Thinking" processes (Chain of Thought), status indicators, and real-time progress bars for long-running tasks.
+- **🧠 Deep Database Integration**: Real-time persistence of TOD·O lists and session metadata ensures your workflow state is always visible in the UI.
 
 ---
 
@@ -76,10 +65,14 @@ Administrators define the default behavior for all users in the function setting
 | Valve | Default | Description |
 | :--- | :--- | :--- |
 | `GH_TOKEN` | `""` | Global GitHub Token (Requires 'Copilot Requests' permission). |
+| `COPILOTSDK_CONFIG_DIR` | `""` | Persistent directory for SDK config and session state (e.g., `/app/backend/data/.copilot`). |
 | `ENABLE_OPENWEBUI_TOOLS` | `True` | Enable OpenWebUI Tools (includes defined Tools and Built-in Tools). |
 | `ENABLE_OPENAPI_SERVER` | `True` | Enable OpenAPI Tool Server connection. |
 | `ENABLE_MCP_SERVER` | `True` | Enable Direct MCP Client connection (Recommended). |
-| `ENABLE_WORKSPACE_TOOLS` | `True` | Enable loading custom tools from `{workspace}/.copilot-skills/` directory. Tools are auto-discovered by the SDK. |
+| `ENABLE_OPENWEBUI_SKILLS` | `True` | Enable bidirectional sync with OpenWebUI Workspace > Skills. |
+| `OPENWEBUI_SKILLS_SHARED_DIR` | `/app/backend/data/cache/copilot-openwebui-skills` | Shared cache directory for skills. |
+| `GITHUB_SKILLS_SOURCE_URL` | `""` | Optional GitHub tree URL for batch skill import (e.g., anthropic/skills). |
+| `DISABLED_SKILLS` | `""` | Comma-separated skill names to disable in SDK session. |
 | `REASONING_EFFORT` | `medium` | Reasoning effort level: low, medium, high. |
 | `SHOW_THINKING` | `True` | Show model reasoning/thinking process. |
 | `INFINITE_SESSION` | `True` | Enable Infinite Sessions (automatic context compaction). |
@@ -103,79 +96,61 @@ Standard users can override these settings in their individual Profile/Function 
 | `SHOW_THINKING` | Show model reasoning/thinking process. |
 | `MAX_MULTIPLIER` | Maximum allowed billing multiplier override. |
 | `EXCLUDE_KEYWORDS` | Exclude models containing these keywords. |
+| `ENABLE_OPENWEBUI_SKILLS` | Enable loading all active OpenWebUI skills readable by you into SDK `SKILL.md` directories. |
+| `GITHUB_SKILLS_SOURCE_URL` | Optional GitHub tree URL for batch skill import in your own session. |
+| `DISABLED_SKILLS` | Comma-separated skill names to disable for your own session. |
 | `BYOK_API_KEY` | Use your personal OpenAI/Anthropic API Key. |
 
 ---
 
-## 🛠️ Workspace Custom Tools
+### 📤 Enhanced Publishing & Interactive Components
 
-With Workspace Custom Tools, you can define custom tools directly in your workspace without modifying the plugin code. The SDK will automatically discover and register them for use in conversations.
+The `publish_file_from_workspace` tool now uses a clearer delivery contract for production use:
 
-### Setup
+- **Artifacts mode (`artifacts`, default)**: Agent returns `[Preview]` + `[Download]` and may output `html_embed` in a ```html block for direct chat rendering.
+- **Rich UI mode (`richui`)**: Agent returns `[Preview]` + `[Download]` only; integrated preview is rendered automatically via emitter (no iframe block in message).
+- **📄 PDF delivery safety rule**: Always output Markdown links only (`[Preview]` + `[Download]` when available). **Do not embed PDF via iframe/html blocks.**
+- **⚡ Stable dual-channel publishing**: Keeps interactive viewing and persistent file download aligned across local/object-storage backends.
+- **✅ Status integration**: Emits real-time publishing progress and completion feedback to the OpenWebUI status bar.
+- **📘 Publishing Tool Guide (GitHub)**: [publish_file_from_workspace Guide](https://github.com/Fu-Jie/openwebui-extensions/blob/main/plugins/pipes/github-copilot-sdk/PUBLISH_FILE_FROM_WORKSPACE.md)
 
-1. Create a `.copilot-skills/` directory at the root of your workspace:
-   ```
-   your-workspace/
-   └── .copilot-skills/
-       ├── custom_search.py       # Your custom tools
-       ├── data_processor.py      # More tools
-       └── README.md              # Optional: usage guide
-   ```
+---
 
-2. Copy `workspace_skills_example.py` (from the plugin directory) to `.copilot-skills/` as a starting template.
+### 🧩 OpenWebUI Skills Bridge & `manage_skills` Tool
 
-3. Define tools using `@define_tool` decorator:
-   ```python
-   from pydantic import BaseModel, Field
-   from copilot import define_tool
+The SDK now features a bidirectional bridge with the OpenWebUI **Workspace > Skills** page:
 
-   class SearchParams(BaseModel):
-       query: str = Field(..., description="Search query")
-       limit: int = Field(default=10, description="Max results")
+- **🔄 Automatic Sync**: Skills created or updated in the OpenWebUI UI are automatically downloaded as `SKILL.md` folders into the SDK's shared cache on every request.
+- **🛠️ `manage_skills` Tool**: The Agent can deterministically manage skills using this tool.
+  - `list`: List all installed skills and their descriptions.
+  - `install`: Install a skill from a GitHub URL (auto-normalized to archive link) or a direct `.zip`/`.tar.gz`.
+  - `create`: Create a new skill directory from context, writing `SKILL.md` and any extra resource files (scripts, templates).
+  - `edit`: Update an existing skill folder.
+  - `delete`: Atomically delete both the local directory and the linked OpenWebUI DB entry.
+- **📁 Full Folder Support**: Unlike the single-markdown storage in OpenWebUI DB, the SDK loads the **entire folder** for each skill. This allows skills to carry binary scripts, data files, or complex templates alongside the core instructions.
+- **🌐 Shared Persistent Cache**: Skills are stored in `OPENWEBUI_SKILLS_SHARED_DIR/shared/`, which is persistent across sessions and container restarts.
+- **📚 Full Skill Docs (GitHub)**: [manage_skills Tool Guide](https://github.com/Fu-Jie/openwebui-extensions/blob/main/plugins/pipes/github-copilot-sdk/SKILLS_MANAGER.md) | [Skills Best Practices](https://github.com/Fu-Jie/openwebui-extensions/blob/main/plugins/pipes/github-copilot-sdk/SKILLS_BEST_PRACTICES.md)
 
-   @define_tool(description="Search your custom database")
-   async def search_custom_db(query: str, limit: int = 10) -> dict:
-       # Your implementation
-       return {"results": [...]}
-   ```
+---
 
-4. Enable `ENABLE_WORKSPACE_TOOLS` in Valves (default: ON).
+### 🌊 Fluid UX & Granular Status Feedback
 
-5. Start a conversation and use your custom tools in the Agent conversation.
+Say goodbye to the "stuck" feeling during complex processing:
 
-### Code Examples
+- **🔄 Real-Time Status Bubbles**: Maps internal SDK events (`turn_start`, `compaction`, `subagent_started`) directly to the OpenWebUI status bar.
+- **🧭 Richer Stage Descriptions**: Status text now explicitly reflects phases such as processing, skill invocation, tool execution, tool completion/failure, publishing, and final completion.
+- **⏱️ Long-Task Heartbeat**: During long waits, the status bar emits periodic "still processing" updates (elapsed-time style) to avoid silent stalls.
+- **📈 Tool Progress Tracking**: Long-running tool executions provide live progress percentages and descriptive sub-task updates in the status bar.
+- **⚡ Immediate Feedback**: Response starts with an instant "Assistant is processing" status, eliminating idle wait time before the first token.
 
-**Example 1: Custom Web Search Tool**
-```python
-from copilot import define_tool
+---
 
-@define_tool(description="Search the web using your custom API")
-async def web_search(query: str, limit: int = 5) -> dict:
-    import httpx  # or your preferred HTTP client
-    # Implement search logic
-    return {"results": [...]}
-```
+### 🛡️ Smart Version Compatibility
 
-**Example: Local Database Query Tool**
-```python
-from pydantic import BaseModel, Field
-from copilot import define_tool
+The plugin automatically adapts its feature set based on your OpenWebUI version:
 
-class QueryParams(BaseModel):
-    sql: str = Field(..., description="SQL query")
-
-@define_tool(description="Query local database")
-async def query_database(sql: str) -> dict:
-    # Connect to your database and execute query
-    return {"data": [...]}
-```
-
-### Limitations
-
-- Tools must be defined using the `@define_tool` decorator from `copilot` module.
-- Tools must be async functions or callable objects.
-- External dependencies should be installed in your OpenWebUI environment.
-- Tool names are automatically converted to snake_case.
+- **v0.8.0+**: Rich UI, live status bubbles, and integrated HTML preview.
+- **Older**: Automatic fallback to standard Markdown blocks for maximum stability.
 
 ---
 
@@ -221,7 +196,7 @@ If neither is configured, the model list will not appear.
 ## 📋 Troubleshooting & Dependencies
 
 - **Agent ignores files?**: Ensure the Files Filter is enabled, otherwise RAG will interfere with raw binaries.
-- **No progress bar?**: The bar only appears when the Agent uses the `update_todo` tool.
+- **No status updates?**: Status bubbles are emitted for processing/tool phases; TODO progress bars specifically appear when the Agent uses `update_todo`.
 - **Dependencies**: This Pipe automatically manages `github-copilot-sdk` (Python) and utilizes the bundled binary CLI. No manual install required.
 
 ---
