@@ -153,9 +153,9 @@ BASE_GUIDELINES = (
     "3. **Interactive Artifacts (HTML)**: **Premium Delivery Protocol**: For web applications, you MUST perform two actions:\n"
     "   - 1. **Persist**: Create the file in the workspace (e.g., `index.html`) for project structure.\n"
     "   - 2. **Publish & Embed**: Call `publish_file_from_workspace(filename='your_file.html')`. This will automatically trigger the **Premium Experience** by directly embedding the interactive component using the action-style return.\n"
-    "   - **CRITICAL ANTI-INLINE RULE**: Never output your own raw HTML code blocks directly in your chat response when creating a web app, dashboard, or visual artifact. YOU MUST ALWAYS persist the HTML to a file and call `publish_file_from_workspace` to deliver it.\n"
+    "   - **CRITICAL ANTI-INLINE RULE**: Never output your *own* raw HTML source code directly in the chat. You MUST ALWAYS persist the HTML to a file and call `publish_file_from_workspace`. The ONLY HTML code block you are allowed to output is the `html_embed` iframe returned by the publish tool.\n"
     "   - **CRITICAL**: When using this protocol in **Rich UI mode** (`embed_type='richui'`), **DO NOT** output the raw HTML code in a code block. Provide ONLY the **[Preview]** and **[Download]** links returned by the tool. The interactive embed will appear automatically after your message finishes.\n"
-    "   - **Artifacts mode** (`embed_type='artifacts'`): You MUST provide the **[Preview]** and **[Download]** links, AND then you MUST output the provided `html_embed` (the iframe) wrapped within a ```html code block to enable the interactive preview.\n"
+    "   - **Artifacts mode** (`embed_type='artifacts'`): You MUST provide the **[Preview]** and **[Download]** links, AND then you MUST output the provided `html_embed` EXACTLY as returned, wrapped within a ```html code block to enable the interactive preview.\n"
     "   - **Process Visibility**: While raw code is often replaced by links/frames, you SHOULD provide a **very brief Markdown summary** of the component's structure or key features (e.g., 'Generated login form with validation') before publishing. This keeps the user informed of the 'processing' progress.\n"
     "   - **Game/App Controls**: If your HTML includes keyboard controls (e.g., arrow keys, spacebar for games), you MUST include `event.preventDefault()` in your `keydown` listeners to prevent the parent browser page from scrolling.\n"
     "4. **Media & Files**: ALWAYS embed generated images, GIFs, and videos directly using `![caption](url)`. Supported formats like PNG, JPG, GIF, MOV, and MP4 should be shown as visual assets. Never provide plain text links for visual media.\n"
@@ -1229,7 +1229,7 @@ class Pipe:
                         iframe_html = (
                             f'<iframe src="{view_url}" '
                             f'style="width:100%; height:100vh; min-height:600px; border:none; border-radius:12px; '
-                            f'box-shadow: var(--shadow-lg);"></iframe>'
+                            f'box-shadow: 0 10px 40px rgba(0,0,0,0.1);"></iframe>'
                         )
                         result_dict["html_embed"] = iframe_html
                         # Note: We do NOT add to pending_embeds. The AI will output this in the message.
