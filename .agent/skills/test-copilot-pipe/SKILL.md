@@ -18,7 +18,7 @@ This is a **universal testing framework** for publishing the latest `github_copi
 
 | Attribute | Fixed Value |
 |------|--------|
-| **Deployment Script** | `/Users/fujie/app/python/oui/openwebui-extensions/scripts/update_pipe.py` |
+| **Deployment Script** | `/Users/fujie/app/python/oui/openwebui-extensions/scripts/deploy_pipe.py` |
 | **Python Path** | `/opt/homebrew/Caskroom/miniconda/base/envs/ai/bin/python3` |
 | **Test URL** | `http://localhost:3003/?model=github_copilot_official_sdk_pipe.github_copilot_sdk-gpt-4.1` |
 
@@ -36,11 +36,11 @@ Example: *Modified tool calling logic -> Test prompt should trigger a specific t
 Use the `run_command` tool to execute the fixed update task:
 
 ```bash
-/opt/homebrew/Caskroom/miniconda/base/envs/ai/bin/python3 /Users/fujie/app/python/oui/openwebui-extensions/scripts/update_pipe.py
+/opt/homebrew/Caskroom/miniconda/base/envs/ai/bin/python3 /Users/fujie/app/python/oui/openwebui-extensions/scripts/deploy_pipe.py
 ```
 
-> **Mechanism**: `update_pipe.py` automatically loads the API Key from `scripts/.env` in the same directory.
-> **Verification**: Look for `✅ Successfully updated... version X.X.X`. If a 401 error occurs, remind the user to generate a new API Key in OpenWebUI and update `.env`.
+> **Mechanism**: `deploy_pipe.py` automatically loads the API Key from `scripts/.env` in the same directory.
+> **Verification**: Look for `✅ Successfully updated... version X.X.X` or `✅ Successfully created...`. If a 401 error occurs, remind the user to generate a new API Key in OpenWebUI and update `.env`.
 
 ### Step 3: Verify via Browser Subagent (Verify)
 

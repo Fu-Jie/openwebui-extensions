@@ -36,7 +36,7 @@ def _load_api_key() -> str:
     raise ValueError("api_key not found in .env file.")
 
 
-def update_pipe() -> None:
+def deploy_pipe() -> None:
     """Push the latest local github_copilot_sdk.py content to OpenWebUI."""
     # 1. Load API key
     try:
@@ -100,11 +100,23 @@ def update_pipe() -> None:
         if response.status_code == 200:
             print("✅ Successfully updated GitHub Copilot Official SDK Pipe!")
         else:
-            print(f"❌ Failed to update. Status: {response.status_code}")
-            print(f"   Response: {response.text[:500]}")
+            print(
+                f"⚠️ Update failed with status {response.status_code}, attempting to create instead..."
+            )
+            CREATE_URL = "http://localhost:3003/api/v1/functions/create"
+            res_create = requests.post(
+                CREATE_URL, headers=headers, data=json.dumps(payload)
+            )
+            if res_create.status_code == 200:
+                print("✅ Successfully created GitHub Copilot Official SDK Pipe!")
+            else:
+                print(
+                    f"❌ Failed to update or create. Status: {res_create.status_code}"
+                )
+                print(f"   Response: {res_create.text[:500]}")
     except Exception as e:
         print(f"❌ Request error: {e}")
 
 
 if __name__ == "__main__":
-    update_pipe()
+    deploy_pipe()
