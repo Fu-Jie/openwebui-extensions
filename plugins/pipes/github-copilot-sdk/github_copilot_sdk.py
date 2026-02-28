@@ -153,9 +153,9 @@ BASE_GUIDELINES = (
     "3. **Interactive Artifacts (HTML)**: **Premium Delivery Protocol**: For web applications, you MUST perform two actions:\n"
     "   - 1. **Persist**: Create the file in the workspace (e.g., `index.html`) for project structure.\n"
     "   - 2. **Publish & Embed**: Call `publish_file_from_workspace(filename='your_file.html')`. This will automatically trigger the **Premium Experience** by directly embedding the interactive component using the action-style return.\n"
-    "   - **CRITICAL ANTI-INLINE RULE**: Never output your *own* raw HTML source code directly in the chat. You MUST ALWAYS persist the HTML to a file and call `publish_file_from_workspace`. The ONLY HTML code block you are allowed to output is the `html_embed` iframe returned by the publish tool.\n"
+    "   - **CRITICAL ANTI-INLINE RULE**: Never output your *own* raw HTML source code directly in the chat. You MUST ALWAYS persist the HTML to a file and call `publish_file_from_workspace`.\n"
     "   - **CRITICAL**: When using this protocol in **Rich UI mode** (`embed_type='richui'`), **DO NOT** output the raw HTML code in a code block. Provide ONLY the **[Preview]** and **[Download]** links returned by the tool. The interactive embed will appear automatically after your message finishes.\n"
-    "   - **Artifacts mode** (`embed_type='artifacts'`): You MUST provide the **[Preview]** and **[Download]** links, AND then you MUST output the provided `html_embed` EXACTLY as returned, wrapped within a ```html code block to enable the interactive preview.\n"
+    "   - **Artifacts mode** (`embed_type='artifacts'`): You MUST provide the **[Preview]** and **[Download]** links. DO NOT output HTML code block. The system will automatically append the HTML visualization to the chat string.\n"
     "   - **Process Visibility**: While raw code is often replaced by links/frames, you SHOULD provide a **very brief Markdown summary** of the component's structure or key features (e.g., 'Generated login form with validation') before publishing. This keeps the user informed of the 'processing' progress.\n"
     "   - **Game/App Controls**: If your HTML includes keyboard controls (e.g., arrow keys, spacebar for games), you MUST include `event.preventDefault()` in your `keydown` listeners to prevent the parent browser page from scrolling.\n"
     "4. **Media & Files**: ALWAYS embed generated images, GIFs, and videos directly using `![caption](url)`. Supported formats like PNG, JPG, GIF, MOV, and MP4 should be shown as visual assets. Never provide plain text links for visual media.\n"
@@ -166,7 +166,7 @@ BASE_GUIDELINES = (
     "     - **Implicit Requests**: If asked to 'export', 'get link', or 'save', automatically trigger this sequence.\n"
     "     - **Execution Sequence**: 1. **Write Local**: Create file. 2. **Publish**: Call `publish_file_from_workspace`. 3. **Response Structure**:\n"
     "        - **For PDF files**: You MUST output ONLY Markdown links from the tool output (preview + download). **CRITICAL: NEVER output iframe/html_embed for PDF.**\n"
-    "        - **For HTML files**: Choose mode by complexity. **Artifacts mode** (`embed_type='artifacts'`): REQUIRED for dashboards, reports, and large/long UI since it has unlimited height. Output [Preview]/[Download], then MISSION-CRITICAL: output the provided `html_embed` value wrapped EXACTLY within a ```html code block. **Rich UI mode** (`embed_type='richui'`): For small widgets ONLY. If you MUST use Rich UI for long content, you MUST add a clickable 'Full Screen' button inside your HTML design to allow expanding. Output ONLY [Preview]/[Download]; do NOT output iframe/html block because Rich UI will render automatically via emitter.\n"
+    "        - **For HTML files**: Choose mode by complexity. **Artifacts mode** (`embed_type='artifacts'`): REQUIRED for dashboards, reports, and large/long UI since it has unlimited height. Output ONLY [Preview]/[Download]; do NOT output any iframe/html block because the protocol will automatically append the html code block via emitter. **Rich UI mode** (`embed_type='richui'`): For small widgets ONLY. If you MUST use Rich UI for long content, you MUST add a clickable 'Full Screen' button inside your HTML design to allow expanding. Output ONLY [Preview]/[Download]; do NOT output HTML block because Rich UI will render automatically via emitter.\n"
     "     - **URL Format**: You MUST use the **ABSOLUTE URLs** provided in the tool output. NEVER modify them.\n"
     "     - **Bypass RAG**: This protocol automatically handles S3 storage and bypasses RAG, ensuring 100% accurate data delivery.\n"
     "6. **TODO Visibility**: Every time you call the `update_todo` tool, you **MUST** immediately follow up with a beautifully formatted **Markdown summary** of the current TODO list. Use task checkboxes (`- [ ]`), progress indicators, and clear headings so the user can see the status directly in the chat.\n"
@@ -1191,7 +1191,7 @@ class Pipe:
                     if embed_type == "richui":
                         hint += "\n\nCRITICAL: You are in 'richui' mode. DO NOT output an HTML code block or iframe in your message. Just output the links above."
                     elif embed_type == "artifacts":
-                        hint += "\n\nIMPORTANT: You are in 'artifacts' mode. You MUST wrap the provided 'html_embed' (the iframe) inside a ```html code block in your response to enable the interactive preview."
+                        hint += "\n\nIMPORTANT: You are in 'artifacts' mode. DO NOT output an HTML code block in your message. The system will automatically inject it after you finish."
                 elif has_preview:
                     hint = self._get_translation(
                         user_lang,
@@ -1224,23 +1224,12 @@ class Pipe:
                 }
                 if has_preview and view_url:
                     result_dict["view_url"] = view_url
-                    if is_html and embed_type == "artifacts":
-                        # Artifacts mode: standard barebone iframe (OpenWebUI might strip complex styles or sandbox attrs)
-                        iframe_html = f'<iframe src="{view_url}" style="width:100%; min-height:600px; border:none;"></iframe>'
-                        result_dict["html_embed"] = iframe_html
-                        # Note: We do NOT add to pending_embeds. The AI will output this in the message.
-                    elif embed_type == "richui":
-                        # In richui mode, we physically remove html_embed to prevent the AI from outputting it
-                        # The system will handle the rendering via emitter
-                        pass
 
-                # 6. Premium Rich UI Experience for HTML only (Direct Embed via emitter)
-                # We emit events directly ONLY IF embed_type is 'richui'.
-                # Note: Emission is now delayed until session.idle to avoid UI flicker and ensure reliability.
-                if is_html and embed_type == "richui" and rich_ui_supported:
+                # Premium Experience for HTML only (Direct Embed via emitter)
+                # Emission is delayed until session.idle to avoid UI flicker and ensure reliability.
+                if is_html and rich_ui_supported:
                     try:
-                        # For Rich UI Mode, OpenWebUI expects the raw HTML of the component itself
-                        # The system will wrap this in its own managed iframe.
+                        # For BOTH Rich UI and Artifacts Mode, OpenWebUI expects the raw HTML of the component itself
                         embed_content = await asyncio.to_thread(
                             lambda: target_path.read_text(
                                 encoding="utf-8", errors="replace"
@@ -1248,15 +1237,25 @@ class Pipe:
                         )
 
                         if pending_embeds is not None:
-                            pending_embeds.append(
-                                {
-                                    "filename": safe_filename,
-                                    "content": embed_content,
-                                    "type": "richui",
-                                }
-                            )
+                            if embed_type == "richui":
+                                pending_embeds.append(
+                                    {
+                                        "filename": safe_filename,
+                                        "content": embed_content,
+                                        "type": "richui",
+                                    }
+                                )
+                            elif embed_type == "artifacts":
+                                artifacts_content = f"\n```html\n{embed_content}\n```\n"
+                                pending_embeds.append(
+                                    {
+                                        "filename": safe_filename,
+                                        "content": artifacts_content,
+                                        "type": "message",
+                                    }
+                                )
                     except Exception as e:
-                        logger.error(f"Failed to prepare Rich UI embed: {e}")
+                        logger.error(f"Failed to prepare HTML embed: {e}")
 
                 return result_dict
 
@@ -5669,10 +5668,10 @@ class Pipe:
                                         except Exception:
                                             pass
 
-                                # 2. Emit Rich UI components (richui type)
+                                # 2. Emit UI components (richui or message type)
                                 if pending_embeds:
                                     for embed in pending_embeds:
-                                        if embed.get("type") == "richui":
+                                        if embed.get("type") in ["richui", "message"]:
                                             # Status update
                                             await __event_emitter__(
                                                 {
@@ -5699,15 +5698,27 @@ class Pipe:
                                                     },
                                                 }
                                             )
-                                            # Standard OpenWebUI Embed Structure: type: "embeds", data: {"embeds": [content]}
-                                            await __event_emitter__(
-                                                {
-                                                    "type": "embeds",
-                                                    "data": {
-                                                        "embeds": [embed["content"]]
-                                                    },
-                                                }
-                                            )
+
+                                            if embed.get("type") == "richui":
+                                                # Standard OpenWebUI Embed Structure: type: "embeds", data: {"embeds": [content]}
+                                                await __event_emitter__(
+                                                    {
+                                                        "type": "embeds",
+                                                        "data": {
+                                                            "embeds": [embed["content"]]
+                                                        },
+                                                    }
+                                                )
+                                            elif embed.get("type") == "message":
+                                                # Artifacts mode appends as raw message
+                                                await __event_emitter__(
+                                                    {
+                                                        "type": "message",
+                                                        "data": {
+                                                            "content": embed["content"]
+                                                        },
+                                                    }
+                                                )
 
                                 # 3. LOCK internal status emission for background tasks
                                 # (Stray Task A from tool.execution_complete will now be discarded)
