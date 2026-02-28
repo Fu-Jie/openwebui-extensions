@@ -27,6 +27,10 @@ A standalone OpenWebUI Tool plugin for managing native Workspace Skills across m
 ## Installation
 
 1. Open OpenWebUI → Workspace → Tools
-2. Create Tool and paste:
-   - `plugins/tools/openwebui-skills-manager/openwebui_skills_manager.py`
+2. Install **OpenWebUI Skills Manager Tool** from the official marketplace
 3. Save and enable for your chat/model
+
+### Manual Installation (Alternative)
+
+- Create Tool and paste:
+   - `plugins/tools/openwebui-skills-manager/openwebui_skills_manager.py`

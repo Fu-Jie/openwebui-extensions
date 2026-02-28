@@ -27,6 +27,10 @@
 ## 安装方式
 
 1. 打开 OpenWebUI → Workspace → Tools
-2. 新建 Tool 并粘贴：
-   - `plugins/tools/openwebui-skills-manager/openwebui_skills_manager.py`
+2. 在官方市场安装 **OpenWebUI Skills 管理工具**
 3. 保存并在模型/聊天中启用
+
+### 手动安装（备选）
+
+- 新建 Tool 并粘贴：
+   - `plugins/tools/openwebui-skills-manager/openwebui_skills_manager.py`

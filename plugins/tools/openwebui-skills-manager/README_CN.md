@@ -19,7 +19,7 @@
 ## 使用方法
 
 1. 打开 OpenWebUI，进入 **Workspace > Tools**。
-2. 新建 Tool，粘贴 `openwebui_skills_manager.py`。
+2. 在官方市场安装 **OpenWebUI Skills 管理工具**。
 3. 为当前模型/聊天启用该工具。
 4. 在对话中让模型调用，例如：
    - “列出我的 skills”
@@ -27,6 +27,10 @@
    - “创建一个 meeting-notes 技能，内容是 ...”
    - “更新某个 skill ...”
    - “删除某个 skill ...”
+
+### 手动安装（备选）
+
+- 新建 Tool，粘贴 `openwebui_skills_manager.py`。
 
 ## 示例：安装技能 (Install Skills)
 
