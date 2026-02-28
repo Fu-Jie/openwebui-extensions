@@ -299,8 +299,10 @@ class OpenWebUICommunityClient:
         if not post_data:
             return False
 
-        # 严格重建 data 结构，避免包含只读字段（如 data.function.id）
-        current_function = post_data.get("data", {}).get("function", {})
+        # 获取当前帖子的类型和数据结构
+        post_type = post_data.get("type", "function")
+        data_key = post_type if post_type in post_data.get("data", {}) else "function"
+        current_data = post_data.get("data", {}).get(data_key, {})
 
         # 过滤 metadata，移除 openwebui_id 等系统字段
         clean_metadata = {
@@ -309,22 +311,23 @@ class OpenWebUICommunityClient:
             if k not in ["openwebui_id", "post_id"]
         }
 
-        function_data = {
-            "id": current_function.get("id", ""),
-            "name": metadata.get("title", current_function.get("name", "Plugin")),
-            "type": current_function.get("type", "action"),
+        # 重建插件数据结构
+        plugin_data = {
+            "id": current_data.get("id", ""),
+            "name": metadata.get("title", current_data.get("name", "Plugin")),
+            "type": current_data.get("type", "action"),
             "content": source_code,
             "meta": {
                 "description": metadata.get(
                     "description",
-                    current_function.get("meta", {}).get("description", ""),
+                    current_data.get("meta", {}).get("description", ""),
                 ),
                 "manifest": clean_metadata,
             },
         }
 
-        post_data["data"] = {"function": function_data}
-        post_data["type"] = "function"
+        post_data["data"] = {data_key: plugin_data}
+        post_data["type"] = post_type
 
         # 更新 README（社区页面展示内容）
         if readme_content:
