@@ -1225,14 +1225,8 @@ class Pipe:
                 if has_preview and view_url:
                     result_dict["view_url"] = view_url
                     if is_html and embed_type == "artifacts":
-                        # Artifacts mode: standard iframe for the AI to output directly (Infinite height)
-                        iframe_html = (
-                            f'<iframe src="{view_url}" '
-                            f'sandbox="allow-scripts allow-same-origin allow-popups allow-downloads allow-forms" '
-                            f'allow="fullscreen" '
-                            f'style="width:100%; height:100vh; min-height:600px; border:none; border-radius:12px; '
-                            f'box-shadow: 0 10px 40px rgba(0,0,0,0.1);"></iframe>'
-                        )
+                        # Artifacts mode: standard barebone iframe (OpenWebUI might strip complex styles or sandbox attrs)
+                        iframe_html = f'<iframe src="{view_url}" style="width:100%; min-height:600px; border:none;"></iframe>'
                         result_dict["html_embed"] = iframe_html
                         # Note: We do NOT add to pending_embeds. The AI will output this in the message.
                     elif embed_type == "richui":
