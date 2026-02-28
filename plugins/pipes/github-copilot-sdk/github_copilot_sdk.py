@@ -1245,6 +1245,9 @@ class Pipe:
                                         "type": "richui",
                                     }
                                 )
+                                logger.info(
+                                    f"[Copilot] Queued richui embed for '{safe_filename}', pending_embeds len={len(pending_embeds)}"
+                                )
                             elif embed_type == "artifacts":
                                 artifacts_content = f"\n```html\n{embed_content}\n```\n"
                                 pending_embeds.append(
@@ -1254,6 +1257,13 @@ class Pipe:
                                         "type": "artifacts",
                                     }
                                 )
+                                logger.info(
+                                    f"[Copilot] Queued artifacts embed for '{safe_filename}', content len={len(artifacts_content)}, pending_embeds len={len(pending_embeds)}"
+                                )
+                        else:
+                            logger.warning(
+                                f"[Copilot] pending_embeds is None! Cannot queue embed for '{safe_filename}'"
+                            )
                     except Exception as e:
                         logger.error(f"Failed to prepare HTML embed: {e}")
 
@@ -5669,8 +5679,14 @@ class Pipe:
                                             pass
 
                                 # 2. Emit UI components (richui or artifacts type)
+                                logger.info(
+                                    f"[Copilot] IDLE: pending_embeds count={len(pending_embeds) if pending_embeds else 0}, types={[e.get('type') for e in pending_embeds] if pending_embeds else []}"
+                                )
                                 if pending_embeds:
                                     for embed in pending_embeds:
+                                        logger.info(
+                                            f"[Copilot] IDLE: Processing embed type='{embed.get('type')}', filename='{embed.get('filename')}', content_len={len(embed.get('content', ''))}"
+                                        )
                                         if embed.get("type") in ["richui", "artifacts"]:
                                             # Status update
                                             await __event_emitter__(
