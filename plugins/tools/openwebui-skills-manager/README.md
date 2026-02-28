@@ -34,12 +34,12 @@ This tool can fetch and install skills directly from URLs (supporting GitHub tre
 
 ### Install a single skill from GitHub
 
-- "Install skill from <https://github.com/anthropics/skills/tree/main/skills/search_manager>"
+- "Install skill from <https://github.com/anthropics/skills/tree/main/skills/xlsx>"
 - "Install skill from <https://github.com/Fu-Jie/openwebui-extensions/blob/main/.agent/skills/test-copilot-pipe/SKILL.md>"
 
 ### Batch install multiple skills
 
-- "Install these skills: ['https://github.com/anthropics/skills/tree/main/skills/search_manager', 'https://github.com/anthropics/skills/tree/main/skills/guide_writer']"
+- "Install these skills: ['https://github.com/anthropics/skills/tree/main/skills/xlsx', 'https://github.com/anthropics/skills/tree/main/skills/docx']"
 
 > **Tip**: For GitHub, the tool automatically resolves directory (tree) URLs by looking for `SKILL.md` or `README.md`.
 

@@ -34,12 +34,12 @@
 
 ### 从 GitHub 安装单个技能
 
-- “从 <https://github.com/anthropics/skills/tree/main/skills/search_manager> 安装技能”
+- “从 <https://github.com/anthropics/skills/tree/main/skills/xlsx> 安装技能”
 - “安装技能 <https://github.com/Fu-Jie/openwebui-extensions/blob/main/.agent/skills/test-copilot-pipe/SKILL.md”>
 
 ### 批量安装多个技能
 
-- “安装这些技能：['https://github.com/anthropics/skills/tree/main/skills/search_manager', 'https://github.com/anthropics/skills/tree/main/skills/guide_writer']”
+- “安装这些技能：['https://github.com/anthropics/skills/tree/main/skills/xlsx', 'https://github.com/anthropics/skills/tree/main/skills/docx']”
 
 > **提示**：对于 GitHub 链接，工具会自动处理目录（tree）地址，并尝试查找目录下的 `SKILL.md` 或 `README.md` 文件。
 
