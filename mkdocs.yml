@@ -90,6 +90,7 @@ plugins:
             Filters: 过滤器
             Pipes: 管道
             Pipelines: 流水线
+            Tools: 工具
             Prompts: 提示词
             Enhancements: 增强功能
             Development: 开发指南
@@ -200,6 +201,9 @@ nav:
       - Pipelines:
           - plugins/pipelines/index.md
           - MoE Prompt Refiner: plugins/pipelines/moe-prompt-refiner.md
+      - Tools:
+          - plugins/tools/index.md
+          - OpenWebUI Skills Manager Tool: plugins/tools/openwebui-skills-manager-tool.md
   - Prompts:
       - prompts/index.md
       - prompts/library.md

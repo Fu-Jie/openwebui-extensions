@@ -142,3 +142,7 @@ logs/
 # OpenWebUI specific
 # Add any specific ignores for OpenWebUI plugins if needed
 .git-worktrees/
+plugins/debug/
+test_skills/
+test_copilot_skills.py
+prepare_pipe_skills_manager.py

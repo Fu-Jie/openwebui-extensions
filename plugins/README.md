@@ -2,11 +2,12 @@
 
 English | [中文](./README_CN.md)
 
-This directory contains three types of plugins for OpenWebUI:
+This directory contains four types of plugins for OpenWebUI:
 
 - **Filters**: Process user input before sending to LLM
 - **Actions**: Trigger custom functionalities from chat
 - **Pipes**: Enhance LLM responses before displaying to user
+- **Tools**: Provide callable utility functions for models in Workspace > Tools
 
 ## 📦 Plugin Types Overview
 
@@ -44,6 +45,16 @@ Pipes process LLM responses after generation. They are useful for:
 - Integration with external services
 
 [View Pipes →](./pipes/README.md)
+
+### 🧰 Tools (`/tools`)
+
+Tools are callable utilities enabled in **Workspace > Tools**. They are useful for:
+
+- Data lookups and utility operations
+- Structured function-style actions
+- Lightweight model-agnostic capabilities
+
+[View Tools →](./tools/README.md)
 
 ## 🚀 Quick Start
 

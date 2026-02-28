@@ -4,7 +4,7 @@ Welcome to the OpenWebUI Extensions Plugin Center! Here you'll find a comprehens
 
 ## Plugin Types
 
-OpenWebUI supports four types of plugins, each serving a different purpose:
+OpenWebUI supports five types of plugins, each serving a different purpose:
 
 <div class="grid cards" markdown>
 
@@ -40,6 +40,14 @@ OpenWebUI supports four types of plugins, each serving a different purpose:
 
     [:octicons-arrow-right-24: Browse Pipelines](pipelines/index.md)
 
+-   :material-tools:{ .lg .middle } **Tools**
+
+    ---
+
+    Callable utility plugins enabled in Workspace > Tools. Great for model-agnostic function calls and lightweight operations.
+
+    [:octicons-arrow-right-24: Browse Tools](tools/index.md)
+
 </div>
 
 ---
@@ -58,6 +66,7 @@ OpenWebUI supports four types of plugins, each serving a different purpose:
 | [Multi-Model Context Merger](filters/multi-model-context-merger.md) | Filter | Merge context from multiple models | 0.1.0 |
 | [Web Gemini Multimodal Filter](filters/web-gemini-multimodel.md) | Filter | Multimodal capabilities for any model | 0.3.2 |
 | [MoE Prompt Refiner](pipelines/moe-prompt-refiner.md) | Pipeline | Multi-model prompt refinement | 1.0.0 |
+| [OpenWebUI Skills Manager Tool](tools/openwebui-skills-manager-tool.md) | Tool | Manage native OpenWebUI skills (`list/show/install/create/update/delete`) | 0.2.0 |
 
 ---
 

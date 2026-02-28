@@ -68,6 +68,7 @@ The following entry in `.gitignore` ensures temp files are never committed:
 ## Examples
 
 ### Example 1: PR Submitter Skill
+
 ```bash
 # Create PR body in temp directory
 mkdir -p .temp
@@ -84,6 +85,7 @@ rm -f .temp/pr_body.md
 ```
 
 ### Example 2: Release Prepare Workflow
+
 ```bash
 # Create draft changelog
 mkdir -p .temp
@@ -116,6 +118,7 @@ rm -f .temp/changelog_draft.md
 ## Questions / Clarifications
 
 For questions about this policy, refer to:
+
 - `.github/skills/pr-submitter/SKILL.md` — Practical example
 - `.github/skills/release-prep/SKILL.md` — Policy integration
 - `/memories/repo/temp-file-handling-convention.md` — Internal notes

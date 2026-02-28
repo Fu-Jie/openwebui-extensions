@@ -15,6 +15,7 @@ When assisting with the development of `openwebui-extensions`, you (Antigravity)
 ### Global / General (Relevant to all projects)
 
 - **Open WebUI**: `../open-webui/` (Core platform context)
+- **OpenWebUI Docs**: `../docs/` (Official documentation for OpenWebUI)
 - **Skills**: `../skills/` (Reusable expertise library)
 - **Awesome Copilot**: `../awesome-copilot/` (Shared extensions & resources)
 
@@ -28,3 +29,4 @@ When assisting with the development of `openwebui-extensions`, you (Antigravity)
 1. **Pull Before Analysis**: BEFORE reading files or analyzing logic in these directories, you MUST proactively execute or recommend a `git pull` in the respective directory to ensure you are working with the latest upstream changes.
 2. **Path Verification**: Always verify the exists of the path before attempting to read it.
 3. **Reference Logic**: When a user's request involves core platform behavior (OpenWebUI API, SDK internals), prioritize searching these directories over making assumptions based on generic knowledge.
+

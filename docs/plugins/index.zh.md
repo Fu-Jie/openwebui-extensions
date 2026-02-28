@@ -4,7 +4,7 @@
 
 ## 插件类型
 
-OpenWebUI 支持四种类型的插件，每种都有不同的用途：
+OpenWebUI 支持五种类型的插件，每种都有不同的用途：
 
 <div class="grid cards" markdown>
 
@@ -40,6 +40,14 @@ OpenWebUI 支持四种类型的插件，每种都有不同的用途：
 
     [:octicons-arrow-right-24: 浏览 Pipelines](pipelines/index.md)
 
+-   :material-tools:{ .lg .middle } **Tools（工具）**
+
+    ---
+
+    在 Workspace > Tools 中启用的可调用工具插件，适合跨模型函数调用和轻量任务处理。
+
+    [:octicons-arrow-right-24: 浏览 Tools](tools/index.md)
+
 </div>
 
 ---
@@ -58,6 +66,7 @@ OpenWebUI 支持四种类型的插件，每种都有不同的用途：
 | [Multi-Model Context Merger（多模型上下文合并）](filters/multi-model-context-merger.md) | Filter | 合并多个模型的上下文 | 0.1.0 |
 | [Web Gemini Multimodal Filter（Web Gemini 多模态过滤器）](filters/web-gemini-multimodel.md) | Filter | 为任何模型提供多模态能力 | 0.3.2 |
 | [MoE Prompt Refiner](pipelines/moe-prompt-refiner.md) | Pipeline | 多模型提示词优化 | 1.0.0 |
+| [OpenWebUI Skills 管理工具](tools/openwebui-skills-manager-tool.zh.md) | Tool | 管理原生 OpenWebUI skills（`list/show/install/create/update/delete`） | 0.2.0 |
 
 ---
 

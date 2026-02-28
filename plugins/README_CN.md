@@ -2,11 +2,12 @@
 
 [English](./README.md) | 中文
 
-此目录包含 OpenWebUI 的三种类型的插件：
+此目录包含 OpenWebUI 的四种类型的插件：
 
 - **Filters（过滤器）**: 在将用户输入发送给 LLM 前进行处理
 - **Actions（动作）**: 从聊天中触发自定义功能
 - **Pipes（管道）**: 在显示给用户前增强 LLM 响应
+- **Tools（工具）**: 在 Workspace > Tools 中提供可调用的工具函数
 
 ## 📦 插件类型概览
 
@@ -44,6 +45,16 @@
 - 与外部服务集成
 
 [查看管道 →](./pipes/README_CN.md)
+
+### 🧰 Tools（工具）(`/tools`)
+
+工具插件是在 **Workspace > Tools** 中启用的可调用能力，适合：
+
+- 数据查询与工具类操作
+- 结构化函数式调用
+- 跨模型复用的轻量能力
+
+[查看工具 →](./tools/README_CN.md)
 
 ## 🚀 快速开始
 
