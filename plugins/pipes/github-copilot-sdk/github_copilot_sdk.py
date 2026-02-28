@@ -1251,7 +1251,7 @@ class Pipe:
                                     {
                                         "filename": safe_filename,
                                         "content": artifacts_content,
-                                        "type": "message",
+                                        "type": "artifacts",
                                     }
                                 )
                     except Exception as e:
@@ -5668,10 +5668,10 @@ class Pipe:
                                         except Exception:
                                             pass
 
-                                # 2. Emit UI components (richui or message type)
+                                # 2. Emit UI components (richui or artifacts type)
                                 if pending_embeds:
                                     for embed in pending_embeds:
-                                        if embed.get("type") in ["richui", "message"]:
+                                        if embed.get("type") in ["richui", "artifacts"]:
                                             # Status update
                                             await __event_emitter__(
                                                 {
@@ -5709,7 +5709,7 @@ class Pipe:
                                                         },
                                                     }
                                                 )
-                                            elif embed.get("type") == "message":
+                                            elif embed.get("type") == "artifacts":
                                                 # Artifacts mode appends as raw message
                                                 await __event_emitter__(
                                                     {
