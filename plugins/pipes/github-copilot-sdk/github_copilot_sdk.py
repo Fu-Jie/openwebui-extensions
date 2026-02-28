@@ -1259,15 +1259,7 @@ class Pipe:
                                         }
                                     )
                             elif embed_type == "artifacts":
-                                # OpenWebUI's srcdoc sandbox breaks external CDN module logic for very large files.
-                                # Therefore, fallback to providing a direct iframe to the local backend URL for artifacts.
-                                artifacts_content = (
-                                    f'\n<iframe src="{view_url}" '
-                                    f'sandbox="allow-scripts allow-same-origin allow-popups allow-downloads allow-forms" '
-                                    f'allow="fullscreen" '
-                                    f'style="width:100%; height:100vh; min-height:600px; border:none; border-radius:12px; box-shadow: 0 10px 40px rgba(0,0,0,0.1);">'
-                                    f"</iframe>\n"
-                                )
+                                artifacts_content = f"\n```html\n{embed_content}\n```\n"
                                 pending_embeds.append(
                                     {
                                         "filename": safe_filename,
@@ -1276,7 +1268,7 @@ class Pipe:
                                     }
                                 )
                                 logger.info(
-                                    f"[Copilot] Queued artifacts embed for '{safe_filename}', content len={len(artifacts_content)}, pending_embeds len={len(pending_embeds)}"
+                                    f"[Copilot] Queued artifacts embed for '{safe_filename}' (content={len(artifacts_content)}, queue={len(pending_embeds)})"
                                 )
                                 if __event_emitter__:
                                     await __event_emitter__(
@@ -5785,15 +5777,10 @@ class Pipe:
                                                     }
                                                 )
                                             elif embed.get("type") == "artifacts":
-                                                # Artifacts mode appends as raw message
-                                                await __event_emitter__(
-                                                    {
-                                                        "type": "message",
-                                                        "data": {
-                                                            "content": embed["content"]
-                                                        },
-                                                    }
-                                                )
+                                                # Directly yield the markdown block to the response stream.
+                                                # This securely appends the code block to the final message,
+                                                # tricking OpenWebUI into rendering it as an artifact seamlessly.
+                                                yield embed["content"]
 
                                 # 3. LOCK internal status emission for background tasks
                                 # (Stray Task A from tool.execution_complete will now be discarded)
