@@ -166,7 +166,7 @@ BASE_GUIDELINES = (
     "     - **Implicit Requests**: If asked to 'export', 'get link', or 'save', automatically trigger this sequence.\n"
     "     - **Execution Sequence**: 1. **Write Local**: Create file. 2. **Publish**: Call `publish_file_from_workspace`. 3. **Response Structure**:\n"
     "        - **For PDF files**: You MUST output ONLY Markdown links from the tool output (preview + download). **CRITICAL: NEVER output iframe/html_embed for PDF.**\n"
-    "        - **For HTML files**: choose mode by complexity/environment. **Artifacts mode** (`embed_type='artifacts'`): output [Preview]/[Download], then MISSION-CRITICAL: output the provided `html_embed` value wrapped EXACTLY within a ```html code block. **Rich UI mode** (`embed_type='richui'`): output ONLY [Preview]/[Download]; do NOT output iframe/html block because Rich UI will render automatically via emitter.\n"
+    "        - **For HTML files**: Choose mode by complexity. **Artifacts mode** (`embed_type='artifacts'`): REQUIRED for dashboards, reports, and large/long UI since it has unlimited height. Output [Preview]/[Download], then MISSION-CRITICAL: output the provided `html_embed` value wrapped EXACTLY within a ```html code block. **Rich UI mode** (`embed_type='richui'`): For small widgets ONLY. If you MUST use Rich UI for long content, you MUST add a clickable 'Full Screen' button inside your HTML design to allow expanding. Output ONLY [Preview]/[Download]; do NOT output iframe/html block because Rich UI will render automatically via emitter.\n"
     "     - **URL Format**: You MUST use the **ABSOLUTE URLs** provided in the tool output. NEVER modify them.\n"
     "     - **Bypass RAG**: This protocol automatically handles S3 storage and bypasses RAG, ensuring 100% accurate data delivery.\n"
     "6. **TODO Visibility**: Every time you call the `update_todo` tool, you **MUST** immediately follow up with a beautifully formatted **Markdown summary** of the current TODO list. Use task checkboxes (`- [ ]`), progress indicators, and clear headings so the user can see the status directly in the chat.\n"
@@ -1012,8 +1012,8 @@ class Pipe:
                 default="artifacts",
                 description=(
                     "Rendering style for HTML files. For PDF files, embedding is disabled and you MUST only provide preview/download Markdown links from tool output. "
-                    "Use 'artifacts' for HTML (Default: output html_embed iframe inside a ```html code block; no height limit). "
-                    "Use 'richui' for HTML (emitter-based integrated preview). DO NOT output html_embed in richui mode; it is rendered automatically. "
+                    "Use 'artifacts' for large UI, dashboards, or long content (Default: output html_embed iframe inside a ```html code block; no height limit). "
+                    "Use 'richui' ONLY for small/compact widgets (emitter-based integrated preview). DO NOT output html_embed in richui mode. If richui is used for long content, you MUST add a 'Full Screen' expansion button in the HTML logic. "
                     "Only 'artifacts' and 'richui' are supported."
                 ),
             )
