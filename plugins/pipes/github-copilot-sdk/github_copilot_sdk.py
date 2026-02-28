@@ -1239,9 +1239,13 @@ class Pipe:
                 # Note: Emission is now delayed until session.idle to avoid UI flicker and ensure reliability.
                 if is_html and embed_type == "richui" and rich_ui_supported:
                     try:
-                        # For Rich UI Integrated view, we pass a bare iframe.
-                        # We let the OpenWebUI system control styling, height, and sandboxing.
-                        embed_content = f'<iframe src="{view_url}"></iframe>'
+                        # For Rich UI Mode, OpenWebUI expects the raw HTML of the component itself
+                        # The system will wrap this in its own managed iframe.
+                        embed_content = await asyncio.to_thread(
+                            lambda: target_path.read_text(
+                                encoding="utf-8", errors="replace"
+                            )
+                        )
 
                         if pending_embeds is not None:
                             pending_embeds.append(
