@@ -1228,6 +1228,8 @@ class Pipe:
                         # Artifacts mode: standard iframe for the AI to output directly (Infinite height)
                         iframe_html = (
                             f'<iframe src="{view_url}" '
+                            f'sandbox="allow-scripts allow-same-origin allow-popups allow-downloads allow-forms" '
+                            f'allow="fullscreen" '
                             f'style="width:100%; height:100vh; min-height:600px; border:none; border-radius:12px; '
                             f'box-shadow: 0 10px 40px rgba(0,0,0,0.1);"></iframe>'
                         )
