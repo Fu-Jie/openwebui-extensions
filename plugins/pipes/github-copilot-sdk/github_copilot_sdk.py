@@ -1245,15 +1245,9 @@ class Pipe:
                 # Note: Emission is now delayed until session.idle to avoid UI flicker and ensure reliability.
                 if is_html and embed_type == "richui" and rich_ui_supported:
                     try:
-                        # For Rich UI Integrated view, we pass a clean iframe.
-                        # We use 100vh directly to allow it to expand fully like artifacts.
-                        embed_content = (
-                            f'<iframe src="{view_url}" '
-                            f'sandbox="allow-scripts allow-same-origin allow-popups allow-downloads allow-forms" '
-                            f'allow="fullscreen" '
-                            f'style="width:100%; height:100vh; min-height:600px; border:none; border-radius:12px; '
-                            f'box-shadow: 0 10px 40px rgba(0,0,0,0.1);"></iframe>'
-                        )
+                        # For Rich UI Integrated view, we pass a bare iframe.
+                        # We let the OpenWebUI system control styling, height, and sandboxing.
+                        embed_content = f'<iframe src="{view_url}"></iframe>'
 
                         if pending_embeds is not None:
                             pending_embeds.append(
