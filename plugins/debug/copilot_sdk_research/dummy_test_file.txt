@@ -1,2 +1,0 @@
-This is a dummy test file for verifying permission controls.
-You can delete this file safely.
