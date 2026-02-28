@@ -1259,7 +1259,15 @@ class Pipe:
                                         }
                                     )
                             elif embed_type == "artifacts":
-                                artifacts_content = f"\n```html\n{embed_content}\n```\n"
+                                # OpenWebUI's srcdoc sandbox breaks external CDN module logic for very large files.
+                                # Therefore, fallback to providing a direct iframe to the local backend URL for artifacts.
+                                artifacts_content = (
+                                    f'\n<iframe src="{view_url}" '
+                                    f'sandbox="allow-scripts allow-same-origin allow-popups allow-downloads allow-forms" '
+                                    f'allow="fullscreen" '
+                                    f'style="width:100%; height:100vh; min-height:600px; border:none; border-radius:12px; box-shadow: 0 10px 40px rgba(0,0,0,0.1);">'
+                                    f"</iframe>\n"
+                                )
                                 pending_embeds.append(
                                     {
                                         "filename": safe_filename,
