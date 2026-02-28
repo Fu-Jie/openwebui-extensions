@@ -1,8 +1,13 @@
 # 🧰 OpenWebUI Skills 管理工具
 
-**Author:** [Fu-Jie](https://github.com/Fu-Jie) | **Version:** 0.2.0 | **Project:** [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions)
+**Author:** [Fu-Jie](https://github.com/Fu-Jie) | **Version:** 0.2.1 | **Project:** [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions)
 
 一个 OpenWebUI 原生 Tool 插件，用于让任意模型直接管理 **Workspace > Skills**。
+
+## 最新更新
+
+- `install_skill` 新增 GitHub 技能目录自动发现（例如 `.../tree/main/skills`），可一键安装目录下所有子技能。
+- 修复语言获取逻辑：前端优先（`__event_call__` + 超时保护），并回退到请求头与用户资料。
 
 ## 核心特性
 

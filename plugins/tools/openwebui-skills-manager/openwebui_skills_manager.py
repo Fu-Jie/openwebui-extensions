@@ -3,13 +3,14 @@ title: OpenWebUI Skills Manager Tool
 author: Fu-Jie
 author_url: https://github.com/Fu-Jie/openwebui-extensions
 funding_url: https://github.com/open-webui
-version: 0.2.0
+version: 0.2.1
 openwebui_id: b4bce8e4-08e7-4f90-bea7-dc31d463a0bb
 requirements:
 description: Standalone OpenWebUI tool for managing native Workspace Skills (list/show/install/create/update/delete) for any model.
 """
 
 import asyncio
+import json
 import logging
 import re
 import tempfile
@@ -36,6 +37,8 @@ BASE_TRANSLATIONS = {
     "status_listing": "Listing your skills...",
     "status_showing": "Reading skill details...",
     "status_installing": "Installing skill from URL...",
+    "status_installing_batch": "Installing {total} skill(s)...",
+    "status_discovering_skills": "Discovering skills in {url}...",
     "status_creating": "Creating skill...",
     "status_updating": "Updating skill...",
     "status_deleting": "Deleting skill...",
@@ -48,6 +51,7 @@ BASE_TRANSLATIONS = {
     "status_create_overwrite_done": "Updated existing skill: {name}.",
     "status_update_done": "Updated skill: {name}.",
     "status_delete_done": "Deleted skill: {name}.",
+    "status_install_batch_done": "Batch install completed: {succeeded} succeeded, {failed} failed.",
     "err_unavailable": "OpenWebUI Skills model is unavailable in this runtime.",
     "err_user_required": "User context is required.",
     "err_name_required": "Skill name is required.",
@@ -69,6 +73,8 @@ TRANSLATIONS = {
         "status_listing": "正在列出你的技能...",
         "status_showing": "正在读取技能详情...",
         "status_installing": "正在从 URL 安装技能...",
+        "status_installing_batch": "正在安装 {total} 个技能...",
+        "status_discovering_skills": "正在从 {url} 发现技能...",
         "status_creating": "正在创建技能...",
         "status_updating": "正在更新技能...",
         "status_deleting": "正在删除技能...",
@@ -81,6 +87,7 @@ TRANSLATIONS = {
         "status_create_overwrite_done": "已更新同名技能：{name}。",
         "status_update_done": "技能更新完成：{name}。",
         "status_delete_done": "技能删除完成：{name}。",
+        "status_install_batch_done": "批量安装完成：成功 {succeeded} 个，失败 {failed} 个。",
         "err_unavailable": "当前运行环境不可用 OpenWebUI Skills 模型。",
         "err_user_required": "需要用户上下文。",
         "err_name_required": "技能名称不能为空。",
@@ -99,6 +106,7 @@ TRANSLATIONS = {
         "status_listing": "正在列出你的技能...",
         "status_showing": "正在讀取技能詳情...",
         "status_installing": "正在從 URL 安裝技能...",
+        "status_installing_batch": "正在安裝 {total} 個技能...",
         "status_creating": "正在建立技能...",
         "status_updating": "正在更新技能...",
         "status_deleting": "正在刪除技能...",
@@ -111,6 +119,7 @@ TRANSLATIONS = {
         "status_create_overwrite_done": "已更新同名技能：{name}。",
         "status_update_done": "技能更新完成：{name}。",
         "status_delete_done": "技能刪除完成：{name}。",
+        "status_install_batch_done": "批次安裝完成：成功 {succeeded} 個，失敗 {failed} 個。",
         "err_unavailable": "目前執行環境不可用 OpenWebUI Skills 模型。",
         "err_user_required": "需要使用者上下文。",
         "err_name_required": "技能名稱不能為空。",
@@ -129,6 +138,7 @@ TRANSLATIONS = {
         "status_listing": "正在列出你的技能...",
         "status_showing": "正在讀取技能詳情...",
         "status_installing": "正在從 URL 安裝技能...",
+        "status_installing_batch": "正在安裝 {total} 個技能...",
         "status_creating": "正在建立技能...",
         "status_updating": "正在更新技能...",
         "status_deleting": "正在刪除技能...",
@@ -141,6 +151,7 @@ TRANSLATIONS = {
         "status_create_overwrite_done": "已更新同名技能：{name}。",
         "status_update_done": "技能更新完成：{name}。",
         "status_delete_done": "技能刪除完成：{name}。",
+        "status_install_batch_done": "批次安裝完成：成功 {succeeded} 個，失敗 {failed} 個。",
         "err_unavailable": "目前執行環境不可用 OpenWebUI Skills 模型。",
         "err_user_required": "需要使用者上下文。",
         "err_name_required": "技能名稱不能為空。",
@@ -159,6 +170,8 @@ TRANSLATIONS = {
         "status_listing": "スキル一覧を取得しています...",
         "status_showing": "スキル詳細を読み込み中...",
         "status_installing": "URL からスキルをインストール中...",
+        "status_installing_batch": "{total} 件のスキルをインストール中...",
+        "status_discovering_skills": "{url} からスキルを検出中...",
         "status_creating": "スキルを作成中...",
         "status_updating": "スキルを更新中...",
         "status_deleting": "スキルを削除中...",
@@ -171,6 +184,7 @@ TRANSLATIONS = {
         "status_create_overwrite_done": "同名スキルを更新しました: {name}。",
         "status_update_done": "スキルを更新しました: {name}。",
         "status_delete_done": "スキルを削除しました: {name}。",
+        "status_install_batch_done": "一括インストール完了: 成功 {succeeded} 件、失敗 {failed} 件。",
         "err_unavailable": "この実行環境では OpenWebUI Skills モデルを利用できません。",
         "err_user_required": "ユーザーコンテキストが必要です。",
         "err_name_required": "スキル名は必須です。",
@@ -189,6 +203,8 @@ TRANSLATIONS = {
         "status_listing": "스킬 목록을 불러오는 중...",
         "status_showing": "스킬 상세 정보를 읽는 중...",
         "status_installing": "URL에서 스킬 설치 중...",
+        "status_installing_batch": "스킬 {total}개를 설치하는 중...",
+        "status_discovering_skills": "{url}에서 스킬 발견 중...",
         "status_creating": "스킬 생성 중...",
         "status_updating": "스킬 업데이트 중...",
         "status_deleting": "스킬 삭제 중...",
@@ -201,6 +217,7 @@ TRANSLATIONS = {
         "status_create_overwrite_done": "동일 이름 스킬 업데이트 완료: {name}.",
         "status_update_done": "스킬 업데이트 완료: {name}.",
         "status_delete_done": "스킬 삭제 완료: {name}.",
+        "status_install_batch_done": "일괄 설치 완료: 성공 {succeeded}개, 실패 {failed}개.",
         "err_unavailable": "현재 런타임에서 OpenWebUI Skills 모델을 사용할 수 없습니다.",
         "err_user_required": "사용자 컨텍스트가 필요합니다.",
         "err_name_required": "스킬 이름은 필수입니다.",
@@ -219,6 +236,8 @@ TRANSLATIONS = {
         "status_listing": "Liste des skills en cours...",
         "status_showing": "Lecture des détails du skill...",
         "status_installing": "Installation du skill depuis l'URL...",
+        "status_installing_batch": "Installation de {total} skill(s)...",
+        "status_discovering_skills": "Découverte de skills dans {url}...",
         "status_creating": "Création du skill...",
         "status_updating": "Mise à jour du skill...",
         "status_deleting": "Suppression du skill...",
@@ -231,6 +250,7 @@ TRANSLATIONS = {
         "status_create_overwrite_done": "Skill existant mis à jour : {name}.",
         "status_update_done": "Skill mis à jour : {name}.",
         "status_delete_done": "Skill supprimé : {name}.",
+        "status_install_batch_done": "Installation en lot terminée : {succeeded} réussies, {failed} échouées.",
         "err_unavailable": "Le modèle OpenWebUI Skills n'est pas disponible dans cet environnement.",
         "err_user_required": "Le contexte utilisateur est requis.",
         "err_name_required": "Le nom du skill est requis.",
@@ -249,6 +269,8 @@ TRANSLATIONS = {
         "status_listing": "Deine Skills werden aufgelistet...",
         "status_showing": "Skill-Details werden gelesen...",
         "status_installing": "Skill wird von URL installiert...",
+        "status_installing_batch": "{total} Skill(s) werden installiert...",
+        "status_discovering_skills": "Suche nach Skills in {url}...",
         "status_creating": "Skill wird erstellt...",
         "status_updating": "Skill wird aktualisiert...",
         "status_deleting": "Skill wird gelöscht...",
@@ -261,6 +283,7 @@ TRANSLATIONS = {
         "status_create_overwrite_done": "Bestehender Skill aktualisiert: {name}.",
         "status_update_done": "Skill aktualisiert: {name}.",
         "status_delete_done": "Skill gelöscht: {name}.",
+        "status_install_batch_done": "Batch-Installation abgeschlossen: {succeeded} erfolgreich, {failed} fehlgeschlagen.",
         "err_unavailable": "Das OpenWebUI-Skills-Modell ist in dieser Laufzeit nicht verfügbar.",
         "err_user_required": "Benutzerkontext ist erforderlich.",
         "err_name_required": "Skill-Name ist erforderlich.",
@@ -279,6 +302,8 @@ TRANSLATIONS = {
         "status_listing": "Listando tus skills...",
         "status_showing": "Leyendo detalles del skill...",
         "status_installing": "Instalando skill desde URL...",
+        "status_installing_batch": "Instalando {total} skill(s)...",
+        "status_discovering_skills": "Descubriendo skills en {url}...",
         "status_creating": "Creando skill...",
         "status_updating": "Actualizando skill...",
         "status_deleting": "Eliminando skill...",
@@ -291,6 +316,7 @@ TRANSLATIONS = {
         "status_create_overwrite_done": "Skill existente actualizado: {name}.",
         "status_update_done": "Skill actualizado: {name}.",
         "status_delete_done": "Skill eliminado: {name}.",
+        "status_install_batch_done": "Instalación por lotes completada: {succeeded} correctas, {failed} fallidas.",
         "err_unavailable": "El modelo OpenWebUI Skills no está disponible en este entorno.",
         "err_user_required": "Se requiere contexto de usuario.",
         "err_name_required": "Se requiere el nombre del skill.",
@@ -309,6 +335,8 @@ TRANSLATIONS = {
         "status_listing": "Elenco delle skill in corso...",
         "status_showing": "Lettura dei dettagli della skill...",
         "status_installing": "Installazione della skill da URL...",
+        "status_installing_batch": "Installazione di {total} skill in corso...",
+        "status_discovering_skills": "Scoperta di skills in {url}...",
         "status_creating": "Creazione della skill...",
         "status_updating": "Aggiornamento della skill...",
         "status_deleting": "Eliminazione della skill...",
@@ -321,6 +349,7 @@ TRANSLATIONS = {
         "status_create_overwrite_done": "Skill esistente aggiornata: {name}.",
         "status_update_done": "Skill aggiornata: {name}.",
         "status_delete_done": "Skill eliminata: {name}.",
+        "status_install_batch_done": "Installazione batch completata: {succeeded} riuscite, {failed} non riuscite.",
         "err_unavailable": "Il modello OpenWebUI Skills non è disponibile in questo runtime.",
         "err_user_required": "È richiesto il contesto utente.",
         "err_name_required": "Il nome della skill è obbligatorio.",
@@ -339,6 +368,8 @@ TRANSLATIONS = {
         "status_listing": "Đang liệt kê kỹ năng của bạn...",
         "status_showing": "Đang đọc chi tiết kỹ năng...",
         "status_installing": "Đang cài đặt kỹ năng từ URL...",
+        "status_installing_batch": "Đang cài đặt {total} kỹ năng...",
+        "status_discovering_skills": "Đang phát hiện kỹ năng trong {url}...",
         "status_creating": "Đang tạo kỹ năng...",
         "status_updating": "Đang cập nhật kỹ năng...",
         "status_deleting": "Đang xóa kỹ năng...",
@@ -351,6 +382,7 @@ TRANSLATIONS = {
         "status_create_overwrite_done": "Đã cập nhật kỹ năng cùng tên: {name}.",
         "status_update_done": "Cập nhật kỹ năng hoàn tất: {name}.",
         "status_delete_done": "Xóa kỹ năng hoàn tất: {name}.",
+        "status_install_batch_done": "Cài đặt hàng loạt hoàn tất: thành công {succeeded}, thất bại {failed}.",
         "err_unavailable": "Mô hình OpenWebUI Skills không khả dụng trong môi trường hiện tại.",
         "err_user_required": "Cần có ngữ cảnh người dùng.",
         "err_name_required": "Tên kỹ năng là bắt buộc.",
@@ -369,6 +401,8 @@ TRANSLATIONS = {
         "status_listing": "Sedang menampilkan daftar skill Anda...",
         "status_showing": "Sedang membaca detail skill...",
         "status_installing": "Sedang memasang skill dari URL...",
+        "status_installing_batch": "Sedang memasang {total} skill...",
+        "status_discovering_skills": "Sedang mencari skill di {url}...",
         "status_creating": "Sedang membuat skill...",
         "status_updating": "Sedang memperbarui skill...",
         "status_deleting": "Sedang menghapus skill...",
@@ -381,6 +415,7 @@ TRANSLATIONS = {
         "status_create_overwrite_done": "Skill dengan nama sama berhasil diperbarui: {name}.",
         "status_update_done": "Skill berhasil diperbarui: {name}.",
         "status_delete_done": "Skill berhasil dihapus: {name}.",
+        "status_install_batch_done": "Pemasangan batch selesai: {succeeded} berhasil, {failed} gagal.",
         "err_unavailable": "Model OpenWebUI Skills tidak tersedia di runtime ini.",
         "err_user_required": "Konteks pengguna diperlukan.",
         "err_name_required": "Nama skill wajib diisi.",
@@ -438,14 +473,28 @@ class Tools:
 
     def _resolve_language(self, user_language: str) -> str:
         """Normalize user language code to a supported translation key."""
-        if not user_language:
+        value = str(user_language or "").strip()
+        if not value:
             return "en-US"
-        if user_language in TRANSLATIONS:
-            return user_language
-        if user_language in FALLBACK_MAP:
-            return FALLBACK_MAP[user_language]
-        base = user_language.split("-")[0]
-        return FALLBACK_MAP.get(base, "en-US")
+
+        normalized = value.replace("_", "-")
+
+        if normalized in TRANSLATIONS:
+            return normalized
+
+        lower_to_lang = {k.lower(): k for k in TRANSLATIONS.keys()}
+        if normalized.lower() in lower_to_lang:
+            return lower_to_lang[normalized.lower()]
+
+        if normalized in FALLBACK_MAP:
+            return FALLBACK_MAP[normalized]
+
+        lower_fallback = {k.lower(): v for k, v in FALLBACK_MAP.items()}
+        if normalized.lower() in lower_fallback:
+            return lower_fallback[normalized.lower()]
+
+        base = normalized.split("-")[0].lower()
+        return lower_fallback.get(base, "en-US")
 
     def _t(self, lang: str, key: str, **kwargs) -> str:
         """Return translated text for key with safe formatting."""
@@ -460,8 +509,13 @@ class Tools:
                 pass
         return text
 
-    def _get_user_context(self, __user__: Optional[dict]) -> Dict[str, str]:
-        """Extract robust user context from OpenWebUI's __user__ payload."""
+    async def _get_user_context(
+        self,
+        __user__: Optional[dict],
+        __event_call__: Optional[Any] = None,
+        __request__: Optional[Any] = None,
+    ) -> Dict[str, str]:
+        """Extract robust user context with frontend language fallback."""
         if isinstance(__user__, (list, tuple)):
             user_data = __user__[0] if __user__ else {}
         elif isinstance(__user__, dict):
@@ -469,10 +523,41 @@ class Tools:
         else:
             user_data = {}
 
+        user_language = user_data.get("language", "en-US")
+
+        if __request__ and hasattr(__request__, "headers"):
+            accept_lang = __request__.headers.get("accept-language", "")
+            if accept_lang:
+                user_language = accept_lang.split(",")[0].split(";")[0]
+
+        if __event_call__:
+            try:
+                js_code = """
+                    try {
+                        return (
+                            document.documentElement.lang ||
+                            localStorage.getItem('locale') ||
+                            localStorage.getItem('language') ||
+                            navigator.language ||
+                            'en-US'
+                        );
+                    } catch (e) {
+                        return 'en-US';
+                    }
+                """
+                frontend_lang = await asyncio.wait_for(
+                    __event_call__({"type": "execute", "data": {"code": js_code}}),
+                    timeout=2.0,
+                )
+                if frontend_lang and isinstance(frontend_lang, str):
+                    user_language = frontend_lang
+            except Exception as e:
+                logger.warning(f"Failed to retrieve frontend language: {e}")
+
         return {
             "user_id": str(user_data.get("id", "")).strip(),
             "user_name": user_data.get("name", "User"),
-            "user_language": user_data.get("language", "en-US"),
+            "user_language": user_language,
         }
 
     async def _emit_status(
@@ -542,6 +627,49 @@ class Tools:
         except Exception:
             pass
         return ""
+
+    async def _discover_skills_from_github_directory(
+        self, url: str, lang: str
+    ) -> List[str]:
+        """
+        Discover all skill subdirectories from a GitHub tree URL.
+        Uses GitHub API to list directory contents.
+
+        Example: https://github.com/anthropics/skills/tree/main/skills
+        Returns: List of individual skill tree URLs for each subdirectory
+        """
+        skill_urls = []
+        match = re.match(
+            r"https://github\.com/([^/]+)/([^/]+)/tree/([^/]+)(/.*)?\Z", url
+        )
+        if not match:
+            return skill_urls
+
+        owner = match.group(1)
+        repo = match.group(2)
+        branch = match.group(3)
+        path = match.group(4) or ""
+
+        try:
+            api_url = f"https://api.github.com/repos/{owner}/{repo}/contents{path}?ref={branch}"
+            response_bytes = await self._fetch_bytes(api_url)
+            contents = json.loads(response_bytes.decode("utf-8"))
+
+            if isinstance(contents, list):
+                for item in contents:
+                    if item.get("type") == "dir":
+                        subdir_name = item.get("name", "")
+                        if subdir_name and not subdir_name.startswith("."):
+                            subdir_url = f"https://github.com/{owner}/{repo}/tree/{branch}{path}/{subdir_name}"
+                            skill_urls.append(subdir_url)
+
+            skill_urls.sort()
+        except Exception as e:
+            logger.warning(
+                f"Failed to discover skills from GitHub directory {url}: {e}"
+            )
+
+        return skill_urls
 
     def _resolve_github_tree_urls(self, url: str) -> List[str]:
         """For GitHub tree URLs, resolve to direct file URLs to try.
@@ -665,9 +793,11 @@ class Tools:
         include_content: bool = False,
         __user__: Optional[dict] = None,
         __event_emitter__: Optional[Any] = None,
+        __event_call__: Optional[Any] = None,
+        __request__: Optional[Any] = None,
     ) -> Dict[str, Any]:
         """List current user's OpenWebUI skills."""
-        user_ctx = self._get_user_context(__user__)
+        user_ctx = await self._get_user_context(__user__, __event_call__, __request__)
         lang = user_ctx["user_language"]
         user_id = user_ctx["user_id"]
 
@@ -722,9 +852,11 @@ class Tools:
         include_content: bool = True,
         __user__: Optional[dict] = None,
         __event_emitter__: Optional[Any] = None,
+        __event_call__: Optional[Any] = None,
+        __request__: Optional[Any] = None,
     ) -> Dict[str, Any]:
         """Show one skill by id or name."""
-        user_ctx = self._get_user_context(__user__)
+        user_ctx = await self._get_user_context(__user__, __event_call__, __request__)
         lang = user_ctx["user_language"]
         user_id = user_ctx["user_id"]
 
@@ -922,25 +1054,35 @@ class Tools:
         overwrite: bool = True,
         __user__: Optional[dict] = None,
         __event_emitter__: Optional[Any] = None,
+        __event_call__: Optional[Any] = None,
+        __request__: Optional[Any] = None,
     ) -> Dict[str, Any]:
-        """Install one or more skills from URL(s). Overwrites existing skills by default.
+        """Install one or more skills from URL(s), with support for GitHub directory auto-discovery.
 
         Args:
             url: A single URL string OR a JSON array of URL strings for batch install.
                  Examples:
                    Single: "https://github.com/owner/repo/tree/main/skills/xlsx"
+                   Directory: "https://github.com/owner/repo/tree/main/skills"
                    Batch:  ["https://github.com/owner/repo/tree/main/skills/xlsx",
                             "https://github.com/owner/repo/tree/main/skills/csv"]
             name: Optional custom name for the skill (single install only).
             overwrite: If True (default), overwrites any existing skill with the same name.
 
+        Auto-Discovery Feature:
+        If a GitHub tree URL points to a directory that contains multiple skill subdirectories,
+        this tool will automatically discover all subdirectories and batch install them.
+        Example: "https://github.com/anthropics/skills/tree/main/skills" will auto-discover
+        all skill folders under /skills and install them all at once.
+
         Supported URL formats:
         - GitHub tree URL: https://github.com/owner/repo/tree/branch/path/to/skill
+        - GitHub skill directory (auto-discovery): https://github.com/owner/repo/tree/branch/path
         - GitHub blob URL: https://github.com/owner/repo/blob/branch/path/SKILL.md
         - Raw markdown URL: https://raw.githubusercontent.com/.../SKILL.md
         - Archive URL: https://example.com/skill.zip (must contain SKILL.md or README.md)
         """
-        user_ctx = self._get_user_context(__user__)
+        user_ctx = await self._get_user_context(__user__, __event_call__, __request__)
         lang = user_ctx["user_language"]
         user_id = user_ctx["user_id"]
 
@@ -949,14 +1091,35 @@ class Tools:
             if not user_id:
                 raise ValueError(self._t(lang, "err_user_required"))
 
-            # Check if url is a list/tuple (batch mode)
+            # Stage 1: Check for directory auto-discovery (single string GitHub URL)
+            if isinstance(url, str) and "github.com" in url and "/tree/" in url:
+                await self._emit_status(
+                    __event_emitter__,
+                    self._t(lang, "status_discovering_skills", url=(url or "")[-50:]),
+                )
+                discover_fn = getattr(
+                    self, "_discover_skills_from_github_directory", None
+                )
+                discovered = []
+                if callable(discover_fn):
+                    discovered = await discover_fn(url, lang)
+                else:
+                    logger.warning(
+                        "_discover_skills_from_github_directory is unavailable on current Tools instance."
+                    )
+                if discovered:
+                    # Auto-discovered subdirectories, treat as batch
+                    url = discovered
+
+            # Stage 2: Check if url is a list/tuple (batch mode)
             if isinstance(url, (list, tuple)):
                 urls = url
                 if not urls:
                     raise ValueError(self._t(lang, "err_url_required"))
 
                 await self._emit_status(
-                    __event_emitter__, f"Installing {len(urls)} skill(s)..."
+                    __event_emitter__,
+                    self._t(lang, "status_installing_batch", total=len(urls)),
                 )
 
                 results = []
@@ -977,7 +1140,12 @@ class Tools:
 
                 await self._emit_status(
                     __event_emitter__,
-                    f"Batch install completed: {success_count} succeeded, {error_count} failed.",
+                    self._t(
+                        lang,
+                        "status_install_batch_done",
+                        succeeded=success_count,
+                        failed=error_count,
+                    ),
                     done=True,
                 )
 
@@ -1036,9 +1204,11 @@ class Tools:
         overwrite: bool = False,
         __user__: Optional[dict] = None,
         __event_emitter__: Optional[Any] = None,
+        __event_call__: Optional[Any] = None,
+        __request__: Optional[Any] = None,
     ) -> Dict[str, Any]:
         """Create a new skill, or update same-name skill when overwrite is enabled."""
-        user_ctx = self._get_user_context(__user__)
+        user_ctx = await self._get_user_context(__user__, __event_call__, __request__)
         lang = user_ctx["user_language"]
         user_id = user_ctx["user_id"]
 
@@ -1131,9 +1301,11 @@ class Tools:
         is_active: Optional[bool] = None,
         __user__: Optional[dict] = None,
         __event_emitter__: Optional[Any] = None,
+        __event_call__: Optional[Any] = None,
+        __request__: Optional[Any] = None,
     ) -> Dict[str, Any]:
         """Update one skill's fields by id or name."""
-        user_ctx = self._get_user_context(__user__)
+        user_ctx = await self._get_user_context(__user__, __event_call__, __request__)
         lang = user_ctx["user_language"]
         user_id = user_ctx["user_id"]
 
@@ -1200,9 +1372,11 @@ class Tools:
         name: str = "",
         __user__: Optional[dict] = None,
         __event_emitter__: Optional[Any] = None,
+        __event_call__: Optional[Any] = None,
+        __request__: Optional[Any] = None,
     ) -> Dict[str, Any]:
         """Delete one skill by id or name."""
-        user_ctx = self._get_user_context(__user__)
+        user_ctx = await self._get_user_context(__user__, __event_call__, __request__)
         lang = user_ctx["user_language"]
         user_id = user_ctx["user_id"]
 
