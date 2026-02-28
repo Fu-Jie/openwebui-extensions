@@ -23,10 +23,25 @@ A standalone OpenWebUI Tool plugin to manage native **Workspace > Skills** for a
    - "Update skill ..."
    - "Delete skill ..."
 
+## Example: Install Skills
+
+This tool can fetch and install skills directly from URLs (supporting GitHub tree/blob, raw markdown, and .zip/.tar archives).
+
+### Install a single skill from GitHub
+
+- "Install skill from <https://github.com/anthropics/skills/tree/main/skills/search_manager>"
+- "Install skill from <https://github.com/Fu-Jie/openwebui-extensions/blob/main/.agent/skills/test-copilot-pipe/SKILL.md>"
+
+### Batch install multiple skills
+
+- "Install these skills: ['https://github.com/anthropics/skills/tree/main/skills/search_manager', 'https://github.com/anthropics/skills/tree/main/skills/guide_writer']"
+
+> **Tip**: For GitHub, the tool automatically resolves directory (tree) URLs by looking for `SKILL.md` or `README.md`.
+
 ## Configuration (Valves)
 
 | Parameter | Default | Description |
-|---|---:|---|
+| --- | ---: | --- |
 | `SHOW_STATUS` | `True` | Show operation status updates in OpenWebUI status bar. |
 | `ALLOW_OVERWRITE_ON_CREATE` | `False` | Allow `create_skill`/`install_skill` to overwrite same-name skill by default. |
 | `INSTALL_FETCH_TIMEOUT` | `12.0` | URL fetch timeout in seconds for skill installation. |
@@ -34,7 +49,7 @@ A standalone OpenWebUI Tool plugin to manage native **Workspace > Skills** for a
 ## Supported Tool Methods
 
 | Method | Purpose |
-|---|---|
+| --- | --- |
 | `list_skills` | List current user's skills. |
 | `show_skill` | Show one skill by `skill_id` or `name`. |
 | `install_skill` | Install skill from URL into OpenWebUI native skills. |

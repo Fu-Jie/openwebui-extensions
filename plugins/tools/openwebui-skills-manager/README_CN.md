@@ -23,10 +23,25 @@
    - “更新某个 skill ...”
    - “删除某个 skill ...”
 
+## 示例：安装技能 (Install Skills)
+
+该工具支持从 URL 直接抓取并安装技能（支持 GitHub tree/blob 链接、原始 Markdown 链接以及 .zip/.tar 压缩包）。
+
+### 从 GitHub 安装单个技能
+
+- “从 <https://github.com/anthropics/skills/tree/main/skills/search_manager> 安装技能”
+- “安装技能 <https://github.com/Fu-Jie/openwebui-extensions/blob/main/.agent/skills/test-copilot-pipe/SKILL.md”>
+
+### 批量安装多个技能
+
+- “安装这些技能：['https://github.com/anthropics/skills/tree/main/skills/search_manager', 'https://github.com/anthropics/skills/tree/main/skills/guide_writer']”
+
+> **提示**：对于 GitHub 链接，工具会自动处理目录（tree）地址，并尝试查找目录下的 `SKILL.md` 或 `README.md` 文件。
+
 ## 配置参数（Valves）
 
 | 参数 | 默认值 | 说明 |
-|---|---:|---|
+| --- | ---: | --- |
 | `SHOW_STATUS` | `True` | 是否在 OpenWebUI 状态栏显示操作状态。 |
 | `ALLOW_OVERWRITE_ON_CREATE` | `False` | 是否允许 `create_skill`/`install_skill` 默认覆盖同名技能。 |
 | `INSTALL_FETCH_TIMEOUT` | `12.0` | 从 URL 安装技能时的请求超时时间（秒）。 |
@@ -34,7 +49,7 @@
 ## 支持的方法
 
 | 方法 | 用途 |
-|---|---|
+| --- | --- |
 | `list_skills` | 列出当前用户的技能。 |
 | `show_skill` | 通过 `skill_id` 或 `name` 查看单个技能。 |
 | `install_skill` | 通过 URL 安装技能到 OpenWebUI 原生 Skills。 |
