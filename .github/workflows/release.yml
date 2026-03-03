@@ -65,6 +65,7 @@ jobs:
       changed_plugins: ${{ steps.detect.outputs.changed_plugins }}
       release_notes: ${{ steps.detect.outputs.release_notes }}
       has_doc_changes: ${{ steps.detect.outputs.has_doc_changes }}
+      changed_doc_files: ${{ steps.detect.outputs.changed_doc_files }}
     
     steps:
       - name: Checkout repository
@@ -132,8 +133,13 @@ jobs:
 
           if [ -s changed_docs.txt ]; then
             echo "has_doc_changes=true" >> $GITHUB_OUTPUT
+            echo "changed_doc_files<<EOF" >> $GITHUB_OUTPUT
+            cat changed_docs.txt >> $GITHUB_OUTPUT
+            echo "" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
           else
             echo "has_doc_changes=false" >> $GITHUB_OUTPUT
+            echo "changed_doc_files=" >> $GITHUB_OUTPUT
           fi
           
           # Check if there are any changes
@@ -359,6 +365,7 @@ jobs:
           NOTES: ${{ github.event.inputs.release_notes }}
           DETECTED_CHANGES: ${{ needs.check-changes.outputs.release_notes }}
           COMMITS: ${{ steps.commits.outputs.commits }}
+          DOC_FILES: ${{ needs.check-changes.outputs.changed_doc_files }}
         run: |
           > release_notes.md
           
@@ -386,6 +393,34 @@ jobs:
             echo "" >> release_notes.md
             echo "$NOTES" >> release_notes.md
             echo "" >> release_notes.md
+          fi
+
+          if [ -n "$DOC_FILES" ]; then
+            echo "## Documentation Content" >> release_notes.md
+            echo "" >> release_notes.md
+
+            # Prefer release-note files (v*.md / v*_CN.md), then include other doc files
+            RELEASE_NOTE_FILES=$(echo "$DOC_FILES" | grep -E '^plugins/.*/v[^/]*\.md$' || true)
+            OTHER_DOC_FILES=$(echo "$DOC_FILES" | grep -Ev '^plugins/.*/v[^/]*\.md$' || true)
+
+            if [ -n "$RELEASE_NOTE_FILES" ]; then
+              while IFS= read -r file; do
+                [ -z "$file" ] && continue
+                if [ -f "$file" ]; then
+                  echo "### ${file}" >> release_notes.md
+                  echo "" >> release_notes.md
+                  cat "$file" >> release_notes.md
+                  echo "" >> release_notes.md
+                fi
+              done <<< "$RELEASE_NOTE_FILES"
+            fi
+
+            if [ -n "$OTHER_DOC_FILES" ]; then
+              echo "### Additional Documentation Files" >> release_notes.md
+              echo "" >> release_notes.md
+              echo "$OTHER_DOC_FILES" | sed 's/^/- /' >> release_notes.md
+              echo "" >> release_notes.md
+            fi
           fi
           
 
