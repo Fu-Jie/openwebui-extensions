@@ -8,7 +8,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for taking the time to fill out this bug report! Please provide clear information to help us understand and resolve the issue.
+        Thanks for reporting a bug! Please provide clear information to help us reproduce and fix the issue.
 
   - type: dropdown
     id: plugin-type
@@ -67,9 +67,11 @@ body:
     id: description
     attributes:
       label: Description
-      description: Clearly describe the bug or issue you encountered
+      description: Clearly describe the bug. What went wrong? What did you expect?
       placeholder: |
-        What happened? What did you expect to happen?
+        I tried to use [feature], but instead of [expected behavior], it [actual behavior].
+        
+        Error message (if any):
     validations:
       required: true
 
@@ -77,29 +79,11 @@ body:
     id: steps
     attributes:
       label: Steps to Reproduce
-      description: How can we reproduce the issue?
+      description: How can we reproduce this issue?
       placeholder: |
-        1. Go to...
-        2. Click on...
+        1. Click on...
+        2. Enter...
         3. See error...
-    validations:
-      required: true
-
-  - type: textarea
-    id: expected
-    attributes:
-      label: Expected Behavior
-      description: What should happen instead?
-      placeholder: "The plugin should..."
-    validations:
-      required: true
-
-  - type: textarea
-    id: actual
-    attributes:
-      label: Actual Behavior
-      description: What is actually happening?
-      placeholder: "Instead, the plugin..."
     validations:
       required: true
 
@@ -112,127 +96,59 @@ body:
     validations:
       required: true
 
-  - type: dropdown
-    id: browser
-    attributes:
-      label: Browser
-      description: What browser are you using?
-      options:
-        - Chrome
-        - Firefox
-        - Safari
-        - Edge
-        - Other
-    validations:
-      required: false
-
   - type: textarea
     id: environment
     attributes:
-      label: Environment Details
-      description: "Operating system and container/deployment information"
+      label: Operating System & Container
+      description: "Your operating system and deployment method"
       placeholder: |
-        Operating System: macOS 14.3
-        Container: Docker (version 24.0.x) or Native
+        Example 1:
+        OS: macOS 14.3
+        Container: Docker (version 24.0.x)
         
-        or
-        
-        Operating System: Ubuntu 22.04 LTS
-        Container: Docker Compose
-        
-        or
-        
-        Operating System: Windows 11
-        Deployment: Local / Cloud
+        Example 2:
+        OS: Ubuntu 22.04 LTS
+        Deployment: Docker Compose
     validations:
       required: true
 
   - type: markdown
     attributes:
       value: |
-        ## Debug Logs & Troubleshooting
-        Please provide relevant logs to help diagnose the issue. You can collect logs from:
+        ## 📋 Debug Information (Optional)
         
-        ### 🌐 Frontend Console Logs (Recommended for Plugin Issues)
-        1. **Enable Debug Mode**: Click your avatar → Settings → General → Enable Plugin Debug Output
-        2. **Open Browser DevTools**: Press `F12` (or `Cmd+Option+I` on Mac)
-        3. **Go to Console Tab** and look for:
-           - Errors (red text)
-           - Warnings (yellow text)
-           - `🛠️ Debug` messages from the plugin
-        4. **Take a screenshot or copy the full console output**
-
-        ### 🖥️ Server-Side Logs
-        If frontend logs don't show the issue, check backend logs:
-        - **Docker**: Run `docker logs <container-id>`
-        - **Local**: Check terminal output or log files
-        - Look for ERROR, WARNING, or CRITICAL messages
-
-  - type: textarea
-    id: frontend-logs
-    attributes:
-      label: Frontend Console Logs
-      description: Paste the browser console output. Enable Plugin Debug Output in Settings first.
-      placeholder: |
-        🛠️ Start of Debug Output
-        [Plugin name starting...]
-        ...
-        [Error details or warnings]
-      render: bash
-    validations:
-      required: false
-
-  - type: textarea
-    id: server-logs
-    attributes:
-      label: Server-Side Logs
-      description: "Paste relevant backend logs (from docker logs or server terminal)"
-      placeholder: |
-        [ERROR] Plugin execution failed: ...
-        [WARNING] ...
-      render: bash
-    validations:
-      required: false
-
-  - type: textarea
-    id: plugin-config
-    attributes:
-      label: Plugin Configuration
-      description: "If applicable, share your plugin valve settings (remove sensitive data)"
-      placeholder: |
-        SHOW_STATUS: true
-        SHOW_DEBUG_LOG: false
-        ...
-      render: python
-    validations:
-      required: false
-
-  - type: textarea
-    id: screenshots
-    attributes:
-      label: Screenshots (Optional)
-      description: |
-        If applicable, add screenshots to help explain the issue:
-        - Error messages or UI problems
-        - Browser console errors
-        - Plugin configuration that's causing the issue
-        - Any visual anomalies
+        To help diagnose the issue faster, please provide relevant logs:
         
-        **Tip**: You can paste images directly or use: ![image name](image-url)
-      placeholder: "Upload or describe any relevant screenshots..."
+        **Frontend Console Logs** (Recommended):
+        1. Enable: Click avatar → Settings → General → Enable Plugin Debug Output
+        2. Open DevTools: Press `F12` (or `Cmd+Option+I` on Mac)
+        3. Go to Console tab and copy any error messages or `🛠️ Debug` output
+        
+        **Server-Side Logs**:
+        - Docker: `docker logs <container-id>`
+        - Local: Check terminal output or log files
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Error Logs (Optional)
+      description: "Paste frontend console or server logs that show the error"
+      placeholder: |
+        Error message from console:
+        [Your logs here]
+      render: bash
     validations:
       required: false
 
   - type: textarea
     id: additional
     attributes:
-      label: Additional Context
-      description: Any other information that might help?
+      label: Additional Information (Optional)
+      description: "Screenshots, related issues, or other helpful details"
       placeholder: |
+        - Screenshots (if applicable)
         - Related issues or discussions
-        - Steps you've already tried
-        - Any recent changes to your setup
-        - Links to related plugins or documentation
+        - Steps you've already tried to fix it
     validations:
       required: false
 
@@ -241,15 +157,9 @@ body:
     attributes:
       label: Checklist
       options:
-        - label: I have searched existing issues for duplicates
+        - label: I have searched for duplicate issues
           required: true
-        - label: I have provided clear steps to reproduce the issue
+        - label: I have provided clear reproduction steps
           required: true
-        - label: I have mentioned the plugin name and OpenWebUI version
+        - label: I have mentioned OpenWebUI version and OS/container info
           required: true
-        - label: I have provided operating system and container/deployment information
-          required: true
-        - label: I have provided logs or console output (frontend/server-side)
-          required: false
-        - label: I have attached screenshots if applicable
-          required: false
