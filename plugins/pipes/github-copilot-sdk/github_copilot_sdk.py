@@ -165,9 +165,15 @@ BASE_GUIDELINES = (
     "     - **The Rule**: When the user needs to *possess* data (download/export), you MUST publish it. Creating a local file alone is useless because the user cannot access your container.\n"
     "     - **Implicit Requests**: If asked to 'export', 'get link', or 'save', automatically trigger this sequence.\n"
     "     - **Execution Sequence**: 1. **Write Local**: Create file. 2. **Publish**: Call `publish_file_from_workspace`. 3. **Response Structure**:\n"
+    "     - **Strict Link Validity Rule (CRITICAL)**: You are FORBIDDEN to fabricate, guess, or handcraft any preview/download URL. Links MUST come directly from a successful `publish_file_from_workspace` tool result in the same turn.\n"
+    "     - **Failure Handling**: If publish fails or no tool result is returned, DO NOT output any fake/placeholder link. Instead, explicitly report publish failure and ask to retry publish.\n"
+    "     - **No Pre-Publish Linking**: Never output links before running publish. 'Create file' alone is NOT enough to produce a valid user-facing link.\n"
+    "     - **Allowed Link Formats (Whitelist)**: You MUST only output links matching these exact patterns from tool output: `/api/v1/files/{file_id}/content` (download/content) and `/api/v1/files/{file_id}/content/html` (HTML preview). Absolute form is also valid only when it is exactly `{base_url}` + one of the two paths.\n"
+    "     - **Invalid Link Examples (Forbidden)**: Any handcrafted variants such as `/files/...`, `/api/files/...`, `/api/v1/file/...`, missing `/content`, manually appended custom routes, or local-workspace style paths like `/c/...`, `./...`, `../...`, `file://...` are INVALID and MUST NOT be output.\n"
+    "     - **Auto-Correction Rule**: If you generated a non-whitelisted link (including `/c/...`), you MUST discard it, run/confirm `publish_file_from_workspace`, and only output the returned whitelisted URL.\n"
     "        - **For PDF files**: You MUST output ONLY Markdown links from the tool output (preview + download). **CRITICAL: NEVER output iframe/html_embed for PDF.**\n"
     "        - **For HTML files**: Choose mode by complexity. **Artifacts mode** (`embed_type='artifacts'`): REQUIRED for dashboards, reports, and large/long UI since it has unlimited height. Output ONLY [Preview]/[Download]; do NOT output any iframe/html block because the protocol will automatically append the html code block via emitter. **Rich UI mode** (`embed_type='richui'`): For small widgets ONLY. If you MUST use Rich UI for long content, you MUST add a clickable 'Full Screen' button inside your HTML design to allow expanding. Output ONLY [Preview]/[Download]; do NOT output HTML block because Rich UI will render automatically via emitter.\n"
-    "     - **URL Format**: You MUST use the **ABSOLUTE URLs** provided in the tool output. NEVER modify them.\n"
+    "     - **URL Format**: You MUST use the **ABSOLUTE URLs** provided in the tool output, copied verbatim. NEVER modify, concatenate, or reconstruct them manually.\n"
     "     - **Bypass RAG**: This protocol automatically handles S3 storage and bypasses RAG, ensuring 100% accurate data delivery.\n"
     "6. **TODO Visibility**: Every time you call the `update_todo` tool, you **MUST** immediately follow up with a beautifully formatted **Markdown summary** of the current TODO list. Use task checkboxes (`- [ ]`), progress indicators, and clear headings so the user can see the status directly in the chat.\n"
     "7. **Python Execution Standard**: For ANY task requiring Python logic (not just data analysis), you **MUST NOT** embed multi-line code directly in a shell command (e.g., using `python -c` or `<< 'EOF'`).\n"
@@ -181,6 +187,7 @@ BASE_GUIDELINES = (
     "   - **Clarification**: Only ask questions if the request is ambiguous or carries high risk (e.g., destructive actions).\n"
     "   - **Goal**: Minimize user friction. Deliver results, not questions.\n"
     "9. **Large Output Management**: If a tool execution output is truncated or saved to a temporary file (e.g., `/tmp/...`), DO NOT worry. The system will automatically move it to your workspace and notify you of the new filename. You can then read it directly.\n"
+    "10. **Workspace Visibility Hint**: When the user likely wants to inspect workspace files (e.g., asks to view files/directories/current workspace), first provide a brief workspace status summary including the current isolated workspace path and a concise directory snapshot (such as top entries) before deeper operations.\n"
 )
 
 # Sensitive extensions only for Administrators
