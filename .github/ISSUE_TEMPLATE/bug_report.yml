@@ -25,14 +25,43 @@ body:
     validations:
       required: true
 
-  - type: input
+  - type: dropdown
     id: plugin-name
     attributes:
       label: Plugin Name
       description: Which plugin has the issue?
-      placeholder: "e.g., Smart Mind Map, Export to Word"
+      options:
+        - "Select a plugin..."
+        - "Action - Deep Dive"
+        - "Action - Export to Word Enhanced"
+        - "Action - Export to Excel"
+        - "Action - Flash Card"
+        - "Action - Smart Infographic"
+        - "Action - Smart Mind Map"
+        - "Filter - Async Context Compression"
+        - "Filter - Context & Model Enhancement Filter"
+        - "Filter - Folder Memory"
+        - "Filter - GitHub Copilot SDK Files Filter"
+        - "Filter - Markdown Normalizer"
+        - "Filter - Gemini Multimodel Filter"
+        - "Pipeline - MOE Prompt Refiner"
+        - "Pipe - GitHub Copilot SDK"
+        - "Pipe - iFlow SDK"
+        - "Tool - OpenWebUI Skills Manager"
+        - "Tool - Smart Infographic Tool"
+        - "Tool - Smart Mind Map Tool"
+        - "Other / Not Listed"
     validations:
       required: true
+
+  - type: input
+    id: plugin-name-other
+    attributes:
+      label: Plugin Name (if not in list)
+      description: If you selected 'Other / Not Listed', please specify the plugin name
+      placeholder: "Plugin name"
+    validations:
+      required: false
 
   - type: textarea
     id: description
