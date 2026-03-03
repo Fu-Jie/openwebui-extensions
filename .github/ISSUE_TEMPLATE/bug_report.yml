@@ -20,6 +20,7 @@ body:
         - Filter
         - Pipe
         - Pipeline
+        - Tool (Copilot SDK)
         - Other
     validations:
       required: true
@@ -97,11 +98,69 @@ body:
       required: false
 
   - type: textarea
-    id: browser-console
+    id: environment
     attributes:
-      label: Browser Console Output
-      description: "Any errors shown in the browser developer console? (Press F12)"
-      placeholder: "Paste console errors or warnings here"
+      label: Environment Information
+      description: |
+        Please provide your environment details to help us reproduce the issue:
+        - **Platform**: Windows / macOS / Linux
+        - **Device Type**: Desktop / Laptop / Mobile 
+        - **GPU/Hardware** (if relevant): e.g., NVIDIA A100, Apple M1
+        - **Python Version** (for server-side): e.g., 3.10.x
+        - **Docker** (if using): Yes/No, version if yes
+        - **Deployment**: Docker / Local / Cloud
+      placeholder: |
+        Platform: macOS
+        Device: MacBook Pro M1
+        Browser: Chrome 120
+        OpenWebUI: 0.3.0 (docker)
+        Deployment: Docker Compose
+    validations:
+      required: true
+
+  - type: markdown
+    attributes:
+      value: |
+        ## Debug Logs & Troubleshooting
+        Please provide relevant logs to help diagnose the issue. You can collect logs from:
+        
+        ### 🌐 Frontend Console Logs (Recommended for Plugin Issues)
+        1. **Enable Debug Mode**: Click your avatar → Settings → General → Enable Plugin Debug Output
+        2. **Open Browser DevTools**: Press `F12` (or `Cmd+Option+I` on Mac)
+        3. **Go to Console Tab** and look for:
+           - Errors (red text)
+           - Warnings (yellow text)
+           - `🛠️ Debug` messages from the plugin
+        4. **Take a screenshot or copy the full console output**
+
+        ### 🖥️ Server-Side Logs
+        If frontend logs don't show the issue, check backend logs:
+        - **Docker**: Run `docker logs <container-id>`
+        - **Local**: Check terminal output or log files
+        - Look for ERROR, WARNING, or CRITICAL messages
+
+  - type: textarea
+    id: frontend-logs
+    attributes:
+      label: Frontend Console Logs
+      description: Paste the browser console output. Enable Plugin Debug Output in Settings first.
+      placeholder: |
+        🛠️ Start of Debug Output
+        [Plugin name starting...]
+        ...
+        [Error details or warnings]
+      render: bash
+    validations:
+      required: false
+
+  - type: textarea
+    id: server-logs
+    attributes:
+      label: Server-Side Logs
+      description: "Paste relevant backend logs (from docker logs or server terminal)"
+      placeholder: |
+        [ERROR] Plugin execution failed: ...
+        [WARNING] ...
       render: bash
     validations:
       required: false
@@ -120,11 +179,31 @@ body:
       required: false
 
   - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots (Optional)
+      description: |
+        If applicable, add screenshots to help explain the issue:
+        - Error messages or UI problems
+        - Browser console errors
+        - Plugin configuration that's causing the issue
+        - Any visual anomalies
+        
+        **Tip**: You can paste images directly or use: ![image name](image-url)
+      placeholder: "Upload or describe any relevant screenshots..."
+    validations:
+      required: false
+
+  - type: textarea
     id: additional
     attributes:
       label: Additional Context
       description: Any other information that might help?
-      placeholder: "Screenshots, logs, or other relevant details..."
+      placeholder: |
+        - Related issues or discussions
+        - Steps you've already tried
+        - Any recent changes to your setup
+        - Links to related plugins or documentation
     validations:
       required: false
 
@@ -139,3 +218,9 @@ body:
           required: true
         - label: I have mentioned the plugin name and OpenWebUI version
           required: true
+        - label: I have provided environment information (OS, browser, deployment method)
+          required: true
+        - label: I have provided logs or console output (frontend/server-side)
+          required: false
+        - label: I have attached screenshots if applicable
+          required: false
