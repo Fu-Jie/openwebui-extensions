@@ -178,12 +178,6 @@ jobs:
           {
             echo 'release_notes<<EOF'
             cat changes.md
-            if [ -s changed_docs.txt ]; then
-              echo ""
-              echo "## Documentation Changes"
-              echo ""
-              sed 's/^/- /' changed_docs.txt
-            fi
             echo ""
             echo 'EOF'
           } >> $GITHUB_OUTPUT
@@ -396,30 +390,17 @@ jobs:
           fi
 
           if [ -n "$DOC_FILES" ]; then
-            echo "## Documentation Content" >> release_notes.md
-            echo "" >> release_notes.md
-
-            # Prefer release-note files (v*.md / v*_CN.md), then include other doc files
-            RELEASE_NOTE_FILES=$(echo "$DOC_FILES" | grep -E '^plugins/.*/v[^/]*\.md$' || true)
-            OTHER_DOC_FILES=$(echo "$DOC_FILES" | grep -Ev '^plugins/.*/v[^/]*\.md$' || true)
+            # Only embed EN release-note files (v*.md), skip _CN.md to avoid mixed-language output
+            RELEASE_NOTE_FILES=$(echo "$DOC_FILES" | grep -E '^plugins/.*/v[^/]*\.md$' | grep -v '_CN\.md$' || true)
 
             if [ -n "$RELEASE_NOTE_FILES" ]; then
               while IFS= read -r file; do
                 [ -z "$file" ] && continue
                 if [ -f "$file" ]; then
-                  echo "### ${file}" >> release_notes.md
-                  echo "" >> release_notes.md
                   cat "$file" >> release_notes.md
                   echo "" >> release_notes.md
                 fi
               done <<< "$RELEASE_NOTE_FILES"
-            fi
-
-            if [ -n "$OTHER_DOC_FILES" ]; then
-              echo "### Additional Documentation Files" >> release_notes.md
-              echo "" >> release_notes.md
-              echo "$OTHER_DOC_FILES" | sed 's/^/- /' >> release_notes.md
-              echo "" >> release_notes.md
             fi
           fi
           
