@@ -50,7 +50,7 @@
 > [!TIP]
 > **💡 增强渲染建议**
 > 为了获得最精美的 **HTML Artifacts** 与 **RichUI** 效果，建议在对话中通过提供的 GitHub 链接直接命令 Agent 安装：
-> “请安装此技能：https://github.com/nicobailon/visual-explainer”。
+> “请安装此技能：<https://github.com/nicobailon/visual-explainer”。>
 > 该技能专为生成高质量可视化组件而设计，能够与本 Pipe 完美协作。
 
 ---

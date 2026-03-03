@@ -49,7 +49,7 @@ This is a powerful **GitHub Copilot SDK** Pipe for **OpenWebUI** that provides a
 > [!TIP]
 > **💡 Visualization Pro-Tip**
 > To get the most out of **HTML Artifacts** and **RichUI**, we highly recommend asking the Agent to install the skill via its GitHub URL:
-> "Install this skill: https://github.com/nicobailon/visual-explainer".
+> "Install this skill: <https://github.com/nicobailon/visual-explainer>".
 > This skill is specifically optimized for generating high-quality visual components and integrates perfectly with this Pipe.
 
 ---

@@ -9,6 +9,7 @@ A collection of enhancements, plugins, and prompts for [OpenWebUI](https://githu
 
 <!-- STATS_START -->
 ## 📊 Community Stats
+>
 > ![updated](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_updated.json&style=flat)
 
 | 👤 Author | 👥 Followers | ⭐ Points | 🏆 Contributions |
@@ -19,19 +20,19 @@ A collection of enhancements, plugins, and prompts for [OpenWebUI](https://githu
 | :---: | :---: | :---: | :---: | :---: |
 | ![posts](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_posts.json&style=flat) | ![downloads](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_downloads.json&style=flat) | ![views](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_views.json&style=flat) | ![upvotes](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_upvotes.json&style=flat) | ![saves](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_saves.json&style=flat) |
 
-
 ### 🔥 Top 6 Popular Plugins
+
 | Rank | Plugin | Version | Downloads | Views | 📅 Updated |
 | :---: | :--- | :---: | :---: | :---: | :---: |
 | 🥇 | [Smart Mind Map](https://openwebui.com/posts/turn_any_text_into_beautiful_mind_maps_3094c59a) | ![p1_version](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p1_version.json&style=flat) | ![p1_dl](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p1_dl.json&style=flat) | ![p1_vw](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p1_vw.json&style=flat) | ![updated](https://img.shields.io/badge/2026--02--28-gray?style=flat) |
 | 🥈 | [Smart Infographic](https://openwebui.com/posts/smart_infographic_ad6f0c7f) | ![p2_version](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p2_version.json&style=flat) | ![p2_dl](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p2_dl.json&style=flat) | ![p2_vw](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p2_vw.json&style=flat) | ![updated](https://img.shields.io/badge/2026--02--13-gray?style=flat) |
-| 🆕 | [GitHub Copilot Official SDK Pipe](https://openwebui.com/posts/github_copilot_official_sdk_pipe_ce96f7b4) | ![p0_version](https://img.shields.io/badge/version-0.9.1-blue?style=flat) | ![p0_dl](https://img.shields.io/badge/downloads-hot-red?style=flat) | ![p0_vw](https://img.shields.io/badge/views-new-green?style=flat) | ![updated](https://img.shields.io/badge/2026--03--04-gray?style=flat) |
 | 🥉 | [Markdown Normalizer](https://openwebui.com/posts/markdown_normalizer_baaa8732) | ![p3_version](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p3_version.json&style=flat) | ![p3_dl](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p3_dl.json&style=flat) | ![p3_vw](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p3_vw.json&style=flat) | ![updated](https://img.shields.io/badge/2026--02--28-gray?style=flat) |
 | 4️⃣ | [Export to Word Enhanced](https://openwebui.com/posts/export_to_word_enhanced_formatting_fca6a315) | ![p4_version](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p4_version.json&style=flat) | ![p4_dl](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p4_dl.json&style=flat) | ![p4_vw](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p4_vw.json&style=flat) | ![updated](https://img.shields.io/badge/2026--02--13-gray?style=flat) |
 | 5️⃣ | [Async Context Compression](https://openwebui.com/posts/async_context_compression_b1655bc8) | ![p5_version](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p5_version.json&style=flat) | ![p5_dl](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p5_dl.json&style=flat) | ![p5_vw](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p5_vw.json&style=flat) | ![updated](https://img.shields.io/badge/2026--02--28-gray?style=flat) |
 | 6️⃣ | [Export to Excel](https://openwebui.com/posts/export_mulit_table_to_excel_244b8f9d) | ![p6_version](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p6_version.json&style=flat) | ![p6_dl](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p6_dl.json&style=flat) | ![p6_vw](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_p6_vw.json&style=flat) | ![updated](https://img.shields.io/badge/2026--02--13-gray?style=flat) |
 
 ### 📈 Total Downloads Trend
+
 ![Activity](https://gist.githubusercontent.com/Fu-Jie/db3d95687075a880af6f1fba76d679c6/raw/chart.svg)
 
 *See full stats and charts in [Community Stats Report](./docs/community-stats.md)*
@@ -39,7 +40,7 @@ A collection of enhancements, plugins, and prompts for [OpenWebUI](https://githu
 
 ## 🌟 Star Features
 
-### 1. [GitHub Copilot Official SDK Pipe](https://openwebui.com/posts/github_copilot_official_sdk_pipe_ce96f7b4) [![Market](https://img.shields.io/badge/Get-Market-blue?style=flat-square&logo=openwebui)](https://openwebui.com/posts/github_copilot_official_sdk_pipe_ce96f7b4) ![Development](https://img.shields.io/badge/status-active--development-orange?style=flat-square)
+### 1. [GitHub Copilot Official SDK Pipe](https://openwebui.com/posts/github_copilot_official_sdk_pipe_ce96f7b4) ![active-dev](https://img.shields.io/badge/active--dev-orange?style=flat-square) ![downloads](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_post_aef940e01073e811a311c3a443d9c149_dl.json&style=flat-square) ![views](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_post_aef940e01073e811a311c3a443d9c149_vw.json&style=flat-square)
 
 **The ultimate autonomous Agent integration for OpenWebUI.** Deeply bridging GitHub Copilot SDK with your OpenWebUI ecosystem. It enables the Agent to autonomously perform **intent recognition**, **web search**, and **context compaction** while reusing your existing tools, skills, and configurations for a professional, full-featured experience.
 
@@ -58,7 +59,7 @@ A collection of enhancements, plugins, and prompts for [OpenWebUI](https://githu
 > [!TIP]
 > **💡 Pro Tip: Enhanced Visualization**
 > We highly recommend asking the Agent to install the [Visual Explainer](https://github.com/nicobailon/visual-explainer) skill during your conversation. It dramatically improves the aesthetics and interactivity of generated **HTML Artifacts**. Simply tell the AI:
-> "Please install this skill: https://github.com/nicobailon/visual-explainer" to get started.
+> "Please install this skill: <https://github.com/nicobailon/visual-explainer>" to get started.
 
 #### 📺 Demo: Visual Skills & Data Analysis
 
@@ -70,19 +71,19 @@ A collection of enhancements, plugins, and prompts for [OpenWebUI](https://githu
 - **[GitHub Star Forecasting](./docs/plugins/pipes/star-prediction-example.md)**: Automatically parsing CSV data, writing analysis scripts, and generating interactive growth dashboards.
 - **[Video Optimization](./docs/plugins/pipes/video-processing-example.md)**: Direct control of system-level tools (FFmpeg) to accelerate and compress media with professional color optimization.
 
-### 2. [Smart Mind Map](https://openwebui.com/posts/turn_any_text_into_beautiful_mind_maps_3094c59a) [![Market](https://img.shields.io/badge/Get-Market-blue?style=flat-square&logo=openwebui)](https://openwebui.com/posts/turn_any_text_into_beautiful_mind_maps_3094c59a)
+### 2. [Smart Mind Map](https://openwebui.com/posts/turn_any_text_into_beautiful_mind_maps_3094c59a)
 
 **Experience interactive thinking.** Seamlessly transforms complex chat sessions into structured, clickable mind maps for better visual modeling and rapid idea extraction.
 
-### 3. [Smart Infographic](https://openwebui.com/posts/smart_infographic_ad6f0c7f) [![Market](https://img.shields.io/badge/Get-Market-blue?style=flat-square&logo=openwebui)](https://openwebui.com/posts/smart_infographic_ad6f0c7f)
+### 3. [Smart Infographic](https://openwebui.com/posts/smart_infographic_ad6f0c7f)
 
 **Professional data storytelling.** Converts raw information into sleek, boardroom-ready infographics powered by AntV, perfect for summarizing long-form content instantly.
 
-### 4. [Export to Word Enhanced](https://openwebui.com/posts/export_to_word_enhanced_formatting_fca6a315) [![Market](https://img.shields.io/badge/Get-Market-blue?style=flat-square&logo=openwebui)](https://openwebui.com/posts/export_to_word_enhanced_formatting_fca6a315)
+### 4. [Export to Word Enhanced](https://openwebui.com/posts/export_to_word_enhanced_formatting_fca6a315)
 
 **High-fidelity reporting.** Export conversation history into professionally formatted Word documents with preserved headers, code blocks, and math formulas.
 
-### 5. [Async Context Compression](https://openwebui.com/posts/async_context_compression_b1655bc8) [![Market](https://img.shields.io/badge/Get-Market-blue?style=flat-square&logo=openwebui)](https://openwebui.com/posts/async_context_compression_b1655bc8)
+### 5. [Async Context Compression](https://openwebui.com/posts/async_context_compression_b1655bc8)
 
 **Maximize your context window.** Intelligently compresses chat history using LLM logic to save tokens and costs while maintaining a high-quality reasoning chain.
 
