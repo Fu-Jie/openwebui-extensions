@@ -100,21 +100,14 @@ body:
   - type: textarea
     id: environment
     attributes:
-      label: Environment Information
-      description: |
-        Please provide your environment details to help us reproduce the issue:
-        - **Platform**: Windows / macOS / Linux
-        - **Device Type**: Desktop / Laptop / Mobile 
-        - **GPU/Hardware** (if relevant): e.g., NVIDIA A100, Apple M1
-        - **Python Version** (for server-side): e.g., 3.10.x
-        - **Docker** (if using): Yes/No, version if yes
-        - **Deployment**: Docker / Local / Cloud
+      label: Operating System
+      description: Operating system and relevant environment details
       placeholder: |
-        Platform: macOS
-        Device: MacBook Pro M1
-        Browser: Chrome 120
-        OpenWebUI: 0.3.0 (docker)
-        Deployment: Docker Compose
+        macOS 14.3
+        or
+        Windows 11 (22H2)
+        or
+        Ubuntu 22.04 LTS
     validations:
       required: true
 
@@ -218,7 +211,7 @@ body:
           required: true
         - label: I have mentioned the plugin name and OpenWebUI version
           required: true
-        - label: I have provided environment information (OS, browser, deployment method)
+        - label: I have provided my operating system information
           required: true
         - label: I have provided logs or console output (frontend/server-side)
           required: false
