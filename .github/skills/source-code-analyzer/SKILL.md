@@ -17,6 +17,7 @@ When assisting with the development of `openwebui-extensions`, you (Antigravity)
 - **Open WebUI**: `../open-webui/` (Core platform context)
 - **Skills**: `../skills/` (Reusable expertise library)
 - **Awesome Copilot**: `../awesome-copilot/` (Shared extensions & resources)
+- **Open Terminal**: `../open-terminal/` (Terminal integration service)
 
 ### Plugin-Specific (Relevant to GitHub Copilot SDK)
 
