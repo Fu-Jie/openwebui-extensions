@@ -146,11 +146,8 @@ jobs:
           
           # Check if there are any changes
           if grep -q "No changes detected" changes.md; then
-            if [ -s changed_docs.txt ]; then
-              echo "has_changes=true" >> $GITHUB_OUTPUT
-            else
-              echo "has_changes=false" >> $GITHUB_OUTPUT
-            fi
+            # Only trigger release if there are actual version changes, not just doc changes
+            echo "has_changes=false" >> $GITHUB_OUTPUT
             echo "changed_plugins=" >> $GITHUB_OUTPUT
           else
             echo "has_changes=true" >> $GITHUB_OUTPUT
