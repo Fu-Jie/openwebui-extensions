@@ -4,7 +4,7 @@ author: Fu-Jie
 author_url: https://github.com/Fu-Jie/openwebui-extensions
 funding_url: https://github.com/open-webui
 openwebui_id: ce96f7b4-12fc-4ac3-9a01-875713e69359
-description: Integrate GitHub Copilot SDK. Supports dynamic models, multi-turn conversation, streaming, multimodal input, infinite sessions, bidirectional OpenWebUI Skills bridge, and manage_skills tool.
+description: A powerful Agent SDK integration for OpenWebUI. It deeply bridges GitHub Copilot SDK with OpenWebUI's ecosystem, enabling the Agent to autonomously perform intent recognition, web search, and context compaction. It seamlessly reuses your existing Tools, MCP servers, OpenAPI servers, and Skills for a professional, full-featured experience.
 version: 0.9.1
 requirements: github-copilot-sdk==0.1.25
 """
@@ -634,8 +634,8 @@ class Pipe:
         "id-ID": {
             "status_conn_est": "Koneksi terjalin, menunggu respons...",
             "status_reasoning_inj": "Upaya penalaran dimasukkan: {effort}",
-            "status_assistant_start": "Agén mulai berpikir...",
-            "status_assistant_processing": "Agén sedang memproses permintaan Anda...",
+            "status_assistant_start": "Agen mulai berpikir...",
+            "status_assistant_processing": "Agen sedang memproses permintaan Anda...",
             "status_skill_invoked": "Keahlian terdeteksi và digunakan: {skill}",
             "status_compaction_start": "Memadatkan konteks sesi...",
             "status_compaction_complete": "Pemadatan konteks selesai.",

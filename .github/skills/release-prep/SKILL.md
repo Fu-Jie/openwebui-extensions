@@ -89,6 +89,18 @@ Each file must include:
 
 If a release notes file already exists for this version, update it rather than creating a new one.
 
+#### Full Coverage Rule (Mandatory)
+
+Release notes must cover **all updates in the current release scope** and not only headline features.
+
+Minimum required coverage in both EN/CN files:
+- New features and capability enhancements
+- Bug fixes and reliability fixes
+- Documentation/README/doc-mirror updates that affect user understanding or usage
+- Terminology/i18n/wording fixes that change visible behavior or messaging
+
+Before commit, cross-check release notes against `git diff` and ensure no meaningful update is omitted.
+
 ### Step 5 — Verify Consistency (Pre-Commit Check)
 
 Run the consistency check script:
@@ -130,6 +142,7 @@ Confirm the commit hash and list the number of files changed.
 - [ ] Both `index.md` version badges updated
 - [ ] Root `README.md` and `README_CN.md` date badges updated to today
 - [ ] `What's New` / `最新更新` contains ONLY the latest release
+- [ ] Release notes include all meaningful updates from the current diff (feature + fix + docs/i18n)
 - [ ] `v{version}.md` and `v{version}_CN.md` created or updated
 - [ ] `python3 scripts/check_version_consistency.py` returns no errors
 - [ ] Commit message is English-only Conventional Commits format
