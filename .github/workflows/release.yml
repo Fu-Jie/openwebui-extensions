@@ -22,6 +22,11 @@ on:
       - main
     paths:
       - 'plugins/**/*.py'
+      - 'plugins/**/README.md'
+      - 'plugins/**/README_CN.md'
+      - 'plugins/**/v*.md'
+      - 'plugins/**/v*_CN.md'
+      - 'docs/plugins/**/*.md'
     tags:
       - 'v*'
 
@@ -59,6 +64,7 @@ jobs:
       has_changes: ${{ steps.detect.outputs.has_changes }}
       changed_plugins: ${{ steps.detect.outputs.changed_plugins }}
       release_notes: ${{ steps.detect.outputs.release_notes }}
+      has_doc_changes: ${{ steps.detect.outputs.has_doc_changes }}
     
     steps:
       - name: Checkout repository
@@ -95,17 +101,19 @@ jobs:
           python scripts/extract_plugin_versions.py --json --output current_versions.json
           
           # Get previous plugin versions by checking out old plugins
-          if git worktree add /tmp/old_repo ${COMPARE_REF} 2>/dev/null; then
-            if [ -d /tmp/old_repo/plugins ]; then
-              python scripts/extract_plugin_versions.py --plugins-dir /tmp/old_repo/plugins --json --output old_versions.json
+          OLD_WORKTREE=$(mktemp -d)
+          if git worktree add "$OLD_WORKTREE" ${COMPARE_REF} 2>/dev/null; then
+            if [ -d "$OLD_WORKTREE/plugins" ]; then
+              python scripts/extract_plugin_versions.py --plugins-dir "$OLD_WORKTREE/plugins" --json --output old_versions.json
             else
               echo "[]" > old_versions.json
             fi
-            git worktree remove /tmp/old_repo 2>/dev/null || true
+            git worktree remove "$OLD_WORKTREE" 2>/dev/null || true
           else
             echo "Failed to create worktree, using empty version list"
             echo "[]" > old_versions.json
           fi
+          rm -rf "$OLD_WORKTREE" 2>/dev/null || true
           
           # Compare versions and generate release notes
           python scripts/extract_plugin_versions.py --compare old_versions.json --ignore-removed --output changes.md
@@ -113,10 +121,28 @@ jobs:
           
           echo "=== Version Changes ==="
           cat changes.md
+
+          # Detect documentation/release-note changes that should be reflected in release notes
+          git diff --name-only "$COMPARE_REF"..HEAD -- \
+            'plugins/**/README.md' \
+            'plugins/**/README_CN.md' \
+            'plugins/**/v*.md' \
+            'plugins/**/v*_CN.md' \
+            'docs/plugins/**/*.md' > changed_docs.txt || true
+
+          if [ -s changed_docs.txt ]; then
+            echo "has_doc_changes=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_doc_changes=false" >> $GITHUB_OUTPUT
+          fi
           
           # Check if there are any changes
           if grep -q "No changes detected" changes.md; then
-            echo "has_changes=false" >> $GITHUB_OUTPUT
+            if [ -s changed_docs.txt ]; then
+              echo "has_changes=true" >> $GITHUB_OUTPUT
+            else
+              echo "has_changes=false" >> $GITHUB_OUTPUT
+            fi
             echo "changed_plugins=" >> $GITHUB_OUTPUT
           else
             echo "has_changes=true" >> $GITHUB_OUTPUT
@@ -146,6 +172,12 @@ jobs:
           {
             echo 'release_notes<<EOF'
             cat changes.md
+            if [ -s changed_docs.txt ]; then
+              echo ""
+              echo "## Documentation Changes"
+              echo ""
+              sed 's/^/- /' changed_docs.txt
+            fi
             echo ""
             echo 'EOF'
           } >> $GITHUB_OUTPUT
@@ -213,7 +245,6 @@ jobs:
       - name: Extract plugin versions
         id: plugins
         run: |
-          python scripts/extract_plugin_versions.py --json --output plugin_versions.json
           python scripts/extract_plugin_versions.py --json --output plugin_versions.json
 
       - name: Collect plugin files for release
@@ -389,6 +420,7 @@ jobs:
           cat release_notes.md
 
       - name: Create Git Tag
+        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           
