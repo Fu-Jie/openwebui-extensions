@@ -1,20 +1,21 @@
 #!/usr/bin/env python3
 """
-OpenWebUI 社区统计工具
+OpenWebUI community stats utility.
 
-获取并统计你在 openwebui.com 上发布的插件/帖子数据。
+Collect and summarize your published posts/plugins on openwebui.com.
 
-使用方法：
-    1. 设置环境变量：
-       - OPENWEBUI_API_KEY: 你的 API Key
-       - OPENWEBUI_USER_ID: 你的用户 ID
-    2. 运行: python scripts/openwebui_stats.py
+Usage:
+    1. Set environment variables:
+       - OPENWEBUI_API_KEY: required
+       - OPENWEBUI_USER_ID: optional (auto-resolved from /api/v1/auths/ when missing)
+    2. Run: python scripts/openwebui_stats.py
 
-获取 API Key：
-    访问 https://openwebui.com/settings/api 创建 API Key (sk-开头)
+How to get API key:
+    Visit https://openwebui.com/settings/api and create a key (starts with sk-).
 
-获取 User ID：
-    从个人主页的 API 请求中获取，格式如: b15d1348-4347-42b4-b815-e053342d6cb0
+How to get user ID (optional):
+    Read the `id` field from /api/v1/auths/, format example:
+    b15d1348-4347-42b4-b815-e053342d6cb0
 """
 
 import os
@@ -28,16 +29,16 @@ from datetime import datetime, timezone, timedelta
 from typing import Optional
 from pathlib import Path
 
-# 北京时区 (UTC+8)
+# Beijing timezone (UTC+8)
 BEIJING_TZ = timezone(timedelta(hours=8))
 
 
 def get_beijing_time() -> datetime:
-    """获取当前北京时间"""
+    """Get current time in Beijing timezone."""
     return datetime.now(BEIJING_TZ)
 
 
-# 尝试加载 .env 文件
+# Try loading local .env file (if python-dotenv is installed)
 try:
     from dotenv import load_dotenv
 
@@ -47,7 +48,7 @@ except ImportError:
 
 
 class OpenWebUIStats:
-    """OpenWebUI 社区统计工具"""
+    """OpenWebUI community stats utility."""
 
     BASE_URL = "https://api.openwebui.com/api/v1"
 
@@ -59,18 +60,18 @@ class OpenWebUIStats:
         gist_id: Optional[str] = None,
     ):
         """
-        初始化统计工具
+        Initialize the stats utility
 
         Args:
             api_key: OpenWebUI API Key (JWT Token)
-            user_id: 用户 ID，如果为 None 则从 token 中解析
-            gist_token: GitHub Personal Access Token (用于读写 Gist)
+            user_id: User ID; if None, will be parsed from token
+            gist_token: GitHub Personal Access Token (for reading/writing Gist)
             gist_id: GitHub Gist ID
         """
         self.api_key = api_key
         self.user_id = user_id or self._parse_user_id_from_token(api_key)
         self.gist_token = gist_token
-        self.gist_id = gist_id
+        self.gist_id = gist_id or "db3d95687075a880af6f1fba76d679c6"
         self.history_filename = "community-stats-history.json"
 
         self.session = requests.Session()
@@ -83,23 +84,32 @@ class OpenWebUIStats:
         )
         self.history_file = Path("docs/stats-history.json")
 
-    # 定义下载类别的判定（这些类别会计入总浏览量/下载量统计）
+    # Types considered downloadable (included in total view/download stats)
     DOWNLOADABLE_TYPES = [
         "action",
         "filter",
         "pipe",
-        "toolkit",
+        "tool",
         "function",
         "prompt",
         "model",
     ]
 
+    TYPE_ALIASES = {
+        "tools": "tool",
+    }
+
+    def _normalize_post_type(self, post_type: str) -> str:
+        """Normalize post type to avoid synonym type splitting in statistics."""
+        normalized = str(post_type or "").strip().lower()
+        return self.TYPE_ALIASES.get(normalized, normalized)
+
     def load_history(self) -> list:
-        """加载历史记录 (合并 Gist + 本地文件, 取记录更多的)"""
+        """Load history records (merge Gist + local file, keep the one with more records)"""
         gist_history = []
         local_history = []
 
-        # 1. 尝试从 Gist 加载
+        # 1. Try loading from Gist
         if self.gist_token and self.gist_id:
             try:
                 url = f"https://api.github.com/gists/{self.gist_id}"
@@ -111,30 +121,36 @@ class OpenWebUIStats:
                     if file_info:
                         content = file_info.get("content")
                         gist_history = json.loads(content)
-                        print(f"✅ 已从 Gist 加载历史记录 ({len(gist_history)} 条)")
+                        print(
+                            f"✅ Loaded history from Gist ({len(gist_history)} records)"
+                        )
             except Exception as e:
-                print(f"⚠️ 无法从 Gist 加载历史: {e}")
+                print(f"⚠️ Failed to load history from Gist: {e}")
 
-        # 2. 同时从本地文件加载
+        # 2. Also load from local file
         if self.history_file.exists():
             try:
                 with open(self.history_file, "r", encoding="utf-8") as f:
                     local_history = json.load(f)
-                    print(f"✅ 已从本地加载历史记录 ({len(local_history)} 条)")
+                    print(
+                        f"✅ Loaded history from local file ({len(local_history)} records)"
+                    )
             except Exception as e:
-                print(f"⚠️ 无法加载本地历史记录: {e}")
+                print(f"⚠️ Failed to load local history: {e}")
 
-        # 3. 合并两个来源 (以日期为 key, 有冲突时保留更新的)
+        # 3. Merge two sources (by date as key, keep newer when conflicts)
         hist_dict = {}
         for item in gist_history:
             hist_dict[item["date"]] = item
         for item in local_history:
-            hist_dict[item["date"]] = item  # 本地数据覆盖 Gist (更可能是最新的)
+            hist_dict[item["date"]] = (
+                item  # Local data overrides Gist (more likely to be latest)
+            )
 
         history = sorted(hist_dict.values(), key=lambda x: x["date"])
-        print(f"📊 合并后历史记录: {len(history)} 条")
+        print(f"📊 Merged history records: {len(history)}")
 
-        # 4. 如果合并后仍然太少, 尝试从 Git 历史重建
+        # 4. If merged data is still too short, try rebuilding from Git
         if len(history) < 5 and os.path.isdir(".git"):
             print("📉 History too short, attempting Git rebuild...")
             git_history = self.rebuild_history_from_git()
@@ -146,7 +162,7 @@ class OpenWebUIStats:
                         hist_dict[item["date"]] = item
                 history = sorted(hist_dict.values(), key=lambda x: x["date"])
 
-        # 5. 如果有新数据, 同步回 Gist
+        # 5. If there is new data, sync back to Gist
         if len(history) > len(gist_history) and self.gist_token and self.gist_id:
             try:
                 url = f"https://api.github.com/gists/{self.gist_id}"
@@ -160,7 +176,7 @@ class OpenWebUIStats:
                 }
                 resp = requests.patch(url, headers=headers, json=payload)
                 if resp.status_code == 200:
-                    print(f"✅ 历史记录已同步至 Gist ({len(history)} 条)")
+                    print(f"✅ History synced to Gist ({len(history)} records)")
                 else:
                     print(f"⚠️ Gist sync failed: {resp.status_code}")
             except Exception as e:
@@ -169,11 +185,11 @@ class OpenWebUIStats:
         return history
 
     def save_history(self, stats: dict):
-        """保存当前快照到历史记录 (优先保存到 Gist, 其次本地)"""
+        """Save current snapshot to history (prioritize Gist, fallback to local)"""
         history = self.load_history()
         today = get_beijing_time().strftime("%Y-%m-%d")
 
-        # 构造详细快照 (包含每个插件的下载量)
+        # Build detailed snapshot (including each plugin's download count)
         snapshot = {
             "date": today,
             "total_posts": stats["total_posts"],
@@ -187,7 +203,7 @@ class OpenWebUIStats:
             "posts": {p["slug"]: p["downloads"] for p in stats.get("posts", [])},
         }
 
-        # 更新或追加数据点
+        # Update or append data point
         updated = False
         for i, item in enumerate(history):
             if item.get("date") == today:
@@ -197,10 +213,10 @@ class OpenWebUIStats:
         if not updated:
             history.append(snapshot)
 
-        # 限制长度 (90天)
+        # Limit length (90 days)
         history = history[-90:]
 
-        # 尝试保存到 Gist
+        # Try saving to Gist
         if self.gist_token and self.gist_id:
             try:
                 url = f"https://api.github.com/gists/{self.gist_id}"
@@ -214,19 +230,19 @@ class OpenWebUIStats:
                 }
                 resp = requests.patch(url, headers=headers, json=payload)
                 if resp.status_code == 200:
-                    print(f"✅ 历史记录已同步至 Gist ({self.gist_id})")
-                    # 如果同步成功，不再保存到本地，减少 commit 压力
+                    print(f"✅ History synced to Gist ({self.gist_id})")
+                    # If sync succeeds, do not save to local to reduce commit pressure
                     return
             except Exception as e:
-                print(f"⚠️ 同步至 Gist 失败: {e}")
+                print(f"⚠️ Failed to sync to Gist: {e}")
 
-        # 降级：保存到本地
+        # Fallback: save to local
         with open(self.history_file, "w", encoding="utf-8") as f:
             json.dump(history, f, ensure_ascii=False, indent=2)
-        print(f"✅ 历史记录已更新至本地 ({today})")
+        print(f"✅ History updated to local ({today})")
 
     def get_stat_delta(self, stats: dict) -> dict:
-        """计算相对于上次记录的增长 (24h)"""
+        """Calculate growth relative to last recorded snapshot (24h delta)"""
         history = self.load_history()
         if not history:
             return {}
@@ -234,7 +250,7 @@ class OpenWebUIStats:
         today = get_beijing_time().strftime("%Y-%m-%d")
         prev = None
 
-        # 查找非今天的最后一笔数据作为基准
+        # Find last data point from a different day as baseline
         for item in reversed(history):
             if item.get("date") != today:
                 prev = item
@@ -262,14 +278,14 @@ class OpenWebUIStats:
         }
 
     def _resolve_post_type(self, post: dict) -> str:
-        """解析帖子类别"""
+        """Resolve the post category type"""
         top_type = post.get("type")
         function_data = post.get("data", {}) or {}
         function_obj = function_data.get("function", {}) or {}
         meta = function_obj.get("meta", {}) or {}
         manifest = meta.get("manifest", {}) or {}
 
-        # 类别识别优先级：
+        # Category identification priority:
         if top_type == "review":
             return "review"
 
@@ -283,7 +299,9 @@ class OpenWebUIStats:
         elif not meta and not function_obj:
             post_type = "post"
 
-        # 统一和启发式识别逻辑
+        post_type = self._normalize_post_type(post_type)
+
+        # Unified and heuristic identification logic
         if post_type == "unknown" and function_obj:
             post_type = "action"
 
@@ -298,17 +316,17 @@ class OpenWebUIStats:
                 post_type = "filter"
             elif "pipe" in all_metadata:
                 post_type = "pipe"
-            elif "toolkit" in all_metadata:
-                post_type = "toolkit"
+            elif "tool" in all_metadata:
+                post_type = "tool"
 
-        return post_type
+        return self._normalize_post_type(post_type)
 
     def rebuild_history_from_git(self) -> list:
-        """从 Git 历史提交中重建统计数据"""
+        """Rebuild statistics from Git commit history"""
         history = []
         try:
-            # 从 docs/community-stats.json 的 Git 历史重建 (该文件历史最丰富)
-            # 格式: hash date
+            # Rebuild from Git history of docs/community-stats.json (has richest history)
+            # Format: hash date
             target = "docs/community-stats.json"
             cmd = [
                 "git",
@@ -324,8 +342,8 @@ class OpenWebUIStats:
 
             seen_dates = set()
 
-            # 从旧到新处理（git log 默认是从新到旧，所以我们要反转或者用 reverse）
-            # 其实顺序无所谓，只要最后 sort 一下就行
+            # Process from oldest to newest (git log defaults to newest first, so reverse)
+            # The order doesn't really matter as long as we sort at the end
             for line in reversed(commits):  # Process from oldest to newest
                 parts = line.split()
                 if len(parts) < 2:
@@ -338,7 +356,7 @@ class OpenWebUIStats:
                     continue
                 seen_dates.add(commit_date)
 
-                # 读取该 commit 时的文件内容
+                # Read file content at this commit
                 # Note: The file name in git show needs to be relative to the repo root
                 show_cmd = ["git", "show", f"{commit_hash}:{target}"]
                 show_res = subprocess.run(
@@ -405,13 +423,16 @@ class OpenWebUIStats:
             return []
 
     def _parse_user_id_from_token(self, token: str) -> str:
-        """从 JWT Token 中解析用户 ID"""
+        """Parse user ID from JWT Token"""
         import base64
 
+        if not token or token.startswith("sk-"):
+            return ""
+
         try:
-            # JWT 格式: header.payload.signature
+            # JWT format: header.payload.signature
             payload = token.split(".")[1]
-            # 添加 padding
+            # Add padding
             padding = 4 - len(payload) % 4
             if padding != 4:
                 payload += "=" * padding
@@ -419,16 +440,36 @@ class OpenWebUIStats:
             data = json.loads(decoded)
             return data.get("id", "")
         except Exception as e:
-            print(f"⚠️ 无法从 Token 解析用户 ID: {e}")
+            print(f"⚠️ Failed to parse user ID from token: {e}")
             return ""
 
+    def resolve_user_id(self) -> str:
+        """Auto-resolve current user ID via community API (for sk- type API keys)"""
+        if self.user_id:
+            return self.user_id
+
+        try:
+            resp = self.session.get(f"{self.BASE_URL}/auths/", timeout=20)
+            if resp.status_code == 200:
+                data = resp.json() if resp.text else {}
+                resolved = str(data.get("id", "")).strip()
+                if resolved:
+                    self.user_id = resolved
+                    return resolved
+            else:
+                print(f"⚠️ Failed to auto-resolve user ID: HTTP {resp.status_code}")
+        except Exception as e:
+            print(f"⚠️ Exception while auto-resolving user ID: {e}")
+
+        return ""
+
     def generate_mermaid_chart(self, stats: dict = None, lang: str = "zh") -> str:
-        """生成支持 Kroki 服务端渲染的动态 Mermaid 图表链接 (零 Commit)"""
+        """Generate dynamic Mermaid chart links with Kroki server-side rendering (zero commit)"""
         history = self.load_history()
         if not history:
             return ""
 
-        # 多语言标签
+        # Multi-language labels
         labels = {
             "zh": {
                 "trend_title": "增长与趋势 (Last 14 Days)",
@@ -495,14 +536,14 @@ class OpenWebUIStats:
 
     def get_user_posts(self, sort: str = "new", page: int = 1) -> list:
         """
-        获取用户发布的帖子列表
+        Fetch list of posts published by the user
 
         Args:
-            sort: 排序方式 (new/top/hot)
-            page: 页码
+            sort: Sort order (new/top/hot)
+            page: Page number
 
         Returns:
-            帖子列表
+            List of posts
         """
         url = f"{self.BASE_URL}/posts/users/{self.user_id}"
         params = {"sort": sort, "page": page}
@@ -512,7 +553,7 @@ class OpenWebUIStats:
         return response.json()
 
     def get_all_posts(self, sort: str = "new") -> list:
-        """获取所有帖子（自动分页）"""
+        """Fetch all posts (automatic pagination)"""
         all_posts = []
         page = 1
 
@@ -526,7 +567,7 @@ class OpenWebUIStats:
         return all_posts
 
     def generate_stats(self, posts: list) -> dict:
-        """生成统计数据"""
+        """Generate statistics"""
         stats = {
             "total_posts": len(posts),
             "total_downloads": 0,
@@ -537,10 +578,10 @@ class OpenWebUIStats:
             "total_comments": 0,
             "by_type": {},
             "posts": [],
-            "user": {},  # 用户信息
+            "user": {},  # User info
         }
 
-        # 从第一个帖子中提取用户信息
+        # Extract user info from first post
         if posts and "user" in posts[0]:
             user = posts[0]["user"]
             stats["user"] = {
@@ -564,7 +605,7 @@ class OpenWebUIStats:
             meta = function_obj.get("meta", {}) or {}
             manifest = meta.get("manifest", {}) or {}
 
-            # 累计统计
+            # Accumulate statistics
             post_downloads = post.get("downloads", 0)
             post_views = post.get("views", 0)
 
@@ -574,7 +615,7 @@ class OpenWebUIStats:
             stats["total_saves"] += post.get("saveCount", 0)
             stats["total_comments"] += post.get("commentCount", 0)
 
-            # 关键：总浏览量不包括不可以下载的类型 (如 post, review)
+            # Key: total views do not include non-downloadable types (e.g., post, review)
             if post_type in self.DOWNLOADABLE_TYPES or post_downloads > 0:
                 stats["total_views"] += post_views
 
@@ -582,7 +623,7 @@ class OpenWebUIStats:
                 stats["by_type"][post_type] = 0
             stats["by_type"][post_type] += 1
 
-            # 单个帖子信息
+            # Individual post information
             created_at = datetime.fromtimestamp(post.get("createdAt", 0))
             updated_at = datetime.fromtimestamp(post.get("updatedAt", 0))
 
@@ -605,43 +646,45 @@ class OpenWebUIStats:
                 }
             )
 
-        # 按下载量排序
+        # Sort by download count
         stats["posts"].sort(key=lambda x: x["downloads"], reverse=True)
 
         return stats
 
     def print_stats(self, stats: dict):
-        """打印统计报告到终端"""
+        """Print statistics report to terminal"""
         print("\n" + "=" * 60)
-        print("📊 OpenWebUI 社区统计报告")
+        print("📊 OpenWebUI Community Statistics Report")
         print("=" * 60)
-        print(f"📅 生成时间 (北京): {get_beijing_time().strftime('%Y-%m-%d %H:%M')}")
+        print(
+            f"📅 Generated (Beijing time): {get_beijing_time().strftime('%Y-%m-%d %H:%M')}"
+        )
         print()
 
-        # 总览
-        print("📈 总览")
+        # Overview
+        print("📈 Overview")
         print("-" * 40)
-        print(f"  📝 发布数量: {stats['total_posts']}")
-        print(f"  ⬇️  总下载量: {stats['total_downloads']}")
-        print(f"  👁️  总浏览量: {stats['total_views']}")
-        print(f"  👍 总点赞数: {stats['total_upvotes']}")
-        print(f"  💾 总收藏数: {stats['total_saves']}")
-        print(f"  💬 总评论数: {stats['total_comments']}")
+        print(f"  📝 Posts: {stats['total_posts']}")
+        print(f"  ⬇️  Total Downloads: {stats['total_downloads']}")
+        print(f"  👁️  Total Views: {stats['total_views']}")
+        print(f"  👍 Total Upvotes: {stats['total_upvotes']}")
+        print(f"  💾 Total Saves: {stats['total_saves']}")
+        print(f"  💬 Total Comments: {stats['total_comments']}")
         print()
 
-        # 按类型分类
-        print("📂 按类型分类")
+        # By type
+        print("📂 By Type")
         print("-" * 40)
         for post_type, count in stats["by_type"].items():
             print(f"  • {post_type}: {count}")
         print()
 
-        # 详细列表
-        print("📋 发布列表 (按下载量排序)")
+        # Detailed list
+        print("📋 Posts List (sorted by downloads)")
         print("-" * 60)
 
-        # 表头
-        print(f"{'排名':<4} {'标题':<30} {'下载':<8} {'浏览':<8} {'点赞':<6}")
+        # Header
+        print(f"{'Rank':<4} {'Title':<30} {'Downloads':<8} {'Views':<8} {'Upvotes':<6}")
         print("-" * 60)
 
         for i, post in enumerate(stats["posts"], 1):
@@ -655,23 +698,23 @@ class OpenWebUIStats:
         print("=" * 60)
 
     def _safe_key(self, key: str) -> str:
-        """生成安全的文件名 Key (MD5 hash) 以避免中文字符问题"""
+        """Generate safe filename key (MD5 hash) to avoid Chinese character issues"""
         import hashlib
 
         return hashlib.md5(key.encode("utf-8")).hexdigest()
 
     def generate_markdown(self, stats: dict, lang: str = "zh") -> str:
         """
-        生成 Markdown 格式报告 (全动态徽章与 Kroki 图表)
+        Generate Markdown format report (fully dynamic badges and Kroki charts)
 
         Args:
-            stats: 统计数据
-            lang: 语言 ("zh" 中文, "en" 英文)
+            stats: Statistics data
+            lang: Language ("zh" Chinese, "en" English)
         """
-        # 获取增量数据
+        # Get delta data
         delta = self.get_stat_delta(stats)
 
-        # 中英文文本
+        # Bilingual text
         texts = {
             "zh": {
                 "title": "# 📊 OpenWebUI 社区统计报告",
@@ -761,6 +804,7 @@ class OpenWebUIStats:
             "filter": "brightgreen",
             "action": "orange",
             "pipe": "blueviolet",
+            "tool": "teal",
             "pipeline": "purple",
             "review": "yellow",
             "prompt": "lightgrey",
@@ -815,30 +859,30 @@ class OpenWebUIStats:
         return "\n".join(md)
 
     def save_json(self, stats: dict, filepath: str):
-        """保存 JSON 格式数据"""
+        """Save data in JSON format"""
         with open(filepath, "w", encoding="utf-8") as f:
             json.dump(stats, f, ensure_ascii=False, indent=2)
-        print(f"✅ JSON 数据已保存到: {filepath}")
+        print(f"✅ JSON data saved to: {filepath}")
 
     def generate_shields_endpoints(self, stats: dict, output_dir: str = "docs/badges"):
         """
-        生成 Shields.io endpoint JSON 文件
+        Generate Shields.io endpoint JSON files
 
         Args:
-            stats: 统计数据
-            output_dir: 输出目录
+            stats: Statistics data
+            output_dir: Output directory
         """
         Path(output_dir).mkdir(parents=True, exist_ok=True)
 
         def format_number(n: int) -> str:
-            """格式化数字为易读格式"""
+            """Format number to readable format"""
             if n >= 1000000:
                 return f"{n/1000000:.1f}M"
             elif n >= 1000:
                 return f"{n/1000:.1f}k"
             return str(n)
 
-        # 各种徽章数据
+        # Badge data
         badges = {
             "downloads": {
                 "schemaVersion": 1,
@@ -884,18 +928,18 @@ class OpenWebUIStats:
                 # 构造并上传 Shields.io 徽章数据
                 self.upload_gist_badges(stats)
             except Exception as e:
-                print(f"⚠️ 徽章生成失败: {e}")
+                print(f"⚠️ Badge generation failed: {e}")
 
         print(f"✅ Shields.io endpoints saved to: {output_dir}/")
 
     def upload_gist_badges(self, stats: dict):
-        """生成并上传 Gist 徽章数据 (用于 Shields.io Endpoint)"""
+        """Generate and upload Gist badge data (for Shields.io Endpoint)"""
         if not (self.gist_token and self.gist_id):
             return
 
         delta = self.get_stat_delta(stats)
 
-        # 定义徽章配置 {key: (label, value, color)}
+        # Define badge config {key: (label, value, color)}
         badges_config = {
             "downloads": ("Downloads", stats["total_downloads"], "brightgreen"),
             "views": ("Views", stats["total_views"], "blue"),
@@ -923,7 +967,7 @@ class OpenWebUIStats:
         for key, (label, val, color) in badges_config.items():
             diff = delta.get(key, 0)
             if isinstance(diff, dict):
-                diff = 0  # 避免 'posts' key 导致的 dict vs int 比较错误
+                diff = 0  # Avoid dict vs int comparison error with 'posts' key
 
             message = f"{val}"
             if diff > 0:
@@ -931,7 +975,7 @@ class OpenWebUIStats:
             elif diff < 0:
                 message += f" ({diff})"
 
-            # 构造 Shields.io endpoint JSON
+            # Build Shields.io endpoint JSON
             # 参考: https://shields.io/badges/endpoint-badge
             badge_data = {
                 "schemaVersion": 1,
@@ -945,13 +989,13 @@ class OpenWebUIStats:
                 "content": json.dumps(badge_data, ensure_ascii=False)
             }
 
-        # 生成 Top 6 插件徽章 (基于槽位 p1, p2...)
+        # Generate top 6 plugins badges (based on slots p1, p2...)
         post_deltas = delta.get("posts", {})
         for i, post in enumerate(stats.get("posts", [])[:6]):
             idx = i + 1
             diff = post_deltas.get(post["slug"], 0)
 
-            # 下载量徽章
+            # Downloads badge
             dl_msg = f"{post['downloads']}"
             if diff > 0:
                 dl_msg += f" (+{diff}🚀)"
@@ -1103,6 +1147,8 @@ class OpenWebUIStats:
 
         def _fmt_delta(k: str) -> str:
             val = delta.get(k, 0)
+            if isinstance(val, dict):
+                return ""
             if val > 0:
                 return f" <br><sub>(+{val}🚀)</sub>"
             return ""
@@ -1462,86 +1508,93 @@ class OpenWebUIStats:
 
 
 def main():
-    """主函数"""
-    # 获取配置
+    """CLI entry point."""
+    # Load runtime config
     api_key = os.getenv("OPENWEBUI_API_KEY")
     user_id = os.getenv("OPENWEBUI_USER_ID")
 
     if not api_key:
-        print("❌ 错误: 未设置 OPENWEBUI_API_KEY 环境变量")
-        print("请设置环境变量：")
+        print("❌ Error: OPENWEBUI_API_KEY is not set")
+        print("Please set environment variable:")
         print("  export OPENWEBUI_API_KEY='your_api_key_here'")
         return 1
 
     if not user_id:
-        print("❌ 错误: 未设置 OPENWEBUI_USER_ID 环境变量")
-        print("请设置环境变量：")
-        print("  export OPENWEBUI_USER_ID='your_user_id_here'")
-        print("\n提示: 用户 ID 可以从之前的 curl 请求中获取")
-        print("     例如: b15d1348-4347-42b4-b815-e053342d6cb0")
-        return 1
+        print("ℹ️ OPENWEBUI_USER_ID not set, attempting auto-resolve via API key...")
 
-    # 获取 Gist 配置 (用于存储历史记录)
+    # Gist config (optional, for badges/history sync)
     gist_token = os.getenv("GIST_TOKEN")
     gist_id = os.getenv("GIST_ID")
 
-    # 初始化
+    # Initialize client
     stats_client = OpenWebUIStats(api_key, user_id, gist_token, gist_id)
-    print(f"🔍 用户 ID: {stats_client.user_id}")
+
+    if not stats_client.user_id:
+        stats_client.resolve_user_id()
+
+    if not stats_client.user_id:
+        print("❌ Error: failed to auto-resolve OPENWEBUI_USER_ID")
+        print("Please set environment variable:")
+        print("  export OPENWEBUI_USER_ID='your_user_id_here'")
+        print("\nTip: user id is the 'id' field returned by /api/v1/auths/")
+        print("     e.g. b15d1348-4347-42b4-b815-e053342d6cb0")
+        return 1
+
+    print(f"🔍 User ID: {stats_client.user_id}")
     if gist_id:
-        print(f"📦 Gist 存储已启用: {gist_id}")
+        print(f"📦 Gist storage enabled: {gist_id}")
 
-    # 获取所有帖子
-    print("📥 正在获取帖子数据...")
+    # Fetch posts
+    print("📥 Fetching posts...")
     posts = stats_client.get_all_posts()
-    print(f"✅ 获取到 {len(posts)} 个帖子")
+    print(f"✅ Retrieved {len(posts)} posts")
 
-    # 生成统计
+    # Build stats
     stats = stats_client.generate_stats(posts)
 
-    # 保存历史快照
+    # Save history snapshot
     stats_client.save_history(stats)
 
-    # 打印到终端
+    # Print terminal report
     stats_client.print_stats(stats)
 
-    # 保存 Markdown 报告 (中英文双版本)
+    # Save markdown reports (zh/en)
     script_dir = Path(__file__).parent.parent
 
-    # 中文报告
+    # Chinese report
     md_zh_path = script_dir / "docs" / "community-stats.zh.md"
     md_zh_content = stats_client.generate_markdown(stats, lang="zh")
     with open(md_zh_path, "w", encoding="utf-8") as f:
         f.write(md_zh_content)
-    print(f"\n✅ 中文报告已保存到: {md_zh_path}")
+    print(f"\n✅ Chinese report saved to: {md_zh_path}")
 
-    # 英文报告
+    # English report
     md_en_path = script_dir / "docs" / "community-stats.md"
     md_en_content = stats_client.generate_markdown(stats, lang="en")
     with open(md_en_path, "w", encoding="utf-8") as f:
         f.write(md_en_content)
-    print(f"✅ 英文报告已保存到: {md_en_path}")
+    print(f"✅ English report saved to: {md_en_path}")
 
-    # 保存 JSON 数据
+    # Save JSON snapshot
     json_path = script_dir / "docs" / "community-stats.json"
     stats_client.save_json(stats, str(json_path))
 
-    # 生成 Shields.io endpoint JSON (用于动态徽章)
+    # Generate Shields.io endpoint JSON (dynamic badges)
     badges_dir = script_dir / "docs" / "badges"
 
-    # 生成徽章
+    # Generate badges
     stats_client.generate_shields_endpoints(stats, str(badges_dir))
 
-    # 生成并上传 SVG 图表 (每日更新 Gist, README URL 保持不变)
+    # Generate and upload SVG chart (if Gist is configured)
     stats_client.upload_chart_svg()
 
-    # 更新 README 文件
+    # Update README files
     readme_path = script_dir / "README.md"
     readme_cn_path = script_dir / "README_CN.md"
     stats_client.update_readme(stats, str(readme_path), lang="en")
     stats_client.update_readme(stats, str(readme_cn_path), lang="zh")
 
-    # 更新 docs 中的图表
+    # Update charts in docs pages
     stats_client.update_docs_chart(str(md_en_path), lang="en")
     stats_client.update_docs_chart(str(md_zh_path), lang="zh")
 
