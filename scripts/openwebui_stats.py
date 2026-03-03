@@ -1263,9 +1263,11 @@ class OpenWebUIStats:
             dl_cell = self.get_badge(f"p{idx}_dl", stats, user, delta, is_post=True)
             vw_cell = self.get_badge(f"p{idx}_vw", stats, user, delta, is_post=True)
 
-            # 版本号使用动态 Shields.io 徽章
-            ver_badge = self.get_badge(
-                f"p{idx}_version", stats, user, delta, is_post=True
+            # 版本号使用静态 Shields.io 徽章，避免按排名位次 badge 产生错位
+            ver = post.get("version", "N/A") or "N/A"
+            ver_color = "blue" if post.get("version") else "gray"
+            ver_badge = (
+                f"![v](https://img.shields.io/badge/v-{ver}-{ver_color}?style=flat)"
             )
 
             # 更新时间使用静态 Shields.io 徽章
