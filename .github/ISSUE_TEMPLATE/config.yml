@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation
+    url: https://docs.openwebui.com/
+    about: Official OpenWebUI documentation
+  - name: Discussions
+    url: https://github.com/Fu-Jie/openwebui-extensions/discussions
+    about: Ask questions and discuss with the community
+  - name: OpenWebUI Repository
+    url: https://github.com/open-webui/open-webui
+    about: Main OpenWebUI project

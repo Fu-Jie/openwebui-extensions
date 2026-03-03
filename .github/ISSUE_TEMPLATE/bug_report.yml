@@ -1,0 +1,141 @@
+name: 🐛 Bug Report
+description: Report a bug or issue with OpenWebUI plugins
+title: "[BUG] "
+labels: ["bug"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to fill out this bug report! Please provide clear information to help us understand and resolve the issue.
+
+  - type: dropdown
+    id: plugin-type
+    attributes:
+      label: Plugin Type
+      description: Which type of plugin is affected?
+      options:
+        - Action
+        - Filter
+        - Pipe
+        - Pipeline
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: plugin-name
+    attributes:
+      label: Plugin Name
+      description: Which plugin has the issue?
+      placeholder: "e.g., Smart Mind Map, Export to Word"
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: Clearly describe the bug or issue you encountered
+      placeholder: |
+        What happened? What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: How can we reproduce the issue?
+      placeholder: |
+        1. Go to...
+        2. Click on...
+        3. See error...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What should happen instead?
+      placeholder: "The plugin should..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+      description: What is actually happening?
+      placeholder: "Instead, the plugin..."
+    validations:
+      required: true
+
+  - type: input
+    id: openwebui-version
+    attributes:
+      label: OpenWebUI Version
+      description: What version of OpenWebUI are you using?
+      placeholder: "e.g., 0.3.0 or main"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: browser
+    attributes:
+      label: Browser
+      description: What browser are you using?
+      options:
+        - Chrome
+        - Firefox
+        - Safari
+        - Edge
+        - Other
+    validations:
+      required: false
+
+  - type: textarea
+    id: browser-console
+    attributes:
+      label: Browser Console Output
+      description: "Any errors shown in the browser developer console? (Press F12)"
+      placeholder: "Paste console errors or warnings here"
+      render: bash
+    validations:
+      required: false
+
+  - type: textarea
+    id: plugin-config
+    attributes:
+      label: Plugin Configuration
+      description: "If applicable, share your plugin valve settings (remove sensitive data)"
+      placeholder: |
+        SHOW_STATUS: true
+        SHOW_DEBUG_LOG: false
+        ...
+      render: python
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Any other information that might help?
+      placeholder: "Screenshots, logs, or other relevant details..."
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: I have searched existing issues for duplicates
+          required: true
+        - label: I have provided clear steps to reproduce the issue
+          required: true
+        - label: I have mentioned the plugin name and OpenWebUI version
+          required: true

@@ -1,0 +1,87 @@
+name: ✨ Feature Request
+description: Suggest a new feature or improvement
+title: "[FEATURE] "
+labels: ["enhancement"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for your idea! Please describe the feature you'd like to see.
+
+  - type: dropdown
+    id: plugin-type
+    attributes:
+      label: Plugin Type (Optional)
+      description: Is this for a specific plugin type?
+      options:
+        - Action
+        - Filter
+        - Pipe
+        - Pipeline
+        - Core/General
+        - Documentation
+        - Other
+    validations:
+      required: false
+
+  - type: input
+    id: plugin-name
+    attributes:
+      label: Plugin Name (Optional)
+      description: Which plugin would benefit from this feature?
+      placeholder: "e.g., Smart Mind Map"
+    validations:
+      required: false
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Feature Description
+      description: Clearly describe the feature you're requesting
+      placeholder: |
+        What feature would you like to see? Why would it be useful?
+    validations:
+      required: true
+
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Motivation
+      description: Why is this feature important to you?
+      placeholder: |
+        What problem does this solve?
+        How would it improve the user experience?
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: Any other approaches you've thought of?
+      placeholder: |
+        Have you considered other solutions?
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Mockups, references, or examples?
+      placeholder: |
+        Links, screenshots, or code examples...
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: I have searched existing issues/discussions for similar requests
+          required: true
+        - label: This feature would be useful for multiple users
+          required: false
