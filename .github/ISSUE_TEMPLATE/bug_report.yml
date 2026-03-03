@@ -20,7 +20,7 @@ body:
         - Filter
         - Pipe
         - Pipeline
-        - Tool (Copilot SDK)
+        - Tool
         - Other
     validations:
       required: true
@@ -100,14 +100,21 @@ body:
   - type: textarea
     id: environment
     attributes:
-      label: Operating System
-      description: Operating system and relevant environment details
+      label: Environment Details
+      description: "Operating system and container/deployment information"
       placeholder: |
-        macOS 14.3
+        Operating System: macOS 14.3
+        Container: Docker (version 24.0.x) or Native
+        
         or
-        Windows 11 (22H2)
+        
+        Operating System: Ubuntu 22.04 LTS
+        Container: Docker Compose
+        
         or
-        Ubuntu 22.04 LTS
+        
+        Operating System: Windows 11
+        Deployment: Local / Cloud
     validations:
       required: true
 
@@ -211,7 +218,7 @@ body:
           required: true
         - label: I have mentioned the plugin name and OpenWebUI version
           required: true
-        - label: I have provided my operating system information
+        - label: I have provided operating system and container/deployment information
           required: true
         - label: I have provided logs or console output (frontend/server-side)
           required: false
