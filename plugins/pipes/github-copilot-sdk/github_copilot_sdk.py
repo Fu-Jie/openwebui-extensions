@@ -5,7 +5,7 @@ author_url: https://github.com/Fu-Jie/openwebui-extensions
 funding_url: https://github.com/open-webui
 openwebui_id: ce96f7b4-12fc-4ac3-9a01-875713e69359
 description: Integrate GitHub Copilot SDK. Supports dynamic models, multi-turn conversation, streaming, multimodal input, infinite sessions, bidirectional OpenWebUI Skills bridge, and manage_skills tool.
-version: 0.9.0
+version: 0.9.1
 requirements: github-copilot-sdk==0.1.25
 """
 
@@ -923,9 +923,9 @@ class Pipe:
             return final_tools
 
         # 4. Extract chat-level tool selection (P4: user selection from Chat UI)
-        chat_tool_ids = None
-        if __metadata__ and isinstance(__metadata__, dict):
-            chat_tool_ids = __metadata__.get("tool_ids") or None
+        chat_tool_ids = self._normalize_chat_tool_ids(
+            __metadata__.get("tool_ids") if isinstance(__metadata__, dict) else None
+        )
 
         # 5. Load OpenWebUI tools dynamically (always fresh, no cache)
         openwebui_tools = await self._load_openwebui_tools(
@@ -2190,11 +2190,12 @@ class Pipe:
             return []
 
         # P4: Chat tool_ids whitelist — only active when user explicitly selected tools
-        if chat_tool_ids:
-            chat_tool_ids_set = set(chat_tool_ids)
+        selected_custom_tool_ids = self._extract_selected_custom_tool_ids(chat_tool_ids)
+        if selected_custom_tool_ids:
+            chat_tool_ids_set = set(selected_custom_tool_ids)
             filtered = [tid for tid in tool_ids if tid in chat_tool_ids_set]
             await self._emit_debug_log(
-                f"[Tools] tool_ids whitelist active: {len(tool_ids)} → {len(filtered)} (selected: {chat_tool_ids})",
+                f"[Tools] custom tool_ids whitelist active: {len(tool_ids)} → {len(filtered)} (selected: {selected_custom_tool_ids})",
                 __event_call__,
             )
             tool_ids = filtered
@@ -2283,6 +2284,30 @@ class Pipe:
                             model_dict = {"info": model_record.model_dump()}
                     except Exception:
                         pass
+
+                # Force web_search enabled when OpenWebUI tools are enabled,
+                # regardless of request feature flags, model meta defaults, or UI toggles.
+                model_info = (
+                    model_dict.get("info") if isinstance(model_dict, dict) else None
+                )
+                if isinstance(model_info, dict):
+                    model_meta = model_info.get("meta")
+                    if not isinstance(model_meta, dict):
+                        model_meta = {}
+                        model_info["meta"] = model_meta
+                    builtin_meta = model_meta.get("builtinTools")
+                    if not isinstance(builtin_meta, dict):
+                        builtin_meta = {}
+                    builtin_meta["web_search"] = True
+                    model_meta["builtinTools"] = builtin_meta
+
+                # Force feature selection to True for web_search to bypass UI session toggles
+                if isinstance(body, dict):
+                    features = body.get("features")
+                    if not isinstance(features, dict):
+                        features = {}
+                        body["features"] = features
+                    features["web_search"] = True
 
                 # Get builtin tools
                 # Code interpreter is STRICT opt-in: only enabled when request
@@ -2380,6 +2405,13 @@ class Pipe:
 
         converted_tools = []
         for tool_name, t_dict in tools_dict.items():
+            if isinstance(tool_name, str) and tool_name.startswith("_"):
+                if self.valves.DEBUG:
+                    await self._emit_debug_log(
+                        f"[Tools] Skip private tool: {tool_name}",
+                        __event_call__,
+                    )
+                continue
             try:
                 copilot_tool = self._convert_openwebui_tool_to_sdk(
                     tool_name,
@@ -2410,6 +2442,7 @@ class Pipe:
             return None
 
         mcp_servers = {}
+        selected_custom_tool_ids = self._extract_selected_custom_tool_ids(chat_tool_ids)
 
         # Read MCP servers directly from DB to avoid stale in-memory cache
         connections = self._read_tool_server_connections()
@@ -2440,8 +2473,15 @@ class Pipe:
                     )
                     continue
 
-                # P4: chat_tool_ids whitelist — if user selected tools, only include matching servers
-                if chat_tool_ids and f"server:{raw_id}" not in chat_tool_ids:
+                # P4: chat tool whitelist for MCP servers
+                # OpenWebUI MCP tool IDs use "server:mcp:{id}" (not just "server:{id}").
+                # Only enforce MCP server filtering when MCP server IDs are explicitly selected.
+                selected_mcp_server_ids = {
+                    tid[len("server:mcp:") :]
+                    for tid in selected_custom_tool_ids
+                    if isinstance(tid, str) and tid.startswith("server:mcp:")
+                }
+                if selected_mcp_server_ids and raw_id not in selected_mcp_server_ids:
                     continue
 
                 # Sanitize server_id (using same logic as tools)
@@ -2478,13 +2518,18 @@ class Pipe:
                 function_filter = mcp_config.get("function_name_filter_list", "")
 
                 allowed_tools = ["*"]
-                if function_filter:
-                    if isinstance(function_filter, str):
-                        allowed_tools = [
-                            f.strip() for f in function_filter.split(",") if f.strip()
-                        ]
-                    elif isinstance(function_filter, list):
-                        allowed_tools = function_filter
+                parsed_filter = self._parse_mcp_function_filter(function_filter)
+                expanded_filter = self._expand_mcp_filter_aliases(
+                    parsed_filter,
+                    raw_server_id=raw_id,
+                    sanitized_server_id=server_id,
+                )
+                self._emit_debug_log_sync(
+                    f"[MCP] function_name_filter_list raw={function_filter!r} parsed={parsed_filter} expanded={expanded_filter}",
+                    __event_call__,
+                )
+                if expanded_filter:
+                    allowed_tools = expanded_filter
 
                 mcp_servers[server_id] = {
                     "type": "http",
@@ -2629,6 +2674,142 @@ class Pipe:
             return []
         items = [item.strip() for item in value.split(",")]
         return self._dedupe_preserve_order([item for item in items if item])
+
+    def _normalize_chat_tool_ids(self, raw_tool_ids: Any) -> List[str]:
+        """Normalize chat tool_ids payload to a clean list[str]."""
+        if not raw_tool_ids:
+            return []
+
+        normalized: List[str] = []
+
+        if isinstance(raw_tool_ids, str):
+            text = raw_tool_ids.strip()
+            if not text:
+                return []
+            if text.startswith("["):
+                try:
+                    parsed = json.loads(text)
+                    return self._normalize_chat_tool_ids(parsed)
+                except Exception:
+                    pass
+            normalized = [p.strip() for p in re.split(r"[,\n;]+", text) if p.strip()]
+            return self._dedupe_preserve_order(normalized)
+
+        if isinstance(raw_tool_ids, (list, tuple, set)):
+            for item in raw_tool_ids:
+                if isinstance(item, str):
+                    value = item.strip()
+                    if value:
+                        normalized.append(value)
+                    continue
+
+                if isinstance(item, dict):
+                    for key in ("id", "tool_id", "value", "name"):
+                        value = item.get(key)
+                        if isinstance(value, str) and value.strip():
+                            normalized.append(value.strip())
+                            break
+
+        return self._dedupe_preserve_order(normalized)
+
+    def _extract_selected_custom_tool_ids(self, chat_tool_ids: Any) -> List[str]:
+        """Return selected non-builtin tool IDs only."""
+        normalized = self._normalize_chat_tool_ids(chat_tool_ids)
+        return self._dedupe_preserve_order(
+            [
+                tid
+                for tid in normalized
+                if isinstance(tid, str) and not tid.startswith("builtin:")
+            ]
+        )
+
+    def _parse_mcp_function_filter(self, raw_filter: Any) -> List[str]:
+        """Parse MCP function filter list from string/list/json into normalized names."""
+        if not raw_filter:
+            return []
+
+        if isinstance(raw_filter, (list, tuple, set)):
+            return self._dedupe_preserve_order(
+                [
+                    str(item).strip().strip('"').strip("'")
+                    for item in raw_filter
+                    if str(item).strip().strip('"').strip("'")
+                ]
+            )
+
+        if isinstance(raw_filter, str):
+            text = raw_filter.strip()
+            if not text:
+                return []
+
+            if text.startswith("["):
+                try:
+                    parsed = json.loads(text)
+                    return self._parse_mcp_function_filter(parsed)
+                except Exception:
+                    pass
+
+            parts = re.split(r"[,\n;，、]+", text)
+            cleaned: List[str] = []
+            for part in parts:
+                value = part.strip().strip('"').strip("'")
+                if value.startswith("- "):
+                    value = value[2:].strip()
+                if value:
+                    cleaned.append(value)
+            return self._dedupe_preserve_order(cleaned)
+
+        return []
+
+    def _expand_mcp_filter_aliases(
+        self,
+        tool_names: List[str],
+        raw_server_id: str,
+        sanitized_server_id: str,
+    ) -> List[str]:
+        """Expand MCP filter names with common server-prefixed aliases.
+
+        Some MCP providers expose namespaced tool names such as:
+        - github__get_me
+        - github/get_me
+        - github.get_me
+        while admins often configure bare names like `get_me`.
+        """
+        if not tool_names:
+            return []
+
+        prefixes = self._dedupe_preserve_order(
+            [
+                str(raw_server_id or "").strip(),
+                str(sanitized_server_id or "").strip(),
+            ]
+        )
+
+        variants: List[str] = []
+        for name in tool_names:
+            clean_name = str(name).strip()
+            if not clean_name:
+                continue
+
+            # Keep original configured name first.
+            variants.append(clean_name)
+
+            # If admin already provided a namespaced value, keep it as-is only.
+            if any(sep in clean_name for sep in ("__", "/", ".")):
+                continue
+
+            for prefix in prefixes:
+                if not prefix:
+                    continue
+                variants.extend(
+                    [
+                        f"{prefix}__{clean_name}",
+                        f"{prefix}/{clean_name}",
+                        f"{prefix}.{clean_name}",
+                    ]
+                )
+
+        return self._dedupe_preserve_order(variants)
 
     def _is_manage_skills_intent(self, text: str) -> bool:
         """Detect whether the user is asking to manage/install skills.
@@ -4343,9 +4524,9 @@ class Pipe:
         )
 
         # P4: Chat tool_ids whitelist — extract once, reuse for both OpenAPI and MCP
-        chat_tool_ids = None
-        if __metadata__ and isinstance(__metadata__, dict):
-            chat_tool_ids = __metadata__.get("tool_ids") or None
+        chat_tool_ids = self._normalize_chat_tool_ids(
+            __metadata__.get("tool_ids") if isinstance(__metadata__, dict) else None
+        )
 
         user_ctx = await self._get_user_context(__user__, __event_call__, __request__)
         user_lang = user_ctx["user_language"]

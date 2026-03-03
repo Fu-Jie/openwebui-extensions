@@ -1,0 +1,82 @@
+Phase 2 Mission:
+Generate detailed API reference documentation for authentication, users, groups, and models endpoints.
+
+Prerequisites:
+- api_docs/00_route_index.md must already exist (from Phase 1).
+
+Source files to read (fully):
+- backend/open_webui/routers/auths.py
+- backend/open_webui/routers/users.py
+- backend/open_webui/routers/groups.py
+- backend/open_webui/routers/models.py
+- backend/open_webui/models/auths.py        (Pydantic models)
+- backend/open_webui/models/users.py
+- backend/open_webui/models/groups.py (if exists)
+- backend/open_webui/models/models.py
+
+Output files to create under api_docs/:
+- 02_auths.md
+- 02_users.md
+- 02_groups.md
+- 02_models.md
+
+Per-endpoint format (use this EXACTLY for every endpoint in each file):
+
+---
+
+### {HTTP_METHOD} {full_path}
+
+**Summary:** One sentence description.
+
+**Auth:** Admin only | Verified user | Public
+
+**Request**
+
+| Location | Field | Type | Required | Description |
+|----------|-------|------|----------|-------------|
+| Header   | Authorization | Bearer token | Yes | JWT token |
+| Body | field_name | type | Yes/No | description |
+| Query | param_name | type | No | description |
+| Path | param_name | type | Yes | description |
+
+*If no request body/params, write: "No additional parameters."*
+
+**Response `200`**
+
+```json
+{
+  "example_field": "example_value"
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| field_name | type | description |
+
+**Error Responses**
+
+| Status | Meaning |
+|--------|---------|
+| 400 | Bad request / validation error |
+| 401 | Not authenticated |
+| 403 | Insufficient permissions |
+| 404 | Resource not found |
+
+---
+
+Instructions:
+1. Read each router file fully to understand every route.
+2. Trace Pydantic model definitions from the corresponding models/ file.
+3. Fill in every field from actual code — no guessing.
+4. If a field is Optional with a default, mark Required = No.
+5. For auth: check FastAPI dependency injection (Depends(get_verified_user) → "Verified user", Depends(get_admin_user) → "Admin only").
+6. List ALL endpoints in the router — do not skip any.
+
+Exit Criteria:
+- 4 output files created.
+- Every route from 00_route_index.md for these modules is covered.
+- No placeholder or TBD.
+
+Final output format:
+- List of files created.
+- Count of endpoints documented per file.

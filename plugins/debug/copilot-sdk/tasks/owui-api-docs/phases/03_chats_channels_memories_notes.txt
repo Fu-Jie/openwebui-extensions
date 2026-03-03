@@ -1,0 +1,87 @@
+Phase 3 Mission:
+Generate detailed API reference documentation for chat, channels, memories, and notes endpoints.
+
+Prerequisites:
+- api_docs/00_route_index.md must already exist (from Phase 1).
+
+Source files to read (fully):
+- backend/open_webui/routers/chats.py
+- backend/open_webui/routers/channels.py
+- backend/open_webui/routers/memories.py
+- backend/open_webui/routers/notes.py
+- backend/open_webui/models/chats.py        (Pydantic models)
+- backend/open_webui/models/channels.py
+- backend/open_webui/models/memories.py
+- backend/open_webui/models/notes.py (if exists)
+- backend/open_webui/models/messages.py (shared message models)
+
+Output files to create under api_docs/:
+- 03_chats.md
+- 03_channels.md
+- 03_memories.md
+- 03_notes.md
+
+Per-endpoint format:
+
+---
+
+### {HTTP_METHOD} {full_path}
+
+**Summary:** One sentence description.
+
+**Auth:** Admin only | Verified user | Public
+
+**Request**
+
+| Location | Field | Type | Required | Description |
+|----------|-------|------|----------|-------------|
+| Body | field_name | type | Yes/No | description |
+
+*If no parameters, write: "No additional parameters."*
+
+**Response `200`**
+
+```json
+{
+  "example_field": "example_value"
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| field_name | type | description |
+
+**Error Responses**
+
+| Status | Meaning |
+|--------|---------|
+| 401 | Not authenticated |
+| 403 | Insufficient permissions |
+| 404 | Resource not found |
+
+---
+
+Special notes for this phase:
+- chats.py is 1527 lines with ~40 routes — document ALL of them.
+- channels.py is 2133 lines — document ALL routes; note WebSocket upgrade endpoints separately.
+- For WebSocket endpoints: note the protocol (ws://) and describe events/message payload format.
+- Pay special attention to chat history structure: messages array, history.messages dict.
+- Note pagination parameters (skip, limit, page) where applicable.
+
+Instructions:
+1. Read each router file fully.
+2. Trace Pydantic model definitions from the corresponding models/ file.
+3. For complex response types (list of chats, paginated results), show the wrapper structure.
+4. If a route modifies chat history, document the exact history object shape.
+5. List ALL endpoints — do not skip paginated variants.
+
+Exit Criteria:
+- 4 output files created.
+- Every route from 00_route_index.md for these modules is covered.
+- WebSocket endpoints documented with payload shape.
+- No placeholder or TBD.
+
+Final output format:
+- List of files created.
+- Count of endpoints documented per file.
+- Note any complex schemas that required deep tracing.

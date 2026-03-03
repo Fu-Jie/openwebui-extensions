@@ -1,0 +1,103 @@
+Phase 6 Mission:
+Generate detailed API reference documentation for tools, functions, pipelines, skills, and tasks endpoints.
+
+Prerequisites:
+- docs/open_webui_api/00_route_index.md must already exist (from Phase 1).
+- NOTE: Output directory is api_docs/ (not docs/open_webui_api/).
+
+Source files to read (fully):
+- backend/open_webui/routers/tools.py          (~868 lines)
+- backend/open_webui/routers/functions.py      (~605 lines)
+- backend/open_webui/routers/pipelines.py      (~540 lines)
+- backend/open_webui/routers/skills.py         (~447 lines)
+- backend/open_webui/routers/tasks.py          (~764 lines)
+- backend/open_webui/models/tools.py
+- backend/open_webui/models/functions.py
+- backend/open_webui/models/skills.py
+
+Output files to create under api_docs/:
+- 06_tools.md
+- 06_functions.md
+- 06_pipelines.md
+- 06_skills.md
+- 06_tasks.md
+
+Per-endpoint format:
+
+---
+
+### {HTTP_METHOD} {full_path}
+
+**Summary:** One sentence description.
+
+**Auth:** Admin only | Verified user | Public
+
+**Request**
+
+| Location | Field | Type | Required | Description |
+|----------|-------|------|----------|-------------|
+| Body | field_name | type | Yes/No | description |
+
+**Response `200`**
+
+```json
+{
+  "example_field": "example_value"
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| field_name | type | description |
+
+**Error Responses**
+
+| Status | Meaning |
+|--------|---------|
+| 401 | Not authenticated |
+| 404 | Resource not found |
+
+---
+
+Special notes for this phase:
+
+TOOLS:
+- Tools are user-created Python functions exposed to LLM. Document CRUD operations.
+- The tool "specs" field: document its structure (list of OpenAI function call specs).
+- Document the "export" endpoint if present.
+
+FUNCTIONS:
+- Functions include filters, actions, pipes registered by admin.
+- Document the `type` field values: "filter", "action", "pipe".
+- Document the `meta` and `valves` fields structure.
+
+PIPELINES:
+- Pipelines connect to external pipeline servers.
+- Document: add pipeline (URL + API key), list pipelines, get valves, set valves.
+- Note: pipelines proxy through to an external server; document that behavior.
+
+SKILLS:
+- Skills are agent-style plugins with multi-step execution.
+- Document the skills schema: name, content (Python source), meta.
+- Note if there's a "call" endpoint for executing a skill.
+
+TASKS:
+- Tasks module handles background processing (title generation, tag generation, etc.).
+- Document config endpoints (GET/POST for task-specific LLM settings).
+- Document any direct invocation endpoints.
+
+Instructions:
+1. Read all source files fully.
+2. For valves/specs/meta fields with complex structure, show the full nested schema.
+3. Distinguish admin-only CRUD from user-accessible execution endpoints.
+4. For endpoints that execute code (tools, functions, skills), clearly note security implications.
+
+Exit Criteria:
+- 5 output files created.
+- Every route from 00_route_index.md for these modules is covered.
+- Complex nested schemas (valves, specs, meta) fully documented.
+- No placeholder or TBD.
+
+Final output format:
+- List of files created.
+- Count of endpoints documented per file.

@@ -1,0 +1,98 @@
+Phase 5 Mission:
+Generate detailed API reference documentation for AI provider endpoints: Ollama, OpenAI-compatible, Audio, and Images.
+
+Prerequisites:
+- api_docs/00_route_index.md must already exist (from Phase 1).
+
+Source files to read (fully):
+- backend/open_webui/routers/ollama.py         (~1884 lines)
+- backend/open_webui/routers/openai.py         (~1466 lines)
+- backend/open_webui/routers/audio.py          (~1397 lines)
+- backend/open_webui/routers/images.py         (~1164 lines)
+
+Output files to create under api_docs/:
+- 05_ollama.md
+- 05_openai.md
+- 05_audio.md
+- 05_images.md
+
+Per-endpoint format:
+
+---
+
+### {HTTP_METHOD} {full_path}
+
+**Summary:** One sentence description.
+
+**Auth:** Admin only | Verified user | Public
+
+**Request**
+
+| Location | Field | Type | Required | Description |
+|----------|-------|------|----------|-------------|
+| Body | field_name | type | Yes/No | description |
+
+**Response `200`**
+
+```json
+{
+  "example_field": "example_value"
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| field_name | type | description |
+
+**Streaming:** Yes / No  *(add this line for endpoints that support SSE/streaming)*
+
+**Error Responses**
+
+| Status | Meaning |
+|--------|---------|
+| 401 | Not authenticated |
+| 503 | Upstream provider unavailable |
+
+---
+
+Special notes for this phase:
+
+OLLAMA:
+- Endpoints are mostly pass-through proxies to Ollama's own API.
+- Document which endpoints are admin-only (model management) vs user-accessible (generate/chat).
+- For streaming endpoints (generate, chat), note: "Supports SSE streaming via stream=true."
+- Document the model pull/push/delete management endpoints carefully.
+
+OPENAI:
+- Endpoints proxy to configured OpenAI-compatible backend.
+- Document the /api/openai/models endpoint (returns merged model list).
+- Note which endpoints pass through request body to upstream unchanged.
+- Document admin endpoints for adding/removing OpenAI API connections.
+
+AUDIO:
+- Document: transcription (STT), TTS synthesis, and audio config endpoints.
+- For file upload endpoints: specify multipart/form-data field names.
+- Document supported audio formats and any size limits visible in code.
+- Note: Engine types (openai, whisper, etc.) and configuration endpoints.
+
+IMAGES:
+- Document: image generation endpoints and image engine config.
+- Note DALL-E vs ComfyUI vs Automatic1111 backend differences if documented in code.
+- Document image config GET/POST: size, steps, model, and other parameters.
+
+Instructions:
+1. Read each file fully — they are complex proxying routers.
+2. For pass-through proxy routes: still document the expected request/response shape.
+3. Distinguish between admin configuration routes and user-facing generation routes.
+4. Streaming endpoints must be clearly marked with "Streaming: Yes" and note the SSE event format.
+
+Exit Criteria:
+- 4 output files created.
+- Every route from 00_route_index.md for these modules is covered.
+- Streaming endpoints clearly annotated.
+- No placeholder or TBD.
+
+Final output format:
+- List of files created.
+- Count of endpoints documented per file.
+- Note streaming endpoints count per module.

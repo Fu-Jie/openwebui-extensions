@@ -1,0 +1,41 @@
+Phase 1 Mission:
+Scan the entire OpenWebUI backend source and produce a master route index table.
+
+Source root: backend/open_webui/
+Target output directory: api_docs/
+
+Constraints:
+- Read-only on ALL files EXCEPT under api_docs/ (create it if missing).
+- Do NOT generate per-endpoint detail yet — only the master table.
+- Cover every router file in backend/open_webui/routers/.
+- Also read backend/open_webui/main.py to capture route prefixes (app.include_router calls).
+
+Deliverables:
+1) Create directory: api_docs/
+2) Create file: api_docs/00_route_index.md
+
+Content of 00_route_index.md must contain:
+- A table with columns: Module | HTTP Method | Path | Handler Function | Auth Required | Brief Description
+- One row per route decorator found in every router file.
+- "Auth Required" = YES if the route depends on get_verified_user / get_admin_user / similar dependency, NO otherwise.
+- "Brief Description" = first sentence of the handler's docstring, or empty string if none.
+- Group rows by Module (router file name without .py).
+- At the top: a summary section listing total_route_count and module_count.
+
+Process:
+1. Read main.py — extract all app.include_router() calls, note prefix and tags per router.
+2. For each router file in backend/open_webui/routers/, read it fully.
+3. Find every @router.get/@router.post/@router.put/@router.delete/@router.patch decorator.
+4. For each decorator: record path, method, function name, auth dependency, docstring.
+5. Write the combined table to api_docs/00_route_index.md.
+
+Exit Criteria:
+- api_docs/00_route_index.md exists.
+- Table contains at least 100 rows (the codebase has 200+ routes).
+- No placeholder or TBD.
+- Total route count printed at the top.
+
+Final output format:
+- List of files created/updated.
+- Total routes found.
+- Any router files that could not be parsed and why.

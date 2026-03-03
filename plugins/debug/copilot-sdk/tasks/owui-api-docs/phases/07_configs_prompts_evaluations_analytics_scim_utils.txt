@@ -1,0 +1,109 @@
+Phase 7 Mission:
+Generate detailed API reference documentation for configuration, prompts, evaluations, analytics, SCIM, and utility endpoints.
+
+Prerequisites:
+- api_docs/00_route_index.md must already exist (from Phase 1).
+
+Source files to read (fully):
+- backend/open_webui/routers/configs.py        (~548 lines)
+- backend/open_webui/routers/prompts.py        (~759 lines)
+- backend/open_webui/routers/evaluations.py    (~466 lines)
+- backend/open_webui/routers/analytics.py      (~454 lines)
+- backend/open_webui/routers/scim.py           (~1030 lines)
+- backend/open_webui/routers/utils.py          (~123 lines)
+- backend/open_webui/models/prompts.py
+- backend/open_webui/config.py                 (for config field definitions)
+
+Output files to create under api_docs/:
+- 07_configs.md
+- 07_prompts.md
+- 07_evaluations.md
+- 07_analytics.md
+- 07_scim.md
+- 07_utils.md
+
+Per-endpoint format:
+
+---
+
+### {HTTP_METHOD} {full_path}
+
+**Summary:** One sentence description.
+
+**Auth:** Admin only | Verified user | Public
+
+**Request**
+
+| Location | Field | Type | Required | Description |
+|----------|-------|------|----------|-------------|
+| Body | field_name | type | Yes/No | description |
+
+**Response `200`**
+
+```json
+{
+  "example_field": "example_value"
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| field_name | type | description |
+
+**Error Responses**
+
+| Status | Meaning |
+|--------|---------|
+| 401 | Not authenticated |
+| 404 | Resource not found |
+
+---
+
+Special notes for this phase:
+
+CONFIGS:
+- This is the most important module in this phase.
+- The global config GET/POST endpoints control system-wide settings.
+- Read backend/open_webui/config.py to enumerate ALL configurable fields.
+- Document every config field with its type, default, and effect.
+- Group config fields by category (auth, RAG, models, UI, etc.) in the output.
+
+PROMPTS:
+- System prompts stored by users.
+- Document CRUD operations and the command field (trigger word like "/summarize").
+- Note the "access_control" field structure.
+
+EVALUATIONS:
+- Feedback/rating data for model responses.
+- Document the feedback object structure (rating, comment, model_id, etc.).
+- Note any aggregation/analytics endpoints.
+
+ANALYTICS:
+- Usage statistics endpoints.
+- Document what metrics are tracked and aggregation options.
+
+SCIM:
+- SCIM 2.0 protocol for enterprise user/group provisioning.
+- Document: /Users, /Groups, /ServiceProviderConfig, /ResourceTypes endpoints.
+- Note: SCIM uses different Content-Type and auth mechanism — document these.
+- Follow SCIM 2.0 RFC schema format for user/group objects.
+
+UTILS:
+- Miscellaneous utility endpoints.
+- Document all available utilities (markdown renderer, code executor, etc.).
+
+Instructions:
+1. Read config.py in addition to router files to get complete field lists.
+2. For SCIM: follow SCIM 2.0 RFC conventions in documentation format.
+3. For configs: produce a separate "All Config Fields" appendix table.
+
+Exit Criteria:
+- 6 output files created.
+- configs.md includes appendix table of ALL config fields with defaults.
+- scim.md follows SCIM 2.0 documentation conventions.
+- No placeholder or TBD.
+
+Final output format:
+- List of files created.
+- Count of endpoints documented per file.
+- Count of config fields documented in configs.md appendix.

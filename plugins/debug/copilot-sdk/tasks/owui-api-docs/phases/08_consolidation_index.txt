@@ -1,0 +1,89 @@
+Phase 8 Mission:
+Consolidate all previously generated phase outputs into a polished master index and a machine-readable summary.
+
+Prerequisites:
+- ALL phase 1~7 output files must exist under api_docs/.
+- Specifically, these files must exist:
+  - api_docs/00_route_index.md
+  - api_docs/02_auths.md, 02_users.md, 02_groups.md, 02_models.md
+  - api_docs/03_chats.md, 03_channels.md, 03_memories.md, 03_notes.md
+  - api_docs/04_files.md, 04_folders.md, 04_knowledge.md, 04_retrieval.md
+  - api_docs/05_ollama.md, 05_openai.md, 05_audio.md, 05_images.md
+  - api_docs/06_tools.md, 06_functions.md, 06_pipelines.md, 06_skills.md, 06_tasks.md
+  - api_docs/07_configs.md, 07_prompts.md, 07_evaluations.md, 07_analytics.md, 07_scim.md, 07_utils.md
+
+Output files to create/update under api_docs/:
+1. api_docs/README.md          — human-readable master index
+2. api_docs/openwebui_api.json — machine-readable OpenAPI-style JSON summary
+
+Content of README.md:
+- Title: "OpenWebUI Backend API Reference"
+- Subtitle: "Auto-generated from source code. Do not edit manually."
+- Generation date (today's date)
+- Table of Contents (links to every .md file above)
+- Statistics:
+  - Total module count
+  - Total route count (from 00_route_index.md)
+  - Admin-only route count
+  - Public route count
+  - Streaming endpoint count
+- Quick Reference: a condensed table of the 20 most commonly used endpoints (chat creation, message send, file upload, model list, auth login/logout, etc.)
+- Authentication Guide section:
+  - How to get a JWT token (reference auths.md)
+  - How to include it in requests (Authorization: Bearer <token>)
+  - Token expiry behavior
+- Common Patterns section:
+  - Pagination (skip/limit parameters)
+  - Error response shape: {detail: string}
+  - Rate limiting (if documented in code)
+
+Content of openwebui_api.json:
+A JSON object with this structure:
+{
+  "meta": {
+    "generated_date": "YYYY-MM-DD",
+    "source": "backend/open_webui/routers/",
+    "total_routes": <number>,
+    "modules": [<list of module names>]
+  },
+  "routes": [
+    {
+      "module": "auths",
+      "method": "POST",
+      "path": "/api/v1/auths/signin",
+      "handler": "signin",
+      "auth_required": false,
+      "auth_type": "public",
+      "summary": "Authenticate user and return JWT token.",
+      "request_body": {
+        "email": {"type": "str", "required": true},
+        "password": {"type": "str", "required": true}
+      },
+      "response_200": {
+        "token": {"type": "str"},
+        "token_type": {"type": "str"},
+        "id": {"type": "str"}
+      },
+      "streaming": false
+    }
+  ]
+}
+- Include ALL routes from all modules.
+- For streaming endpoints: "streaming": true.
+
+Instructions:
+1. Read ALL generated phase output files (00 through 07).
+2. Parse or summarize endpoint data from each file to populate the JSON.
+3. Write README.md with complete statistics and quick reference.
+4. Validate: total_routes in README.md must match count in openwebui_api.json.
+
+Exit Criteria:
+- api_docs/README.md exists with statistics and ToC.
+- api_docs/openwebui_api.json exists with all routes (valid JSON).
+- Route counts in README.md and JSON are consistent.
+- No placeholder or TBD.
+
+Final output format:
+- Confirmation of files created.
+- Total routes count in JSON.
+- Any modules with missing or incomplete data (for manual review).

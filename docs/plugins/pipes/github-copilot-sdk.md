@@ -1,6 +1,6 @@
 # GitHub Copilot SDK Pipe for OpenWebUI
 
-**Author:** [Fu-Jie](https://github.com/Fu-Jie) | **Version:** 0.9.0 | **Project:** [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions) | **License:** MIT
+**Author:** [Fu-Jie](https://github.com/Fu-Jie) | **Version:** 0.9.1 | **Project:** [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions) | **License:** MIT
 
 This is an advanced Pipe function for [OpenWebUI](https://github.com/open-webui/open-webui) that integrates the official [GitHub Copilot SDK](https://github.com/github/copilot-sdk). It enables you to use **GitHub Copilot models** (e.g., `gpt-5.2-codex`, `claude-sonnet-4.5`,`gemini-3-pro`, `gpt-5-mini`) **AND** your own models via **BYOK** (OpenAI, Anthropic) directly within OpenWebUI, providing a unified agentic experience with **strict User & Chat-level Workspace Isolation**.
 
@@ -14,19 +14,17 @@ This is an advanced Pipe function for [OpenWebUI](https://github.com/open-webui/
 
 ---
 
-## ✨ v0.9.0: The Skills Revolution & Stability Update
+## ✨ v0.9.1: MCP Tool Filtering & Web Search Reliability Fix
 
-- **🧩 Copilot SDK Skills Support**: Native support for Copilot SDK skill directories (`SKILL.md` + resources).
-- **🔄 OpenWebUI Skills Bridge**: Full bidirectional sync between OpenWebUI Workspace > Skills and SDK skill directories.
-- **🛠️ Deterministic `manage_skills` Tool**: Expert tool for stable install/create/list/edit/delete skill operations.
-- **🌊 Reinforced Status Bar**: Multi-layered locking mechanism (`session_finalized` guard) and atomic async delivery to prevent "stuck" indicators.
-- **🗂️ Persistent Config Directory**: Added `COPILOTSDK_CONFIG_DIR` for stable session-state persistence across container restarts.
+- **🐛 Fixed MCP tool filtering logic**: Resolved a critical issue where configuring `function_name_filter_list` (or selecting specific tools in UI) would cause all tools from that MCP server to be incorrectly hidden due to ID prefix mismatches (`server:mcp:`).
+- **🌐 Autonomous Web Search**: `web_search` is now always enabled for the agent (bypassing the UI toggle), leveraging the Copilot SDK's native ability to decide when to search.
+- **🔍 Improved filter stability**: Ensured tool-level whitelists apply reliably without breaking the entire server connection.
 
 ---
 
 ## ✨ Key Capabilities
 
-- **🔑 Unified Intelligence (Official + BYOK)**: Seamlessly switch between official GitHub Copilot models (o1, GPT-4o, Claude 3.5 Sonnet, Gemini 2.0 Flash) and your own models (OpenAI, Anthropic) via **Bring Your Own Key** mode.
+- **🔑 Unified Intelligence (Official + BYOK)**: Seamlessly switch between official GitHub Copilot models and your own models (OpenAI, Anthropic, DeepSeek, xAI) via **Bring Your Own Key** mode.
 - **🛡️ Physical Workspace Isolation**: Every session runs in its own isolated directory sandbox. This ensures absolute data privacy and prevents cross-chat file contamination while allowing the Agent full filesystem access.
 - **🔌 Universal Tool Protocol**:
   - **Native MCP**: Direct, high-performance connection to Model Context Protocol servers.

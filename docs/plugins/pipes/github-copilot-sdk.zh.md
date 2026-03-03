@@ -1,6 +1,6 @@
 # GitHub Copilot SDK 官方管道
 
-**作者:** [Fu-Jie](https://github.com/Fu-Jie/openwebui-extensions) | **版本:** 0.9.0 | **项目:** [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions) | **许可证:** MIT
+**作者:** [Fu-Jie](https://github.com/Fu-Jie/openwebui-extensions) | **版本:** 0.9.1 | **项目:** [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions) | **许可证:** MIT
 
 这是一个用于 [OpenWebUI](https://github.com/open-webui/open-webui) 的高级 Pipe 函数，深度集成了 **GitHub Copilot SDK**。它不仅支持 **GitHub Copilot 官方模型**（如 `gpt-5.2-codex`, `claude-sonnet-4.5`, `gemini-3-pro`, `gpt-5-mini`），还支持 **BYOK (自带 Key)** 模式对接自定义服务商（OpenAI, Anthropic），并具备**严格的用户与会话级工作区隔离**能力，提供统一且安全的 Agent 交互体验。
 
@@ -8,17 +8,11 @@
 > **核心伴侣组件**
 > 如需启用文件处理与数据分析能力，请务必安装 [GitHub Copilot SDK Files Filter](https://openwebui.com/posts/403a62ee-a596-45e7-be65-fab9cc24dd6)。
 >
->## ✨ 0.9.0 核心更新：技能革命与稳定性加固
+>## ✨ 0.9.1 最新更新：MCP 工具过滤与网页搜索可靠性修复
 
-- **🧩 Copilot SDK Skills 原生支持**: 技能可作为一等上下文能力被加载和使用。
-- **🔄 OpenWebUI Skills 桥接**: 实现 OpenWebUI **工作区 > Skills** 与 SDK 技能目录的深度双向同步。
-- **🛠️ 确定性 `manage_skills` 工具**: 通过稳定工具契约完成技能的生命周期管理。
-- **🌊 状态栏逻辑加固**: 引入 `session_finalized` 多层锁定机制，彻底解决任务完成后状态栏回弹或卡死的问题。
-- **🗂️ 环境目录持久化**: 增强 `COPILOTSDK_CONFIG_DIR` 逻辑，确保会话状态跨容器重启稳定存在。
-- **🌐 持续化共享缓存（扩展）**: 技能统一存储在 `OPENWEBUI_SKILLS_SHARED_DIR/shared/`，跨会话与容器重启复用。
-- **🎯 智能意图路由（扩展）**: 自动识别技能管理请求并优先路由到 `manage_skills`，确保执行确定性。
-- **🗂️ 环境目录升级**: 新增 `COPILOTSDK_CONFIG_DIR`，并自动回退到 `/app/backend/data/.copilot`，确保 SDK 配置与会话状态在容器重启后稳定持久化。
-- **🧭 CLI 提示词护栏**: 系统提示词明确区分可执行的 **tools** 与不可调用的 **skills**，并要求技能生命周期操作优先走 `manage_skills`，同时强化 CLI/Python 执行规范。
+- **🐛 修复 MCP 工具过滤逻辑**：解决了在管理员后端配置 `function_name_filter_list`（或在聊天界面勾选特定工具）时，因 ID 前缀（`server:mcp:`）识别逻辑错误导致所选服务器下的全部工具意外失效的问题。
+- **🌐 自主网页搜索**：`web_search` 工具现已强制对 Agent 开启（绕过 UI 网页搜索开关），充分利用 Copilot 自身具备的搜索判断能力。
+- **🔍 提升过滤稳定性**：由于修复了 ID 归一化逻辑，现在手动点选或后端配置的工具白名单均能稳定生效，不再会导致整个服务被排除。
 
 > [!TIP]
 > **BYOK 模式无需订阅**
@@ -28,7 +22,7 @@
 
 ## ✨ 核心能力 (Key Capabilities)
 
-- **🔑 统一智能体验 (官方 + BYOK)**: 自由切换官方模型（o1, GPT-4o, Claude 3.5 Sonnet, Gemini 2.0 Flash）与自定义服务商（OpenAI, Anthropic），支持 **BYOK (自带 Key)** 模式。
+- **🔑 统一智能体验 (官方 + BYOK)**: 自由切换官方模型与自定义服务商（OpenAI, Anthropic, DeepSeek, xAI），支持 **BYOK (自带 Key)** 模式。
 - **🛡️ 物理级工作区隔离**: 每个会话在独立的沙箱目录中运行。确保绝对的数据隐私，防止不同聊天间的文件污染，同时给予 Agent 完整的文件系统操作权限。
 - **🔌 通用工具协议**:
   - **原生 MCP**: 高性能直连 Model Context Protocol 服务器。
