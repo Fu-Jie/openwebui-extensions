@@ -2259,6 +2259,7 @@ class Pipe:
         request = self._build_openwebui_request(user_data, token=token)
 
         # Pass OAuth/Auth details in extra_params
+        chat_ctx = self._get_chat_context(body, __metadata__, __event_call__)
         extra_params = {
             "__request__": request,
             "__user__": user_data,
@@ -2266,13 +2267,33 @@ class Pipe:
             "__event_call__": __event_call__,
             "__messages__": messages,
             "__metadata__": __metadata__ or {},
-            "__chat_id__": None,
-            "__message_id__": None,
-            "__model_knowledge__": [],
+            "__chat_id__": chat_ctx.get("chat_id"),
+            "__message_id__": (__metadata__ or {}).get("message_id")
+            or (body or {}).get("message_id"),
+            "__session_id__": chat_ctx.get("session_id")
+            or (__metadata__ or {}).get("session_id"),
+            "__files__": (__metadata__ or {}).get("files", []),
+            "__task__": (__metadata__ or {}).get("task"),
+            "__task_body__": (__metadata__ or {}).get("task_body"),
+            "__model_knowledge__": (body or {})
+            .get("metadata", {})
+            .get("knowledge", []),
             "__oauth_token__": (
                 {"access_token": token} if token else None
             ),  # Mock OAuth token structure
         }
+
+        # Try to inject __model__ if available
+        model_id = (body or {}).get("model")
+        if model_id:
+            try:
+                from open_webui.models.models import Models as _Models
+
+                model_record = _Models.get_model_by_id(model_id)
+                if model_record:
+                    extra_params["__model__"] = {"info": model_record.model_dump()}
+            except Exception:
+                pass
 
         # Fetch User/Server Tools (OpenWebUI Native)
         tools_dict = {}
