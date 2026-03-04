@@ -5,3 +5,4 @@
 ## 可用 Tool 插件
 
 - [OpenWebUI Skills 管理工具](openwebui-skills-manager-tool.zh.md) (v0.2.1) - 简化技能管理（`list/show/install/create/update/delete`）。
+- [智能思维导图工具 (Smart Mind Map Tool)](smart-mind-map-tool.zh.md) (v1.0.0) - 智能分析文本内容并主动生成交互式思维导图，帮助用户结构化与可视化知识。
