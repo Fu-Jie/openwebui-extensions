@@ -2,9 +2,9 @@
 
 思维导图工具（Smart Mind Map Tool）是广受好评的“思维导图”插件的工具（Tool）版本。它赋予了模型主动生成交互式思维导图的能力，通过智能分析上下文，将碎片化知识转化为层级分明的视觉架构。
 
-**说明**：如果您更倾向于手动点击按钮触发生成，可以获取 [思维导图 Action（动作）版本](https://openwebui.com/posts/turn_any_text_into_beautiful_mind_maps_3094c59a)。
-
 **作者:** [Fu-Jie](https://github.com/Fu-Jie) | **版本:** 1.0.0 | **项目:** [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions) | **许可证:** MIT
+
+> 💡 **说明**：如果您更倾向于手动点击按钮触发生成，可以获取 [思维导图 Action（动作）版本](https://openwebui.com/posts/turn_any_text_into_beautiful_mind_maps_3094c59a)。
 
 ---
 
