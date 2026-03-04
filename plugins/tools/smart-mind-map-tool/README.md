@@ -2,7 +2,7 @@
 
 Smart Mind Map Tool is the tool version of the popular Smart Mind Map action plugin for Open WebUI. It allows the model to proactively generate interactive mind maps during conversations by intelligently analyzing context and structuring knowledge into visual hierarchies.
 
-> ℹ️ **Note**: Prefer using the manual trigger button instead? Check out the [Smart Mind Map Action Version](https://openwebui.com/posts/turn_any_text_into_beautiful_mind_maps_3094c59a) here.
+**Note**: Prefer using the manual trigger button instead? Check out the [Smart Mind Map Action Version](https://openwebui.com/posts/turn_any_text_into_beautiful_mind_maps_3094c59a) here.
 
 **Author:** [Fu-Jie](https://github.com/Fu-Jie) | **Version:** 1.0.0 | **Project:** [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions) | **License:** MIT
 
