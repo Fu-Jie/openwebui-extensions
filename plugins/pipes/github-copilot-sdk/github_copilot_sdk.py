@@ -2268,10 +2268,8 @@ class Pipe:
             "__messages__": messages,
             "__metadata__": __metadata__ or {},
             "__chat_id__": chat_ctx.get("chat_id"),
-            "__message_id__": (__metadata__ or {}).get("message_id")
-            or (body or {}).get("message_id"),
-            "__session_id__": chat_ctx.get("session_id")
-            or (__metadata__ or {}).get("session_id"),
+            "__message_id__": chat_ctx.get("message_id"),
+            "__session_id__": chat_ctx.get("session_id"),
             "__files__": (__metadata__ or {}).get("files", []),
             "__task__": (__metadata__ or {}).get("task"),
             "__task_body__": (__metadata__ or {}).get("task_body"),
@@ -3833,17 +3831,23 @@ class Pipe:
         Priority: __metadata__ > body['chat_id'] > body['metadata']['chat_id']
         """
         chat_id = ""
+        session_id = ""
+        message_id = ""
         source = "none"
 
         # 1. Prioritize __metadata__ (most reliable source injected by OpenWebUI)
         if __metadata__ and isinstance(__metadata__, dict):
             chat_id = __metadata__.get("chat_id", "")
+            session_id = __metadata__.get("session_id", "")
+            message_id = __metadata__.get("message_id", "")
             if chat_id:
                 source = "__metadata__"
 
         # 2. Then try body root
         if not chat_id and isinstance(body, dict):
             chat_id = body.get("chat_id", "")
+            session_id = session_id or body.get("session_id", "")
+            message_id = message_id or body.get("message_id", "")
             if chat_id:
                 source = "body_root"
 
@@ -3852,6 +3856,8 @@ class Pipe:
             body_metadata = body.get("metadata", {})
             if isinstance(body_metadata, dict):
                 chat_id = body_metadata.get("chat_id", "")
+                session_id = session_id or body_metadata.get("session_id", "")
+                message_id = message_id or body_metadata.get("message_id", "")
                 if chat_id:
                     source = "body_metadata"
 
@@ -3872,7 +3878,9 @@ class Pipe:
             )
 
         return {
-            "chat_id": str(chat_id).strip(),
+            "chat_id": str(chat_id or "").strip(),
+            "session_id": str(session_id or "").strip(),
+            "message_id": str(message_id or "").strip(),
         }
 
     async def _fetch_byok_models(self, uv: "Pipe.UserValves" = None) -> List[dict]:
