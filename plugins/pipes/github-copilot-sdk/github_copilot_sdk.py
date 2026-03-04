@@ -2248,10 +2248,12 @@ class Pipe:
                 f"[Tools] Requesting tool IDs: {tool_ids}", __event_call__
             )
 
-        # Extract token from body first (before building request)
+        # Extract token and messages from body first (before building request)
         token = None
+        messages = []
         if isinstance(body, dict):
             token = body.get("token")
+            messages = body.get("messages", [])
 
         # Build request with token if available
         request = self._build_openwebui_request(user_data, token=token)
@@ -2260,8 +2262,10 @@ class Pipe:
         extra_params = {
             "__request__": request,
             "__user__": user_data,
-            "__event_emitter__": None,
+            "__event_emitter__": __event_emitter__,
             "__event_call__": __event_call__,
+            "__messages__": messages,
+            "__metadata__": __metadata__ or {},
             "__chat_id__": None,
             "__message_id__": None,
             "__model_knowledge__": [],
