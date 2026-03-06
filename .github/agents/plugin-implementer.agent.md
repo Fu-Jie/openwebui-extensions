@@ -56,6 +56,11 @@ When bumping, update ALL 7+ files (code docstring + 2× README + 2× doc detail 
 - Never run `git commit`, `git push`, or create PRs automatically.
 - After all edits, list what changed and why, then stop.
 
+## Knowledge Capture (Mandatory)
+Before ending the session, if you discovered any non-obvious internal API behaviour,
+parameter injection quirk, or workaround, save it to `.agent/learnings/{topic}.md`.
+Also browse `.agent/learnings/` at the start to reuse existing knowledge.
+
 ## Completion Output
 - Modified files (full relative paths, one-line descriptions)
 - Remaining manual checks

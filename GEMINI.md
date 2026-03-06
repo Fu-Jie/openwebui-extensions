@@ -21,6 +21,7 @@ Plugin types: `actions` / `filters` / `pipes` / `pipelines` / `tools`
 2. **No silent failures.** All errors must surface via `__event_emitter__` notification or backend `logging`.
 3. **No hardcoded model IDs.** Default to the current conversation model; let `Valves` override.
 4. **Chinese responses.** Reply in Simplified Chinese for all planning, explanations, and status summaries. English only for code, commit messages, and docstrings.
+5. **Knowledge capture.** Whenever you discover a non-obvious pattern, gotcha, or workaround (e.g., internal API contracts, mock object requirements, parameter injection quirks), save it to `.agent/learnings/{topic}.md` **before ending the session**. See `.agent/learnings/README.md` for format and existing entries.
 
 ---
 

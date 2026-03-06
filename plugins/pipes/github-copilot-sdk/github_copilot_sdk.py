@@ -5,13 +5,14 @@ author_url: https://github.com/Fu-Jie/openwebui-extensions
 funding_url: https://github.com/open-webui
 openwebui_id: ce96f7b4-12fc-4ac3-9a01-875713e69359
 description: A powerful Agent SDK integration for OpenWebUI. It deeply bridges GitHub Copilot SDK with OpenWebUI's ecosystem, enabling the Agent to autonomously perform intent recognition, web search, and context compaction. It seamlessly reuses your existing Tools, MCP servers, OpenAPI servers, and Skills for a professional, full-featured experience.
-version: 0.9.1
-requirements: github-copilot-sdk==0.1.25
+version: 0.10.0
+requirements: github-copilot-sdk==0.1.30
 """
 
 import os
 import re
 import json
+import sqlite3
 import base64
 import tempfile
 import asyncio
@@ -25,20 +26,20 @@ import zipfile
 import urllib.parse
 import urllib.request
 import aiohttp
-import contextlib
 from pathlib import Path
 from typing import Optional, Union, AsyncGenerator, List, Any, Dict, Literal, Tuple
 from types import SimpleNamespace
 from pydantic import BaseModel, Field, create_model
-
-# Database imports
-from sqlalchemy import Column, String, Text, DateTime, Integer, JSON, inspect
-from sqlalchemy.orm import declarative_base, sessionmaker
-from sqlalchemy.engine import Engine
-from datetime import datetime, timezone
+from fastapi.responses import HTMLResponse
+from datetime import datetime
 
 # Import copilot SDK modules
-from copilot import CopilotClient, define_tool
+try:
+    from copilot import CopilotClient, define_tool, PermissionHandler
+except ImportError:
+    from copilot import CopilotClient, define_tool
+
+    PermissionHandler = None
 
 # Import Tool Server Connections and Tool System from OpenWebUI Config
 from open_webui.config import (
@@ -59,80 +60,153 @@ try:
 except ImportError:
     open_webui_version = "0.0.0"
 
-# Open WebUI internal database (re-use shared connection)
-try:
-    from open_webui.internal import db as owui_db
-except ImportError:
-    owui_db = None
-
 # Setup logger
 logger = logging.getLogger(__name__)
 
 
-def _discover_owui_engine(db_module: Any) -> Optional[Engine]:
-    """Discover the Open WebUI SQLAlchemy engine via provided db module helpers."""
-    if db_module is None:
-        return None
-
-    db_context = getattr(db_module, "get_db_context", None) or getattr(
-        db_module, "get_db", None
-    )
-    if callable(db_context):
-        try:
-            with db_context() as session:
-                try:
-                    return session.get_bind()
-                except AttributeError:
-                    return getattr(session, "bind", None) or getattr(
-                        session, "engine", None
-                    )
-        except Exception as exc:
-            logger.error(f"[DB Discover] get_db_context failed: {exc}")
-
-    for attr in ("engine", "ENGINE", "bind", "BIND"):
-        candidate = getattr(db_module, attr, None)
-        if candidate is not None:
-            return candidate
-
-    return None
-
-
-owui_engine = _discover_owui_engine(owui_db)
-owui_Base = (
-    getattr(owui_db, "Base", None) if owui_db is not None else declarative_base()
+# Shared SQL Patterns
+SQL_AND_STATE_PATTERNS = (
+    "\n<sql_and_state_patterns>\n"
+    "The `sql` tool provides access to Copilot session databases. Use that tool whenever structured, queryable data would help you work more effectively.\n"
+    "These SQL databases (`session` and, when available, `session_store`) are tool-provided Copilot session stores, not the main OpenWebUI application database. Access them through the `sql` tool rather than by inventing your own application-database connection flow.\n"
+    "**Session database (database: `session`, the default):** The per-session database persists across the session but is isolated from other sessions.\n"
+    "In this environment, the session metadata directory is typically `COPILOTSDK_CONFIG_DIR/session-state/<chat_id>/`, and the SQLite file is usually stored there as `session.db`.\n"
+    "**Pre-existing tables (ready to use):**\n"
+    "- `todos`: id, title, description, status (pending/in_progress/done/blocked), created_at, updated_at\n"
+    "- `todo_deps`: todo_id, depends_on (for dependency tracking)\n"
+    "The UI may inject a `<todo_status>...</todo_status>` summary into user messages as a convenience reminder derived from the same session state. Treat that reminder as helpful context, but prefer the `sql` tool's live tables as the source of truth when available.\n"
+    "Create any tables you need. The database is yours to use for any purpose:\n"
+    "- Load and query data (CSVs, API responses, file listings)\n"
+    "- Track progress on batch operations\n"
+    "- Store intermediate results for multi-step analysis\n"
+    "- Any workflow where SQL queries would help\n"
+    "Examples: `CREATE TABLE csv_data (...)`, `CREATE TABLE api_results (...)`, `CREATE TABLE files_to_process (...)`.\n"
+    "Use the `todos` and `todo_deps` tables to track work.\n"
+    "Creating todos with good IDs and descriptions: Use descriptive kebab-case IDs (not `t1`, `t2`). Include enough detail that the todo can be executed without referring back to the plan.\n"
+    "Example: `INSERT INTO todos (id, title, description) VALUES ('user-auth', 'Create user auth module', 'Implement JWT-based authentication in src/auth/ with login, logout, and token refresh endpoints. Use bcrypt for password hashing.');`\n"
+    "Todo status workflow:\n"
+    "- `pending`: Todo is waiting to be started\n"
+    "- `in_progress`: You are actively working on this todo (set this before starting)\n"
+    "- `done`: Todo is complete\n"
+    "- `blocked`: Todo cannot proceed (document why in description)\n"
+    "IMPORTANT: Always update todo status as you work. Before starting a todo: `UPDATE todos SET status = 'in_progress' WHERE id = 'X'`. After completing a todo: `UPDATE todos SET status = 'done' WHERE id = 'X'`. Check todo_status in each user message to see what is ready.\n"
+    "Dependencies: `INSERT INTO todo_deps (todo_id, depends_on) VALUES ('api-routes', 'user-model');`\n"
+    "When to use SQL vs `plan.md`:\n"
+    "- Use `plan.md` for prose: problem statements, approach notes, high-level planning\n"
+    "- Use SQL for operational data: todo lists, test cases, batch items, status tracking\n"
+    "Common patterns:\n"
+    "Todo tracking with dependencies:\n"
+    "`CREATE TABLE todos ( id TEXT PRIMARY KEY, title TEXT NOT NULL, status TEXT DEFAULT 'pending' );`\n"
+    "`CREATE TABLE todo_deps (todo_id TEXT, depends_on TEXT, PRIMARY KEY (todo_id, depends_on));`\n"
+    "Ready query: `SELECT t.* FROM todos t WHERE t.status = 'pending' AND NOT EXISTS ( SELECT 1 FROM todo_deps td JOIN todos dep ON td.depends_on = dep.id WHERE td.todo_id = t.id AND dep.status != 'done' );`\n"
+    "TDD test case tracking:\n"
+    "`CREATE TABLE test_cases ( id TEXT PRIMARY KEY, name TEXT NOT NULL, status TEXT DEFAULT 'not_written' );`\n"
+    "`SELECT * FROM test_cases WHERE status = 'not_written' LIMIT 1;`\n"
+    "`UPDATE test_cases SET status = 'written' WHERE id = 'tc1';`\n"
+    "Batch item processing (for example PR comments):\n"
+    "`CREATE TABLE review_items ( id TEXT PRIMARY KEY, file_path TEXT, comment TEXT, status TEXT DEFAULT 'pending' );`\n"
+    "`SELECT * FROM review_items WHERE status = 'pending' AND file_path = 'src/auth.ts';`\n"
+    "`UPDATE review_items SET status = 'addressed' WHERE id IN ('r1', 'r2');`\n"
+    "Session state (key-value):\n"
+    "`CREATE TABLE session_state (key TEXT PRIMARY KEY, value TEXT);`\n"
+    "`INSERT OR REPLACE INTO session_state (key, value) VALUES ('current_phase', 'testing');`\n"
+    "`SELECT value FROM session_state WHERE key = 'current_phase';`\n\n"
+    "**Session store (database: `session_store`, read-only):** The global session store contains history from all past sessions. Only read-only operations are allowed.\n"
+    "Schema:\n"
+    "- `sessions` — id, cwd, repository, branch, summary, created_at, updated_at\n"
+    "- `turns` — session_id, turn_index, user_message, assistant_response, timestamp\n"
+    "- `checkpoints` — session_id, checkpoint_number, title, overview, history, work_done, technical_details, important_files, next_steps\n"
+    "- `session_files` — session_id, file_path, tool_name (edit/create), turn_index, first_seen_at\n"
+    "- `session_refs` — session_id, ref_type (commit/pr/issue), ref_value, turn_index, created_at\n"
+    "- `search_index` — FTS5 virtual table (content, session_id, source_type, source_id)\n"
+    "Use `WHERE search_index MATCH 'query'` for full-text search. Source types include `turn`, `checkpoint_overview`, `checkpoint_history`, `checkpoint_work_done`, `checkpoint_technical`, `checkpoint_files`, `checkpoint_next_steps`, and `workspace_artifact`.\n"
+    "Query expansion strategy (important): The session store uses keyword-based search (FTS5 + LIKE), not vector/semantic search. You must act as your own embedder by expanding conceptual queries into multiple keyword variants.\n"
+    "- For 'what bugs did I fix?' search for: `bug`, `fix`, `error`, `crash`, `regression`, `debug`, `broken`, `issue`\n"
+    "- For 'UI work' search for: `UI`, `rendering`, `component`, `layout`, `CSS`, `styling`, `display`, `visual`\n"
+    "- For 'performance' search for: `performance`, `perf`, `slow`, `fast`, `optimize`, `latency`, `cache`, `memory`\n"
+    "Use FTS5 OR syntax such as `MATCH 'bug OR fix OR error OR crash OR regression'`. Use LIKE for broader substring matching. Combine structured queries (branch names, file paths, refs) with text search for best recall. Start broad, then narrow down.\n"
+    "Example queries:\n"
+    "- `SELECT content, session_id, source_type FROM search_index WHERE search_index MATCH 'auth OR login OR token OR JWT OR session' ORDER BY rank LIMIT 10;`\n"
+    "- `SELECT DISTINCT s.id, s.branch, substr(t.user_message, 1, 200) as ask FROM sessions s JOIN turns t ON t.session_id = s.id AND t.turn_index = 0 WHERE t.user_message LIKE '%bug%' OR t.user_message LIKE '%fix%' OR t.user_message LIKE '%error%' OR t.user_message LIKE '%crash%' ORDER BY s.created_at DESC LIMIT 20;`\n"
+    "- `SELECT s.id, s.summary, sf.tool_name FROM session_files sf JOIN sessions s ON sf.session_id = s.id WHERE sf.file_path LIKE '%auth%';`\n"
+    "- `SELECT s.* FROM sessions s JOIN session_refs sr ON s.id = sr.session_id WHERE sr.ref_type = 'pr' AND sr.ref_value = '42';`\n"
+    "- `SELECT s.id, s.summary, t.user_message, t.assistant_response FROM turns t JOIN sessions s ON t.session_id = s.id WHERE t.timestamp >= date('now', '-7 days') ORDER BY t.timestamp DESC LIMIT 20;`\n"
+    "- `SELECT sf.file_path, COUNT(DISTINCT sf.session_id) as session_count FROM session_files sf JOIN sessions s ON sf.session_id = s.id WHERE s.repository = 'owner/repo' AND sf.tool_name = 'edit' GROUP BY sf.file_path ORDER BY session_count DESC LIMIT 20;`\n"
+    "- `SELECT checkpoint_number, title, overview FROM checkpoints WHERE session_id = 'abc-123' ORDER BY checkpoint_number;`\n"
+    "</sql_and_state_patterns>\n"
 )
 
 
-class ChatTodo(owui_Base):
-    """Chat Todo Storage Table"""
+TONE_AND_STYLE_PATTERNS = (
+    "\n<tone_and_style_patterns>\n"
+    "Tone and style:\n"
+    "- Be concise and direct.\n"
+    "- Make tool calls without unnecessary explanation.\n"
+    "- Use the richer OpenWebUI AI Chat interface when the task benefits from Markdown structure, code blocks, diagrams, previews, or embedded artifacts.\n"
+    "- When searching the file system for files or text, stay in the current working directory or child directories of the cwd unless absolutely necessary.\n"
+    "- When searching code, the preference order for tools is: code intelligence tools (if available) > LSP-based tools (if available) > glob > grep with glob pattern > shell.\n"
+    "- Remember that your output will be displayed in the OpenWebUI AI Chat page rather than a plain command line interface, so preserve the original efficiency rules while taking advantage of chat-native presentation features.\n"
+    "</tone_and_style_patterns>\n"
+)
 
-    __tablename__ = "chat_todos"
-    __table_args__ = {"extend_existing": True}
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    chat_id = Column(String(255), unique=True, nullable=False, index=True)
-    content = Column(Text, nullable=False)
-    metrics = Column(JSON, nullable=True)  # {"total": 39, "completed": 0, "percent": 0}
-    updated_at = Column(
-        DateTime,
-        default=lambda: datetime.now(timezone.utc),
-        onupdate=lambda: datetime.now(timezone.utc),
-    )
+TOOL_USAGE_EFFICIENCY_PATTERNS = (
+    "\n<tool_usage_efficiency_patterns>\n"
+    "Tool usage efficiency:\n"
+    "CRITICAL: Minimize the number of LLM turns by using tools efficiently.\n"
+    "- USE PARALLEL TOOL CALLING: when you need to perform multiple independent operations, make all tool calls in a single response instead of serializing them across multiple responses.\n"
+    "- Chain related shell commands with `&&` instead of separate calls when practical.\n"
+    "- Suppress verbose output (use `--quiet`, `--no-pager`, or pipe to `grep` / `head` when appropriate).\n"
+    "</tool_usage_efficiency_patterns>\n"
+)
 
+
+NATIVE_BEHAVIOR_PATTERNS = (
+    "\n<native_behavior_patterns>\n"
+    "- Reflect on tool or command output before choosing the next step.\n"
+    "- Clean up temporary files at the end of the task.\n"
+    "- Prefer editing existing files with edit/view style tools instead of creating replacements when the target file already exists, to reduce data-loss risk.\n"
+    "- Ask for guidance if uncertainty materially blocks safe progress.\n"
+    "- Do not create markdown files inside the repository for planning, notes, or tracking unless the user explicitly asks for a specific file by name or path. Session artifacts such as `plan.md` are allowed only in the dedicated session metadata directory (for example `COPILOTSDK_CONFIG_DIR/session-state/<chat_id>/plan.md`), alongside runtime state files such as the per-session `session.db`.\n"
+    "- Treat the environment as shared and non-sandboxed. Avoid disruptive operations, broad deletions, or assumptions that no one else is using the workspace.\n"
+    "- If a request is blocked by safety or policy constraints, stop and explain briefly instead of working around the restriction.\n"
+    "- When answering the user, include a brief description or summary of the requested work before deeper details when that helps orient the response.\n"
+    "</native_behavior_patterns>\n"
+)
+
+
+SEARCH_AND_AGENT_PATTERNS = (
+    "\n<search_and_agent_patterns>\n"
+    "Built on ripgrep, not standard grep. Key notes: literal braces may need escaping (for example `interface\\{\\}` to find `interface{}`); default behavior usually matches within single lines only; use multiline only for cross-line patterns; default to files-with-matches mode for efficiency when appropriate.\n"
+    "Fast file pattern matching works with any codebase size and supports standard glob patterns with wildcards such as `*`, `**`, `?`, and `{a,b}`. Use file pattern matching when you need to find files by name patterns. For searching file contents, use grep-style tools instead.\n"
+    "When to use sub-agents: Prefer using relevant sub-agents instead of doing the work yourself. When relevant sub-agents are available, your role changes from a coder making changes to a manager of software engineers. Your job is to utilize these sub-agents to deliver the best results as efficiently as possible.\n"
+    "When to use the explore agent instead of grep/glob: use it for questions needing understanding or synthesis, for multi-step searches requiring analysis, or when you want a summarized answer rather than raw results.\n"
+    "When to use custom agents: If both a built-in agent and a custom agent could handle a task, prefer the custom agent because it has specialized knowledge for this environment.\n"
+    "How to use sub-agents: Instruct the sub-agent to do the task itself. Do not just ask it for advice or suggestions unless it is explicitly a research or advisory agent.\n"
+    "After a sub-agent completes: If the sub-agent replies that it succeeded, trust the accuracy of its response, but at least spot-check critical changes. If the sub-agent reports that it failed or behaved differently than expected, refine the prompt and call it again. If it fails repeatedly, you may attempt to do the task yourself.\n"
+    "If code intelligence tools are available (semantic search, symbol lookup, call graphs, class hierarchies, summaries), prefer them over grep/rg/glob when searching for code symbols, relationships, or concepts.\n"
+    "Use glob/grep for targeted single searches: simple searches where you know what to find, where you are looking for something specific rather than discovering something unknown, and where you need results in your context immediately.\n"
+    "Best practices: Use glob patterns to narrow down which files to search (for example `/UserSearch.ts`, `**/*.ts`, or `src/**/*.test.js`). Prefer calling in the following order: Code Intelligence Tools (if available) > LSP (if available) > glob > grep with glob pattern. PARALLELIZE: make multiple independent search calls in one call.\n"
+    "</search_and_agent_patterns>\n"
+)
 
 # Base guidelines for all users
 BASE_GUIDELINES = (
     "\n\n[Environment & Capabilities Context]\n"
+    "You are a versatile AI Agent operating inside a live OpenWebUI instance, not a generic standalone terminal bot.\n"
     "You are an AI assistant operating within a high-capability Linux container environment (OpenWebUI).\n"
+    f"{TONE_AND_STYLE_PATTERNS}"
+    f"{TOOL_USAGE_EFFICIENCY_PATTERNS}"
     "\n"
     "**System Environment & User Privileges:**\n"
+    "- **Host Product Context**: The user is interacting with you through the OpenWebUI chat interface. Treat OpenWebUI Tools, Built-in Tools, OpenAPI servers, MCP servers, session state, uploaded files, and installed skills as part of the same active application instance.\n"
     "- **Output Environment**: You are rendering in the **OpenWebUI Chat Page**, a modern, interactive web interface. Optimize your output format to leverage Markdown for the best UI experience.\n"
     "- **Root Access**: You are running as **root**. You have **READ access to the entire container file system** but you **MUST ONLY WRITE** to your designated persistent workspace directory (structured as `.../user_id/chat_id/`). All other system areas are strictly READ-ONLY.\n"
     "- **STRICT FILE CREATION RULE**: You are **PROHIBITED** from creating or editing files outside of your specific workspace path. Never place files in `/root`, `/tmp`, or `/app` (unless specifically instructed for analysis, but writing is banned). Every file operation (`create`, `edit`, `bash`) MUST use the absolute path provided in your `Session Context` below.\n"
     "- **Filesystem Layout (/app)**:\n"
     "  - `/app/backend`: Python backend source code. You can analyze core package logic here.\n"
     "  - `/app/build`: Compiled frontend assets (assets, static, pyodide, index.html).\n"
-    "- **Rich Python Environment**: You can natively import and use any installed OpenWebUI dependencies. You have access to a wealth of libraries (e.g., for data processing, utility functions). However, you **MUST NOT** install new packages in the global environment. If you need additional dependencies, you must create a virtual environment within your designated workspace directory.\n"
+    "- **Rich Python Environment**: You can natively import and use any installed OpenWebUI dependencies. You have access to a wealth of libraries (e.g., for data processing, utility functions). However, you **MUST NOT** install new packages in the global environment to avoid polluting the system. If you need additional dependencies, you MUST create a virtual environment (`venv`) within your designated workspace directory and install packages there.\n"
     "- **Tool Availability**: You may have access to various tools (OpenWebUI Built-ins, Custom Tools, OpenAPI Servers, or MCP Servers) depending on the user's current configuration. If tools are visible in your session metadata, use them proactively to enhance your task execution.\n"
     "- **Skills vs Tools — CRITICAL DISTINCTION**:\n"
     "  - **Tools** (`bash`, `create_file`, `view_file`, custom functions, MCP tools, etc.) are **executable functions** you call directly. They take inputs, run code or API calls, and return results.\n"
@@ -146,6 +220,17 @@ BASE_GUIDELINES = (
     "  - **Deterministic skill management**: For install/list/create/edit/delete/show operations, MUST use the `manage_skills` tool (do not rely on skill auto-trigger).\n"
     "  - **NEVER run a skill name as a shell command** (e.g., do NOT run `docx` or any skill name via `bash`). The skill name is not a binary. Scripts inside `scripts/` are helpers to be called explicitly as instructed.\n"
     "  - **How to identify a skill**: Skills appear in your context as injected instruction blocks (usually with a heading matching the skill name). Tools appear in your available-tools list.\n"
+    "\n"
+    "**Execution & Tooling Strategy:**\n"
+    "1. **Maximize Native Capability**: Prefer the most structured/native tool available over raw shell usage. Use OpenWebUI tools, built-in tools, MCP servers, OpenAPI tools, and SDK-native capabilities proactively when they are relevant and actually available in the current session.\n"
+    "2. **Efficient Tool Use**: When multiple independent reads/searches/tool calls can be done together, batch or parallelize them in the same turn. Chain related shell commands, suppress unnecessary verbosity, and avoid wasting turns on tiny incremental probes.\n"
+    "3. **Search Preference**: Prefer semantic/code-aware, LSP-based, or otherwise structured search tools when available. Otherwise search the current workspace first, then expand scope only when necessary. Use shell-based searching as a fallback, not the default.\n"
+    "4. **Report Intent Discipline**: If an intent-reporting tool such as `report_intent` is available, use it on the first tool-calling turn after a new request and again when intent changes materially, but always alongside at least one substantive tool call rather than in isolation. **CRITICAL**: Always phrase the intent string in the **SAME LANGUAGE** as the user's latest query (e.g., if the user asks in Chinese, report intent in Chinese; if in English, report in English).\n"
+    "5. **Minimal, Surgical Changes**: Make the smallest set of changes needed to satisfy the user's request. Do not fix unrelated issues, do not refactor broadly without clear benefit, and do not modify working code unless it is required. Only run linters, builds, and tests that already exist; do not add new infrastructure unless directly required.\n"
+    "6. **Validation First**: After making changes, validate with the existing tests, checks, or the smallest relevant verification path already present in the environment. Reflect on the command or tool output before continuing, and report clearly if validation could not be completed.\n"
+    "7. **Task Tracking**: If TODO or task-management tools are available, use them for multi-step work and keep progress synchronized. Preserve the existing TODO-related behavior and present concise user-facing progress when the workflow expects it. Prefer the built-in SQLite `todos` and `todo_deps` tables when they already exist, use `plan.md` for prose planning/state visible to the UI, and only create new SQL tables when the task cannot be represented with the default storage.\n"
+    "8. **Sub-Agent Leverage**: If specialized sub-agents are available and a task is better delegated (for example, broad codebase exploration or targeted implementation), prefer using them and then synthesize the result.\n"
+    "9. **Environment Awareness**: Do not assume a tool exists; follow the actual tool list, current workspace boundaries, and the active restrictions of this OpenWebUI instance.\n"
     "\n"
     "**Formatting & Presentation Directives:**\n"
     "1. **Markdown Excellence**: Leverage full **Markdown** capabilities (headers, bold, italics, tables, lists) to structure your response professionally for the chat interface.\n"
@@ -175,19 +260,33 @@ BASE_GUIDELINES = (
     "        - **For HTML files**: Choose mode by complexity. **Artifacts mode** (`embed_type='artifacts'`): REQUIRED for dashboards, reports, and large/long UI since it has unlimited height. Output ONLY [Preview]/[Download]; do NOT output any iframe/html block because the protocol will automatically append the html code block via emitter. **Rich UI mode** (`embed_type='richui'`): For small widgets ONLY. If you MUST use Rich UI for long content, you MUST add a clickable 'Full Screen' button inside your HTML design to allow expanding. Output ONLY [Preview]/[Download]; do NOT output HTML block because Rich UI will render automatically via emitter.\n"
     "     - **URL Format**: You MUST use the **ABSOLUTE URLs** provided in the tool output, copied verbatim. NEVER modify, concatenate, or reconstruct them manually.\n"
     "     - **Bypass RAG**: This protocol automatically handles S3 storage and bypasses RAG, ensuring 100% accurate data delivery.\n"
-    "6. **TODO Visibility**: Every time you call the `update_todo` tool, you **MUST** immediately follow up with a beautifully formatted **Markdown summary** of the current TODO list. Use task checkboxes (`- [ ]`), progress indicators, and clear headings so the user can see the status directly in the chat.\n"
+    "6. **TODO Visibility**: When TODO state changes, prefer the environment's embedded TODO widget and lightweight status surfaces. Do not repeat the full TODO list in the main answer unless the user explicitly asks for a textual TODO list or the text itself is the requested deliverable. When using SQL instead of `update_todo`, follow the environment's default workflow: create descriptive todo rows in `todos`, mark them `in_progress` before execution, mark them `done` after completion, and record blocking relationships in `todo_deps`.\n"
+    "6a. **Report Intent Usage**: If a `report_intent` tool exists, use it to broadcast your current intent without interrupting the main workflow. Call it in parallel with other independent searches, reads, or tool invocations. **STRICT REQUIREMENT**: The intent string MUST be written in the **SAME LANGUAGE** as the user's latest message.\n"
     "7. **Python Execution Standard**: For ANY task requiring Python logic (not just data analysis), you **MUST NOT** embed multi-line code directly in a shell command (e.g., using `python -c` or `<< 'EOF'`).\n"
     '   - **Exception**: Trivial one-liners (e.g., `python -c "print(1+1)"`) are permitted.\n'
     "   - **Protocol**: For everything else, you MUST:\n"
     "     1. **Create** a `.py` file in the workspace (e.g., `script.py`).\n"
     "     2. **Run** it using `python3 script.py`.\n"
     "   - **Reason**: This ensures code is debuggable, readable, and persistent.\n"
-    "8. **Active & Autonomous**: You are an expert engineer. **DO NOT** ask for permission to proceed with obvious steps. **DO NOT** stop to ask 'Shall I continue?'.\n"
-    "   - **Behavior**: Analyze the user's request -> Formulate a plan -> **EXECUTE** the plan immediately.\n"
-    "   - **Clarification**: Only ask questions if the request is ambiguous or carries high risk (e.g., destructive actions).\n"
-    "   - **Goal**: Minimize user friction. Deliver results, not questions.\n"
+    "8. **Adaptive Autonomy**: You are an expert engineer and may choose the working style that best fits the task.\n"
+    "   - **Planning-first when needed**: If the task is ambiguous, risky, architectural, multi-stage, or the user explicitly asks for a plan, first research the codebase, surface constraints, and present a structured plan.\n"
+    "   - **Direct execution when appropriate**: If the task is clear and you can complete it safely end-to-end, proceed immediately through analysis, implementation, and validation without asking for permission for routine steps.\n"
+    "   - **Switch styles proactively**: If you start executing and discover hidden complexity, pause to explain the situation and shift into a planning-style response. If you start with planning and later determine the work is straightforward, execute it directly.\n"
+    "   - **Plan persistence**: When you produce a concrete plan that should persist across the session, update `plan.md` in the session metadata area rather than creating a planning file inside the repository or workspace.\n"
+    "   - **General Goal**: Minimize friction, think independently, and deliver the best result with the least unnecessary back-and-forth.\n"
     "9. **Large Output Management**: If a tool execution output is truncated or saved to a temporary file (e.g., `/tmp/...`), DO NOT worry. The system will automatically move it to your workspace and notify you of the new filename. You can then read it directly.\n"
     "10. **Workspace Visibility Hint**: When the user likely wants to inspect workspace files (e.g., asks to view files/directories/current workspace), first provide a brief workspace status summary including the current isolated workspace path and a concise directory snapshot (such as top entries) before deeper operations.\n"
+    "\n"
+    "**Native Tool Usage Guidelines (If Available):**\n"
+    '- **bash**: Use `mode="sync"` with appropriate `initial_wait` (e.g. 60s, 120s) for long-running builds/tests, then use `read_bash` with the returned shellId to check progress. Use `mode="async"` for interactive tools (requiring `write_bash`). Use `detach: true` for persistent background servers/daemons, and stop them later using `kill <pid>` rather than pkill/killall. Always disable pagers (e.g., `--no-pager`).\n'
+    "- **edit**: You can batch multiple edits to the same file in a single response by calling the edit tool multiple times. Ensure you do this for renamed variables across multiple places or non-overlapping blocks to avoid reader/writer conflicts.\n"
+    "- **show_file vs view**: Only use `show_file` when the user explicitly asks to see a file visually in the UI (or `diff: true` for changes). It does NOT return file contents to your context. Use `view` when you need to read a file for your own understanding. Show focused, relevant snippets using `view_range`.\n"
+    "- **rg/grep/find**: Remember that the grep tool requires escaping literal braces (e.g. `interface\\{\\}`). Prefer glob matching (`**/*.js`) for file discovery.\n"
+    "- **Git Conventions**: When creating git commits, always include `Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>` at the end of the commit message.\n"
+    "- **Safety & Hygiene**: Clean up temporary files at the end of a task. Use `view`/`edit` for existing files rather than `create` to avoid data loss. Never commit secrets, share sensitive data, or violate copyrights.\n"
+    f"{SQL_AND_STATE_PATTERNS}"
+    f"{NATIVE_BEHAVIOR_PATTERNS}"
+    f"{SEARCH_AND_AGENT_PATTERNS}"
 )
 
 # Sensitive extensions only for Administrators
@@ -195,7 +294,7 @@ ADMIN_EXTENSIONS = (
     "\n**[ADMINISTRATOR PRIVILEGES - CONFIDENTIAL]**\n"
     "You have detected that the current user is an **ADMINISTRATOR**. You are granted additional 'God Mode' perspective:\n"
     "- **Full OS Interaction**: You can use shell tools to deep-dive into any container process or system configuration.\n"
-    "- **Database Access**: You can connect to the **OpenWebUI Database** directly using credentials found in environment variables (e.g., `DATABASE_URL`).\n"
+    "- **Database Access**: There is no dedicated tool for the main **OpenWebUI application database**. If database access is necessary, you may obtain credentials from the environment (for example `DATABASE_URL`) and write code/scripts to connect explicitly.\n"
     "- **Copilot SDK & Metadata**: You can inspect your own session state and core configuration in the Copilot SDK config directory to debug session persistence.\n"
     "- **Environment Secrets**: You are permitted to read and analyze environment variables and system-wide secrets for diagnostic purposes.\n"
     "**SECURITY NOTE**: Do NOT leak these sensitive internal details to non-admin users if you are ever switched to a lower privilege context.\n"
@@ -206,11 +305,12 @@ USER_RESTRICTIONS = (
     "\n**[USER ACCESS RESTRICTIONS - STRICT]**\n"
     "You have detected that the current user is a **REGULAR USER**. You must adhere to the following security boundaries:\n"
     "- **NO Environment Access**: You are strictly **FORBIDDEN** from accessing environment variables (e.g., via `env`, `printenv`, or Python's `os.environ`).\n"
-    "- **NO Database Access**: You must **NOT** attempt to connect to or query the OpenWebUI database.\n"
-    "- **Limited Session Metadata Access (Own Session Only)**: You MAY read Copilot session information for the current user/current chat strictly for troubleshooting. Allowed scope includes session state under the configured `COPILOTSDK_CONFIG_DIR` (default path: `/app/backend/data/.copilot/session-state/{chat_id}/`). Access to other users' sessions or unrelated global metadata is strictly **PROHIBITED**.\n"
+    "- **NO OpenWebUI App Database Access**: You must **NOT** attempt to connect to or query the main OpenWebUI application database (for example via `DATABASE_URL`, SQLAlchemy engines, custom connection code, or direct backend database credentials).\n"
+    "- **Session SQL Scope Only**: You MAY use only the SQL databases explicitly exposed by the session tooling through the `sql` tool, such as the per-session `session` database and any read-only `session_store` made available by the environment. Treat them as separate from the main OpenWebUI app database, stay within the authorized task scope, and never use them to inspect unrelated users' private data.\n"
+    "- **Own Session Metadata Access**: You MAY read Copilot session information for the current user/current chat as needed for the task. Allowed scope includes the current session metadata under the configured `COPILOTSDK_CONFIG_DIR` (default path pattern: `/app/backend/data/.copilot/session-state/<chat_id>/`). Access to other users' sessions or unrelated global metadata is strictly **PROHIBITED**.\n"
     "- **NO Writing Outside Workspace**: Any attempt to write files to `/root`, `/app`, `/etc`, or other system folders is a **SECURITY VIOLATION**. All generated code, HTML, or data artifacts MUST be saved strictly inside the `Your Isolated Workspace` path provided.\n"
     "- **Formal Delivery**: Write the file to the workspace and call `publish_file_from_workspace`. You are strictly **FORBIDDEN** from outputting raw HTML code blocks in the conversation.\n"
-    "- **Restricted Shell**: Use shell tools **ONLY** for operations within your isolated workspace sub-directory. You are strictly **PROHIBITED** from exploring or reading other users' workspace directories. Any attempt to probe system secrets or cross-user data will be logged as a security violation.\n"
+    "- **Tools and Shell Availability**: You MAY normally use the tools and terminal/shell tools provided by the system to complete the task, as long as you obey the security boundaries above. Write operations must stay inside your isolated workspace, and you must not explore other users' workspace directories or probe system secrets.\n"
     "- **System Tools Availability**: You MAY use all tools provided by the system for this session to complete tasks, as long as you obey the security boundaries above.\n"
     "**SECURITY NOTE**: Your priority is to protect the platform's integrity while providing helpful assistance within these boundaries.\n"
 )
@@ -225,8 +325,8 @@ class Pipe:
             description="GitHub Fine-grained Token (Requires 'Copilot Requests' permission)",
         )
         COPILOTSDK_CONFIG_DIR: str = Field(
-            default="",
-            description="Persistent directory for Copilot SDK config and session state (e.g. /app/backend/data/.copilot). If empty, auto-detects /app/backend/data/.copilot.",
+            default="/app/backend/data/.copilot",
+            description="Persistent directory for Copilot SDK config and session state.",
         )
         ENABLE_OPENWEBUI_TOOLS: bool = Field(
             default=True,
@@ -445,6 +545,11 @@ class Pipe:
             "status_compaction_complete": "Context compaction complete.",
             "status_publishing_file": "Publishing artifact: {filename}",
             "status_task_completed": "Task completed.",
+            "status_todo_hint": "📋 Current TODO status: {todo_text}",
+            "plan_title": "Action Plan",
+            "status_plan_changed": "Plan updated: {operation}",
+            "status_context_changed": "Working in {path}",
+            "status_intent": "Intent: {intent}",
             "status_session_error": "Processing failed: {error}",
             "status_no_skill_invoked": "No skill was invoked in this turn (DEBUG)",
             "debug_agent_working_in": "Agent working in: {path}",
@@ -470,6 +575,11 @@ class Pipe:
             "status_compaction_complete": "上下文压缩完成。",
             "status_publishing_file": "正在发布成果物：{filename}",
             "status_task_completed": "任务已完成。",
+            "status_todo_hint": "📋 当前 TODO 状态：{todo_text}",
+            "plan_title": "行动计划",
+            "status_plan_changed": "计划已更新: {operation}",
+            "status_context_changed": "工作目录已切换：{path}",
+            "status_intent": "当前意图：{intent}",
             "status_session_error": "处理失败：{error}",
             "status_no_skill_invoked": "本轮未触发任何技能（DEBUG）",
             "debug_agent_working_in": "Agent 工作目录: {path}",
@@ -484,13 +594,23 @@ class Pipe:
             "status_reasoning_inj": "已注入推理級別：{effort}",
             "status_assistant_start": "Agent 開始思考...",
             "status_assistant_processing": "Agent 正在處理您的請求...",
+            "status_still_working": "仍在處理中... (已耗時 {seconds} 秒)",
             "status_skill_invoked": "已發現並使用技能：{skill}",
             "status_tool_using": "正在使用工具：{name}...",
             "status_tool_progress": "工具進度：{name} ({progress}%) {msg}",
+            "status_tool_done": "工具執行完成：{name}",
+            "status_tool_failed": "工具執行失敗：{name}",
             "status_subagent_start": "正在調用子代理：{name}",
             "status_compaction_start": "正在壓縮會話上下文...",
             "status_compaction_complete": "上下文壓縮完成。",
             "status_publishing_file": "正在發布成果物：{filename}",
+            "status_task_completed": "任務已完成。",
+            "status_todo_hint": "📋 當前 TODO 狀態：{todo_text}",
+            "plan_title": "行動計劃",
+            "status_plan_changed": "計劃已更新: {operation}",
+            "status_context_changed": "工作目錄已切換：{path}",
+            "status_intent": "當前意圖：{intent}",
+            "status_session_error": "處理失敗：{error}",
             "status_no_skill_invoked": "本輪未觸發任何技能（DEBUG）",
             "debug_agent_working_in": "Agent 工作目錄: {path}",
             "debug_mcp_servers": "🔌 已連接 MCP 伺服器: {servers}",
@@ -504,13 +624,23 @@ class Pipe:
             "status_reasoning_inj": "已注入推理級別：{effort}",
             "status_assistant_start": "Agent 開始思考...",
             "status_assistant_processing": "Agent 正在處理您的請求...",
+            "status_still_working": "仍在處理中... (已耗時 {seconds} 秒)",
             "status_skill_invoked": "已發現並使用技能：{skill}",
             "status_tool_using": "正在使用工具：{name}...",
             "status_tool_progress": "工具進度：{name} ({progress}%) {msg}",
+            "status_tool_done": "工具執行完成：{name}",
+            "status_tool_failed": "工具執行失敗：{name}",
             "status_subagent_start": "正在調用子代理：{name}",
             "status_compaction_start": "正在壓縮會話上下文...",
             "status_compaction_complete": "上下文壓縮完成。",
             "status_publishing_file": "正在發布成果物：{filename}",
+            "status_task_completed": "任務已完成。",
+            "status_todo_hint": "📋 當前 TODO 狀態：{todo_text}",
+            "plan_title": "行動計劃",
+            "status_plan_changed": "計劃已更新: {operation}",
+            "status_context_changed": "工作目錄已切換：{path}",
+            "status_intent": "當前意圖：{intent}",
+            "status_session_error": "處理失敗：{error}",
             "status_no_skill_invoked": "本輪未觸發任何技能（DEBUG）",
             "debug_agent_working_in": "Agent 工作目錄: {path}",
             "debug_mcp_servers": "🔌 已連接 MCP 伺服器: {servers}",
@@ -524,10 +654,23 @@ class Pipe:
             "status_reasoning_inj": "推論レベルが注入されました：{effort}",
             "status_assistant_start": "Agent が考え始めました...",
             "status_assistant_processing": "Agent がリクエストを処理しています...",
+            "status_still_working": "処理を継続しています... ({seconds}秒経過)",
             "status_skill_invoked": "スキルが検出され、使用されています：{skill}",
+            "status_tool_using": "ツールを使用中: {name}...",
+            "status_tool_progress": "ツール進行状況: {name} ({progress}%) {msg}",
+            "status_tool_done": "ツールの実行が完了しました: {name}",
+            "status_tool_failed": "ツールの実行に失敗しました: {name}",
+            "status_subagent_start": "サブエージェントを呼び出し中: {name}",
             "status_compaction_start": "セッションコンテキストを圧縮しています...",
             "status_compaction_complete": "コンテキストの圧縮が完了しました。",
             "status_publishing_file": "アーティファクトを公開中：{filename}",
+            "status_task_completed": "タスクが完了しました。",
+            "status_todo_hint": "📋 現在の TODO 状態: {todo_text}",
+            "plan_title": "アクションプラン",
+            "status_plan_changed": "プランが更新されました: {operation}",
+            "status_context_changed": "作業ディレクトリが変更されました: {path}",
+            "status_intent": "現在の意図: {intent}",
+            "status_session_error": "処理に失敗しました: {error}",
             "status_no_skill_invoked": "このターンではスキルは呼び出されませんでした (DEBUG)",
             "debug_agent_working_in": "エージェントの作業ディレクトリ: {path}",
             "debug_mcp_servers": "🔌 接続された MCP サーバー: {servers}",
@@ -541,10 +684,23 @@ class Pipe:
             "status_reasoning_inj": "추론 노력이 주입되었습니다: {effort}",
             "status_assistant_start": "Agent 가 생각을 시작했습니다...",
             "status_assistant_processing": "Agent 가 요청을 처리 중입니다...",
+            "status_still_working": "처리 중입니다... ({seconds}초 경과)",
             "status_skill_invoked": "스킬이 감지되어 사용 중입니다: {skill}",
+            "status_tool_using": "도구 사용 중: {name}...",
+            "status_tool_progress": "도구 진행 상황: {name} ({progress}%) {msg}",
+            "status_tool_done": "도구 실행 완료: {name}",
+            "status_tool_failed": "도구 실행 실패: {name}",
+            "status_subagent_start": "하위 에이전트 호출 중: {name}",
             "status_compaction_start": "세션 컨텍스트를 압축하는 중...",
             "status_compaction_complete": "컨텍스트 압축 완료.",
             "status_publishing_file": "아티팩트 게시 중: {filename}",
+            "status_task_completed": "작업이 완료되었습니다.",
+            "status_todo_hint": "📋 현재 TODO 상태: {todo_text}",
+            "plan_title": "실행 계획",
+            "status_plan_changed": "계획이 업데이트되었습니다: {operation}",
+            "status_context_changed": "작업 디렉토리가 변경되었습니다: {path}",
+            "status_intent": "현재 의도: {intent}",
+            "status_session_error": "처리에 실패했습니다: {error}",
             "status_no_skill_invoked": "이 턴에는 스킬이 호출되지 않았습니다 (DEBUG)",
             "debug_agent_working_in": "에이전트 작업 디렉토리: {path}",
             "debug_mcp_servers": "🔌 연결된 MCP 서버: {servers}",
@@ -558,10 +714,10 @@ class Pipe:
             "status_reasoning_inj": "Effort de raisonnement injecté : {effort}",
             "status_assistant_start": "L'Agent commence à réfléchir...",
             "status_assistant_processing": "L'Agent traite votre demande...",
+            "status_still_working": "Toujours en cours... ({seconds}s écoulées)",
             "status_skill_invoked": "Compétence détectée et utilisée : {skill}",
-            "status_compaction_start": "Compression du contexte de session...",
-            "status_compaction_complete": "Compression du contexte terminée.",
-            "status_publishing_file": "Publication de l'artefact : {filename}",
+            "status_tool_using": "Utilisation de l'outil : {name}...",
+            "status_session_error": "Échec du traitement : {error}",
             "status_no_skill_invoked": "Aucune compétence invoquée pour ce tour (DEBUG)",
             "debug_agent_working_in": "Agent travaillant dans : {path}",
             "debug_mcp_servers": "🔌 Serveurs MCP connectés : {servers}",
@@ -575,10 +731,23 @@ class Pipe:
             "status_reasoning_inj": "Schlussfolgerungsaufwand injiziert: {effort}",
             "status_assistant_start": "Agent beginnt zu denken...",
             "status_assistant_processing": "Agent bearbeitet Ihre Anfrage...",
+            "status_still_working": "Wird noch verarbeitet... ({seconds}s vergangen)",
             "status_skill_invoked": "Skill erkannt und verwendet: {skill}",
+            "status_tool_using": "Nutze Tool: {name}...",
+            "status_tool_progress": "Tool-Fortschritt: {name} ({progress}%) {msg}",
+            "status_tool_done": "Tool abgeschlossen: {name}",
+            "status_tool_failed": "Tool fehlgeschlagen: {name}",
+            "status_subagent_start": "Unteragent wird aufgerufen: {name}",
             "status_compaction_start": "Sitzungskontext wird komprimiert...",
             "status_compaction_complete": "Kontextkomprimierung abgeschlossen.",
             "status_publishing_file": "Artifact wird veröffentlicht: {filename}",
+            "status_task_completed": "Aufgabe abgeschlossen.",
+            "status_todo_hint": "📋 Aktueller TODO-Status: {todo_text}",
+            "plan_title": "Aktionsplan",
+            "status_plan_changed": "Plan aktualisiert: {operation}",
+            "status_context_changed": "Arbeite in {path}",
+            "status_intent": "Absicht: {intent}",
+            "status_session_error": "Verarbeitung fehlgeschlagen: {error}",
             "status_no_skill_invoked": "In dieser Runde wurde kein Skill aufgerufen (DEBUG)",
             "debug_agent_working_in": "Agent arbeitet in: {path}",
             "debug_mcp_servers": "🔌 Verbundene MCP-Server: {servers}",
@@ -592,10 +761,23 @@ class Pipe:
             "status_reasoning_inj": "Sforzo di ragionamento iniettato: {effort}",
             "status_assistant_start": "L'Agent sta iniziando a pensare...",
             "status_assistant_processing": "L'Agent sta elaborando la tua richiesta...",
+            "status_still_working": "Ancora in elaborazione... ({seconds}s trascorsi)",
             "status_skill_invoked": "Skill rilevata e utilizzata: {skill}",
+            "status_tool_using": "Utilizzando lo strumento: {name}...",
+            "status_tool_progress": "Progresso strumento: {name} ({progress}%) {msg}",
+            "status_tool_done": "Strumento completato: {name}",
+            "status_tool_failed": "Strumento fallito: {name}",
+            "status_subagent_start": "Invocazione sotto-agente: {name}",
             "status_compaction_start": "Compattazione del contesto della sessione...",
             "status_compaction_complete": "Compattazione del contesto completata.",
             "status_publishing_file": "Pubblicazione dell'artefatto: {filename}",
+            "status_task_completed": "Task completato.",
+            "status_todo_hint": "📋 Stato TODO attuale: {todo_text}",
+            "plan_title": "Piano d'azione",
+            "status_plan_changed": "Piano aggiornato: {operation}",
+            "status_context_changed": "Lavoro in {path}",
+            "status_intent": "Intento: {intent}",
+            "status_session_error": "Elaborazione fallita: {error}",
             "status_no_skill_invoked": "Nessuna skill invocata in questo turno (DEBUG)",
             "debug_agent_working_in": "Agente al lavoro in: {path}",
             "debug_mcp_servers": "🔌 Server MCP connessi: {servers}",
@@ -609,10 +791,23 @@ class Pipe:
             "status_reasoning_inj": "Esfuerzo de razonamiento inyectado: {effort}",
             "status_assistant_start": "El Agent está empezando a pensar...",
             "status_assistant_processing": "El Agent está procesando su solicitud...",
+            "status_still_working": "Aún procesando... ({seconds}s transcurridos)",
             "status_skill_invoked": "Habilidad detectada y utilizada: {skill}",
+            "status_tool_using": "Usando herramienta: {name}...",
+            "status_tool_progress": "Progreso de herramienta: {name} ({progress}%) {msg}",
+            "status_tool_done": "Herramienta completada: {name}",
+            "status_tool_failed": "Herramienta fallida: {name}",
+            "status_subagent_start": "Invocando sub-agente: {name}",
             "status_compaction_start": "Compactando el contexto de la sesión...",
             "status_compaction_complete": "Compactación del contexto completada.",
             "status_publishing_file": "Publicando artefacto: {filename}",
+            "status_task_completed": "Tarea completada.",
+            "status_todo_hint": "📋 Estado actual de TODO: {todo_text}",
+            "plan_title": "Plan de acción",
+            "status_plan_changed": "Plan actualizado: {operation}",
+            "status_context_changed": "Trabajando en {path}",
+            "status_intent": "Intento: {intent}",
+            "status_session_error": "Error de procesamiento: {error}",
             "status_no_skill_invoked": "No se invocó ninguna habilidad en este turno (DEBUG)",
             "debug_agent_working_in": "Agente trabajando en: {path}",
             "debug_mcp_servers": "🔌 Servidores MCP conectados: {servers}",
@@ -626,10 +821,23 @@ class Pipe:
             "status_reasoning_inj": "Nỗ lực suy luận đã được đưa vào: {effort}",
             "status_assistant_start": "Agent bắt đầu suy nghĩ...",
             "status_assistant_processing": "Agent đang xử lý yêu cầu của bạn...",
+            "status_still_working": "Vẫn đang xử lý... ({seconds} giây đã trôi qua)",
             "status_skill_invoked": "Kỹ năng đã được phát hiện và sử dụng: {skill}",
+            "status_tool_using": "Đang sử dụng công cụ: {name}...",
+            "status_tool_progress": "Tiến độ công cụ: {name} ({progress}%) {msg}",
+            "status_tool_done": "Công cụ đã hoàn tất: {name}",
+            "status_tool_failed": "Công cụ thất bại: {name}",
+            "status_subagent_start": "Đang gọi đại lý phụ: {name}",
             "status_compaction_start": "Đang nén ngữ cảnh phiên...",
             "status_compaction_complete": "Nén ngữ cảnh hoàn tất.",
             "status_publishing_file": "Đang xuất bản thành phẩm: {filename}",
+            "status_task_completed": "Nhiệm vụ hoàn tất.",
+            "status_todo_hint": "📋 Trạng thái TODO hiện tại: {todo_text}",
+            "plan_title": "Kế hoạch hành động",
+            "status_plan_changed": "Kế hoạch đã cập nhật: {operation}",
+            "status_context_changed": "Đang làm việc tại {path}",
+            "status_intent": "Ý định: {intent}",
+            "status_session_error": "Xử lý thất bại: {error}",
             "status_no_skill_invoked": "Không có kỹ năng nào được gọi trong lượt này (DEBUG)",
             "debug_agent_working_in": "Agent đang làm việc tại: {path}",
             "debug_mcp_servers": "🔌 Các máy chủ MCP đã kết nối: {servers}",
@@ -643,10 +851,23 @@ class Pipe:
             "status_reasoning_inj": "Upaya penalaran dimasukkan: {effort}",
             "status_assistant_start": "Agen mulai berpikir...",
             "status_assistant_processing": "Agen sedang memproses permintaan Anda...",
+            "status_still_working": "Masih memproses... ({seconds} detik berlalu)",
             "status_skill_invoked": "Keahlian terdeteksi và digunakan: {skill}",
+            "status_tool_using": "Menggunakan alat: {name}...",
+            "status_tool_progress": "Kemajuan alat: {name} ({progress}%) {msg}",
+            "status_tool_done": "Alat selesai: {name}",
+            "status_tool_failed": "Alat gagal: {name}",
+            "status_subagent_start": "Memanggil sub-agen: {name}",
             "status_compaction_start": "Memadatkan konteks sesi...",
             "status_compaction_complete": "Pemadatan konteks selesai.",
             "status_publishing_file": "Menerbitkan artefak: {filename}",
+            "status_task_completed": "Tugas selesai.",
+            "status_todo_hint": "📋 Status TODO saat ini: {todo_text}",
+            "plan_title": "Rencana Aksi",
+            "status_plan_changed": "Rencana diperbarui: {operation}",
+            "status_context_changed": "Bekerja di {path}",
+            "status_intent": "Niat: {intent}",
+            "status_session_error": "Pemrosesan gagal: {error}",
             "status_no_skill_invoked": "Tidak ada keahlian yang dipanggil dalam giliran ini (DEBUG)",
             "debug_agent_working_in": "Agen bekerja di: {path}",
             "debug_mcp_servers": "🔌 Server MCP Terhubung: {servers}",
@@ -660,10 +881,23 @@ class Pipe:
             "status_reasoning_inj": "Уровень рассуждения внедрен: {effort}",
             "status_assistant_start": "Agent начинает думать...",
             "status_assistant_processing": "Agent обрабатывает ваш запрос...",
+            "status_still_working": "Все еще обрабатывается... (прошло {seconds} сек.)",
             "status_skill_invoked": "Обнаружен и используется навык: {skill}",
+            "status_tool_using": "Используется инструмент: {name}...",
+            "status_tool_progress": "Прогресс инструмента: {name} ({progress}%) {msg}",
+            "status_tool_done": "Инструмент готов: {name}",
+            "status_tool_failed": "Ошибка инструмента: {name}",
+            "status_subagent_start": "Вызов подагента: {name}",
             "status_compaction_start": "Сжатие контекста сеанса...",
             "status_compaction_complete": "Сжатие контекста завершено.",
             "status_publishing_file": "Публикация файла: {filename}",
+            "status_task_completed": "Задача выполнена.",
+            "status_todo_hint": "📋 Текущее состояние TODO: {todo_text}",
+            "plan_title": "План действий",
+            "status_plan_changed": "План обновлен: {operation}",
+            "status_context_changed": "Работа в {path}",
+            "status_intent": "Намерение: {intent}",
+            "status_session_error": "Ошибка обработки: {error}",
             "status_no_skill_invoked": "На этом шаге навыки не вызывались (DEBUG)",
             "debug_agent_working_in": "Рабочий каталог Агента: {path}",
             "debug_mcp_servers": "🔌 Подключенные серверы MCP: {servers}",
@@ -698,29 +932,6 @@ class Pipe:
         self.valves = self.Valves()
         self.temp_dir = tempfile.mkdtemp(prefix="copilot_images_")
 
-        # Database initialization
-        self._owui_db = owui_db
-        self._db_engine = owui_engine
-        self._fallback_session_factory = (
-            sessionmaker(bind=self._db_engine) if self._db_engine else None
-        )
-        self._init_database()
-
-    def _init_database(self):
-        """Initializes the database table using Open WebUI's shared connection."""
-        try:
-            if self._db_engine is None:
-                return
-
-            # Check if table exists using SQLAlchemy inspect
-            inspector = inspect(self._db_engine)
-            if not inspector.has_table("chat_todos"):
-                # Create the chat_todos table if it doesn't exist
-                ChatTodo.__table__.create(bind=self._db_engine, checkfirst=True)
-                logger.info("[Database] ✅ Successfully created chat_todos table.")
-        except Exception as e:
-            logger.error(f"[Database] ❌ Initialization failed: {str(e)}")
-
     def _resolve_language(self, user_language: str) -> str:
         """Normalize user language code to a supported translation key."""
         if not user_language:
@@ -745,6 +956,319 @@ class Pipe:
             except Exception as e:
                 logger.warning(f"Translation formatting failed for {key}: {e}")
         return text
+
+    def _localize_intent_text(self, lang: str, intent: str) -> str:
+        """Best-effort localization for short English intent labels."""
+        intent_text = str(intent or "").strip()
+        if not intent_text:
+            return ""
+        if re.search(r"[\u4e00-\u9fff]", intent_text):
+            return intent_text
+
+        lang_key = self._resolve_language(lang)
+        replacements = {
+            "zh-CN": [
+                (r"\btodo\s*list\b|\btodolist\b", "待办列表"),
+                (r"\btodo\b", "待办"),
+                (r"\bcodebase\b", "代码库"),
+                (r"\brepository\b|\brepo\b", "仓库"),
+                (r"\bworkspace\b", "工作区"),
+                (r"\bfiles\b|\bfile\b", "文件"),
+                (r"\bchanges\b|\bchange\b", "变更"),
+                (r"\brequest\b", "请求"),
+                (r"\buser\b", "用户"),
+                (r"\breviewing\b|\breview\b", "审查"),
+                (r"\banalyzing\b|\banalyse\b|\banalyze\b", "分析"),
+                (r"\binspecting\b|\binspect\b|\bchecking\b|\bcheck\b", "检查"),
+                (r"\bsearching\b|\bsearch\b", "搜索"),
+                (r"\bupdating\b|\bupdate\b", "更新"),
+                (r"\bimplementing\b|\bimplement\b", "实现"),
+                (r"\bplanning\b|\bplan\b", "规划"),
+                (r"\bvalidating\b|\bvalidate\b|\bverifying\b|\bverify\b", "验证"),
+                (r"\btesting\b|\btest\b", "测试"),
+                (r"\bfixing\b|\bfix\b", "修复"),
+                (r"\bdebugging\b|\bdebug\b", "调试"),
+                (r"\bediting\b|\bedit\b", "编辑"),
+                (r"\breading\b|\bread\b", "读取"),
+                (r"\bwriting\b|\bwrite\b", "写入"),
+                (r"\bcreating\b|\bcreate\b", "创建"),
+                (r"\bpreparing\b|\bprepare\b", "准备"),
+                (r"\bsummarizing\b|\bsummarize\b", "总结"),
+                (r"\bsyncing\b|\bsync\b", "同步"),
+                (r"\band\b", "并"),
+            ],
+            "zh-HK": [
+                (r"\btodo\s*list\b|\btodolist\b", "待辦清單"),
+                (r"\btodo\b", "待辦"),
+                (r"\bcodebase\b", "程式碼庫"),
+                (r"\brepository\b|\brepo\b", "儲存庫"),
+                (r"\bworkspace\b", "工作區"),
+                (r"\bfiles\b|\bfile\b", "檔案"),
+                (r"\bchanges\b|\bchange\b", "變更"),
+                (r"\brequest\b", "請求"),
+                (r"\buser\b", "使用者"),
+                (r"\breviewing\b|\breview\b", "審查"),
+                (r"\banalyzing\b|\banalyse\b|\banalyze\b", "分析"),
+                (r"\binspecting\b|\binspect\b|\bchecking\b|\bcheck\b", "檢查"),
+                (r"\bsearching\b|\bsearch\b", "搜尋"),
+                (r"\bupdating\b|\bupdate\b", "更新"),
+                (r"\bimplementing\b|\bimplement\b", "實作"),
+                (r"\bplanning\b|\bplan\b", "規劃"),
+                (r"\bvalidating\b|\bvalidate\b|\bverifying\b|\bverify\b", "驗證"),
+                (r"\btesting\b|\btest\b", "測試"),
+                (r"\bfixing\b|\bfix\b", "修復"),
+                (r"\bdebugging\b|\bdebug\b", "除錯"),
+                (r"\bediting\b|\bedit\b", "編輯"),
+                (r"\breading\b|\bread\b", "讀取"),
+                (r"\bwriting\b|\bwrite\b", "寫入"),
+                (r"\bcreating\b|\bcreate\b", "建立"),
+                (r"\bpreparing\b|\bprepare\b", "準備"),
+                (r"\bsummarizing\b|\bsummarize\b", "總結"),
+                (r"\bsyncing\b|\bsync\b", "同步"),
+                (r"\band\b", "並"),
+            ],
+            "zh-TW": [
+                (r"\btodo\s*list\b|\btodolist\b", "待辦清單"),
+                (r"\btodo\b", "待辦"),
+                (r"\bcodebase\b", "程式碼庫"),
+                (r"\brepository\b|\brepo\b", "儲存庫"),
+                (r"\bworkspace\b", "工作區"),
+                (r"\bfiles\b|\bfile\b", "檔案"),
+                (r"\bchanges\b|\bchange\b", "變更"),
+                (r"\brequest\b", "請求"),
+                (r"\buser\b", "使用者"),
+                (r"\breviewing\b|\breview\b", "審查"),
+                (r"\banalyzing\b|\banalyse\b|\banalyze\b", "分析"),
+                (r"\binspecting\b|\binspect\b|\bchecking\b|\bcheck\b", "檢查"),
+                (r"\bsearching\b|\bsearch\b", "搜尋"),
+                (r"\bupdating\b|\bupdate\b", "更新"),
+                (r"\bimplementing\b|\bimplement\b", "實作"),
+                (r"\bplanning\b|\bplan\b", "規劃"),
+                (r"\bvalidating\b|\bvalidate\b|\bverifying\b|\bverify\b", "驗證"),
+                (r"\btesting\b|\btest\b", "測試"),
+                (r"\bfixing\b|\bfix\b", "修復"),
+                (r"\bdebugging\b|\bdebug\b", "除錯"),
+                (r"\bediting\b|\bedit\b", "編輯"),
+                (r"\breading\b|\bread\b", "讀取"),
+                (r"\bwriting\b|\bwrite\b", "寫入"),
+                (r"\bcreating\b|\bcreate\b", "建立"),
+                (r"\bpreparing\b|\bprepare\b", "準備"),
+                (r"\bsummarizing\b|\bsummarize\b", "總結"),
+                (r"\bsyncing\b|\bsync\b", "同步"),
+                (r"\band\b", "並"),
+            ],
+        }
+
+        if lang_key not in replacements:
+            return intent_text
+
+        localized = intent_text
+        for pattern, replacement in replacements[lang_key]:
+            localized = re.sub(pattern, replacement, localized, flags=re.IGNORECASE)
+        localized = re.sub(r"\s+", " ", localized).strip(" .,-")
+        return localized or intent_text
+
+    def _get_todo_widget_texts(self, lang: str) -> Dict[str, str]:
+        """Return dedicated i18n strings for the embedded TODO widget."""
+        lang_key = self._resolve_language(lang)
+        texts = {
+            "en-US": {
+                "title": "TODO",
+                "total": "Total",
+                "pending": "Pending",
+                "doing": "Doing",
+                "done": "Done",
+                "blocked": "Blocked",
+                "ready_now": "Ready now: {ready_count}",
+                "updated_at": "Updated: {time}",
+                "empty": "All tasks are complete.",
+                "status_pending": "pending",
+                "status_in_progress": "in progress",
+                "status_done": "done",
+                "status_blocked": "blocked",
+            },
+            "zh-CN": {
+                "title": "待办",
+                "total": "总数",
+                "pending": "待开始",
+                "doing": "进行中",
+                "done": "已完成",
+                "blocked": "阻塞",
+                "ready_now": "当前可执行：{ready_count}",
+                "updated_at": "更新时间：{time}",
+                "empty": "所有任务都已完成。",
+                "status_pending": "待开始",
+                "status_in_progress": "进行中",
+                "status_done": "已完成",
+                "status_blocked": "阻塞",
+            },
+            "zh-HK": {
+                "title": "待辦",
+                "total": "總數",
+                "pending": "待開始",
+                "doing": "進行中",
+                "done": "已完成",
+                "blocked": "阻塞",
+                "ready_now": "當前可執行：{ready_count}",
+                "updated_at": "更新時間：{time}",
+                "empty": "所有任務都已完成。",
+                "status_pending": "待開始",
+                "status_in_progress": "進行中",
+                "status_done": "已完成",
+                "status_blocked": "阻塞",
+            },
+            "zh-TW": {
+                "title": "待辦",
+                "total": "總數",
+                "pending": "待開始",
+                "doing": "進行中",
+                "done": "已完成",
+                "blocked": "阻塞",
+                "ready_now": "當前可執行：{ready_count}",
+                "updated_at": "更新時間：{time}",
+                "empty": "所有任務都已完成。",
+                "status_pending": "待開始",
+                "status_in_progress": "進行中",
+                "status_done": "已完成",
+                "status_blocked": "阻塞",
+            },
+            "ja-JP": {
+                "title": "TODO",
+                "total": "合計",
+                "pending": "未着手",
+                "doing": "進行中",
+                "done": "完了",
+                "blocked": "ブロック",
+                "ready_now": "今すぐ着手可能: {ready_count}",
+                "updated_at": "更新時刻: {time}",
+                "empty": "すべてのタスクが完了しました。",
+                "status_pending": "未着手",
+                "status_in_progress": "進行中",
+                "status_done": "完了",
+                "status_blocked": "ブロック",
+            },
+            "ko-KR": {
+                "title": "할 일",
+                "total": "전체",
+                "pending": "대기",
+                "doing": "진행 중",
+                "done": "완료",
+                "blocked": "차단",
+                "ready_now": "지금 가능한 작업: {ready_count}",
+                "updated_at": "업데이트: {time}",
+                "empty": "모든 작업이 완료되었습니다.",
+                "status_pending": "대기",
+                "status_in_progress": "진행 중",
+                "status_done": "완료",
+                "status_blocked": "차단",
+            },
+            "fr-FR": {
+                "title": "TODO",
+                "total": "Total",
+                "pending": "En attente",
+                "doing": "En cours",
+                "done": "Terminées",
+                "blocked": "Bloquées",
+                "ready_now": "Prêtes maintenant : {ready_count}",
+                "updated_at": "Mis a jour : {time}",
+                "empty": "Toutes les taches sont terminees.",
+                "status_pending": "en attente",
+                "status_in_progress": "en cours",
+                "status_done": "terminee",
+                "status_blocked": "bloquee",
+            },
+            "de-DE": {
+                "title": "TODO",
+                "total": "Gesamt",
+                "pending": "Offen",
+                "doing": "In Arbeit",
+                "done": "Erledigt",
+                "blocked": "Blockiert",
+                "ready_now": "Jetzt bereit: {ready_count}",
+                "updated_at": "Aktualisiert: {time}",
+                "empty": "Alle Aufgaben sind erledigt.",
+                "status_pending": "offen",
+                "status_in_progress": "in Arbeit",
+                "status_done": "erledigt",
+                "status_blocked": "blockiert",
+            },
+            "it-IT": {
+                "title": "TODO",
+                "total": "Totale",
+                "pending": "In attesa",
+                "doing": "In corso",
+                "done": "Completati",
+                "blocked": "Bloccati",
+                "ready_now": "Pronti ora: {ready_count}",
+                "updated_at": "Aggiornato: {time}",
+                "empty": "Tutte le attivita sono completate.",
+                "status_pending": "in attesa",
+                "status_in_progress": "in corso",
+                "status_done": "completato",
+                "status_blocked": "bloccato",
+            },
+            "es-ES": {
+                "title": "TODO",
+                "total": "Total",
+                "pending": "Pendientes",
+                "doing": "En progreso",
+                "done": "Hechas",
+                "blocked": "Bloqueadas",
+                "ready_now": "Listas ahora: {ready_count}",
+                "updated_at": "Actualizado: {time}",
+                "empty": "Todas las tareas estan completas.",
+                "status_pending": "pendiente",
+                "status_in_progress": "en progreso",
+                "status_done": "hecha",
+                "status_blocked": "bloqueada",
+            },
+            "vi-VN": {
+                "title": "TODO",
+                "total": "Tong",
+                "pending": "Cho xu ly",
+                "doing": "Dang lam",
+                "done": "Hoan tat",
+                "blocked": "Bi chan",
+                "ready_now": "Co the lam ngay: {ready_count}",
+                "updated_at": "Cap nhat: {time}",
+                "empty": "Tat ca tac vu da hoan tat.",
+                "status_pending": "cho xu ly",
+                "status_in_progress": "dang lam",
+                "status_done": "hoan tat",
+                "status_blocked": "bi chan",
+            },
+            "id-ID": {
+                "title": "TODO",
+                "total": "Total",
+                "pending": "Tertunda",
+                "doing": "Dikerjakan",
+                "done": "Selesai",
+                "blocked": "Terblokir",
+                "ready_now": "Siap sekarang: {ready_count}",
+                "updated_at": "Diperbarui: {time}",
+                "empty": "Semua tugas sudah selesai.",
+                "status_pending": "tertunda",
+                "status_in_progress": "dikerjakan",
+                "status_done": "selesai",
+                "status_blocked": "terblokir",
+            },
+            "ru-RU": {
+                "title": "TODO",
+                "total": "Всего",
+                "pending": "Ожидают",
+                "doing": "В работе",
+                "done": "Готово",
+                "blocked": "Заблокировано",
+                "ready_now": "Готово к выполнению: {ready_count}",
+                "updated_at": "Обновлено: {time}",
+                "empty": "Все задачи завершены.",
+                "status_pending": "ожидает",
+                "status_in_progress": "в работе",
+                "status_done": "готово",
+                "status_blocked": "заблокировано",
+            },
+        }
+        return texts.get(lang_key, texts["en-US"])
 
     async def _get_user_context(self, __user__, __event_call__=None, __request__=None):
         """Extract basic user context with safe fallbacks including JS localStorage."""
@@ -774,9 +1298,9 @@ class Pipe:
                     try {
                         return (
                             document.documentElement.lang ||
-                            localStorage.getItem('locale') || 
-                            localStorage.getItem('language') || 
-                            navigator.language || 
+                            localStorage.getItem('locale') ||
+                            localStorage.getItem('language') ||
+                            navigator.language ||
                             'en-US'
                         );
                     } catch (e) {
@@ -789,7 +1313,7 @@ class Pipe:
                 )
                 if frontend_lang and isinstance(frontend_lang, str):
                     user_language = frontend_lang
-            except Exception as e:
+            except Exception:
                 pass
 
         return {
@@ -797,99 +1321,6 @@ class Pipe:
             "user_name": user_name,
             "user_language": user_language,
         }
-
-    @contextlib.contextmanager
-    def _db_session(self):
-        """Yield a database session using Open WebUI helpers with graceful fallbacks."""
-        db_module = self._owui_db
-        db_context = None
-        if db_module is not None:
-            db_context = getattr(db_module, "get_db_context", None) or getattr(
-                db_module, "get_db", None
-            )
-
-        if callable(db_context):
-            with db_context() as session:
-                yield session
-                return
-
-        factory = None
-        if db_module is not None:
-            factory = getattr(db_module, "SessionLocal", None) or getattr(
-                db_module, "ScopedSession", None
-            )
-        if callable(factory):
-            session = factory()
-            try:
-                yield session
-            finally:
-                close = getattr(session, "close", None)
-                if callable(close):
-                    close()
-            return
-
-        if self._fallback_session_factory is None:
-            raise RuntimeError("Open WebUI database session is unavailable.")
-
-        session = self._fallback_session_factory()
-        try:
-            yield session
-        finally:
-            try:
-                session.close()
-            except:
-                pass
-
-    def _save_todo_to_db(
-        self,
-        chat_id: str,
-        content: str,
-        __event_emitter__=None,
-        __event_call__=None,
-        debug_enabled: bool = False,
-    ):
-        """Saves the TODO list to the database and emits status."""
-        try:
-            # 1. Parse metrics
-            total = content.count("- [ ]") + content.count("- [x]")
-            completed = content.count("- [x]")
-            percent = int((completed / total * 100)) if total > 0 else 0
-            metrics = {"total": total, "completed": completed, "percent": percent}
-
-            # 2. Database persistent
-            with self._db_session() as session:
-                existing = session.query(ChatTodo).filter_by(chat_id=chat_id).first()
-                if existing:
-                    existing.content = content
-                    existing.metrics = metrics
-                    existing.updated_at = datetime.now(timezone.utc)
-                else:
-                    new_todo = ChatTodo(
-                        chat_id=chat_id, content=content, metrics=metrics
-                    )
-                    session.add(new_todo)
-                session.commit()
-
-            self._emit_debug_log_sync(
-                f"DB: Saved TODO for chat {chat_id} (Progress: {percent}%)",
-                __event_call__,
-                debug_enabled=debug_enabled,
-            )
-
-            # 3. Emit status to OpenWebUI
-            if __event_emitter__:
-                status_msg = f"📝 TODO Progress: {percent}% ({completed}/{total})"
-                asyncio.run_coroutine_threadsafe(
-                    __event_emitter__(
-                        {
-                            "type": "status",
-                            "data": {"description": status_msg, "done": True},
-                        }
-                    ),
-                    asyncio.get_event_loop(),
-                )
-        except Exception as e:
-            logger.error(f"[Database] ❌ Failed to save todo: {e}")
 
     def __del__(self):
         try:
@@ -909,6 +1340,13 @@ class Pipe:
         __event_emitter__=None,
         __event_call__=None,
         __request__=None,
+        __messages__: Optional[list] = None,
+        __files__: Optional[list] = None,
+        __task__: Optional[str] = None,
+        __task_body__: Optional[str] = None,
+        __session_id__: Optional[str] = None,
+        __chat_id__: Optional[str] = None,
+        __message_id__: Optional[str] = None,
     ) -> Union[str, AsyncGenerator]:
         return await self._pipe_impl(
             body,
@@ -917,6 +1355,13 @@ class Pipe:
             __event_emitter__=__event_emitter__,
             __event_call__=__event_call__,
             __request__=__request__,
+            __messages__=__messages__,
+            __files__=__files__,
+            __task__=__task__,
+            __task_body__=__task_body__,
+            __session_id__=__session_id__,
+            __chat_id__=__chat_id__,
+            __message_id__=__message_id__,
         )
 
     # ==================== Functional Areas ====================
@@ -932,11 +1377,19 @@ class Pipe:
         self,
         body: dict = None,
         __user__=None,
+        user_lang: str = "en-US",
         __event_emitter__=None,
         __event_call__=None,
         __request__=None,
         __metadata__=None,
         pending_embeds: List[dict] = None,
+        __messages__: Optional[list] = None,
+        __files__: Optional[list] = None,
+        __task__: Optional[str] = None,
+        __task_body__: Optional[str] = None,
+        __session_id__: Optional[str] = None,
+        __chat_id__: Optional[str] = None,
+        __message_id__: Optional[str] = None,
     ):
         """Initialize custom tools based on configuration"""
         # 1. Determine effective settings (User override > Global)
@@ -961,6 +1414,14 @@ class Pipe:
         if manage_skills_tool:
             final_tools.append(manage_skills_tool)
 
+        todo_widget_tool = self._get_render_todo_widget_tool(
+            user_lang,
+            chat_id,
+            __event_emitter__=__event_emitter__,
+        )
+        if todo_widget_tool:
+            final_tools.append(todo_widget_tool)
+
         # 3. If all OpenWebUI tool types are disabled, skip loading and return early
         if not enable_tools and not enable_openapi:
             return final_tools
@@ -974,12 +1435,20 @@ class Pipe:
         openwebui_tools = await self._load_openwebui_tools(
             body=body,
             __user__=__user__,
+            __request__=__request__,
             __event_emitter__=__event_emitter__,
             __event_call__=__event_call__,
             enable_tools=enable_tools,
             enable_openapi=enable_openapi,
             chat_tool_ids=chat_tool_ids,
             __metadata__=__metadata__,
+            __messages__=__messages__,
+            __files__=__files__,
+            __task__=__task__,
+            __task_body__=__task_body__,
+            __session_id__=__session_id__,
+            __chat_id__=__chat_id__,
+            __message_id__=__message_id__,
         )
 
         if openwebui_tools:
@@ -998,6 +1467,46 @@ class Pipe:
         final_tools.extend(openwebui_tools)
 
         return final_tools
+
+    def _get_render_todo_widget_tool(
+        self,
+        user_lang,
+        chat_id,
+        __event_emitter__=None,
+    ):
+        """Create a compact Rich UI widget tool for live TODO display."""
+        if not chat_id or not __event_emitter__:
+            return None
+
+        class RenderTodoWidgetParams(BaseModel):
+            force: bool = Field(
+                default=False,
+                description="Force a widget refresh even if the TODO snapshot hash did not change.",
+            )
+
+        async def render_todo_widget(params: Any) -> dict:
+            force = False
+            if hasattr(params, "model_dump"):
+                payload = params.model_dump(exclude_unset=True)
+                force = bool(payload.get("force", False))
+            elif hasattr(params, "dict"):
+                payload = params.dict(exclude_unset=True)
+                force = bool(payload.get("force", False))
+            elif isinstance(params, dict):
+                force = bool(params.get("force", False))
+
+            return await self._emit_todo_widget(
+                chat_id=chat_id,
+                lang=user_lang,
+                emitter=__event_emitter__,
+                force=force,
+            )
+
+        return define_tool(
+            name="render_todo_widget",
+            description="Render the current session TODO list as a compact embedded widget. Only refreshes when the TODO snapshot changed unless force=true. Do not restate the widget contents in the final answer unless the user explicitly asks for a textual TODO list.",
+            params_type=RenderTodoWidgetParams,
+        )(render_todo_widget)
 
     def _get_publish_file_tool(
         self,
@@ -1924,12 +2433,72 @@ class Pipe:
 
             try:
                 if self.valves.DEBUG:
+                    payload_debug = {}
+                    for key, value in payload.items():
+                        if isinstance(value, str):
+                            payload_debug[key] = {
+                                "type": "str",
+                                "len": len(value),
+                                "preview": value[:160],
+                            }
+                        elif isinstance(value, (list, tuple)):
+                            payload_debug[key] = {
+                                "type": type(value).__name__,
+                                "len": len(value),
+                            }
+                        elif isinstance(value, dict):
+                            payload_debug[key] = {
+                                "type": "dict",
+                                "keys": list(value.keys())[:12],
+                            }
+                        else:
+                            payload_debug[key] = {"type": type(value).__name__}
+
                     await self._emit_debug_log(
-                        f"🛠️ Invoking {sanitized_tool_name} with params: {list(payload.keys())}",
+                        f"🛠️ Invoking {sanitized_tool_name} with params: {list(payload.keys())}; payload={payload_debug}",
                         __event_call__,
                     )
 
                 result = await tool_callable(**payload)
+
+                if self.valves.DEBUG:
+                    if isinstance(result, str):
+                        result_debug = {
+                            "type": "str",
+                            "len": len(result),
+                            "preview": result[:220],
+                        }
+                    elif isinstance(result, tuple):
+                        result_debug = {
+                            "type": "tuple",
+                            "len": len(result),
+                            "item_types": [type(item).__name__ for item in result[:3]],
+                        }
+                    elif isinstance(result, dict):
+                        result_debug = {
+                            "type": "dict",
+                            "keys": list(result.keys())[:20],
+                        }
+                    elif isinstance(result, HTMLResponse):
+                        body_data = result.body
+                        body_text = (
+                            body_data.decode("utf-8", errors="ignore")
+                            if isinstance(body_data, (bytes, bytearray))
+                            else str(body_data)
+                        )
+                        result_debug = {
+                            "type": "HTMLResponse",
+                            "body_len": len(body_text),
+                            "headers": dict(result.headers),
+                            "body_preview": body_text[:300],
+                        }
+                    else:
+                        result_debug = {"type": type(result).__name__}
+
+                    await self._emit_debug_log(
+                        f"🧾 Tool result summary '{sanitized_tool_name}': {result_debug}",
+                        __event_call__,
+                    )
 
                 # Support v0.8.0+ Action-style returns (tuple with  headers)
                 if isinstance(result, tuple) and len(result) == 2:
@@ -1948,26 +2517,110 @@ class Pipe:
                                         "data": {"embeds": [data]},
                                     }
                                 )
-                            # Return a status dict instead of raw HTML for the LLM's Tool UI block
-                            return {
+                            # Follow OpenWebUI official process_tool_result format
+                            final_result = {
                                 "status": "success",
-                                "ui_intent": "direct_artifact_embed",
-                                "message": "The interactive component has been displayed directly in the chat interface.",
-                                "preview": (
-                                    str(data)[:100] + "..."
-                                    if isinstance(data, str)
-                                    else "[Binary Data]"
-                                ),
+                                "code": "ui_component",
+                                "message": f"{sanitized_tool_name}: Embedded UI result is active and visible to the user.",
                             }
+                            if self.valves.DEBUG:
+                                await self._emit_debug_log(
+                                    f"📤 Returning inline tuple dict result: {final_result}",
+                                    __event_call__,
+                                )
+                            return final_result
 
                         # Standard tuple return for OpenAPI tools etc.
                         if self.valves.DEBUG:
-                            await self._emit_debug_log(
-                                f"✅ {sanitized_tool_name} returned tuple, extracting data.",
-                                __event_call__,
-                            )
+                            final_data = data
+                            if isinstance(final_data, str):
+                                await self._emit_debug_log(
+                                    f"📤 Returning tuple[0] (data): type='str', len={len(final_data)}, preview={repr(final_data[:160])}",
+                                    __event_call__,
+                                )
+                            else:
+                                await self._emit_debug_log(
+                                    f"📤 Returning tuple[0] (data): type={type(final_data).__name__}",
+                                    __event_call__,
+                                )
                         return data
 
+                # Support FastAPI/Starlette HTMLResponse (e.g., from smart_mind_map_tool)
+                if isinstance(result, HTMLResponse):
+                    disposition = str(
+                        result.headers.get("Content-Disposition", "")
+                        or result.headers.get("content-disposition", "")
+                    ).lower()
+                    if "inline" in disposition:
+                        body_data = result.body
+                        body_text = (
+                            body_data.decode("utf-8", errors="ignore")
+                            if isinstance(body_data, (bytes, bytearray))
+                            else str(body_data)
+                        )
+
+                        # Extract markdown-source content for diagnostic
+                        import re as _re
+
+                        _md_match = _re.search(
+                            r'<script[^>]*id="markdown-source-[^"]*"[^>]*>([\s\S]*?)</script>',
+                            body_text,
+                        )
+                        _md_content = _md_match.group(1) if _md_match else "(not found)"
+                        await self._emit_debug_log(
+                            f"[Embed] HTMLResponse from '{sanitized_tool_name}': "
+                            f"body_len={len(body_text)}, "
+                            f"emitter_available={__event_emitter__ is not None}, "
+                            f"markdown_source_len={len(_md_content)}, "
+                            f"markdown_source_preview={repr(_md_content[:600])}",
+                            __event_call__,
+                        )
+
+                        if __event_emitter__ and body_text:
+                            await __event_emitter__(
+                                {
+                                    "type": "embeds",
+                                    "data": {"embeds": [body_text]},
+                                }
+                            )
+
+                        # Return string (not dict): Copilot SDK backend expects string tool results
+                        final_result = f"{sanitized_tool_name}: Embedded UI result is active and visible to the user."
+
+                        if self.valves.DEBUG:
+                            await self._emit_debug_log(
+                                f"📤 Returning from HTMLResponse: type='str', len={len(final_result)}",
+                                __event_call__,
+                            )
+                        return final_result
+
+                    # Non-inline HTMLResponse: return decoded body text
+                    body_data = result.body
+                    final_result = (
+                        body_data.decode("utf-8", errors="replace")
+                        if isinstance(body_data, (bytes, bytearray))
+                        else str(body_data)
+                    )
+
+                    if self.valves.DEBUG:
+                        await self._emit_debug_log(
+                            f"📤 Returning from non-inline HTMLResponse: type='str', len={len(final_result)}, preview={repr(final_result[:160])}",
+                            __event_call__,
+                        )
+                    return final_result
+
+                # Generic return for all other types
+                if self.valves.DEBUG:
+                    if isinstance(result, str):
+                        await self._emit_debug_log(
+                            f"📤 Returning string result: len={len(result)}, preview={repr(result[:160])}",
+                            __event_call__,
+                        )
+                    else:
+                        await self._emit_debug_log(
+                            f"📤 Returning {type(result).__name__} result",
+                            __event_call__,
+                        )
                 return result
             except Exception as e:
                 # detailed traceback
@@ -2020,7 +2673,9 @@ class Pipe:
             return TOOL_SERVER_CONNECTIONS.value
         return []
 
-    def _build_openwebui_request(self, user: dict = None, token: str = None):
+    def _build_openwebui_request(
+        self, user: dict = None, token: str = None, body: dict = None
+    ):
         """Build a more complete request-like object with dynamically loaded OpenWebUI configs."""
         # Dynamically build config from the official registry
         config = SimpleNamespace()
@@ -2037,13 +2692,57 @@ class Pipe:
         fresh_connections = self._read_tool_server_connections()
         config.TOOL_SERVER_CONNECTIONS = fresh_connections
 
+        # Try to populate real models to avoid "Model not found" in generate_chat_completion
+        # Keep entries as dict-like payloads to avoid downstream `.get()` crashes
+        # when OpenWebUI internals treat model records as mappings.
+        system_models = {}
+        try:
+            from open_webui.models.models import Models as _Models
+
+            all_models = _Models.get_all_models()
+            for m in all_models:
+                model_payload = None
+                if isinstance(m, dict):
+                    model_payload = m
+                elif hasattr(m, "model_dump"):
+                    try:
+                        dumped = m.model_dump()
+                        if isinstance(dumped, dict):
+                            model_payload = dumped
+                    except Exception:
+                        model_payload = None
+
+                if model_payload is None:
+                    model_payload = {
+                        "id": getattr(m, "id", None),
+                        "name": getattr(m, "name", None),
+                        "base_model_id": getattr(m, "base_model_id", None),
+                    }
+
+                model_id = (
+                    model_payload.get("id") if isinstance(model_payload, dict) else None
+                )
+                model_name = (
+                    model_payload.get("name")
+                    if isinstance(model_payload, dict)
+                    else None
+                )
+
+                # Map both ID and name for maximum compatibility during resolution
+                if model_id:
+                    system_models[str(model_id)] = model_payload
+                if model_name:
+                    system_models[str(model_name)] = model_payload
+        except Exception:
+            pass
+
         app_state = SimpleNamespace(
             config=config,
             TOOLS={},
             TOOL_CONTENTS={},
             FUNCTIONS={},
             FUNCTION_CONTENTS={},
-            MODELS={},
+            MODELS=system_models,
             redis=None,  # Crucial: prevent AttributeError in get_tool_servers
             TOOL_SERVERS=[],  # Initialize as empty list
         )
@@ -2066,7 +2765,17 @@ class Pipe:
             "accept": "*/*",
         }
         if token:
-            req_headers["Authorization"] = f"Bearer {token}"
+            req_headers["Authorization"] = (
+                token if str(token).startswith("Bearer ") else f"Bearer {token}"
+            )
+
+        async def _json():
+            return body or {}
+
+        async def _body():
+            import json
+
+            return json.dumps(body or {}).encode("utf-8")
 
         request = SimpleNamespace(
             app=app,
@@ -2083,6 +2792,8 @@ class Pipe:
                 token=SimpleNamespace(credentials=token if token else ""),
                 user=user if user else {},
             ),
+            json=_json,
+            body=_body,
         )
         return request
 
@@ -2090,12 +2801,20 @@ class Pipe:
         self,
         body: dict = None,
         __user__=None,
+        __request__=None,
         __event_emitter__=None,
         __event_call__=None,
         enable_tools: bool = True,
         enable_openapi: bool = True,
         chat_tool_ids: Optional[list] = None,
         __metadata__: Optional[dict] = None,
+        __messages__: Optional[list] = None,
+        __files__: Optional[list] = None,
+        __task__: Optional[str] = None,
+        __task_body__: Optional[str] = None,
+        __session_id__: Optional[str] = None,
+        __chat_id__: Optional[str] = None,
+        __message_id__: Optional[str] = None,
     ):
         """Load OpenWebUI tools and convert them to Copilot SDK tools."""
         if isinstance(__user__, (list, tuple)):
@@ -2111,6 +2830,43 @@ class Pipe:
         user_id = user_data.get("id") or user_data.get("user_id")
         if not user_id:
             return []
+
+        metadata_dict: Dict[str, Any] = {}
+        if isinstance(__metadata__, dict):
+            metadata_dict = __metadata__
+        elif __metadata__ is not None and hasattr(__metadata__, "model_dump"):
+            try:
+                dumped = __metadata__.model_dump()
+                if isinstance(dumped, dict):
+                    metadata_dict = dumped
+            except Exception:
+                metadata_dict = {}
+
+        # Normalize metadata.model shape to avoid downstream `.get()` crashes
+        # when OpenWebUI injects Pydantic model objects (e.g., ModelModel).
+        raw_meta_model = metadata_dict.get("model")
+        if raw_meta_model is not None and not isinstance(raw_meta_model, (dict, str)):
+            normalized_model: Any = None
+
+            if hasattr(raw_meta_model, "model_dump"):
+                try:
+                    dumped_model = raw_meta_model.model_dump()
+                    if isinstance(dumped_model, dict):
+                        normalized_model = dumped_model
+                except Exception:
+                    normalized_model = None
+
+            if normalized_model is None:
+                normalized_model = (
+                    getattr(raw_meta_model, "id", None)
+                    or getattr(raw_meta_model, "base_model_id", None)
+                    or getattr(raw_meta_model, "model", None)
+                )
+
+            if normalized_model is not None:
+                metadata_dict["model"] = normalized_model
+            else:
+                metadata_dict["model"] = str(raw_meta_model)
 
         # --- PROBE LOG ---
         if __event_call__:
@@ -2252,50 +3008,212 @@ class Pipe:
         token = None
         messages = []
         if isinstance(body, dict):
-            token = body.get("token")
+            token = body.get("token") or metadata_dict.get("token")
             messages = body.get("messages", [])
 
-        # Build request with token if available
-        request = self._build_openwebui_request(user_data, token=token)
+        # If token is still missing, try to extract from current __request__
+        if not token and __request__ is not None:
+            try:
+                auth = getattr(__request__, "headers", {}).get("Authorization", "")
+                if auth.startswith("Bearer "):
+                    token = auth.split(" ", 1)[1]
+            except Exception:
+                pass
+
+        # Sanitize request body to avoid passing Pydantic model objects
+        # (e.g., ModelModel) into downstream request.json() consumers.
+        request_body: Dict[str, Any] = body if isinstance(body, dict) else {}
+        if isinstance(body, dict):
+            request_body = dict(body)
+            raw_body_meta = request_body.get("metadata")
+            body_meta = dict(raw_body_meta) if isinstance(raw_body_meta, dict) else {}
+
+            # Fill missing metadata keys from normalized injected metadata
+            for key in (
+                "model",
+                "base_model_id",
+                "model_id",
+                "tool_ids",
+                "files",
+                "task",
+                "task_body",
+            ):
+                if key in metadata_dict and key not in body_meta:
+                    body_meta[key] = metadata_dict.get(key)
+
+            body_model = body_meta.get("model")
+            if body_model is not None and not isinstance(body_model, (dict, str)):
+                normalized_body_model: Any = None
+
+                if hasattr(body_model, "model_dump"):
+                    try:
+                        dumped_model = body_model.model_dump()
+                        if isinstance(dumped_model, dict):
+                            normalized_body_model = dumped_model
+                    except Exception:
+                        normalized_body_model = None
+
+                if normalized_body_model is None:
+                    normalized_body_model = (
+                        getattr(body_model, "id", None)
+                        or getattr(body_model, "base_model_id", None)
+                        or getattr(body_model, "model", None)
+                        or str(body_model)
+                    )
+
+                body_meta["model"] = normalized_body_model
+
+            request_body["metadata"] = body_meta
+
+        # Build request with context if available
+        request = self._build_openwebui_request(
+            user_data, token=token, body=request_body
+        )
+        tool_request = __request__ if __request__ is not None else request
 
         # Pass OAuth/Auth details in extra_params
         chat_ctx = self._get_chat_context(body, __metadata__, __event_call__)
         extra_params = {
-            "__request__": request,
+            "__request__": tool_request,
+            "request": tool_request,  # Many tools expect 'request' without __
             "__user__": user_data,
             "__event_emitter__": __event_emitter__,
             "__event_call__": __event_call__,
-            "__messages__": messages,
-            "__metadata__": __metadata__ or {},
-            "__chat_id__": chat_ctx.get("chat_id"),
-            "__message_id__": chat_ctx.get("message_id"),
-            "__session_id__": chat_ctx.get("session_id"),
-            "__files__": (__metadata__ or {}).get("files", []),
-            "__task__": (__metadata__ or {}).get("task"),
-            "__task_body__": (__metadata__ or {}).get("task_body"),
+            "__messages__": __messages__ if __messages__ is not None else messages,
+            "__metadata__": metadata_dict,
+            "__chat_id__": __chat_id__ or chat_ctx.get("chat_id"),
+            "__message_id__": __message_id__ or chat_ctx.get("message_id"),
+            "__session_id__": __session_id__ or chat_ctx.get("session_id"),
+            "__files__": __files__ or metadata_dict.get("files", []),
+            "__task__": __task__ or metadata_dict.get("task"),
+            "__task_body__": __task_body__ or metadata_dict.get("task_body"),
             "__model_knowledge__": (body or {})
             .get("metadata", {})
             .get("knowledge", []),
-            "__oauth_token__": (
-                {"access_token": token} if token else None
-            ),  # Mock OAuth token structure
+            "body": request_body,  # many tools take 'body' in signature
+            "__oauth_token__": ({"access_token": token} if token else None),
         }
 
-        # Try to inject __model__ if available
+        # Try to inject __model__ and update __metadata__['model'] if available
         model_id = (body or {}).get("model")
         if model_id:
             try:
                 from open_webui.models.models import Models as _Models
 
                 model_record = _Models.get_model_by_id(model_id)
+                resolved_base_id = None
+
                 if model_record:
-                    extra_params["__model__"] = {"info": model_record.model_dump()}
+                    m_dump = model_record.model_dump()
+                    extra_params["__model__"] = {"info": m_dump}
+                    # Standard tools often look for __metadata__['model'] or base_model_id
+                    resolved_base_id = (
+                        getattr(model_record, "base_model_id", None) or model_id
+                    )
+                    # Strip pipe/manifold prefix so tools never get the pipe-prefixed ID
+                    # (e.g. "github_copilot_official_sdk_pipe.gemini-3-flash-preview" → "gemini-3-flash-preview")
+                    resolved_base_id = self._strip_model_prefix(resolved_base_id)
+                    if "__metadata__" in extra_params:
+                        # Patch m_dump so that tools reading metadata["model"]["id"] also get the clean ID
+                        if isinstance(m_dump, dict) and resolved_base_id:
+                            m_dump = dict(m_dump)
+                            m_dump["id"] = resolved_base_id
+                        extra_params["__metadata__"]["model"] = m_dump
+                else:
+                    # Pipe-generated virtual model (not in DB) — strip the pipe prefix
+                    resolved_base_id = self._strip_model_prefix(model_id)
+
+                if resolved_base_id and "__metadata__" in extra_params:
+                    # Always write the clean ID into base_model_id
+                    extra_params["__metadata__"]["base_model_id"] = resolved_base_id
+                    existing_model = extra_params["__metadata__"].get("model")
+                    if isinstance(existing_model, dict):
+                        # Patch the existing dict in-place (create a new dict to avoid mutating shared state)
+                        patched = dict(existing_model)
+                        patched["id"] = resolved_base_id
+                        # Also clear any nested "model" key that some tools use as a second lookup
+                        if "model" in patched and isinstance(patched["model"], str):
+                            patched["model"] = resolved_base_id
+                        extra_params["__metadata__"]["model"] = patched
+                    else:
+                        # Not a dict yet — replace with clean string ID
+                        extra_params["__metadata__"]["model"] = resolved_base_id
             except Exception:
                 pass
+
+        # Log the final extra_params state AFTER all patches are applied
+        if self.valves.DEBUG:
+            try:
+                tool_messages = extra_params.get("__messages__") or []
+                tool_msg_samples = []
+                for msg in tool_messages[-3:]:
+                    if isinstance(msg, dict):
+                        role = msg.get("role", "")
+                        text = self._extract_text_from_content(msg.get("content", ""))
+                    else:
+                        role = ""
+                        text = str(msg)
+                    tool_msg_samples.append(
+                        {"role": role, "len": len(text), "preview": text[:100]}
+                    )
+
+                meta_for_tool = extra_params.get("__metadata__", {})
+                meta_model = (
+                    meta_for_tool.get("model")
+                    if isinstance(meta_for_tool, dict)
+                    else None
+                )
+                if isinstance(meta_model, dict):
+                    meta_model_repr = {
+                        "id": meta_model.get("id"),
+                        "base_model_id": meta_model.get("base_model_id"),
+                        "model": meta_model.get("model"),
+                    }
+                else:
+                    meta_model_repr = meta_model
+
+                await self._emit_debug_log(
+                    f"[Tools Input] extra_params (after patch): "
+                    f"chat_id={extra_params.get('__chat_id__')}, "
+                    f"message_id={extra_params.get('__message_id__')}, "
+                    f"session_id={extra_params.get('__session_id__')}, "
+                    f"messages_count={len(tool_messages)}, last3={tool_msg_samples}, "
+                    f"metadata.model={meta_model_repr}, "
+                    f"metadata.base_model_id={(meta_for_tool.get('base_model_id') if isinstance(meta_for_tool, dict) else None)}",
+                    __event_call__,
+                )
+            except Exception as e:
+                await self._emit_debug_log(
+                    f"[Tools Input] extra_params diagnostics failed: {e}",
+                    __event_call__,
+                )
 
         # Fetch User/Server Tools (OpenWebUI Native)
         tools_dict = {}
         if tool_ids:
+            tool_load_diag = {
+                "metadata_type": (
+                    type(__metadata__).__name__
+                    if __metadata__ is not None
+                    else "NoneType"
+                ),
+                "metadata_model_type": (
+                    type(metadata_dict.get("model")).__name__
+                    if metadata_dict
+                    else "NoneType"
+                ),
+                "body_metadata_type": (
+                    type(request_body.get("metadata")).__name__
+                    if isinstance(request_body, dict)
+                    else "NoneType"
+                ),
+                "body_metadata_model_type": (
+                    type((request_body.get("metadata", {}) or {}).get("model")).__name__
+                    if isinstance(request_body, dict)
+                    else "NoneType"
+                ),
+                "tool_ids_count": len(tool_ids),
+            }
             try:
                 if self.valves.DEBUG:
                     await self._emit_debug_log(
@@ -2304,7 +3222,7 @@ class Pipe:
                     )
 
                 tools_dict = await get_openwebui_tools(
-                    request, tool_ids, user, extra_params
+                    tool_request, tool_ids, user, extra_params
                 )
 
                 if self.valves.DEBUG:
@@ -2328,6 +3246,21 @@ class Pipe:
                     f"[Tools] CRITICAL ERROR in get_openwebui_tools: {e}",
                     __event_call__,
                 )
+                if __event_call__:
+                    try:
+                        js_code = f"""
+                            (async function() {{
+                                console.group("❌ Copilot Pipe Tool Load Error");
+                                console.error({json.dumps(str(e), ensure_ascii=False)});
+                                console.log({json.dumps(tool_load_diag, ensure_ascii=False)});
+                                console.groupEnd();
+                            }})();
+                        """
+                        await __event_call__(
+                            {"type": "execute", "data": {"code": js_code}}
+                        )
+                    except Exception:
+                        pass
                 import traceback
 
                 traceback.print_exc()
@@ -2388,12 +3321,8 @@ class Pipe:
                     "code_interpreter": code_interpreter_enabled,
                 }
                 builtin_tools = get_builtin_tools(
-                    self._build_openwebui_request(user_data),
-                    {
-                        "__user__": user_data,
-                        "__chat_id__": extra_params.get("__chat_id__"),
-                        "__message_id__": extra_params.get("__message_id__"),
-                    },
+                    tool_request,
+                    extra_params,
                     features=all_features,
                     model=model_dict,  # model.meta.builtinTools controls which categories are active
                 )
@@ -2975,6 +3904,456 @@ class Pipe:
 
         # 3. Fallback to standard path
         return os.path.expanduser("~/.copilot")
+
+    def _get_session_metadata_dir(self, chat_id: str) -> str:
+        """Get the directory where a specific chat's session state is stored."""
+        config_dir = self._get_copilot_config_dir()
+        path = os.path.join(config_dir, "session-state", chat_id)
+        os.makedirs(path, exist_ok=True)
+        return path
+
+    def _get_plan_file_path(self, chat_id: Optional[str]) -> Optional[str]:
+        """Return the canonical plan.md path for the current chat session."""
+        if not chat_id:
+            return None
+        return os.path.join(self._get_session_metadata_dir(chat_id), "plan.md")
+
+    def _persist_plan_text(self, chat_id: Optional[str], content: Optional[str]) -> None:
+        """Persist plan text into the chat-specific session metadata directory."""
+        plan_path = self._get_plan_file_path(chat_id)
+        if not plan_path or not isinstance(content, str):
+            return
+
+        try:
+            Path(plan_path).write_text(content, encoding="utf-8")
+        except Exception as e:
+            logger.warning(f"Failed to persist plan.md for chat '{chat_id}': {e}")
+
+    def _build_adaptive_workstyle_context(self, plan_path: str) -> str:
+        """Return task-adaptive planning and execution guidance, including plan persistence."""
+        return (
+            "\n[Adaptive Workstyle Context]\n"
+            "You are a high-autonomy engineering agent. Choose the workflow that best matches the task instead of waiting for an external mode switch.\n"
+            "Default bias: when the request is sufficiently clear and safe, prefer completing the work end-to-end instead of stopping at a proposal.\n"
+            f"**Plan File**: `{plan_path}`. This file lives in the **session metadata directory**, not in the isolated workspace. Update it when you create a concrete plan worth persisting across turns.\n\n"
+            "<rules>\n"
+            "- If the request is clear and low-risk, execute directly and finish the work end-to-end.\n"
+            "- If the request is ambiguous, high-risk, architectural, or explicitly asks for a plan, switch into planning-first behavior before implementation.\n"
+            "- Use clarifying questions when research reveals ambiguity or competing approaches that materially affect the result.\n"
+            "- When you do create a plan, make it scannable, detailed, and executable by a later implementation turn or by yourself in a follow-up step.\n"
+            "- `plan.md` is a session-state artifact in the metadata area, not a project file in the workspace. Do not place planning markdown inside the repository unless the user explicitly asks for a repository file.\n"
+            "</rules>\n\n"
+            "<workflow>\n"
+            "1. Assess: Decide whether this task is best handled by direct execution or planning-first analysis.\n"
+            "2. Research: Inspect the codebase, analogous features, constraints, and blockers before committing to an approach when uncertainty exists.\n"
+            "3. Act: Either draft a comprehensive plan or implement the change directly, depending on the assessment above.\n"
+            "4. Re-evaluate: If new complexity appears mid-task, change strategy explicitly instead of forcing the original approach.\n"
+            "</workflow>\n\n"
+            "<key_principles>\n"
+            "- Ground both plans and implementation in real codebase findings rather than assumptions.\n"
+            "- If the user wants research or planning, present findings in a structured plan/report style before changing code.\n"
+            "- The plan file is for persistence only; if you create or revise a plan, you must still show the plan to the user in the chat.\n"
+            f"- PERSISTENCE: When you produce a concrete plan, save it to `{plan_path}` so the UI can keep the plan view synchronized.\n"
+            "</key_principles>\n\n"
+            "<plan_format>\n"
+            "When presenting your findings or plan in the chat, structure it clearly:\n"
+            "## Plan / Report: {Title}\n"
+            "**TL;DR**: {What, why, and recommended approach}\n"
+            "**Steps**: {Implementation steps with explicit dependencies or parallelism notes}\n"
+            "**Relevant Files**: \n- `full/path/to/file` — {what to modify or reuse}\n"
+            "**Verification**: {Specific validation steps, tests, commands, or manual checks}\n"
+            "**Decisions**: {Key assumptions, included scope, and excluded scope when applicable}\n"
+            "**Further Considerations**: {1-3 follow-up considerations or options when useful}\n"
+            "</plan_format>\n"
+            "Use the plan style above whenever you choose a planning-first response. Otherwise, execute decisively and summarize the completed work clearly."
+        )
+
+    def _find_session_todo_db(self, chat_id: str) -> Optional[str]:
+        """Locate the per-session SQLite database that contains the todos table."""
+        if not chat_id:
+            return None
+
+        session_dir = Path(self._get_session_metadata_dir(chat_id))
+        candidates: List[Path] = []
+
+        preferred = session_dir / "session.db"
+        if preferred.exists():
+            candidates.append(preferred)
+
+        for pattern in ("*.db", "*.sqlite", "*.sqlite3"):
+            for candidate in sorted(session_dir.glob(pattern)):
+                if candidate not in candidates:
+                    candidates.append(candidate)
+
+        for candidate in candidates:
+            try:
+                with sqlite3.connect(f"file:{candidate}?mode=ro", uri=True) as conn:
+                    row = conn.execute(
+                        "SELECT name FROM sqlite_master WHERE type='table' AND name='todos'"
+                    ).fetchone()
+                    if row:
+                        return str(candidate)
+            except Exception:
+                continue
+
+        return None
+
+    def _read_todo_status_from_session_db(
+        self, chat_id: str
+    ) -> Optional[Dict[str, Any]]:
+        """Read live todo statistics from the session SQLite database."""
+        db_path = self._find_session_todo_db(chat_id)
+        if not db_path:
+            return None
+
+        try:
+            with sqlite3.connect(f"file:{db_path}?mode=ro", uri=True) as conn:
+                conn.row_factory = sqlite3.Row
+
+                rows = conn.execute(
+                    "SELECT id, title, status FROM todos ORDER BY rowid"
+                ).fetchall()
+                if not rows:
+                    return None
+
+                counts = {
+                    "pending": 0,
+                    "in_progress": 0,
+                    "done": 0,
+                    "blocked": 0,
+                }
+                for row in rows:
+                    status = str(row["status"] or "pending")
+                    counts[status] = counts.get(status, 0) + 1
+
+                ready_rows = conn.execute(
+                    """
+                    SELECT t.id
+                    FROM todos t
+                    WHERE t.status = 'pending'
+                      AND NOT EXISTS (
+                          SELECT 1
+                          FROM todo_deps td
+                          JOIN todos dep ON td.depends_on = dep.id
+                          WHERE td.todo_id = t.id
+                            AND dep.status != 'done'
+                      )
+                    ORDER BY rowid
+                    LIMIT 3
+                    """
+                ).fetchall()
+                ready_count_row = conn.execute(
+                    """
+                    SELECT COUNT(*)
+                    FROM todos t
+                    WHERE t.status = 'pending'
+                      AND NOT EXISTS (
+                          SELECT 1
+                          FROM todo_deps td
+                          JOIN todos dep ON td.depends_on = dep.id
+                          WHERE td.todo_id = t.id
+                            AND dep.status != 'done'
+                      )
+                    """
+                ).fetchone()
+
+                return {
+                    "db_path": db_path,
+                    "total": len(rows),
+                    "pending": counts.get("pending", 0),
+                    "in_progress": counts.get("in_progress", 0),
+                    "done": counts.get("done", 0),
+                    "blocked": counts.get("blocked", 0),
+                    "ready_count": int(ready_count_row[0]) if ready_count_row else 0,
+                    "ready_ids": [str(row["id"]) for row in ready_rows],
+                    "items": [
+                        {
+                            "id": str(row["id"]),
+                            "title": str(row["title"] or row["id"]),
+                            "status": str(row["status"] or "pending"),
+                        }
+                        for row in rows
+                    ],
+                }
+        except Exception as e:
+            logger.debug(f"[Todo Status] Failed to read session DB '{db_path}': {e}")
+            return None
+
+    def _format_todo_widget_summary(self, lang: str, stats: Dict[str, Any]) -> str:
+        """Format a compact TODO summary using widget-localized labels only."""
+        widget_texts = self._get_todo_widget_texts(lang)
+        total = int(stats.get("total", 0))
+        pending = int(stats.get("pending", 0))
+        in_progress = int(stats.get("in_progress", 0))
+        done = int(stats.get("done", 0))
+        blocked = int(stats.get("blocked", 0))
+
+        parts = [
+            f"{widget_texts['title']}: {widget_texts['total']} {total}",
+            f"⏳ {widget_texts['pending']} {pending}",
+            f"🚧 {widget_texts['doing']} {in_progress}",
+            f"✅ {widget_texts['done']} {done}",
+            f"⛔ {widget_texts['blocked']} {blocked}",
+        ]
+        return " | ".join(parts)
+
+    def _get_todo_widget_state_path(self, chat_id: str) -> str:
+        """Return the persisted hash path for the live TODO widget."""
+        return os.path.join(self._get_session_metadata_dir(chat_id), "todo_widget.hash")
+
+    def _compute_todo_widget_hash(self, stats: Optional[Dict[str, Any]]) -> str:
+        """Create a stable hash of the TODO snapshot so only real changes trigger a refresh."""
+        payload = {
+            "total": int((stats or {}).get("total", 0)),
+            "pending": int((stats or {}).get("pending", 0)),
+            "in_progress": int((stats or {}).get("in_progress", 0)),
+            "done": int((stats or {}).get("done", 0)),
+            "blocked": int((stats or {}).get("blocked", 0)),
+            "ready_count": int((stats or {}).get("ready_count", 0)),
+            "ready_ids": list((stats or {}).get("ready_ids", []) or []),
+            "items": list((stats or {}).get("items", []) or []),
+        }
+        raw = json.dumps(payload, ensure_ascii=False, sort_keys=True)
+        return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+    def _read_todo_widget_hash(self, chat_id: str) -> str:
+        """Read the last emitted TODO widget hash for this chat."""
+        if not chat_id:
+            return ""
+        state_path = self._get_todo_widget_state_path(chat_id)
+        try:
+            return Path(state_path).read_text(encoding="utf-8").strip()
+        except Exception:
+            return ""
+
+    def _write_todo_widget_hash(self, chat_id: str, snapshot_hash: str) -> None:
+        """Persist the last emitted TODO widget hash for this chat."""
+        if not chat_id:
+            return
+        state_path = Path(self._get_todo_widget_state_path(chat_id))
+        state_path.parent.mkdir(parents=True, exist_ok=True)
+        state_path.write_text(snapshot_hash, encoding="utf-8")
+
+    def _build_todo_widget_html(
+        self, lang: str, stats: Optional[Dict[str, Any]]
+    ) -> str:
+        """Build a compact TODO widget: always-expanded flat list."""
+
+        def esc(value: Any) -> str:
+            return (
+                str(value or "")
+                .replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace('"', "&quot;")
+            )
+
+        stats = stats or {
+            "total": 0,
+            "pending": 0,
+            "in_progress": 0,
+            "done": 0,
+            "blocked": 0,
+            "ready_count": 0,
+            "items": [],
+        }
+        widget_texts = self._get_todo_widget_texts(lang)
+        pending = int(stats.get("pending", 0))
+        in_progress = int(stats.get("in_progress", 0))
+        done = int(stats.get("done", 0))
+        blocked = int(stats.get("blocked", 0))
+        items = list(stats.get("items", []) or [])
+
+        S = {
+            "pending": ("pend", "⏳"),
+            "in_progress": ("prog", "🚧"),
+            "done": ("done", "✅"),
+            "blocked": ("blk", "⛔"),
+        }
+
+        # ── header pills ──
+        pills = []
+        if in_progress > 0:
+            pills.append(f'<span class="pill prog">🚧 {in_progress}</span>')
+        if pending > 0:
+            pills.append(f'<span class="pill pend">⏳ {pending}</span>')
+        if blocked > 0:
+            pills.append(f'<span class="pill blk">⛔ {blocked}</span>')
+        if done > 0:
+            pills.append(f'<span class="pill done">✅ {done}</span>')
+        pills_html = "".join(pills)
+
+        # ── flat list rows ──
+        status_order = {"in_progress": 0, "blocked": 1, "pending": 2, "done": 3}
+        sorted_items = sorted(
+            items, key=lambda x: status_order.get(str(x.get("status") or "pending"), 2)
+        )
+
+        rows_html = ""
+        for item in sorted_items[:24]:
+            s = str(item.get("status") or "pending")
+            cls, icon = S.get(s, ("pend", "⏳"))
+            label = esc(widget_texts.get(f"status_{s}", s))
+            title = esc(item.get("title") or item.get("id") or "todo")
+            iid = esc(item.get("id") or "")
+            id_part = f' <span class="rid">{iid}</span>' if iid else ""
+            rows_html += (
+                f'<div class="row {cls}">'
+                f'<span class="ricon">{icon}</span>'
+                f'<span class="rtitle">{title}{id_part}</span>'
+                f'<span class="chip {cls}">{label}</span>'
+                f"</div>"
+            )
+        if not rows_html:
+            rows_html = f'<div class="empty">{esc(widget_texts["empty"])}</div>'
+
+        ts = datetime.now().strftime("%H:%M:%S")
+        footer = esc(widget_texts["updated_at"].format(time=ts))
+        title_text = esc(widget_texts["title"])
+
+        return f"""<!DOCTYPE html>
+<html lang="{esc(self._resolve_language(lang))}">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<style>
+  :root{{
+    --bg:#ffffff;--bd:#e5e7eb;--tx:#111827;--mu:#9ca3af;--row-h:#f3f4f6;
+    --done-c:#059669;--done-b:#ecfdf5;--done-bd:#a7f3d0;
+    --prog-c:#2563eb;--prog-b:#eff6ff;--prog-bd:#bfdbfe;
+    --pend-c:#b45309;--pend-b:#fffbeb;--pend-bd:#fde68a;
+    --blk-c:#dc2626; --blk-b:#fef2f2;--blk-bd:#fecaca;
+    --dot:#6366f1;
+  }}
+  html.dark{{
+    --bg:#1e1e2e;--bd:#313244;--tx:#cdd6f4;--mu:#6c7086;--row-h:#232336;
+    --done-c:#a6e3a1;--done-b:#1e3a2a;--done-bd:#2d5c3e;
+    --prog-c:#89b4fa;--prog-b:#1a2a4a;--prog-bd:#2a4070;
+    --pend-c:#f9e2af;--pend-b:#3a2e1a;--pend-bd:#5a4820;
+    --blk-c:#f38ba8; --blk-b:#3a1a20;--blk-bd:#5a2830;
+    --dot:#cba6f7;
+  }}
+  *{{box-sizing:border-box;margin:0;padding:0}}
+  body{{background:transparent;font-family:"Inter","Segoe UI",system-ui,sans-serif;font-size:13px;color:var(--tx)}}
+  .w{{background:var(--bg);border:1px solid var(--bd);border-radius:8px;overflow:hidden}}
+  /* ── header ── */
+  .hd{{display:flex;align-items:center;gap:8px;padding:7px 10px;border-bottom:1px solid var(--bd)}}
+  .ttl{{font-size:11px;font-weight:700;color:var(--mu);letter-spacing:.06em;text-transform:uppercase;white-space:nowrap;flex:0 0 auto}}
+  .sep{{width:1px;height:14px;background:var(--bd);flex:0 0 auto}}
+  .pills{{display:flex;gap:4px;flex-wrap:wrap}}
+  .pill{{font-size:11px;font-weight:700;padding:2px 7px;border-radius:5px;border:1px solid transparent;white-space:nowrap}}
+  .pill.done{{color:var(--done-c);background:var(--done-b);border-color:var(--done-bd)}}
+  .pill.prog{{color:var(--prog-c);background:var(--prog-b);border-color:var(--prog-bd)}}
+  .pill.pend{{color:var(--pend-c);background:var(--pend-b);border-color:var(--pend-bd)}}
+  .pill.blk {{color:var(--blk-c); background:var(--blk-b); border-color:var(--blk-bd)}}
+  .dot{{width:6px;height:6px;border-radius:50%;background:var(--dot);animation:blink 2s ease-in-out infinite;margin-left:auto;flex:0 0 auto}}
+  @keyframes blink{{0%,100%{{opacity:1}}50%{{opacity:.2}}}}
+  /* ── rows ── */
+  .row{{display:flex;align-items:center;gap:8px;padding:6px 10px;border-bottom:1px solid var(--bd)}}
+  .row:last-child{{border-bottom:none}}
+  .row:hover{{background:var(--row-h)}}
+  .row.done .rtitle{{color:var(--mu);text-decoration:line-through;text-decoration-color:var(--done-bd)}}
+  .ricon{{font-size:13px;flex:0 0 auto;line-height:1}}
+  .rtitle{{flex:1 1 0;min-width:0;font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
+  .rid{{font-size:10px;color:var(--mu);font-family:ui-monospace,monospace;margin-left:5px}}
+  .chip{{font-size:10px;font-weight:700;padding:1px 6px;border-radius:4px;flex:0 0 auto;border:1px solid transparent;white-space:nowrap}}
+  .chip.done{{color:var(--done-c);background:var(--done-b);border-color:var(--done-bd)}}
+  .chip.prog{{color:var(--prog-c);background:var(--prog-b);border-color:var(--prog-bd)}}
+  .chip.pend{{color:var(--pend-c);background:var(--pend-b);border-color:var(--pend-bd)}}
+  .chip.blk {{color:var(--blk-c); background:var(--blk-b); border-color:var(--blk-bd)}}
+  .empty{{padding:10px;font-size:12px;color:var(--mu)}}
+  .foot{{padding:4px 10px 5px;font-size:10px;color:var(--mu);text-align:right;border-top:1px solid var(--bd)}}
+</style>
+</head>
+<body>
+<div class="w">
+  <div class="hd">
+    <span class="ttl">📋 {title_text}</span>
+    <span class="sep"></span>
+    <span class="pills">{pills_html}</span>
+    <span class="dot"></span>
+  </div>
+  <div>
+    {rows_html}
+  </div>
+  <div class="foot">{footer}</div>
+</div>
+<script>
+(function(){{
+  function parseColorLuma(color){{
+    if(!color)return null;color=color.trim();
+    var m=color.match(/^#([0-9a-fA-F]{3})$/);
+    if(m){{var c=m[1];return(0.299*parseInt(c[0]+c[0],16)+0.587*parseInt(c[1]+c[1],16)+0.114*parseInt(c[2]+c[2],16))/255;}}
+    m=color.match(/^#([0-9a-fA-F]{6})$/);
+    if(m)return(0.299*parseInt(m[1].slice(0,2),16)+0.587*parseInt(m[1].slice(2,4),16)+0.114*parseInt(m[1].slice(4,6),16))/255;
+    return null;
+  }}
+  function getThemeFromMeta(doc){{
+    try{{var metas=Array.from(doc.querySelectorAll('meta[name="theme-color"]'));if(!metas.length)return null;var l=parseColorLuma(metas[metas.length-1].content);return l===null?null:l<0.5?'dark':'light';}}catch(e){{return null;}}
+  }}
+  function getThemeFromParentClass(){{
+    try{{if(!window.parent||window.parent===window)return null;var h=window.parent.document.documentElement,b=window.parent.document.body;var dt=h?h.getAttribute('data-theme'):'';var hc=h?h.className:'',bc=b?b.className:'';if(dt==='dark'||hc.includes('dark')||bc.includes('dark'))return'dark';if(dt==='light'||hc.includes('light')||bc.includes('light'))return'light';return null;}}catch(e){{return null;}}
+  }}
+  function applyTheme(){{
+    var pDoc=null;try{{if(window.parent&&window.parent!==window){{void window.parent.document.title;pDoc=window.parent.document;}}}}catch(e){{}}
+    var t=getThemeFromMeta(pDoc)||getThemeFromParentClass()||(window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');
+    document.documentElement.classList.toggle('dark',t==='dark');
+  }}
+  applyTheme();
+  try{{window.matchMedia('(prefers-color-scheme:dark)').addEventListener('change',applyTheme);}}catch(e){{}}
+}})();
+</script>
+</body>
+</html>
+"""
+
+    async def _emit_todo_widget(
+        self,
+        chat_id: str,
+        lang: str,
+        emitter,
+        stats: Optional[Dict[str, Any]] = None,
+        force: bool = False,
+    ) -> Dict[str, Any]:
+        """Emit the TODO widget immediately when the snapshot actually changed."""
+        if not chat_id:
+            return {"emitted": False, "changed": False, "reason": "missing_chat_id"}
+        if not emitter:
+            return {"emitted": False, "changed": False, "reason": "missing_emitter"}
+
+        current_stats = (
+            stats
+            if stats is not None
+            else self._read_todo_status_from_session_db(chat_id)
+        )
+        snapshot_hash = self._compute_todo_widget_hash(current_stats)
+        previous_hash = self._read_todo_widget_hash(chat_id)
+        changed = force or snapshot_hash != previous_hash
+        if not changed:
+            return {
+                "emitted": False,
+                "changed": False,
+                "reason": "unchanged",
+            }
+
+        html_doc = self._build_todo_widget_html(lang, current_stats)
+        try:
+            await emitter({"type": "embeds", "data": {"embeds": [html_doc]}})
+            self._write_todo_widget_hash(chat_id, snapshot_hash)
+            return {
+                "emitted": True,
+                "changed": True,
+                "reason": "widget_updated",
+            }
+        except Exception as e:
+            logger.debug(f"[Todo Widget] Failed to emit widget: {e}")
+            return {"emitted": False, "changed": changed, "reason": str(e)}
+
+    def _query_mentions_todo_tables(self, query: str) -> bool:
+        """Return whether a SQL query is operating on todo tables."""
+        if not query:
+            return False
+        return bool(re.search(r"\b(todos|todo_deps)\b", query, re.IGNORECASE))
 
     def _get_shared_skills_dir(self, resolved_cwd: str) -> str:
         """Returns (and creates) the unified shared skills directory.
@@ -3568,6 +4947,94 @@ class Pipe:
 
         return client_config
 
+    def _build_final_system_message(
+        self,
+        system_prompt_content: Optional[str],
+        is_admin: bool,
+        user_id: Optional[str],
+        chat_id: Optional[str],
+        manage_skills_intent: bool = False,
+    ) -> str:
+        """Build the final system prompt content used for both new and resumed sessions."""
+        try:
+            # -time.timezone is offset in seconds. UTC+8 is 28800.
+            is_china_tz = (-time.timezone / 3600) == 8.0
+        except Exception:
+            is_china_tz = False
+
+        if is_china_tz:
+            pkg_mirror_hint = " (Note: Server is in UTC+8. You MUST append `-i https://pypi.tuna.tsinghua.edu.cn/simple` for pip/uv and `--registry=https://registry.npmmirror.com` for npm to prevent network timeouts.)"
+        else:
+            pkg_mirror_hint = " (Note: If network is slow or times out, proactively use a fast regional mirror suitable for the current timezone.)"
+
+        system_parts = []
+        if system_prompt_content:
+            system_parts.append(system_prompt_content.strip())
+
+        if manage_skills_intent:
+            system_parts.append(
+                "[Skill Management]\n"
+                "If the user wants to install, create, delete, edit, or list skills, use the `manage_skills` tool.\n"
+                "Supported operations: list, install, create, edit, delete, show.\n"
+                "When installing skills that require CLI tools, you MAY run installation commands.\n"
+                f"To avoid hanging the session, ALWAYS append `-q` or `--silent` to package managers, and confirm unattended installations (e.g., `npm install -g -q <pkg>` or `pip install -q <pkg>`).{pkg_mirror_hint}\n"
+                "When running `npm install -g`, it will automatically use prefix `/app/backend/data/.copilot_tools/npm`. No need to set the prefix manually, but you MUST be aware this is the installation target.\n"
+                "When running `pip install`, it operates within an isolated Python Virtual Environment (`VIRTUAL_ENV=/app/backend/data/.copilot_tools/venv`) that has access to system packages (`--system-site-packages`). This protects the system Python while allowing you to use pre-installed generic libraries. DO NOT attempt to bypass this isolation."
+            )
+
+        resolved_cwd = self._get_workspace_dir(user_id=user_id, chat_id=chat_id)
+        config_dir = self._get_copilot_config_dir()
+        plan_path = self._get_plan_file_path(chat_id) or os.path.join(
+            config_dir, "session-state", "<chat_id>", "plan.md"
+        )
+        path_context = (
+            f"\n[Session Context]\n"
+            f"- **Your Isolated Workspace**: `{resolved_cwd}`\n"
+            f"- **Active User ID**: `{user_id}`\n"
+            f"- **Active Chat ID**: `{chat_id}`\n"
+            f"- **Skills Directory**: `{self.valves.OPENWEBUI_SKILLS_SHARED_DIR}/shared/` — contains user-installed skills.\n"
+            f"- **Config Directory / Metadata Area**: `{config_dir}` — contains session state, including per-chat metadata files.\n"
+            f"- **Plan File**: `{plan_path}` — this file is in the **metadata area**, not in the workspace. If you decide to create or revise a reusable plan, update this file instead of writing a planning markdown file inside the repository or workspace.\n"
+            f"- **CLI Tools Path**: `/app/backend/data/.copilot_tools/` — Global tools installed via npm or pip will automatically go here and be in your $PATH. Python tools are strictly isolated in a venv here.\n"
+            "**CRITICAL INSTRUCTION**: You MUST use the above workspace for ALL file operations.\n"
+            "- **Exception**: The plan file above is a session metadata artifact and lives outside the workspace on purpose.\n"
+            "- DO NOT create files in `/tmp` or any other system directories.\n"
+            "- Always interpret 'current directory' as your Isolated Workspace."
+        )
+        system_parts.append(path_context)
+
+        native_tools_context = (
+            "\n[Available Native System Tools]\n"
+            "The host environment is rich. Based on the official OpenWebUI Docker deployment baseline (backend image), the following CLI tools are expected to be preinstalled and globally available in $PATH:\n"
+            "- **Network/Data**: `curl`, `jq`, `netcat-openbsd`\n"
+            "- **Media/Doc**: `pandoc` (format conversion), `ffmpeg` (audio/video)\n"
+            "- **Build/System**: `git`, `gcc`, `make`, `build-essential`, `zstd`, `bash`\n"
+            "- **Python/Runtime**: `python3`, `pip3`, `uv`\n"
+            f"- **Package Mgr Guidance**: Prefer `uv pip install <pkg>` over plain `pip install` for speed and stability.{pkg_mirror_hint}\n"
+            "- **Verification Rule**: Before installing any CLI/tool dependency, first check availability with `which <tool>` or a lightweight version probe (e.g. `<tool> --version`).\n"
+            "- **Python Libs**: The active virtual environment inherits `--system-site-packages`. Advanced libraries like `pandas`, `numpy`, `pillow`, `opencv-python-headless`, `pypdf`, `langchain`, `playwright`, `httpx`, and `beautifulsoup4` are ALREADY installed. Try importing them before attempting to install.\n"
+        )
+        system_parts.append(native_tools_context)
+
+        system_parts.append(BASE_GUIDELINES)
+        system_parts.append(self._build_adaptive_workstyle_context(plan_path))
+
+        if not self._is_version_at_least("0.8.0"):
+            version_note = (
+                f"\n**[CRITICAL VERSION NOTE]**\n"
+                f"The host OpenWebUI version is `{open_webui_version}`, which is older than 0.8.0.\n"
+                "- **Rich UI Disabled**: Integration features like `type: embeds` or automated iframe overlays are NOT supported.\n"
+                "- **Protocol Fallback**: You MUST NOT rely on the 'Premium Delivery Protocol' for visuals. Instead, you SHOULD output the HTML code block manually in your message if you want the user to see the result."
+            )
+            system_parts.append(version_note)
+
+        if is_admin:
+            system_parts.append(ADMIN_EXTENSIONS)
+        else:
+            system_parts.append(USER_RESTRICTIONS)
+
+        return "\n".join(system_parts)
+
     def _build_session_config(
         self,
         chat_id: Optional[str],
@@ -3589,18 +5056,6 @@ class Pipe:
     ):
         """Build SessionConfig for Copilot SDK."""
         from copilot.types import SessionConfig, InfiniteSessionConfig
-        import time
-
-        try:
-            # -time.timezone is offset in seconds. UTC+8 is 28800.
-            is_china_tz = (-time.timezone / 3600) == 8.0
-        except Exception:
-            is_china_tz = False
-
-        if is_china_tz:
-            pkg_mirror_hint = " (Note: Server is in UTC+8. You MUST append `-i https://pypi.tuna.tsinghua.edu.cn/simple` for pip/uv and `--registry=https://registry.npmmirror.com` for npm to prevent network timeouts.)"
-        else:
-            pkg_mirror_hint = " (Note: If network is slow or times out, proactively use a fast regional mirror suitable for the current timezone.)"
 
         infinite_session_config = None
         if self.valves.INFINITE_SESSION:
@@ -3610,73 +5065,14 @@ class Pipe:
                 buffer_exhaustion_threshold=self.valves.BUFFER_THRESHOLD,
             )
 
-        # Prepare the combined system message content
-        system_parts = []
-        if system_prompt_content:
-            system_parts.append(system_prompt_content.strip())
-
-        if manage_skills_intent:
-            system_parts.append(
-                "[Skill Management]\n"
-                "If the user wants to install, create, delete, edit, or list skills, use the `manage_skills` tool.\n"
-                "Supported operations: list, install, create, edit, delete, show.\n"
-                "When installing skills that require CLI tools, you MAY run installation commands.\n"
-                f"To avoid hanging the session, ALWAYS append `-q` or `--silent` to package managers, and confirm unattended installations (e.g., `npm install -g -q <pkg>` or `pip install -q <pkg>`).{pkg_mirror_hint}\n"
-                "When running `npm install -g`, it will automatically use prefix `/app/backend/data/.copilot_tools/npm`. No need to set the prefix manually, but you MUST be aware this is the installation target.\n"
-                "When running `pip install`, it operates within an isolated Python Virtual Environment (`VIRTUAL_ENV=/app/backend/data/.copilot_tools/venv`) that has access to system packages (`--system-site-packages`). This protects the system Python while allowing you to use pre-installed generic libraries. DO NOT attempt to bypass this isolation."
-            )
-
-        # Calculate final path once to ensure consistency
+        final_system_msg = self._build_final_system_message(
+            system_prompt_content=system_prompt_content,
+            is_admin=is_admin,
+            user_id=user_id,
+            chat_id=chat_id,
+            manage_skills_intent=manage_skills_intent,
+        )
         resolved_cwd = self._get_workspace_dir(user_id=user_id, chat_id=chat_id)
-
-        # Inject explicit path context
-        config_dir = self._get_copilot_config_dir()
-        path_context = (
-            f"\n[Session Context]\n"
-            f"- **Your Isolated Workspace**: `{resolved_cwd}`\n"
-            f"- **Active User ID**: `{user_id}`\n"
-            f"- **Active Chat ID**: `{chat_id}`\n"
-            f"- **Skills Directory**: `{self.valves.OPENWEBUI_SKILLS_SHARED_DIR}/shared/` — contains user-installed skills.\n"
-            f"- **Config Directory**: `{config_dir}` — system configuration (Restricted).\n"
-            f"- **CLI Tools Path**: `/app/backend/data/.copilot_tools/` — Global tools installed via npm or pip will automatically go here and be in your $PATH. Python tools are strictly isolated in a venv here.\n"
-            "**CRITICAL INSTRUCTION**: You MUST use the above workspace for ALL file operations.\n"
-            "- DO NOT create files in `/tmp` or any other system directories.\n"
-            "- Always interpret 'current directory' as your Isolated Workspace."
-        )
-        system_parts.append(path_context)
-
-        # Available Native Tools Context
-        native_tools_context = (
-            "\n[Available Native System Tools]\n"
-            "The host environment is rich. Based on the official OpenWebUI Docker deployment baseline (backend image), the following CLI tools are expected to be preinstalled and globally available in $PATH:\n"
-            "- **Network/Data**: `curl`, `jq`, `netcat-openbsd`\n"
-            "- **Media/Doc**: `pandoc` (format conversion), `ffmpeg` (audio/video)\n"
-            "- **Build/System**: `git`, `gcc`, `make`, `build-essential`, `zstd`, `bash`\n"
-            "- **Python/Runtime**: `python3`, `pip3`, `uv`\n"
-            f"- **Package Mgr Guidance**: Prefer `uv pip install <pkg>` over plain `pip install` for speed and stability.{pkg_mirror_hint}\n"
-            "- **Verification Rule**: Before installing any CLI/tool dependency, first check availability with `which <tool>` or a lightweight version probe (e.g. `<tool> --version`).\n"
-            "- **Python Libs**: The active virtual environment inherits `--system-site-packages`. Advanced libraries like `pandas`, `numpy`, `pillow`, `opencv-python-headless`, `pypdf`, `langchain`, `playwright`, `httpx`, and `beautifulsoup4` are ALREADY installed. Try importing them before attempting to install.\n"
-        )
-        system_parts.append(native_tools_context)
-
-        system_parts.append(BASE_GUIDELINES)
-
-        # Dynamic Capability Note: Rich UI (HTML Emitters/Iframes) requires OpenWebUI >= 0.8.0
-        if not self._is_version_at_least("0.8.0"):
-            version_note = (
-                f"\n**[CRITICAL VERSION NOTE]**\n"
-                f"The host OpenWebUI version is `{open_webui_version}`, which is older than 0.8.0.\n"
-                "- **Rich UI Disabled**: Integration features like `type: embeds` or automated iframe overlays are NOT supported.\n"
-                "- **Protocol Fallback**: You MUST NOT rely on the 'Premium Delivery Protocol' for visuals. Instead, you SHOULD output the HTML code block manually in your message if you want the user to see the result."
-            )
-            system_parts.append(version_note)
-
-        if is_admin:
-            system_parts.append(ADMIN_EXTENSIONS)
-        else:
-            system_parts.append(USER_RESTRICTIONS)
-
-        final_system_msg = "\n".join(system_parts)
 
         # Design Choice: ALWAYS use 'replace' mode to ensure full control and avoid duplicates.
         system_message_config = {
@@ -3695,9 +5091,14 @@ class Pipe:
             "streaming": is_streaming,
             "tools": custom_tools,
             "system_message": system_message_config,
+            "config_dir": self._get_copilot_config_dir(),
             "infinite_sessions": infinite_session_config,
             "working_directory": resolved_cwd,
         }
+
+        permission_request_handler = getattr(PermissionHandler, "approve_all", None)
+        if callable(permission_request_handler):
+            session_params["on_permission_request"] = permission_request_handler
 
         if is_reas_model and reasoning_effort:
             # Map requested effort to supported efforts if possible
@@ -4552,6 +5953,13 @@ class Pipe:
         __event_emitter__=None,
         __event_call__=None,
         __request__=None,
+        __messages__: Optional[list] = None,
+        __files__: Optional[list] = None,
+        __task__: Optional[str] = None,
+        __task_body__: Optional[str] = None,
+        __session_id__: Optional[str] = None,
+        __chat_id__: Optional[str] = None,
+        __message_id__: Optional[str] = None,
     ) -> Union[str, AsyncGenerator]:
         # --- PROBE LOG ---
         if __event_call__:
@@ -4642,6 +6050,22 @@ class Pipe:
             body, __metadata__
         )
 
+        def _container_get(container: Any, key: str, default: Any = None) -> Any:
+            if isinstance(container, dict):
+                return container.get(key, default)
+            if container is None:
+                return default
+
+            value = getattr(container, key, default)
+            if value is default and hasattr(container, "model_dump"):
+                try:
+                    dumped = container.model_dump()
+                    if isinstance(dumped, dict):
+                        return dumped.get(key, default)
+                except Exception:
+                    return default
+            return value
+
         # Determine effective reasoning effort
         effective_reasoning_effort = (
             user_valves.REASONING_EFFORT
@@ -4661,8 +6085,9 @@ class Pipe:
         resolved_id = request_model
         model_source_type = "selected"
 
-        if __metadata__ and __metadata__.get("base_model_id"):
-            resolved_id = __metadata__.get("base_model_id", "")
+        base_model_id = _container_get(__metadata__, "base_model_id", "")
+        if isinstance(base_model_id, str) and base_model_id:
+            resolved_id = base_model_id
             model_source_type = "base"
 
         # 2. Strip prefixes to get the clean model ID (e.g. 'gpt-4o')
@@ -4733,6 +6158,38 @@ class Pipe:
         if not messages:
             return "No messages."
 
+        if effective_debug:
+            try:
+                msg_samples = []
+                for msg in messages[-3:]:
+                    role = msg.get("role", "") if isinstance(msg, dict) else ""
+                    content = (
+                        self._extract_text_from_content(msg.get("content", ""))
+                        if isinstance(msg, dict)
+                        else str(msg)
+                    )
+                    msg_samples.append(
+                        {
+                            "role": role,
+                            "len": len(content),
+                            "preview": content[:120],
+                        }
+                    )
+
+                await self._emit_debug_log(
+                    f"[Pipe Input] model={request_model}, real_model={real_model_id}, "
+                    f"messages_count={len(messages)}, body_stream={body.get('stream', False)}, "
+                    f"last3={msg_samples}",
+                    __event_call__,
+                    debug_enabled=effective_debug,
+                )
+            except Exception as e:
+                await self._emit_debug_log(
+                    f"[Pipe Input] diagnostics failed: {e}",
+                    __event_call__,
+                    debug_enabled=effective_debug,
+                )
+
         # Extract system prompt from multiple sources
         system_prompt_content, system_prompt_source = await self._extract_system_prompt(
             body,
@@ -4752,6 +6209,16 @@ class Pipe:
                 debug_enabled=effective_debug,
             )
 
+        live_todo_stats = self._read_todo_status_from_session_db(chat_id or "")
+        if live_todo_stats:
+            await self._emit_todo_widget(
+                chat_id=chat_id or "",
+                lang=user_lang,
+                emitter=__event_emitter__,
+                stats=live_todo_stats,
+                force=True,
+            )
+
         is_streaming = body.get("stream", False)
         await self._emit_debug_log(
             f"Streaming request: {is_streaming}",
@@ -4769,6 +6236,39 @@ class Pipe:
             __event_call__=__event_call__,
             debug_enabled=effective_debug,
         )
+
+        if effective_debug:
+            try:
+                attachment_summary = []
+                for item in attachments[:5]:
+                    if isinstance(item, dict):
+                        attachment_summary.append(
+                            {
+                                "name": item.get("filename") or item.get("name") or "",
+                                "mime": item.get("mime_type")
+                                or item.get("mimeType")
+                                or "",
+                                "has_data": bool(
+                                    item.get("data") or item.get("content")
+                                ),
+                            }
+                        )
+                    else:
+                        attachment_summary.append({"type": type(item).__name__})
+
+                await self._emit_debug_log(
+                    f"[Pipe Input] processed_prompt_len={len(last_text or '')}, "
+                    f"prompt_preview={repr((last_text or '')[:200])}, "
+                    f"attachments_count={len(attachments)}, attachments={attachment_summary}",
+                    __event_call__,
+                    debug_enabled=effective_debug,
+                )
+            except Exception as e:
+                await self._emit_debug_log(
+                    f"[Pipe Input] prompt diagnostics failed: {e}",
+                    __event_call__,
+                    debug_enabled=effective_debug,
+                )
 
         # Skill-manager intent diagnostics/routing hint (without disabling other skills).
         manage_skills_intent = self._is_manage_skills_intent(last_text)
@@ -4813,9 +6313,16 @@ class Pipe:
 
         # Detection priority for BYOK
         # 1. Check metadata.model.name for multiplier (Standard Copilot format)
-        model_display_name = body.get("metadata", {}).get("model", {}).get(
-            "name", ""
-        ) or (__metadata__.get("model", {}).get("name", "") if __metadata__ else "")
+        body_metadata = body.get("metadata", {}) if isinstance(body, dict) else {}
+        body_model = _container_get(body_metadata, "model", {})
+        model_display_name = _container_get(body_model, "name", "")
+
+        if not model_display_name:
+            metadata_model = _container_get(__metadata__, "model", {})
+            model_display_name = _container_get(metadata_model, "name", "")
+
+        if not isinstance(model_display_name, str):
+            model_display_name = str(model_display_name or "")
         has_multiplier = bool(
             re.search(r"[\(（]\d+(?:\.\d+)?x[\)）]", model_display_name)
         )
@@ -4850,11 +6357,19 @@ class Pipe:
             custom_tools = await self._initialize_custom_tools(
                 body=body,
                 __user__=__user__,
+                user_lang=user_lang,
                 __event_emitter__=__event_emitter__,
                 __event_call__=__event_call__,
                 __request__=__request__,
                 __metadata__=__metadata__,
                 pending_embeds=pending_embeds,
+                __messages__=__messages__,
+                __files__=__files__,
+                __task__=__task__,
+                __task_body__=__task_body__,
+                __session_id__=__session_id__,
+                __chat_id__=__chat_id__,
+                __message_id__=__message_id__,
             )
             if custom_tools:
                 await self._emit_debug_log(
@@ -4912,7 +6427,16 @@ class Pipe:
                         "model": real_model_id,
                         "streaming": is_streaming,
                         "tools": custom_tools,
+                        "config_dir": self._get_copilot_config_dir(),
                     }
+
+                    permission_request_handler = getattr(
+                        PermissionHandler, "approve_all", None
+                    )
+                    if callable(permission_request_handler):
+                        resume_params["on_permission_request"] = (
+                            permission_request_handler
+                        )
 
                     if is_reasoning and effective_reasoning_effort:
                         # Re-use mapping logic or just pass it through
@@ -4958,50 +6482,13 @@ class Pipe:
 
                     # Always inject the latest system prompt in 'replace' mode
                     # This handles both custom models and user-defined system messages
-                    system_parts = []
-                    if system_prompt_content:
-                        system_parts.append(system_prompt_content.strip())
-
-                    if manage_skills_intent:
-                        system_parts.append(
-                            "[Skill Routing Hint]\n"
-                            "The user is asking to install/manage skills. Use the `manage_skills` tool first for deterministic operations "
-                            "(list/install/create/edit/delete/show). Do not run skill names as shell commands."
-                        )
-
-                    # Calculate and inject path context for resumed session
-                    path_context = (
-                        f"\n[Session Context]\n"
-                        f"- **Your Isolated Workspace**: `{resolved_cwd}`\n"
-                        f"- **Active User ID**: `{user_id}`\n"
-                        f"- **Active Chat ID**: `{chat_id}`\n"
-                        f"- **Skills Directory**: `{self.valves.OPENWEBUI_SKILLS_SHARED_DIR}/shared/` — contains user skills (`SKILL.md`-based). For management operations, use the `manage_skills` tool.\n"
-                        "**CRITICAL INSTRUCTION**: You MUST use the above workspace for ALL file operations.\n"
-                        "- DO NOT create files in `/tmp` or any other system directories.\n"
-                        "- Use the `manage_skills` tool for skill install/list/create/edit/delete/show operations.\n"
-                        "- If a tool output is too large, save it to a file within your workspace, NOT `/tmp`.\n"
-                        "- Always interpret 'current directory' as your Isolated Workspace."
+                    final_system_msg = self._build_final_system_message(
+                        system_prompt_content=system_prompt_content,
+                        is_admin=is_admin,
+                        user_id=user_id,
+                        chat_id=chat_id,
+                        manage_skills_intent=manage_skills_intent,
                     )
-                    system_parts.append(path_context)
-
-                    system_parts.append(BASE_GUIDELINES)
-
-                    # Dynamic Capability Note: Rich UI (HTML Emitters/Iframes) requires OpenWebUI >= 0.8.0
-                    if not self._is_version_at_least("0.8.0"):
-                        version_note = (
-                            f"\n**[CRITICAL VERSION NOTE]**\n"
-                            f"The host OpenWebUI version is `{open_webui_version}`, which is older than 0.8.0.\n"
-                            "- **Rich UI Disabled**: Integration features like `type: embeds` or automated iframe overlays are NOT supported.\n"
-                            "- **Protocol Fallback**: You MUST NOT rely on the 'Premium Delivery Protocol' for visuals. Instead, you SHOULD output the HTML code block manually in your message if you want the user to see the result."
-                        )
-                        system_parts.append(version_note)
-
-                    if is_admin:
-                        system_parts.append(ADMIN_EXTENSIONS)
-                    else:
-                        system_parts.append(USER_RESTRICTIONS)
-
-                    final_system_msg = "\n".join(system_parts)
 
                     resume_params["system_message"] = {
                         "mode": "replace",
@@ -5098,6 +6585,22 @@ class Pipe:
             if attachments:
                 send_payload["attachments"] = attachments
 
+            if effective_debug:
+                try:
+                    await self._emit_debug_log(
+                        f"[Pipe Send] payload_keys={list(send_payload.keys())}, "
+                        f"prompt_len={len(prompt or '')}, prompt_preview={repr((prompt or '')[:220])}, "
+                        f"attachments_count={len(attachments)}",
+                        __event_call__,
+                        debug_enabled=effective_debug,
+                    )
+                except Exception as e:
+                    await self._emit_debug_log(
+                        f"[Pipe Send] payload diagnostics failed: {e}",
+                        __event_call__,
+                        debug_enabled=effective_debug,
+                    )
+
             # Note: temperature, top_p, max_tokens are not supported by the SDK's
             # session.send() method. These generation parameters would need to be
             # handled at a different level if the underlying provider supports them.
@@ -5191,6 +6694,9 @@ class Pipe:
             "last_status_desc": None,
             "idle_reached": False,
             "session_finalized": False,
+            "final_status_desc": self._get_translation(
+                user_lang, "status_task_completed"
+            ),
         }
         has_content = False  # Track if any content has been yielded
         active_tools = {}  # Map tool_call_id to tool_name
@@ -5242,12 +6748,14 @@ class Pipe:
                 if not __event_emitter__:
                     return
                 try:
+                    allowed_final_desc = state.get(
+                        "final_status_desc"
+                    ) or self._get_translation(user_lang, "status_task_completed")
                     # BLOCKING LOCK: If we are in the safe-haven of turn completion,
                     # discard any stray async status updates from earlier pending tasks.
-                    if state.get(
-                        "session_finalized"
-                    ) and description != self._get_translation(
-                        user_lang, "status_task_completed"
+                    if (
+                        state.get("session_finalized")
+                        and description != allowed_final_desc
                     ):
                         return
 
@@ -5277,10 +6785,9 @@ class Pipe:
                     # Without this re-check, the done=False emission below would fire
                     # AFTER all finalization, becoming the last statusHistory entry
                     # and leaving a permanent shimmer on the UI.
-                    if state.get(
-                        "session_finalized"
-                    ) and description != self._get_translation(
-                        user_lang, "status_task_completed"
+                    if (
+                        state.get("session_finalized")
+                        and description != allowed_final_desc
                     ):
                         return
 
@@ -5325,12 +6832,19 @@ class Pipe:
             elif event_type == "assistant.intent":
                 intent = safe_get_data_attr(event, "intent")
                 if intent:
+                    localized_intent = self._localize_intent_text(user_lang, intent)
                     self._emit_debug_log_sync(
                         f"Assistant Intent: {intent}",
                         __event_call__,
                         debug_enabled=debug_enabled,
                     )
-                    emit_status(f"{intent}...")
+                    emit_status(
+                        self._get_translation(
+                            user_lang,
+                            "status_intent",
+                            intent=localized_intent,
+                        )
+                    )
 
             # === Message Delta Events (Primary streaming content) ===
             elif event_type == "assistant.message_delta":
@@ -5484,6 +6998,25 @@ class Pipe:
                 if filename_hint:
                     tool_status_text += f" ({filename_hint})"
 
+                # --- High-level User Experience Enhancements ---
+                # Better status for reporting intent (common in Plan/Autopilot mode)
+                if tool_name == "report_intent":
+                    intent = tool_args.get("intent", "")
+                    if intent:
+                        localized_intent = self._localize_intent_text(user_lang, intent)
+                        tool_status_text = self._get_translation(
+                            user_lang, "status_intent", intent=localized_intent
+                        )
+                # Better status for task completion with summary
+                elif tool_name == "task_complete":
+                    summary = tool_args.get("summary", "")
+                    if summary:
+                        tool_status_text = (
+                            self._get_translation(user_lang, "status_task_completed")
+                            + f": {summary}"
+                        )
+                # ---------------------------------------------
+
                 if tool_call_id:
                     active_tools[tool_call_id] = {
                         "name": tool_name,
@@ -5514,8 +7047,12 @@ class Pipe:
                 if isinstance(tool_info, dict):
                     tool_name = tool_info.get("name", "tool")
                     status_text = tool_info.get("status_text")
+                    tool_args = tool_info.get("arguments", {})
                 elif isinstance(tool_info, str):
                     tool_name = tool_info
+                    tool_args = {}
+                else:
+                    tool_args = {}
 
                 # Mark tool status as done if it was the last one
                 if status_text:
@@ -5567,7 +7104,7 @@ class Pipe:
                         is_done=True,
                     )
 
-                # --- TODO Sync Logic (File + DB) ---
+                # --- TODO Sync Logic (File only) ---
                 if tool_name == "update_todo" and result_type == "success":
                     try:
                         # Extract todo content with fallback strategy
@@ -5610,17 +7147,8 @@ class Pipe:
                             with open(todo_path, "w") as f:
                                 f.write(todo_text)
 
-                            # 2. Sync to Database & Emit Status
-                            self._save_todo_to_db(
-                                target_chat_id,
-                                todo_text,
-                                __event_emitter__=__event_emitter__,
-                                __event_call__=__event_call__,
-                                debug_enabled=debug_enabled,
-                            )
-
                             self._emit_debug_log_sync(
-                                f"Synced TODO to file and DB (Chat: {target_chat_id})",
+                                f"Synced TODO to file (Chat: {target_chat_id})",
                                 __event_call__,
                                 debug_enabled=debug_enabled,
                             )
@@ -5630,6 +7158,31 @@ class Pipe:
                             __event_call__,
                             debug_enabled=debug_enabled,
                         )
+
+                if (
+                    tool_name == "sql"
+                    and str(result_type).lower() in {"success", "ok", "completed"}
+                    and self._query_mentions_todo_tables(
+                        str(tool_args.get("query", ""))
+                    )
+                ):
+                    todo_stats = self._read_todo_status_from_session_db(chat_id or "")
+
+                    async def _refresh_todo_widget():
+                        result = await self._emit_todo_widget(
+                            chat_id=chat_id or "",
+                            lang=user_lang,
+                            emitter=__event_emitter__,
+                            stats=todo_stats,
+                        )
+                        if result.get("changed"):
+                            self._emit_debug_log_sync(
+                                f"TODO widget refreshed from SQLite: {todo_stats}",
+                                __event_call__,
+                                debug_enabled=debug_enabled,
+                            )
+
+                    asyncio.create_task(_refresh_todo_widget())
                 # ------------------------
 
                 # --- Build native OpenWebUI 0.8.3 tool_calls block ---
@@ -5794,11 +7347,10 @@ class Pipe:
                 if state.get("last_status_desc"):
                     emit_status(state["last_status_desc"], is_done=True)
 
-                # Send the clean Task Completed status
-                emit_status(
-                    self._get_translation(user_lang, "status_task_completed"),
-                    is_done=True,
-                )
+                final_status_desc = state.get(
+                    "final_status_desc"
+                ) or self._get_translation(user_lang, "status_task_completed")
+                emit_status(final_status_desc, is_done=True)
 
             # === Usage Statistics Events ===
             elif event_type == "assistant.usage":
@@ -5853,6 +7405,30 @@ class Pipe:
                     queue.put_nowait(ERROR_SENTINEL)
                 except:
                     pass
+
+            # === Plan Persistence Events ===
+            elif event_type == "session.plan_changed":
+                operation = safe_get_data_attr(event, "operation", "update")
+                emit_status(
+                    self._get_translation(
+                        user_lang, "status_plan_changed", operation=operation
+                    )
+                )
+                self._emit_debug_log_sync(
+                    f"Plan Changed: {operation}",
+                    __event_call__,
+                    debug_enabled=debug_enabled,
+                )
+
+            # === Context Changes ===
+            elif event_type == "session.context_changed":
+                new_ctx = safe_get_data_attr(event, "new_context")
+                if isinstance(new_ctx, dict) and "cwd" in new_ctx:
+                    emit_status(
+                        self._get_translation(
+                            user_lang, "status_context_changed", path=new_ctx["cwd"]
+                        )
+                    )
 
         unsubscribe = session.on(handler)
 
@@ -6046,9 +7622,12 @@ class Pipe:
                                 # 4. [PULSE LOCK] Trigger a UI refresh by pulsing a non-done status
                                 # This forces OpenWebUI's summary line to re-evaluate the description.
                                 # 4. [PULSE LOCK] Trigger a UI refresh by pulsing a non-done status
-                                finalized_msg = "✔️ " + self._get_translation(
+                                final_status_desc = state.get(
+                                    "final_status_desc"
+                                ) or self._get_translation(
                                     user_lang, "status_task_completed"
                                 )
+                                finalized_msg = "✔️ " + final_status_desc
 
                                 await __event_emitter__(
                                     {
@@ -6163,6 +7742,27 @@ class Pipe:
                 except:
                     pass  # Connection closed
 
+            if hasattr(session, "rpc"):
+                try:
+                    plan_result = await session.rpc.plan.read()
+                    if getattr(plan_result, "exists", False) and getattr(
+                        plan_result, "content", None
+                    ):
+                        plan_content = plan_result.content
+                        self._persist_plan_text(chat_id, plan_content)
+                        plan_msg = (
+                            f"\n\n> 📋 **{self._get_translation(user_lang, 'plan_title')}**\n"
+                            f"> \n> " + "\n> ".join(plan_content.splitlines())
+                        )
+                        yield plan_msg
+                        has_content = True
+                except Exception as plan_err:
+                    self._emit_debug_log_sync(
+                        f"Failed to fetch plan: {plan_err}",
+                        __event_call__,
+                        debug_enabled=debug_enabled,
+                    )
+
             # Core fix: If no content was yielded, return a fallback message to prevent OpenWebUI error
             if not has_content:
                 try:
@@ -6213,7 +7813,8 @@ class Pipe:
                         {
                             "type": "status",
                             "data": {
-                                "description": self._get_translation(
+                                "description": state.get("final_status_desc")
+                                or self._get_translation(
                                     user_lang, "status_task_completed"
                                 ),
                                 "done": True,

@@ -22,6 +22,7 @@ You are the **planning specialist** for the `openwebui-extensions` repository.
 - Never propose `git commit`, `git push`, or PR creation.
 - Every plan must end with an acceptance checklist for the user to approve before handing off.
 - Reference `.github/copilot-instructions.md` as the authoritative spec.
+- Browse `.agent/learnings/` **first** to reuse existing knowledge before researching anything.
 
 ## Repository Plugin Inventory
 

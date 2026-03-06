@@ -32,6 +32,15 @@ plugins/actions/export_to_docx/
 - `README.md` - English documentation
 - `README_CN.md` - 中文文档
 
+#### 文档交付与审阅 (Documentation Delivery for Review)
+
+当任务涉及文档类内容时，例如 README、Guide、Post、Release Notes、Announcement、Development Docs：
+
+- **必须**同时提供英文版与中文版，方便审阅与校对。
+- 若仓库最终只提交英文文件，也**必须**在对话中额外提供中文版草稿给维护者 review。
+- 若用户未明确指定只保留单语文件，默认按双语交付处理。
+- 中文版的目标是**便于审阅**，应忠实对应英文原意，可在表达上自然调整，但不得遗漏风险、限制、步骤或结论。
+
 #### README 结构规范 (README Structure Standard)
 
 所有插件 README 必须遵循以下统一结构顺序：
@@ -1151,6 +1160,7 @@ Filter 实例是**单例 (Singleton)**。
 - [ ] **README 结构**: 
     - **Key Capabilities** (英文) / **核心功能** (中文): 必须包含所有核心功能
     - **What's New** (英文) / **最新更新** (中文): 仅包含最新版本的变更信息
+- [ ] **知识沉淀**: 开发过程中发现的非显而易见的规律、踩坑或内部 API 合约，必须记录到 `.agent/learnings/{topic}.md`
 
 ### 2. 🔄 一致性维护 (Consistency Maintenance)
 
@@ -1207,6 +1217,21 @@ Filter 实例是**单例 (Singleton)**。
 ### 5. 🤝 贡献者认可规范 (Contributor Recognition)
 
 使用 `@all-contributors please add @username for <type>` 指令。
+
+### 6. 📖 知识沉淀 Knowledge Capture (Mandatory)
+
+任何开发会话中发现的**非显而易见**的内部 API 行为、参数注入机制、Mock 对象要求或其他踩坑经验，
+**必须**在会话结束前记录到 `.agent/learnings/{topic}.md`。
+
+- **开始前**: 先浏览 `.agent/learnings/` 确认是否存在相关先验知识，避免重复调研。
+- **格式规范**: 参见 `.agent/learnings/README.md`。
+- **现有条目**: 见 `.agent/learnings/` 目录。
+
+典型需要记录的内容：
+- OpenWebUI 内部函数的参数注入机制
+- Pipe 调用 Tool 时必须提供的上下文字段
+- Mock Request 对象所需满足的接口契约
+- 模型 ID 在不同上下文中的解析规则
 
 ---
 

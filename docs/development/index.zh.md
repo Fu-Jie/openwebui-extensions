@@ -32,6 +32,14 @@
 
     [:octicons-arrow-right-24: 阅读文档](copilot-engineering-plan.md)
 
+-   :material-source-branch:{ .lg .middle } **gh-aw 集成方案**
+
+    ---
+
+    面向本仓库的 GitHub Agentic Workflows 渐进式接入设计，重点覆盖语义审查、发布预检与 CI 诊断。
+
+    [:octicons-arrow-right-24: 阅读文档](gh-aw-integration-plan.zh.md)
+
 -   :material-github:{ .lg .middle } **贡献指南**
 
     ---

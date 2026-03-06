@@ -32,6 +32,14 @@ Learn how to develop plugins and contribute to OpenWebUI Extensions.
 
     [:octicons-arrow-right-24: Read the Plan](copilot-engineering-plan.md)
 
+-   :material-source-branch:{ .lg .middle } **gh-aw Integration Plan**
+
+    ---
+
+    Adoption plan for using GitHub Agentic Workflows as a semantic review and diagnostics layer in this repository.
+
+    [:octicons-arrow-right-24: Read the Plan](gh-aw-integration-plan.md)
+
 -   :material-github:{ .lg .middle } **Contributing**
 
     ---

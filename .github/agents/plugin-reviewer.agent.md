@@ -54,6 +54,9 @@ Full review rules are in .github/instructions/code-review.instructions.md.
 - [ ] `docs/plugins/{type}/index.md` and `.zh.md` version badges updated.
 - [ ] Root `README.md` / `README_CN.md` date badge updated.
 
+**8. Knowledge Capture**
+- [ ] Any non-obvious findings (API contracts, injection quirks, gotchas) documented in `.agent/learnings/{topic}.md`.
+
 ### 🟡 Non-blocking (suggestions)
 - Copilot SDK tools: `params_type=MyParams` in `define_tool()`.
 - Long tasks (>3s): periodic `_emit_notification("info")` every 5s.
@@ -68,4 +71,5 @@ Full review rules are in .github/instructions/code-review.instructions.md.
 - **Blocking issues** (file:line references)
 - **Non-blocking suggestions**
 - **Pass / Fail verdict**
+- **Knowledge captured?** (`.agent/learnings/` updated if any discoveries were made)
 - **Next step**: Pass → handoff to Release Prep; Fail → return to Implementer with fix list

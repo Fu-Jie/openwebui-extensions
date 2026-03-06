@@ -140,6 +140,7 @@ Before committing:
 - [ ] `docs/` index and detail pages are updated?
 - [ ] Root `README.md` is updated?
 - [ ] All version numbers match exactly?
+- [ ] Any non-obvious findings saved to `.agent/learnings/{topic}.md`?
 
 ## 5. Git Operations (Agent Rules)
 
@@ -147,3 +148,12 @@ Before committing:
 2. **No Auto-Commit**: Never `git commit`, `git push`, or `create_pull_request` automatically after file updates unless the user explicitly says "commit this" or "release now".
 3. **Draft Mode**: If available, use PRs as drafts first.
 4. **Reference**: Strictly follow the rules defined in `.github/copilot-instructions.md` → **Git Operations (Agent Rules)** section.
+
+## 6. Knowledge Capture (Mandatory)
+
+Whenever you discover a non-obvious behaviour, internal API contract, or workaround
+during plugin development, **document it in `.agent/learnings/{topic}.md`** before
+ending the session.
+
+- Browse `.agent/learnings/` **first** at the start of a session to reuse existing knowledge.
+- Format: see `.agent/learnings/README.md`.

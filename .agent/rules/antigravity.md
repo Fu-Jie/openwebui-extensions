@@ -138,6 +138,18 @@ Before completing an antigravity operation, confirm:
 - [ ] Database changes are idempotent (safe to re-run)
 - [ ] Timeout guards are in place for all async calls to external systems
 - [ ] The user can observe progress through status/notification events
+- [ ] Non-obvious findings / gotchas are saved to `.agent/learnings/{topic}.md`
+
+---
+
+## Mandatory: Knowledge Capture
+
+Any non-obvious pattern, internal API contract, or workaround discovered during an
+antigravity session **MUST** be saved to `.agent/learnings/{topic}.md` before the
+session ends. This ensures hard-won insights are not lost between sessions.
+
+**Format**: See `.agent/learnings/README.md`
+**Existing entries**: Browse `.agent/learnings/` for prior knowledge to reuse.
 
 ---
 
@@ -145,3 +157,4 @@ Before completing an antigravity operation, confirm:
 
 - Full engineering spec: `.github/copilot-instructions.md` → Section: **Antigravity Development Mode**
 - Design document: `docs/development/copilot-engineering-plan.md` → Section 5
+- Knowledge base: `.agent/learnings/` — reusable engineering patterns and gotchas
