@@ -65,9 +65,13 @@ jobs:
     outputs:
       has_changes: ${{ steps.detect.outputs.has_changes }}
       changed_plugins: ${{ steps.detect.outputs.changed_plugins }}
+      changed_plugin_titles: ${{ steps.detect.outputs.changed_plugin_titles }}
+      changed_plugin_count: ${{ steps.detect.outputs.changed_plugin_count }}
       release_notes: ${{ steps.detect.outputs.release_notes }}
       has_doc_changes: ${{ steps.detect.outputs.has_doc_changes }}
       changed_doc_files: ${{ steps.detect.outputs.changed_doc_files }}
+      previous_release_tag: ${{ steps.detect.outputs.previous_release_tag }}
+      compare_ref: ${{ steps.detect.outputs.compare_ref }}
     
     steps:
       - name: Checkout repository
@@ -89,16 +93,25 @@ jobs:
       - name: Detect plugin changes
         id: detect
         run: |
-          # Get the last release tag
-          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
-          
-          if [ -z "$LAST_TAG" ]; then
-            echo "No previous release found, treating all plugins as new"
-            COMPARE_REF="$(git rev-list --max-parents=0 HEAD)"
-          else
-            echo "Comparing with last release: $LAST_TAG"
-            COMPARE_REF="$LAST_TAG"
+          # Always compare against the most recent previously released version.
+          CURRENT_TAG=""
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            CURRENT_TAG="${GITHUB_REF#refs/tags/}"
+            echo "Current tag event detected: $CURRENT_TAG"
           fi
+
+          PREVIOUS_RELEASE_TAG=$(git tag --sort=-creatordate | grep -E '^v' | grep -Fxv "$CURRENT_TAG" | head -n1 || true)
+
+          if [ -n "$PREVIOUS_RELEASE_TAG" ]; then
+            echo "Comparing with previous release tag: $PREVIOUS_RELEASE_TAG"
+            COMPARE_REF="$PREVIOUS_RELEASE_TAG"
+          else
+            COMPARE_REF="$(git rev-list --max-parents=0 HEAD)"
+            echo "No previous release tag found, using repository root commit: $COMPARE_REF"
+          fi
+
+          echo "previous_release_tag=$PREVIOUS_RELEASE_TAG" >> "$GITHUB_OUTPUT"
+          echo "compare_ref=$COMPARE_REF" >> "$GITHUB_OUTPUT"
           
           # Get current plugin versions
           python scripts/extract_plugin_versions.py --json --output current_versions.json
@@ -149,28 +162,23 @@ jobs:
             # Only trigger release if there are actual version changes, not just doc changes
             echo "has_changes=false" >> $GITHUB_OUTPUT
             echo "changed_plugins=" >> $GITHUB_OUTPUT
+            echo "changed_plugin_titles=" >> $GITHUB_OUTPUT
+            echo "changed_plugin_count=0" >> $GITHUB_OUTPUT
           else
             echo "has_changes=true" >> $GITHUB_OUTPUT
             
-            # Extract changed plugin file paths using Python
-            python3 -c "
-          import json
-          with open('changes.json', 'r') as f:
-              data = json.load(f)
-          files = []
-          for plugin in data.get('added', []):
-              if 'file_path' in plugin:
-                  files.append(plugin['file_path'])
-          for update in data.get('updated', []):
-              if 'current' in update and 'file_path' in update['current']:
-                  files.append(update['current']['file_path'])
-          print('\n'.join(files))
-          " > changed_files.txt
+            # Extract changed plugin file paths and titles using Python
+            python3 -c "import json; data = json.load(open('changes.json', 'r')); get_title = lambda plugin: ((plugin.get('data', {}).get('function', {}).get('meta', {}).get('manifest', {}).get('title')) or plugin.get('title') or '').strip(); files = []; [files.append(plugin['file_path']) for plugin in data.get('added', []) if plugin.get('file_path')]; [files.append(update['current']['file_path']) for update in data.get('updated', []) if update.get('current', {}).get('file_path')]; print('\\n'.join(files))" > changed_files.txt
+
+            python3 -c "import json; data = json.load(open('changes.json', 'r')); get_title = lambda plugin: ((plugin.get('data', {}).get('function', {}).get('meta', {}).get('manifest', {}).get('title')) or plugin.get('title') or '').strip(); titles = []; [titles.append(title) for plugin in data.get('added', []) for title in [get_title(plugin)] if title and title not in titles]; [titles.append(title) for update in data.get('updated', []) for title in [get_title(update.get('current', {}))] if title and title not in titles]; print(', '.join(titles)); open('changed_plugin_count.txt', 'w').write(str(len(titles)))" > changed_plugin_titles.txt
             
             echo "changed_plugins<<EOF" >> $GITHUB_OUTPUT
             cat changed_files.txt >> $GITHUB_OUTPUT
             echo "" >> $GITHUB_OUTPUT
             echo "EOF" >> $GITHUB_OUTPUT
+
+            echo "changed_plugin_titles=$(cat changed_plugin_titles.txt)" >> $GITHUB_OUTPUT
+            echo "changed_plugin_count=$(cat changed_plugin_count.txt)" >> $GITHUB_OUTPUT
           fi
           
           # Store release notes
@@ -240,6 +248,30 @@ jobs:
           fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Release version: $VERSION"
+
+      - name: Build release metadata
+        id: meta
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          INPUT_TITLE: ${{ github.event.inputs.release_title }}
+          CHANGED_PLUGIN_TITLES: ${{ needs.check-changes.outputs.changed_plugin_titles }}
+          CHANGED_PLUGIN_COUNT: ${{ needs.check-changes.outputs.changed_plugin_count }}
+        run: |
+          if [ -n "$INPUT_TITLE" ]; then
+            RELEASE_NAME="$INPUT_TITLE"
+          elif [ "$CHANGED_PLUGIN_COUNT" = "1" ] && [ -n "$CHANGED_PLUGIN_TITLES" ]; then
+            RELEASE_NAME="$CHANGED_PLUGIN_TITLES $VERSION"
+          elif [ -n "$CHANGED_PLUGIN_TITLES" ] && [ "$CHANGED_PLUGIN_COUNT" = "2" ]; then
+            RELEASE_NAME="$VERSION - $CHANGED_PLUGIN_TITLES"
+          elif [ -n "$CHANGED_PLUGIN_TITLES" ] && [ "${CHANGED_PLUGIN_COUNT:-0}" -gt 2 ]; then
+            FIRST_PLUGIN=$(echo "$CHANGED_PLUGIN_TITLES" | cut -d',' -f1 | xargs)
+            RELEASE_NAME="$VERSION - $FIRST_PLUGIN and $CHANGED_PLUGIN_COUNT plugin updates"
+          else
+            RELEASE_NAME="$VERSION"
+          fi
+
+          echo "release_name=$RELEASE_NAME" >> "$GITHUB_OUTPUT"
+          echo "Release name: $RELEASE_NAME"
 
       - name: Extract plugin versions
         id: plugins
@@ -334,11 +366,14 @@ jobs:
       - name: Get commit messages
         id: commits
         if: github.event_name == 'push'
+        env:
+          PREVIOUS_RELEASE_TAG: ${{ needs.check-changes.outputs.previous_release_tag }}
+          COMPARE_REF: ${{ needs.check-changes.outputs.compare_ref }}
         run: |
-          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
-          
-          if [ -n "$LAST_TAG" ]; then
-            COMMITS=$(git log ${LAST_TAG}..HEAD --pretty=format:"- **%s**%n%b" --no-merges -- plugins/ | sed '/^$/d' | head -40)
+          if [ -n "$PREVIOUS_RELEASE_TAG" ]; then
+            COMMITS=$(git log ${PREVIOUS_RELEASE_TAG}..HEAD --pretty=format:"- **%s**%n%b" --no-merges -- plugins/ | sed '/^$/d' | head -40)
+          elif [ -n "$COMPARE_REF" ]; then
+            COMMITS=$(git log ${COMPARE_REF}..HEAD --pretty=format:"- **%s**%n%b" --no-merges -- plugins/ | sed '/^$/d' | head -40)
           else
             COMMITS=$(git log --pretty=format:"- **%s**%n%b" --no-merges -10 -- plugins/ | sed '/^$/d')
           fi
@@ -369,7 +404,7 @@ jobs:
               while IFS= read -r file; do
                 [ -z "$file" ] && continue
                 if [ -f "$file" ]; then
-                  cat "$file" >> release_notes.md
+                  python3 -c "import json, pathlib, re; file_path = pathlib.Path(r'''$file'''); plugin_versions_path = pathlib.Path('plugin_versions.json'); text = file_path.read_text(encoding='utf-8'); plugin_dir = file_path.parent.as_posix(); plugins = json.loads(plugin_versions_path.read_text(encoding='utf-8')) if plugin_versions_path.exists() else []; plugin_title = next((plugin.get('title', '').strip() for plugin in plugins if plugin.get('file_path', '').startswith(plugin_dir + '/')), ''); text = re.sub(r'^#\\s+(v[0-9][^\\n]*Release Notes)\\s*$', '# ' + plugin_title + ' ' + r'\\1', text, count=1, flags=re.MULTILINE) if plugin_title else text; print(text.rstrip())" >> release_notes.md
                   echo "" >> release_notes.md
                 fi
               done <<< "$RELEASE_NOTE_FILES"
@@ -458,7 +493,7 @@ jobs:
         with:
           tag_name: ${{ steps.version.outputs.version }}
           target_commitish: ${{ github.sha }}
-          name: ${{ github.event.inputs.release_title || steps.version.outputs.version }}
+          name: ${{ steps.meta.outputs.release_name }}
           body_path: release_notes.md
           prerelease: ${{ github.event.inputs.prerelease || false }}
           make_latest: true
