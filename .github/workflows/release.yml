@@ -369,11 +369,6 @@ jobs:
               while IFS= read -r file; do
                 [ -z "$file" ] && continue
                 if [ -f "$file" ]; then
-                  # Inject plugin README link before each release note file content
-                  plugin_dir=$(dirname "$file")
-                  readme_url="https://github.com/Fu-Jie/openwebui-extensions/blob/main/${plugin_dir}/README.md"
-                  echo "> 📖 [Plugin README](${readme_url})" >> release_notes.md
-                  echo "" >> release_notes.md
                   cat "$file" >> release_notes.md
                   echo "" >> release_notes.md
                 fi
