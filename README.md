@@ -66,6 +66,9 @@ A collection of enhancements, plugins, and prompts for [open-webui](https://gith
 ![GitHub Copilot SDK Skill Demo](https://github.com/Fu-Jie/openwebui-extensions/raw/main/docs/assets/videos/skill.gif)
 > *In this demo, the Agent installs a visual enhancement skill and automatically generates an interactive dashboard from World Cup data.*
 
+![GitHub Copilot SDK + Excel Expert Demo](https://github.com/Fu-Jie/openwebui-extensions/raw/main/docs/assets/images/development/worldcup_enhanced_charts.png)
+> *Combined with the Excel Expert skill, the Agent can automate complex data cleaning, multi-dimensional statistics, and generate professional data dashboards.*
+
 #### 🌟 Featured Real-World Cases
 
 - **[GitHub Star Forecasting](./docs/plugins/pipes/star-prediction-example.md)**: Automatically parsing CSV data, writing analysis scripts, and generating interactive growth dashboards.
