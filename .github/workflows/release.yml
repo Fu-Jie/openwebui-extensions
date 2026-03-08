@@ -229,7 +229,7 @@ jobs:
             Path('changed_plugin_title.txt').write_text(selected['title'], encoding='utf-8')
             Path('changed_plugin_slug.txt').write_text(selected['slug'], encoding='utf-8')
             Path('changed_plugin_version.txt').write_text(selected['version'], encoding='utf-8')
-            PY
+PY
             
             echo "changed_plugins<<EOF" >> $GITHUB_OUTPUT
             cat changed_files.txt >> $GITHUB_OUTPUT
