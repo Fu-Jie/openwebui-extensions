@@ -174,62 +174,62 @@ jobs:
 
             # Extract changed plugin metadata and enforce a single-plugin release.
             python3 <<'PY'
-            import json
-            import sys
-            from pathlib import Path
+          import json
+          import sys
+          from pathlib import Path
 
-            data = json.load(open('changes.json', 'r', encoding='utf-8'))
+          data = json.load(open('changes.json', 'r', encoding='utf-8'))
 
-            def get_plugin_meta(plugin):
-              manifest = plugin.get('data', {}).get('function', {}).get('meta', {}).get('manifest', {})
-              title = (manifest.get('title') or plugin.get('title') or '').strip()
-              version = (manifest.get('version') or plugin.get('version') or '').strip()
-              file_path = (plugin.get('file_path') or '').strip()
-              slug = Path(file_path).parent.name.replace('_', '-').strip() if file_path else ''
-              return {
-                'title': title,
-                'slug': slug,
-                'version': version,
-                'file_path': file_path,
-              }
+          def get_plugin_meta(plugin):
+            manifest = plugin.get('data', {}).get('function', {}).get('meta', {}).get('manifest', {})
+            title = (manifest.get('title') or plugin.get('title') or '').strip()
+            version = (manifest.get('version') or plugin.get('version') or '').strip()
+            file_path = (plugin.get('file_path') or '').strip()
+            slug = Path(file_path).parent.name.replace('_', '-').strip() if file_path else ''
+            return {
+              'title': title,
+              'slug': slug,
+              'version': version,
+              'file_path': file_path,
+            }
 
-            plugins = []
-            seen_keys = set()
+          plugins = []
+          seen_keys = set()
 
-            for plugin in data.get('added', []):
-              meta = get_plugin_meta(plugin)
-              key = meta['file_path'] or meta['title']
-              if key and key not in seen_keys:
-                plugins.append(meta)
-                seen_keys.add(key)
+          for plugin in data.get('added', []):
+            meta = get_plugin_meta(plugin)
+            key = meta['file_path'] or meta['title']
+            if key and key not in seen_keys:
+              plugins.append(meta)
+              seen_keys.add(key)
 
-            for update in data.get('updated', []):
-              meta = get_plugin_meta(update.get('current', {}))
-              key = meta['file_path'] or meta['title']
-              if key and key not in seen_keys:
-                plugins.append(meta)
-                seen_keys.add(key)
+          for update in data.get('updated', []):
+            meta = get_plugin_meta(update.get('current', {}))
+            key = meta['file_path'] or meta['title']
+            if key and key not in seen_keys:
+              plugins.append(meta)
+              seen_keys.add(key)
 
-            Path('changed_files.txt').write_text(
-              '\n'.join(meta['file_path'] for meta in plugins if meta['file_path']),
-              encoding='utf-8',
-            )
-            Path('changed_plugin_count.txt').write_text(str(len(plugins)), encoding='utf-8')
+          Path('changed_files.txt').write_text(
+            '\n'.join(meta['file_path'] for meta in plugins if meta['file_path']),
+            encoding='utf-8',
+          )
+          Path('changed_plugin_count.txt').write_text(str(len(plugins)), encoding='utf-8')
 
-            if len(plugins) > 1:
-              print('Error: release workflow only supports one plugin creation/update per release.', file=sys.stderr)
-              for meta in plugins:
-                print(
-                  f"- {meta['title'] or 'Unknown'} v{meta['version'] or '?'} ({meta['file_path'] or 'unknown path'})",
-                  file=sys.stderr,
-                )
-              sys.exit(1)
+          if len(plugins) > 1:
+            print('Error: release workflow only supports one plugin creation/update per release.', file=sys.stderr)
+            for meta in plugins:
+              print(
+                f"- {meta['title'] or 'Unknown'} v{meta['version'] or '?'} ({meta['file_path'] or 'unknown path'})",
+                file=sys.stderr,
+              )
+            sys.exit(1)
 
-            selected = plugins[0] if plugins else {'title': '', 'slug': '', 'version': ''}
-            Path('changed_plugin_title.txt').write_text(selected['title'], encoding='utf-8')
-            Path('changed_plugin_slug.txt').write_text(selected['slug'], encoding='utf-8')
-            Path('changed_plugin_version.txt').write_text(selected['version'], encoding='utf-8')
-PY
+          selected = plugins[0] if plugins else {'title': '', 'slug': '', 'version': ''}
+          Path('changed_plugin_title.txt').write_text(selected['title'], encoding='utf-8')
+          Path('changed_plugin_slug.txt').write_text(selected['slug'], encoding='utf-8')
+          Path('changed_plugin_version.txt').write_text(selected['version'], encoding='utf-8')
+          PY
             
             echo "changed_plugins<<EOF" >> $GITHUB_OUTPUT
             cat changed_files.txt >> $GITHUB_OUTPUT
@@ -515,7 +515,7 @@ PY
           
           📚 [Documentation](https://fu-jie.github.io/openwebui-extensions/)
           🐛 [Report Issues](https://github.com/Fu-Jie/openwebui-extensions/issues)
-EOF
+          EOF
 
           echo "=== Release Notes ==="
           cat release_notes.md
