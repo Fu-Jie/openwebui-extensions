@@ -54,6 +54,15 @@ from open_webui.storage.provider import Storage
 import mimetypes
 import uuid
 
+if os.path.exists("/app/backend/data"):
+    CHAT_MAPPING_FILE = Path(
+        "/app/backend/data/copilot_workspace/api_key_chat_id_mapping.json"
+    )
+else:
+    CHAT_MAPPING_FILE = (
+        Path(os.getcwd()) / "copilot_workspace" / "api_key_chat_id_mapping.json"
+    )
+
 # Get OpenWebUI version for capability detection
 try:
     from open_webui.env import VERSION as open_webui_version
@@ -4879,6 +4888,41 @@ class Pipe:
 
         return cwd
 
+    def _record_user_chat_mapping(
+        self, user_id: Optional[str], chat_id: Optional[str]
+    ) -> None:
+        """Persist the latest chat_id for the current user."""
+        if not user_id or not chat_id:
+            return
+
+        mapping_file = CHAT_MAPPING_FILE
+
+        try:
+            mapping_file.parent.mkdir(parents=True, exist_ok=True)
+
+            mapping: Dict[str, str] = {}
+            if mapping_file.exists():
+                try:
+                    loaded = json.loads(mapping_file.read_text(encoding="utf-8"))
+                    if isinstance(loaded, dict):
+                        mapping = {str(k): str(v) for k, v in loaded.items()}
+                except Exception as e:
+                    logger.warning(
+                        f"[Session Tracking] Failed to read mapping file {mapping_file}: {e}"
+                    )
+
+            mapping[str(user_id)] = str(chat_id)
+
+            temp_file = mapping_file.with_suffix(mapping_file.suffix + ".tmp")
+            temp_file.write_text(
+                json.dumps(mapping, ensure_ascii=False, indent=2, sort_keys=True)
+                + "\n",
+                encoding="utf-8",
+            )
+            temp_file.replace(mapping_file)
+        except Exception as e:
+            logger.warning(f"[Session Tracking] Failed to persist mapping: {e}")
+
     def _build_client_config(self, user_id: str = None, chat_id: str = None) -> dict:
         """Build CopilotClient config from valves and request body."""
         cwd = self._get_workspace_dir(user_id=user_id, chat_id=chat_id)
@@ -5836,6 +5880,8 @@ class Pipe:
             __user__[0] if isinstance(__user__, (list, tuple)) else (__user__ or {})
         )
         is_admin = user_data.get("role") == "admin"
+
+        self._record_user_chat_mapping(user_data.get("id"), __chat_id__)
 
         # Robustly parse User Valves
         user_valves = self._get_user_valves(__user__)

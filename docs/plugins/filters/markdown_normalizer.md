@@ -1,5 +1,4 @@
 # Markdown Normalizer Filter
-
 **Author:** [Fu-Jie](https://github.com/Fu-Jie/openwebui-extensions) | **Version:** 1.2.8 | **Project:** [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions) | **License:** MIT
 
 A powerful, context-aware content normalizer filter for Open WebUI designed to fix common Markdown formatting issues in LLM outputs. It ensures that code blocks, LaTeX formulas, Mermaid diagrams, and other structural Markdown elements are rendered flawlessly, without destroying valid technical content.
@@ -7,6 +6,16 @@ A powerful, context-aware content normalizer filter for Open WebUI designed to f
 > 🏆 **Featured by OpenWebUI Official** — This plugin was recommended in the official OpenWebUI Community Newsletter: [January 28, 2026](https://openwebui.com/blog/newsletter-january-28-2026)
 
 [English](https://github.com/Fu-Jie/openwebui-extensions/blob/main/plugins/filters/markdown_normalizer/README.md) | [简体中文](https://github.com/Fu-Jie/openwebui-extensions/blob/main/plugins/filters/markdown_normalizer/README_CN.md)
+
+---
+
+## 🔥 What's New in v1.2.8
+* **Safe-by-Default Strategy**: The `enable_escape_fix` feature is now **disabled by default**. This prevents unwanted modifications to valid technical text like Windows file paths (`C:\new\test`) or complex LaTeX formulas.
+* **LaTeX Parsing Fix**: Improved the logic for identifying display math (`$$ ... $$`). Fixed a bug where LaTeX commands starting with `\n` (like `\nabla`) were incorrectly treated as newlines.
+* **Reliability Enhancement**: Complete error fallback mechanism. Guarantees 0% data loss during processing.
+* **Inline Code Protection**: Upgraded escaping logic to protect inline code blocks (`` `...` ``).
+* **Code Block Escaping Control**: The `enable_escape_fix_in_code_blocks` Valve now correctly targets broken newlines inside code blocks (perfect for fixing flat SQL queries) when enabled.
+* **Privacy Optimization**: `show_debug_log` now defaults to `False` to prevent console noise.
 
 ---
 
@@ -42,12 +51,6 @@ Before making any changes, the plugin builds a semantic map of the text to prote
 ### 3. Reliability & Safety
 - **100% Rollback Guarantee**: If any normalization logic fails or crashes, the plugin catches the error and silently returns the exact original text, ensuring your chat never breaks.
 
-## 🔥 What's New in v1.2.8
-* **Reliability Enhancement**: Complete error fallback mechanism. Guarantees 0% data loss during processing.
-* **Inline Code Protection**: Upgraded escaping logic to protect inline code blocks (`` `...` ``).
-* **Code Block Escaping Control**: The `enable_escape_fix_in_code_blocks` Valve now correctly targets broken newlines inside code blocks (perfect for fixing flat SQL queries) when enabled.
-* **Privacy Optimization**: `show_debug_log` now defaults to `False` to prevent console noise.
-
 ## 🌐 Multilingual Support
 
 The plugin UI and status notifications automatically switch based on your language:
@@ -64,7 +67,7 @@ The plugin UI and status notifications automatically switch based on your langua
 | Parameter | Default | Description |
 | :--- | :--- | :--- |
 | `priority` | `50` | Filter priority. Higher runs later (recommended to run this after all other content filters). |
-| `enable_escape_fix` | `True` | Convert excessive literal escape characters (`\n`, `\t`) to real spacing. |
+| `enable_escape_fix` | `False` | Convert excessive literal escape characters (`\n`, `\t`) to real spacing. (Default: False for safety). |
 | `enable_escape_fix_in_code_blocks` | `False` | **Pro-tip**: Turn this ON if your SQL/HTML code blocks are constantly printing on a single line. Turn OFF for Python/C++. |
 | `enable_thought_tag_fix` | `True` | Normalize `<think>` tags. |
 | `enable_details_tag_fix` | `True` | Normalize `<details>` spacing. |

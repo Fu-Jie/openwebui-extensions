@@ -236,7 +236,7 @@ TRANSLATIONS = {
 class NormalizerConfig:
     """Configuration class for enabling/disabling specific normalization rules"""
 
-    enable_escape_fix: bool = True  # Fix excessive escape characters
+    enable_escape_fix: bool = False  # Fix excessive escape characters (Default False for safety)
     enable_escape_fix_in_code_blocks: bool = (
         False  # Apply escape fix inside code blocks (default: False for safety)
     )
@@ -485,12 +485,14 @@ class ContentNormalizer:
                 # 2. Protect inline code
                 inline_parts = parts[i].split("`")
                 for k in range(0, len(inline_parts), 2):  # Even indices are non-inline-code text
-                    # 3. Protect LaTeX formulas within text
-                    # Split by $ to find inline/block math
-                    sub_parts = inline_parts[k].split("$")
+                    # 3. Protect LaTeX formulas within text (safe for $$ and $)
+                    # Use regex to split and keep delimiters
+                    sub_parts = re.split(
+                        r"(\$\$.*?\$\$|\$.*?\$)", inline_parts[k], flags=re.DOTALL
+                    )
                     for j in range(0, len(sub_parts), 2):  # Even indices are non-math text
                         sub_parts[j] = clean_text(sub_parts[j])
-                    inline_parts[k] = "$".join(sub_parts)
+                    inline_parts[k] = "".join(sub_parts)
                 parts[i] = "`".join(inline_parts)
             else:
                 # Inside code block and enable_escape_fix_in_code_blocks is True
@@ -724,8 +726,8 @@ class Filter:
             description="Priority level (lower = earlier).",
         )
         enable_escape_fix: bool = Field(
-            default=True,
-            description="Fix excessive escape characters (\\n, \\t, etc.).",
+            default=False,
+            description="Fix excessive escape characters (\\n, \\t, etc.). Default: False for safety.",
         )
         enable_escape_fix_in_code_blocks: bool = Field(
             default=False,
