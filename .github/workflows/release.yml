@@ -5,13 +5,13 @@
 # Triggers:
 # - Push to main branch when plugins are modified (auto-release)
 # - Manual trigger (workflow_dispatch) with custom release notes
-# - Push of version tags (v*)
+# - Push of plugin version tags (<plugin>-v*)
 #
 # What it does:
 # 1. Detects plugin version changes compared to the last release
 # 2. Generates release notes with updated plugin information
 # 3. Creates a GitHub Release with plugin files as downloadable assets
-# 4. Supports multiple plugin updates in a single release
+# 4. Enforces one plugin creation/update per release
 
 name: Plugin Release
 
@@ -28,13 +28,14 @@ on:
       - 'plugins/**/v*_CN.md'
       - 'docs/plugins/**/*.md'
     tags:
+      - '*-v*'
       - 'v*'
 
   # Manual trigger with inputs
   workflow_dispatch:
     inputs:
       version:
-        description: 'Release version (e.g., v1.0.0). Leave empty for auto-generated version.'
+        description: 'Release tag (e.g., markdown-normalizer-v1.2.8). Leave empty for auto-generated tag.'
         required: false
         type: string
       release_title:
@@ -65,7 +66,9 @@ jobs:
     outputs:
       has_changes: ${{ steps.detect.outputs.has_changes }}
       changed_plugins: ${{ steps.detect.outputs.changed_plugins }}
-      changed_plugin_titles: ${{ steps.detect.outputs.changed_plugin_titles }}
+      changed_plugin_title: ${{ steps.detect.outputs.changed_plugin_title }}
+      changed_plugin_slug: ${{ steps.detect.outputs.changed_plugin_slug }}
+      changed_plugin_version: ${{ steps.detect.outputs.changed_plugin_version }}
       changed_plugin_count: ${{ steps.detect.outputs.changed_plugin_count }}
       release_notes: ${{ steps.detect.outputs.release_notes }}
       has_doc_changes: ${{ steps.detect.outputs.has_doc_changes }}
@@ -95,12 +98,12 @@ jobs:
         run: |
           # Always compare against the most recent previously released version.
           CURRENT_TAG=""
-          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
             CURRENT_TAG="${GITHUB_REF#refs/tags/}"
             echo "Current tag event detected: $CURRENT_TAG"
           fi
 
-          PREVIOUS_RELEASE_TAG=$(git tag --sort=-creatordate | grep -E '^v' | grep -Fxv "$CURRENT_TAG" | head -n1 || true)
+          PREVIOUS_RELEASE_TAG=$(git tag --sort=-creatordate | grep -Fxv "$CURRENT_TAG" | head -n1 || true)
 
           if [ -n "$PREVIOUS_RELEASE_TAG" ]; then
             echo "Comparing with previous release tag: $PREVIOUS_RELEASE_TAG"
@@ -162,22 +165,80 @@ jobs:
             # Only trigger release if there are actual version changes, not just doc changes
             echo "has_changes=false" >> $GITHUB_OUTPUT
             echo "changed_plugins=" >> $GITHUB_OUTPUT
-            echo "changed_plugin_titles=" >> $GITHUB_OUTPUT
+            echo "changed_plugin_title=" >> $GITHUB_OUTPUT
+            echo "changed_plugin_slug=" >> $GITHUB_OUTPUT
+            echo "changed_plugin_version=" >> $GITHUB_OUTPUT
             echo "changed_plugin_count=0" >> $GITHUB_OUTPUT
           else
             echo "has_changes=true" >> $GITHUB_OUTPUT
-            
-            # Extract changed plugin file paths and titles using Python
-            python3 -c "import json; data = json.load(open('changes.json', 'r')); get_title = lambda plugin: ((plugin.get('data', {}).get('function', {}).get('meta', {}).get('manifest', {}).get('title')) or plugin.get('title') or '').strip(); files = []; [files.append(plugin['file_path']) for plugin in data.get('added', []) if plugin.get('file_path')]; [files.append(update['current']['file_path']) for update in data.get('updated', []) if update.get('current', {}).get('file_path')]; print('\\n'.join(files))" > changed_files.txt
 
-            python3 -c "import json; data = json.load(open('changes.json', 'r')); get_title = lambda plugin: ((plugin.get('data', {}).get('function', {}).get('meta', {}).get('manifest', {}).get('title')) or plugin.get('title') or '').strip(); titles = []; [titles.append(title) for plugin in data.get('added', []) for title in [get_title(plugin)] if title and title not in titles]; [titles.append(title) for update in data.get('updated', []) for title in [get_title(update.get('current', {}))] if title and title not in titles]; print(', '.join(titles)); open('changed_plugin_count.txt', 'w').write(str(len(titles)))" > changed_plugin_titles.txt
+            # Extract changed plugin metadata and enforce a single-plugin release.
+            python3 <<'PY'
+            import json
+            import sys
+            from pathlib import Path
+
+            data = json.load(open('changes.json', 'r', encoding='utf-8'))
+
+            def get_plugin_meta(plugin):
+              manifest = plugin.get('data', {}).get('function', {}).get('meta', {}).get('manifest', {})
+              title = (manifest.get('title') or plugin.get('title') or '').strip()
+              version = (manifest.get('version') or plugin.get('version') or '').strip()
+              file_path = (plugin.get('file_path') or '').strip()
+              slug = Path(file_path).parent.name.replace('_', '-').strip() if file_path else ''
+              return {
+                'title': title,
+                'slug': slug,
+                'version': version,
+                'file_path': file_path,
+              }
+
+            plugins = []
+            seen_keys = set()
+
+            for plugin in data.get('added', []):
+              meta = get_plugin_meta(plugin)
+              key = meta['file_path'] or meta['title']
+              if key and key not in seen_keys:
+                plugins.append(meta)
+                seen_keys.add(key)
+
+            for update in data.get('updated', []):
+              meta = get_plugin_meta(update.get('current', {}))
+              key = meta['file_path'] or meta['title']
+              if key and key not in seen_keys:
+                plugins.append(meta)
+                seen_keys.add(key)
+
+            Path('changed_files.txt').write_text(
+              '\n'.join(meta['file_path'] for meta in plugins if meta['file_path']),
+              encoding='utf-8',
+            )
+            Path('changed_plugin_count.txt').write_text(str(len(plugins)), encoding='utf-8')
+
+            if len(plugins) > 1:
+              print('Error: release workflow only supports one plugin creation/update per release.', file=sys.stderr)
+              for meta in plugins:
+                print(
+                  f"- {meta['title'] or 'Unknown'} v{meta['version'] or '?'} ({meta['file_path'] or 'unknown path'})",
+                  file=sys.stderr,
+                )
+              sys.exit(1)
+
+            selected = plugins[0] if plugins else {'title': '', 'slug': '', 'version': ''}
+            Path('changed_plugin_title.txt').write_text(selected['title'], encoding='utf-8')
+            Path('changed_plugin_slug.txt').write_text(selected['slug'], encoding='utf-8')
+            Path('changed_plugin_version.txt').write_text(selected['version'], encoding='utf-8')
+            PY
             
             echo "changed_plugins<<EOF" >> $GITHUB_OUTPUT
             cat changed_files.txt >> $GITHUB_OUTPUT
             echo "" >> $GITHUB_OUTPUT
             echo "EOF" >> $GITHUB_OUTPUT
 
-            echo "changed_plugin_titles=$(cat changed_plugin_titles.txt)" >> $GITHUB_OUTPUT
+            echo "changed_plugin_title=$(cat changed_plugin_title.txt)" >> $GITHUB_OUTPUT
+            echo "changed_plugin_slug=$(cat changed_plugin_slug.txt)" >> $GITHUB_OUTPUT
+            echo "changed_plugin_version=$(cat changed_plugin_version.txt)" >> $GITHUB_OUTPUT
             echo "changed_plugin_count=$(cat changed_plugin_count.txt)" >> $GITHUB_OUTPUT
           fi
           
@@ -191,7 +252,7 @@ jobs:
 
   release:
     needs: check-changes
-    if: needs.check-changes.outputs.has_changes == 'true' || github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v')
+    if: needs.check-changes.outputs.has_changes == 'true' || github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     env:
       LANG: en_US.UTF-8
@@ -219,53 +280,34 @@ jobs:
         id: version
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CHANGED_PLUGIN_SLUG: ${{ needs.check-changes.outputs.changed_plugin_slug }}
+          CHANGED_PLUGIN_VERSION: ${{ needs.check-changes.outputs.changed_plugin_version }}
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ github.event.inputs.version }}" ]; then
             VERSION="${{ github.event.inputs.version }}"
-          elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+          elif [[ "${{ github.ref }}" == refs/tags/* ]]; then
             VERSION="${GITHUB_REF#refs/tags/}"
+          elif [ -n "$CHANGED_PLUGIN_SLUG" ] && [ -n "$CHANGED_PLUGIN_VERSION" ]; then
+            VERSION="${CHANGED_PLUGIN_SLUG}-v${CHANGED_PLUGIN_VERSION}"
           else
-            # Auto-generate version based on date and daily release count
-            TODAY=$(date +'%Y.%m.%d')
-            TODAY_PREFIX="v${TODAY}-"
-            
-            # Count existing releases with today's date prefix
-            # grep -c returns 1 if count is 0, so we use || true to avoid script failure
-            EXISTING_COUNT=$(gh release list --limit 100 2>/dev/null | grep -c "^${TODAY_PREFIX}" || true)
-            
-            # Clean up output (handle potential newlines or fallback issues)
-            EXISTING_COUNT=$(echo "$EXISTING_COUNT" | tr -cd '0-9')
-            if [ -z "$EXISTING_COUNT" ]; then EXISTING_COUNT=0; fi
-            
-            NEXT_NUM=$((EXISTING_COUNT + 1))
-            
-            VERSION="${TODAY_PREFIX}${NEXT_NUM}"
-            
-            # Final fallback to ensure VERSION is never empty
-            if [ -z "$VERSION" ]; then
-              VERSION="v$(date +'%Y.%m.%d-%H%M%S')"
-            fi
+            echo "Error: failed to determine plugin-scoped release tag." >&2
+            exit 1
           fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Release version: $VERSION"
+          echo "Release tag: $VERSION"
 
       - name: Build release metadata
         id: meta
         env:
           VERSION: ${{ steps.version.outputs.version }}
           INPUT_TITLE: ${{ github.event.inputs.release_title }}
-          CHANGED_PLUGIN_TITLES: ${{ needs.check-changes.outputs.changed_plugin_titles }}
-          CHANGED_PLUGIN_COUNT: ${{ needs.check-changes.outputs.changed_plugin_count }}
+          CHANGED_PLUGIN_TITLE: ${{ needs.check-changes.outputs.changed_plugin_title }}
+          CHANGED_PLUGIN_VERSION: ${{ needs.check-changes.outputs.changed_plugin_version }}
         run: |
           if [ -n "$INPUT_TITLE" ]; then
             RELEASE_NAME="$INPUT_TITLE"
-          elif [ "$CHANGED_PLUGIN_COUNT" = "1" ] && [ -n "$CHANGED_PLUGIN_TITLES" ]; then
-            RELEASE_NAME="$CHANGED_PLUGIN_TITLES $VERSION"
-          elif [ -n "$CHANGED_PLUGIN_TITLES" ] && [ "$CHANGED_PLUGIN_COUNT" = "2" ]; then
-            RELEASE_NAME="$VERSION - $CHANGED_PLUGIN_TITLES"
-          elif [ -n "$CHANGED_PLUGIN_TITLES" ] && [ "${CHANGED_PLUGIN_COUNT:-0}" -gt 2 ]; then
-            FIRST_PLUGIN=$(echo "$CHANGED_PLUGIN_TITLES" | cut -d',' -f1 | xargs)
-            RELEASE_NAME="$VERSION - $FIRST_PLUGIN and $CHANGED_PLUGIN_COUNT plugin updates"
+          elif [ -n "$CHANGED_PLUGIN_TITLE" ] && [ -n "$CHANGED_PLUGIN_VERSION" ]; then
+            RELEASE_NAME="$CHANGED_PLUGIN_TITLE v$CHANGED_PLUGIN_VERSION"
           else
             RELEASE_NAME="$VERSION"
           fi
@@ -391,11 +433,21 @@ jobs:
           VERSION: ${{ steps.version.outputs.version }}
           TITLE: ${{ github.event.inputs.release_title }}
           NOTES: ${{ github.event.inputs.release_notes }}
+          CHANGED_PLUGIN_TITLE: ${{ needs.check-changes.outputs.changed_plugin_title }}
+          CHANGED_PLUGIN_VERSION: ${{ needs.check-changes.outputs.changed_plugin_version }}
           DETECTED_CHANGES: ${{ needs.check-changes.outputs.release_notes }}
           COMMITS: ${{ steps.commits.outputs.commits }}
           DOC_FILES: ${{ needs.check-changes.outputs.changed_doc_files }}
         run: |
           > release_notes.md
+
+          if [ -n "$CHANGED_PLUGIN_TITLE" ] && [ -n "$CHANGED_PLUGIN_VERSION" ]; then
+            echo "# $CHANGED_PLUGIN_TITLE v$CHANGED_PLUGIN_VERSION" >> release_notes.md
+            echo "" >> release_notes.md
+          elif [ -n "$TITLE" ]; then
+            echo "# $TITLE" >> release_notes.md
+            echo "" >> release_notes.md
+          fi
 
           # 1. Release notes from v*.md files (highest priority, shown first)
           if [ -n "$DOC_FILES" ]; then
@@ -404,7 +456,7 @@ jobs:
               while IFS= read -r file; do
                 [ -z "$file" ] && continue
                 if [ -f "$file" ]; then
-                  python3 -c "import json, pathlib, re; file_path = pathlib.Path(r'''$file'''); plugin_versions_path = pathlib.Path('plugin_versions.json'); text = file_path.read_text(encoding='utf-8'); plugin_dir = file_path.parent.as_posix(); plugins = json.loads(plugin_versions_path.read_text(encoding='utf-8')) if plugin_versions_path.exists() else []; plugin_title = next((plugin.get('title', '').strip() for plugin in plugins if plugin.get('file_path', '').startswith(plugin_dir + '/')), ''); text = re.sub(r'^#\\s+(v[0-9][^\\n]*Release Notes)\\s*$', '# ' + plugin_title + ' ' + r'\\1', text, count=1, flags=re.MULTILINE) if plugin_title else text; print(text.rstrip())" >> release_notes.md
+                  python3 -c "import pathlib, re; file_path = pathlib.Path(r'''$file'''); text = file_path.read_text(encoding='utf-8'); text = re.sub(r'^#\\s+.+?(?:\\r?\\n)+', '', text, count=1, flags=re.MULTILINE); print(text.lstrip().rstrip())" >> release_notes.md
                   echo "" >> release_notes.md
                 fi
               done <<< "$RELEASE_NOTE_FILES"
@@ -412,7 +464,7 @@ jobs:
           fi
 
           # 2. Plugin version changes detected by script
-          if [ -n "$TITLE" ]; then
+          if [ -z "$CHANGED_PLUGIN_TITLE" ] && [ -z "$CHANGED_PLUGIN_VERSION" ] && [ -n "$TITLE" ]; then
             echo "## $TITLE" >> release_notes.md
             echo "" >> release_notes.md
           fi
@@ -469,7 +521,7 @@ jobs:
           cat release_notes.md
 
       - name: Create Git Tag
-        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           
