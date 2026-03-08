@@ -515,8 +515,8 @@ PY
           
           📚 [Documentation](https://fu-jie.github.io/openwebui-extensions/)
           🐛 [Report Issues](https://github.com/Fu-Jie/openwebui-extensions/issues)
-          EOF
-          
+EOF
+
           echo "=== Release Notes ==="
           cat release_notes.md
 
