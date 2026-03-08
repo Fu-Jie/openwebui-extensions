@@ -3,7 +3,7 @@ title: Markdown Normalizer
 author: Fu-Jie
 author_url: https://github.com/Fu-Jie/openwebui-extensions
 funding_url: https://github.com/open-webui
-version: 1.2.7
+version: 1.2.8
 openwebui_id: baaa8732-9348-40b7-8359-7e009660e23c
 description: A content normalizer filter that fixes common Markdown formatting issues in LLM outputs, such as broken code blocks, LaTeX formulas, and list formatting. Including LaTeX command protection.
 """
@@ -456,28 +456,45 @@ class ContentNormalizer:
         except Exception as e:
             # Production safeguard: return original content on error
             logger.error(f"Content normalization failed: {e}", exc_info=True)
-            return content
+            return original_content
 
     def _fix_escape_characters(self, content: str) -> str:
-        """Fix excessive escape characters while protecting LaTeX and code blocks."""
+        """Fix excessive escape characters while protecting LaTeX, code blocks, and inline code."""
 
         def clean_text(text: str) -> str:
-            # Only fix \n and double backslashes, skip \t as it's dangerous for LaTeX (\times, \theta)
+            # First handle literal escaped newlines
             text = text.replace("\\r\\n", "\n")
             text = text.replace("\\n", "\n")
+            
+            # Then handle double backslashes that are not followed by n or r
+            # (which would have been part of an escaped newline handled above)
+            # Use regex to replace \\ with \ only if not followed by n or r
+            # But wait, \n is already \n (actual newline) here.
+            # So we can safely replace all remaining \\ with \
             text = text.replace("\\\\", "\\")
             return text
 
-        # 1. Protect code blocks
+        # 1. Protect block code
         parts = content.split("```")
-        for i in range(0, len(parts), 2):  # Even indices are text
-            # 2. Protect LaTeX formulas within text
-            # Split by $ to find inline/block math
-            sub_parts = parts[i].split("$")
-            for j in range(0, len(sub_parts), 2):  # Even indices are non-math text
-                sub_parts[j] = clean_text(sub_parts[j])
-
-            parts[i] = "$".join(sub_parts)
+        for i in range(0, len(parts)):
+            is_code_block = (i % 2 != 0)
+            if is_code_block and not self.config.enable_escape_fix_in_code_blocks:
+                continue
+                
+            if not is_code_block:
+                # 2. Protect inline code
+                inline_parts = parts[i].split("`")
+                for k in range(0, len(inline_parts), 2):  # Even indices are non-inline-code text
+                    # 3. Protect LaTeX formulas within text
+                    # Split by $ to find inline/block math
+                    sub_parts = inline_parts[k].split("$")
+                    for j in range(0, len(sub_parts), 2):  # Even indices are non-math text
+                        sub_parts[j] = clean_text(sub_parts[j])
+                    inline_parts[k] = "$".join(sub_parts)
+                parts[i] = "`".join(inline_parts)
+            else:
+                # Inside code block and enable_escape_fix_in_code_blocks is True
+                parts[i] = clean_text(parts[i])
 
         return "```".join(parts)
 
@@ -767,7 +784,7 @@ class Filter:
             description="Show status notification when fixes are applied.",
         )
         show_debug_log: bool = Field(
-            default=True,
+            default=False,
             description="Print debug logs to browser console (F12).",
         )
 

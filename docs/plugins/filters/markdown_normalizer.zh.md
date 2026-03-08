@@ -1,81 +1,87 @@
 # Markdown 格式化过滤器 (Markdown Normalizer)
 
-**作者:** [Fu-Jie](https://github.com/Fu-Jie/openwebui-extensions) | **Version:** 1.2.7 | **项目:** [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions) | **许可证:** MIT
+**作者:** [Fu-Jie](https://github.com/Fu-Jie/openwebui-extensions) | **版本:** 1.2.8 | **项目:** [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions) | **许可证:** MIT
 
-这是一个用于 Open WebUI 的内容格式化过滤器，旨在修复 LLM 输出中常见的 Markdown 格式问题。它能确保代码块、LaTeX 公式、Mermaid 图表和其他 Markdown 元素被正确渲染。
+这是一个强大的、具备上下文感知的 Markdown 内容规范化过滤器，专为 Open WebUI 设计，旨在实时修复大语言模型 (LLM) 输出中常见的格式错乱问题。它能确保代码块、LaTeX 公式、Mermaid 图表以及其他结构化元素被完美渲染，同时**绝不破坏**你原有的有效技术内容（如代码、正则、路径）。
 
-> 🏆 **OpenWebUI 官方推荐** — 获得 OpenWebUI 社区 Newsletter 官方推荐：[2026 年 1 月 28 日](https://openwebui.com/blog/newsletter-january-28-2026)
+> 🏆 **OpenWebUI 官方推荐** — 本插件获得 OpenWebUI 社区 Newsletter 官方推荐：[2026 年 1 月 28 日](https://openwebui.com/blog/newsletter-january-28-2026)
 
-## 🔥 最新更新 v1.2.7
+[English](https://github.com/Fu-Jie/openwebui-extensions/blob/main/plugins/filters/markdown_normalizer/README.md) | [简体中文](https://github.com/Fu-Jie/openwebui-extensions/blob/main/plugins/filters/markdown_normalizer/README_CN.md)
 
-* **LaTeX 公式保护**: 增强了转义字符清理逻辑，自动保护 `$ $` 或 `$$ $$` 内的 LaTeX 命令（如 `\times`、`\nu`、`\theta`），防止渲染失效。
-* **扩展国际化 (i18n) 支持**: 现已支持 12 种语言，具备自动探测与回退机制。
-* **配置项优化**: 将 Valves 配置项的描述统一为英文，保持界面一致性。
-* **修复 Bug**: 
-    * 修复了 [Issue #49](https://github.com/Fu-Jie/openwebui-extensions/issues/49)：解决了当同一行存在多个加粗部分时，由于正则匹配过于贪婪导致中间内容丢失空格的问题。
-    * 修复了插件代码中的 `NameError` 错误，确保测试脚本能正常运行。
+---
+
+## 🚀 为什么你需要这个插件？(它能解决什么问题？)
+
+由于分词 (Tokenization) 伪影、过度转义或格式幻觉，LLM 经常会生成破损的 Markdown。如果你遇到过以下情况：
+- `mermaid` 图表因为节点标签缺少双引号而渲染失败、白屏。
+- LLM 输出的 SQL 语句挤在一行，因为本该换行的地方输出了字面量 `\n`。
+- 复杂的 `<details>` (思维链展开块) 因为缺少换行符导致整个聊天界面排版崩塌。
+- LaTeX 数学公式无法显示，因为模型使用了旧版的 `\[` 而不是 Markdown 支持的 `$$`。
+
+**本插件会自动拦截 LLM 返回的原始数据，实时分析其文本结构，并像外科手术一样精准修复这些排版错误，然后再将其展示在你的浏览器中。**
+
+## ✨ 核心功能与修复能力全景
+
+### 1. 高级结构保护 (上下文感知)
+在执行任何修改前，插件会为整个文本建立语义地图，确保技术性内容不被误伤：
+- **代码块保护**：默认跳过 ` ``` ` 内部的内容，保护所有编程逻辑。
+- **行内代码保护**：识别 `` `代码` `` 片段，防止正则表达式（如 `[\n\r]`）或文件路径（如 `C:\Windows`）被错误地去转义。
+- **LaTeX 公式保护**：识别行内 (`$`) 和块级 (`$$`) 公式，防止诸如 `\times`, `\theta` 等核心数学命令被意外破坏。
+
+### 2. 自动治愈转换 (Auto-Healing)
+- **Details 标签排版修复**：`<details>` 块要求极为严格的空行才能正确渲染内部内容。插件会自动在 `</details>` 以及自闭合 `<details />` 标签后注入安全的换行符。
+- **Mermaid 语法急救**：自动修复最常见的 Mermaid 错误——为未加引号的节点标签（如 `A --> B(Some text)`）自动补充双引号，甚至支持多行标签和引用，确保拓扑图 100% 渲染。
+- **强调语法间距修复**：修复加粗/斜体语法内部多余的空格（如 `** 文本 **` 变为 `**文本**`，否则 OpenWebUI 无法加粗），同时智能忽略数学算式（如 `2 * 3 * 4`）。
+- **智能转义字符清理**：将模型过度转义生成的字面量 `\n` 和 `\t` 转化为真正的换行和缩进（仅在安全的纯文本区域执行）。
+- **LaTeX 现代化转换**：自动将旧式的 LaTeX 定界符（`\[...\]` 和 `\(...\)`）升级为现代 Markdown 标准（`$$...$$` 和 `$ ... $`）。
+- **思维标签大一统**：无论模型输出的是 `<think>` 还是 `<thinking>`，统一标准化为 `<thought>` 标签。
+- **残缺代码块修复**：修复乱码的语言前缀（例如 ` ```python`），调整缩进，并在模型回答被截断时，自动补充闭合的 ` ``` `。
+- **列表与表格急救**：为粘连的编号列表注入换行，为残缺的 Markdown 表格补充末尾的闭合管道符（`|`）。
+- **XML 伪影消除**：静默移除 Claude 模型经常泄露的 `<antArtifact>` 或 `<antThinking>` 残留标签。
+
+### 3. 绝对的可靠性与安全 (100% Rollback)
+- **无损回滚机制**：如果在修复过程中发生任何意外错误或崩溃，插件会立即捕获异常，并静默返回**绝对原始**的文本，确保你的对话永远不会因插件报错而丢失。
+
+## 🔥 最新更新 v1.2.8
+* **可靠性增强**：修复了错误回滚机制。当规范化过程中发生意外错误时，插件现在会正确返回原始文本，而不是返回被部分修改的损坏内容。
+* **内联代码保护**：优化了转义字符清理逻辑，现在会保护内联代码块（`` `...` ``）不被错误转义，防止破坏有效的代码片段。
+* **配置项修复**：`enable_escape_fix_in_code_blocks` 配置项现在能正确作用于代码块了。**在代码块内修复换行符（比如修复 SQL）时，只需在设置中开启此选项即可。**
+* **隐私与日志优化**：将 `show_debug_log` 默认值修改为 `False`，避免将可能敏感的内容自动输出到浏览器控制台，并减少不必要的日志噪音。
 
 ## 🌐 多语言支持 (i18n)
 
-支持以下语言的界面与状态自动切换：
+界面的状态提示气泡会根据你的浏览器语言自动切换：
 `English`, `简体中文`, `繁體中文 (香港)`, `繁體中文 (台灣)`, `한국어`, `日本語`, `Français`, `Deutsch`, `Español`, `Italiano`, `Tiếng Việt`, `Bahasa Indonesia`
 
-## ✨ 核心特性
-
-* **Details 标签规范化**: 确保 `<details>` 标签（常用于思维链）有正确的间距。在 `</details>` 后添加空行，并在自闭合 `<details />` 标签后添加换行，防止渲染问题。
-* **强调空格修复**: 修复强调标记内部的多余空格（例如 `** 文本 **` -> `**文本**`），这会导致 Markdown 渲染失败。包含保护机制，防止误修改数学表达式（如 `2 * 3 * 4`）或列表变量。
-* **Mermaid 语法修复**: 自动修复常见的 Mermaid 语法错误，如未加引号的节点标签（支持多行标签和引用标记）和未闭合的子图 (Subgraph)。**v1.1.2 新增**: 全面保护各种类型的连线标签（实线、虚线、粗线），防止被误修改。
-* **前端控制台调试**: 支持将结构化的调试日志直接打印到浏览器控制台 (F12)，方便排查问题。
-* **代码块格式化**: 修复破损的代码块前缀、后缀和缩进问题。
-* **LaTeX 规范化**: 标准化 LaTeX 公式定界符 (`\[` -> `$$`, `\(` -> `$`)。
-* **思维标签规范化**: 统一思维链标签 (`<think>`, `<thinking>` -> `<thought>`)。
-* **转义字符修复**: 清理过度的转义字符 (`\\n`, `\\t`)。
-* **列表格式化**: 确保列表项有正确的换行。
-* **标题修复**: 修复标题中缺失的空格 (`#标题` -> `# 标题`)。
-* **表格修复**: 修复表格中缺失的闭合管道符。
-* **XML 清理**: 移除残留的 XML 标签。
-
-## 使用方法
+## 使用方法 🛠️
 
 1. 在 Open WebUI 中安装此插件。
-2. 全局启用或为特定模型启用此过滤器。
-3. 在 **Valves** 设置中配置需要启用的修复项。
-4. (可选) **显示调试日志 (Show Debug Log)** 在 Valves 中默认开启。这会将结构化的日志打印到浏览器控制台 (F12)。
-    > [!WARNING]
-    > 由于这是初版，可能会出现“负向修复”的情况（例如破坏了原本正确的格式）。如果您遇到问题，请务目查看控制台日志，复制“原始 (Original)”与“规范化 (Normalized)”的内容对比，并提交 Issue 反馈。
+2. 全局启用或为特定模型启用此过滤器（强烈建议为格式输出不稳定的模型启用）。
+3. 在 **Valves (配置参数)** 设置中微调你需要的修复项。
 
 ## 配置参数 (Valves) ⚙️
 
 | 参数 | 默认值 | 描述 |
 | :--- | :--- | :--- |
-| `priority` | `50` | 过滤器优先级。数值越大越靠后（建议在其他过滤器之后运行）。 |
-| `enable_escape_fix` | `True` | 修复过度的转义字符（`\n`, `\t` 等）。 |
-| `enable_escape_fix_in_code_blocks` | `False` | 在代码块内应用转义修复（可能影响有效代码）。 |
-| `enable_thought_tag_fix` | `True` | 规范化思维标签（`</thought>`）。 |
-| `enable_details_tag_fix` | `True` | 规范化 `<details>` 标签并添加安全间距。 |
-| `enable_code_block_fix` | `True` | 修复代码块格式（缩进/换行）。 |
-| `enable_latex_fix` | `True` | 规范化 LaTeX 定界符（`\[` -> `$$`, `\(` -> `$`）。 |
+| `priority` | `50` | 过滤器优先级。数值越大越靠后（建议放在其他内容过滤器之后运行）。 |
+| `enable_escape_fix` | `True` | 修复过度的转义字符（将字面量 `\n` 转换为实际换行）。 |
+| `enable_escape_fix_in_code_blocks` | `False` | **高阶技巧**：如果你的 SQL 或 HTML 代码块总是挤在一行，**请开启此项**。如果你经常写 Python/C++，建议保持关闭。 |
+| `enable_thought_tag_fix` | `True` | 规范化思维标签为 `<thought>`。 |
+| `enable_details_tag_fix` | `True` | 修复 `<details>` 标签的排版间距。 |
+| `enable_code_block_fix` | `True` | 修复代码块前缀、缩进和换行。 |
+| `enable_latex_fix` | `True` | 规范化 LaTeX 定界符（`\[` -> `$$`）。 |
 | `enable_list_fix` | `False` | 修复列表项换行（实验性）。 |
-| `enable_unclosed_block_fix` | `True` | 自动闭合未闭合的代码块。 |
-| `enable_fullwidth_symbol_fix` | `False` | 修复代码块中的全角符号。 |
-| `enable_mermaid_fix` | `True` | 修复常见 Mermaid 语法错误。 |
-| `enable_heading_fix` | `True` | 修复标题中缺失的空格。 |
+| `enable_unclosed_block_fix` | `True` | 自动闭合被截断的代码块。 |
+| `enable_mermaid_fix` | `True` | 修复常见 Mermaid 语法错误（如自动加引号）。 |
+| `enable_heading_fix` | `True` | 修复标题中缺失的空格 (`#Title` -> `# Title`)。 |
 | `enable_table_fix` | `True` | 修复表格中缺失的闭合管道符。 |
-| `enable_xml_tag_cleanup` | `True` | 清理残留的 XML 标签。 |
-| `enable_emphasis_spacing_fix` | `False` | 修复强调语法中的多余空格。 |
-| `show_status` | `True` | 应用修复时显示状态通知。 |
-| `show_debug_log` | `True` | 在浏览器控制台打印调试日志。 |
+| `enable_xml_tag_cleanup` | `True` | 清理残留的 XML 分析标签。 |
+| `enable_emphasis_spacing_fix` | `False` | 修复强调语法（加粗/斜体）内部的多余空格。 |
+| `show_status` | `True` | 当触发任何修复规则时，在页面底部显示提示气泡。 |
+| `show_debug_log` | `False` | 在浏览器控制台 (F12) 打印修改前后的详细对比日志。 |
 
 ## ⭐ 支持
+如果这个插件拯救了你的排版，欢迎到 [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions) 点个 Star，这是我持续改进的最大动力。感谢支持！
 
-如果这个插件对你有帮助，欢迎到 [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions) 点个 Star，这将是我持续改进的动力，感谢支持。
-
-## 其他
-
-### 故障排除 (Troubleshooting) ❓
-
-* **提交 Issue**: 如果遇到任何问题，请在 GitHub 上提交 Issue：[OpenWebUI Extensions Issues](https://github.com/Fu-Jie/openwebui-extensions/issues)
-
-### 更新日志
-
-完整历史请查看 GitHub 项目： [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions)
+## 🧩 其他
+* **故障排除**：遇到“负向修复”（即原本正常的排版被修坏了）？请开启 `show_debug_log`，在 F12 控制台复制出原始文本，并在 GitHub 提交 Issue：[提交 Issue](https://github.com/Fu-Jie/openwebui-extensions/issues)
