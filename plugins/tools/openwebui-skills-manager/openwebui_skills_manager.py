@@ -3,7 +3,7 @@ title: OpenWebUI Skills Manager Tool
 author: Fu-Jie
 author_url: https://github.com/Fu-Jie/openwebui-extensions
 funding_url: https://github.com/open-webui
-version: 0.2.1
+version: 0.3.0
 openwebui_id: b4bce8e4-08e7-4f90-bea7-dc31d463a0bb
 requirements:
 description: Standalone OpenWebUI tool for managing native Workspace Skills (list/show/install/create/update/delete) for any model.
@@ -17,6 +17,7 @@ import tempfile
 import tarfile
 import uuid
 import zipfile
+import urllib.parse
 import urllib.request
 from pathlib import Path
 from typing import Optional, Dict, Any, List, Tuple
@@ -39,6 +40,9 @@ BASE_TRANSLATIONS = {
     "status_installing": "Installing skill from URL...",
     "status_installing_batch": "Installing {total} skill(s)...",
     "status_discovering_skills": "Discovering skills in {url}...",
+    "status_detecting_repo_root": "Detected GitHub repo root: {url}. Auto-converting to discovery mode...",
+    "status_batch_duplicates_removed": "Removed {count} duplicate URL(s) from batch.",
+    "status_duplicate_skill_name": "Warning: Duplicate skill name '{name}' - {action} multiple times.",
     "status_creating": "Creating skill...",
     "status_updating": "Updating skill...",
     "status_deleting": "Deleting skill...",
@@ -61,6 +65,7 @@ BASE_TRANSLATIONS = {
     "err_install_fetch": "Failed to fetch skill content from URL.",
     "err_install_parse": "Failed to parse skill package/content.",
     "err_invalid_url": "Invalid URL. Only http(s) URLs are supported.",
+    "err_untrusted_domain": "Domain not in whitelist. Trusted domains: {domains}",
     "msg_created": "Skill created successfully.",
     "msg_updated": "Skill updated successfully.",
     "msg_deleted": "Skill deleted successfully.",
@@ -75,6 +80,9 @@ TRANSLATIONS = {
         "status_installing": "正在从 URL 安装技能...",
         "status_installing_batch": "正在安装 {total} 个技能...",
         "status_discovering_skills": "正在从 {url} 发现技能...",
+        "status_detecting_repo_root": "检测到 GitHub repo 根目录：{url}。自动转换为发现模式...",
+        "status_batch_duplicates_removed": "已从批量队列中移除 {count} 个重复 URL。",
+        "status_duplicate_skill_name": "警告：技能名称 '{name}' 重复 - 多次 {action}。",
         "status_creating": "正在创建技能...",
         "status_updating": "正在更新技能...",
         "status_deleting": "正在删除技能...",
@@ -97,6 +105,7 @@ TRANSLATIONS = {
         "err_install_fetch": "从 URL 获取技能内容失败。",
         "err_install_parse": "解析技能包或内容失败。",
         "err_invalid_url": "URL 无效，仅支持 http(s) 地址。",
+        "err_untrusted_domain": "域名不在白名单中。授信域名：{domains}",
         "msg_created": "技能创建成功。",
         "msg_updated": "技能更新成功。",
         "msg_deleted": "技能删除成功。",
@@ -107,6 +116,10 @@ TRANSLATIONS = {
         "status_showing": "正在讀取技能詳情...",
         "status_installing": "正在從 URL 安裝技能...",
         "status_installing_batch": "正在安裝 {total} 個技能...",
+        "status_discovering_skills": "正在從 {url} 發現技能...",
+        "status_detecting_repo_root": "偵測到 GitHub repo 根目錄：{url}。自動轉換為發現模式...",
+        "status_batch_duplicates_removed": "已從批次佇列中移除 {count} 個重複 URL。",
+        "status_duplicate_skill_name": "警告：技能名稱 '{name}' 重複 - 多次 {action}。",
         "status_creating": "正在建立技能...",
         "status_updating": "正在更新技能...",
         "status_deleting": "正在刪除技能...",
@@ -139,6 +152,10 @@ TRANSLATIONS = {
         "status_showing": "正在讀取技能詳情...",
         "status_installing": "正在從 URL 安裝技能...",
         "status_installing_batch": "正在安裝 {total} 個技能...",
+        "status_discovering_skills": "正在從 {url} 發現技能...",
+        "status_detecting_repo_root": "偵測到 GitHub repo 根目錄：{url}。自動轉換為發現模式...",
+        "status_batch_duplicates_removed": "已從批次佇列中移除 {count} 個重複 URL。",
+        "status_duplicate_skill_name": "警告：技能名稱 '{name}' 重複 - 多次 {action}。",
         "status_creating": "正在建立技能...",
         "status_updating": "正在更新技能...",
         "status_deleting": "正在刪除技能...",
@@ -172,6 +189,9 @@ TRANSLATIONS = {
         "status_installing": "URL からスキルをインストール中...",
         "status_installing_batch": "{total} 件のスキルをインストール中...",
         "status_discovering_skills": "{url} からスキルを検出中...",
+        "status_detecting_repo_root": "GitHub リポジトリルートを検出しました: {url}。自動検出モードに変換しています...",
+        "status_batch_duplicates_removed": "バッチから {count} 個の重複 URL を削除しました。",
+        "status_duplicate_skill_name": "警告: スキル名 '{name}' の重複 - {action} が複数回実行されました。",
         "status_creating": "スキルを作成中...",
         "status_updating": "スキルを更新中...",
         "status_deleting": "スキルを削除中...",
@@ -205,6 +225,9 @@ TRANSLATIONS = {
         "status_installing": "URL에서 스킬 설치 중...",
         "status_installing_batch": "스킬 {total}개를 설치하는 중...",
         "status_discovering_skills": "{url}에서 스킬 발견 중...",
+        "status_detecting_repo_root": "GitHub 저장소 루트 검출: {url}. 자동 발견 모드로 변환 중...",
+        "status_batch_duplicates_removed": "배치에서 {count}개의 중복 URL을 제거했습니다.",
+        "status_duplicate_skill_name": "경고: 스킬 이름 '{name}'이 중복됨 - {action}이 여러 번 실행됨.",
         "status_creating": "스킬 생성 중...",
         "status_updating": "스킬 업데이트 중...",
         "status_deleting": "스킬 삭제 중...",
@@ -238,6 +261,9 @@ TRANSLATIONS = {
         "status_installing": "Installation du skill depuis l'URL...",
         "status_installing_batch": "Installation de {total} skill(s)...",
         "status_discovering_skills": "Découverte de skills dans {url}...",
+        "status_detecting_repo_root": "Racine du dépôt GitHub détectée: {url}. Conversion en mode découverte automatique...",
+        "status_batch_duplicates_removed": "{count} URL en doublon(s) supprimée(s) du lot.",
+        "status_duplicate_skill_name": "Attention: Nom du skill '{name}' en doublon - {action} plusieurs fois.",
         "status_creating": "Création du skill...",
         "status_updating": "Mise à jour du skill...",
         "status_deleting": "Suppression du skill...",
@@ -448,6 +474,673 @@ FALLBACK_MAP = {
 }
 
 
+def _resolve_language(user_language: str) -> str:
+    """Normalize user language code to a supported translation key."""
+    value = str(user_language or "").strip()
+    if not value:
+        return "en-US"
+
+    normalized = value.replace("_", "-")
+
+    if normalized in TRANSLATIONS:
+        return normalized
+
+    lower_to_lang = {k.lower(): k for k in TRANSLATIONS.keys()}
+    if normalized.lower() in lower_to_lang:
+        return lower_to_lang[normalized.lower()]
+
+    if normalized in FALLBACK_MAP:
+        return FALLBACK_MAP[normalized]
+
+    lower_fallback = {k.lower(): v for k, v in FALLBACK_MAP.items()}
+    if normalized.lower() in lower_fallback:
+        return lower_fallback[normalized.lower()]
+
+    base = normalized.split("-")[0].lower()
+    return lower_fallback.get(base, "en-US")
+
+
+def _t(lang: str, key: str, **kwargs) -> str:
+    """Return translated text for key with safe formatting."""
+    lang_key = _resolve_language(lang)
+    text = TRANSLATIONS.get(lang_key, TRANSLATIONS["en-US"]).get(
+        key, TRANSLATIONS["en-US"].get(key, key)
+    )
+    if kwargs:
+        try:
+            text = text.format(**kwargs)
+        except KeyError:
+            pass
+    return text
+
+
+async def _get_user_context(
+    __user__: Optional[dict],
+    __event_call__: Optional[Any] = None,
+    __request__: Optional[Any] = None,
+) -> Dict[str, str]:
+    """Extract robust user context with frontend language fallback."""
+    if isinstance(__user__, (list, tuple)):
+        user_data = __user__[0] if __user__ else {}
+    elif isinstance(__user__, dict):
+        user_data = __user__
+    else:
+        user_data = {}
+
+    user_language = user_data.get("language", "en-US")
+
+    if __request__ and hasattr(__request__, "headers"):
+        accept_lang = __request__.headers.get("accept-language", "")
+        if accept_lang:
+            user_language = accept_lang.split(",")[0].split(";")[0]
+
+    if __event_call__:
+        try:
+            js_code = """
+                try {
+                    return (
+                        document.documentElement.lang ||
+                        localStorage.getItem('locale') ||
+                        localStorage.getItem('language') ||
+                        navigator.language ||
+                        'en-US'
+                    );
+                } catch (e) {
+                    return 'en-US';
+                }
+            """
+            frontend_lang = await asyncio.wait_for(
+                __event_call__({"type": "execute", "data": {"code": js_code}}),
+                timeout=2.0,
+            )
+            if frontend_lang and isinstance(frontend_lang, str):
+                user_language = frontend_lang
+        except Exception as e:
+            logger.warning(f"Failed to retrieve frontend language: {e}")
+
+    return {
+        "user_id": str(user_data.get("id", "")).strip(),
+        "user_name": user_data.get("name", "User"),
+        "user_language": user_language,
+    }
+
+
+
+async def _emit_notification(
+    emitter: Optional[Any],
+    content: str,
+    ntype: str = "info",
+):
+    """Emit notification event (info, success, warning, error)."""
+    if emitter:
+        await emitter(
+            {"type": "notification", "data": {"type": ntype, "content": content}}
+        )
+
+
+async def _emit_notification(
+    emitter: Optional[Any],
+    content: str,
+    ntype: str = "info",
+):
+    """Emit notification event (info, success, warning, error)."""
+    if emitter:
+        await emitter(
+            {"type": "notification", "data": {"type": ntype, "content": content}}
+        )
+
+async def _emit_status(
+    valves,
+    emitter: Optional[Any],
+    description: str,
+    done: bool = False,
+):
+    """Emit status event to OpenWebUI status bar when enabled."""
+    if valves.SHOW_STATUS and emitter:
+        await emitter(
+            {
+                "type": "status",
+                "data": {"description": description, "done": done},
+            }
+        )
+
+
+def _require_skills_model():
+    """Ensure OpenWebUI Skills model APIs are available."""
+    if Skills is None or SkillForm is None or SkillMeta is None:
+        raise RuntimeError("skills_model_unavailable")
+
+
+def _user_skills(user_id: str, access: str = "read") -> List[Any]:
+    """Load user-scoped skills using OpenWebUI Skills model."""
+    return Skills.get_skills_by_user_id(user_id, access) or []
+
+
+def _find_skill(
+    user_id: str,
+    skill_id: str = "",
+    name: str = "",
+) -> Optional[Any]:
+    """Find a skill by id or case-insensitive name within user scope."""
+    skills = _user_skills(user_id, "read")
+    target_id = (skill_id or "").strip()
+    target_name = (name or "").strip().lower()
+
+    for skill in skills:
+        sid = str(getattr(skill, "id", "") or "")
+        sname = str(getattr(skill, "name", "") or "")
+        if target_id and sid == target_id:
+            return skill
+        if target_name and sname.lower() == target_name:
+            return skill
+    return None
+
+
+def _extract_folder_name_from_url(url: str) -> str:
+    """Extract folder name from GitHub URL path.
+    Examples:
+      - https://github.com/.../tree/main/skills/xlsx -> xlsx
+      - https://github.com/.../blob/main/skills/SKILL.md -> skills
+      - https://raw.githubusercontent.com/.../main/skills/SKILL.md -> skills
+    """
+    try:
+        # Remove query string and fragments
+        path = url.split("?")[0].split("#")[0]
+        # Get last path component
+        parts = path.rstrip("/").split("/")
+        if parts:
+            last = parts[-1]
+            # Skip if it's a file extension
+            if "." not in last or last.startswith("."):
+                return last
+            # Return parent directory if it's a filename
+            if len(parts) > 1:
+                return parts[-2]
+    except Exception:
+        pass
+    return ""
+
+
+async def _discover_skills_from_github_directory(
+    valves, url: str, lang: str
+) -> List[str]:
+    """
+    Discover all skill subdirectories from a GitHub tree URL.
+    Uses GitHub Git Trees API to find all SKILL.md files recursively.
+
+    Example: https://github.com/anthropics/skills/tree/main/skills
+    Returns: List of individual skill tree URLs for each directory containing SKILL.md
+    """
+    skill_urls = []
+    match = re.match(r"https://github\.com/([^/]+)/([^/]+)/tree/([^/]+)(/.*)?\Z", url)
+    if not match:
+        return skill_urls
+
+    owner = match.group(1)
+    repo = match.group(2)
+    branch = match.group(3)
+    target_path = (match.group(4) or "").strip("/")
+
+    try:
+        # Use recursive git trees API to find all SKILL.md files in the repository
+        api_url = f"https://api.github.com/repos/{owner}/{repo}/git/trees/{branch}?recursive=1"
+        response_bytes = await _fetch_bytes(valves, api_url)
+        data = json.loads(response_bytes.decode("utf-8"))
+        
+        if "tree" in data:
+            for item in data["tree"]:
+                item_path = item.get("path", "")
+                
+                # Check for SKILL.md paths (case-insensitive for convenience)
+                if not item_path.lower().endswith("skill.md"):
+                    continue
+                    
+                # If a specific target path was provided (like /skills), we only discover skills inside it
+                if target_path:
+                    # Must be exactly the target_path/SKILL.md or inside the target_path/ directory
+                    if not (item_path.startswith(f"{target_path}/") or item_path == f"{target_path}/SKILL.md"):
+                        continue
+                    
+                # Get the directory containing SKILL.md
+                if "/" in item_path:
+                    skill_dir = item_path.rsplit("/", 1)[0]
+                    skill_url = f"https://github.com/{owner}/{repo}/tree/{branch}/{skill_dir}"
+                else:
+                    skill_url = f"https://github.com/{owner}/{repo}/tree/{branch}"
+                    
+                # De-duplicate
+                if skill_url not in skill_urls:
+                    skill_urls.append(skill_url)
+
+        skill_urls.sort()
+    except Exception as e:
+        logger.warning(f"Failed to discover skills from GitHub directory {url}: {e}")
+        
+    return skill_urls
+
+
+def _is_github_repo_root(url: str) -> bool:
+    """Check if URL is a GitHub repo root (e.g., https://github.com/owner/repo)."""
+    match = re.match(r"^https://github\.com/([^/]+)/([^/]+)/?$", url)
+    return match is not None
+
+
+def _normalize_github_repo_url(url: str) -> str:
+    """Convert GitHub repo root URL to tree discovery URL (assuming main/master branch)."""
+    match = re.match(r"^https://github\.com/([^/]+)/([^/]+)/?$", url)
+    if match:
+        owner = match.group(1)
+        repo = match.group(2)
+        # Try main branch first, API will handle if it doesn't exist
+        return f"https://github.com/{owner}/{repo}/tree/main"
+    return url
+
+
+def _resolve_github_tree_urls(url: str) -> List[str]:
+    """For GitHub tree URLs, resolve to direct file URL.
+
+    Example: https://github.com/anthropics/skills/tree/main/skills/xlsx
+    Returns: [
+        https://raw.githubusercontent.com/anthropics/skills/main/skills/xlsx/SKILL.md,
+    ]
+    """
+    urls = []
+    match = re.match(r"https://github\.com/([^/]+)/([^/]+)/tree/([^/]+)(/.*)?\Z", url)
+    if match:
+        owner = match.group(1)
+        repo = match.group(2)
+        branch = match.group(3)
+        path = match.group(4) or ""
+        base = f"https://raw.githubusercontent.com/{owner}/{repo}/{branch}{path}"
+        # Only look for SKILL.md
+        urls.append(f"{base}/SKILL.md")
+    return urls
+
+
+def _normalize_url(url: str) -> str:
+    """Normalize supported URLs (GitHub blob -> raw, tree -> try direct files first)."""
+    value = (url or "").strip()
+    if not value.startswith("http://") and not value.startswith("https://"):
+        raise ValueError("invalid_url")
+
+    # Handle GitHub blob URLs -> convert to raw
+    if "github.com" in value and "/blob/" in value:
+        value = value.replace("github.com", "raw.githubusercontent.com")
+        value = value.replace("/blob/", "/")
+
+    # Note: GitHub tree URLs are handled separately in install_skill
+    # via _resolve_github_tree_urls()
+
+    return value
+
+
+def _is_safe_url(valves, url: str) -> Tuple[bool, Optional[str]]:
+    """
+    Validate that URL is safe for downloading from trusted domains.
+
+    Checks:
+    1. URL must use http/https scheme
+    2. Hostname must be in the trusted domains whitelist
+
+    Returns: Tuple of (is_safe: bool, error_message: Optional[str])
+    """
+    try:
+        parsed = urllib.parse.urlparse(url)
+        hostname = (parsed.hostname or "").strip()
+
+        if not hostname:
+            return False, "URL is malformed: missing hostname"
+
+        # Check scheme: only http/https allowed
+        if parsed.scheme not in ("http", "https"):
+            return False, f"URL scheme not allowed: {parsed.scheme}"
+
+        # Domain whitelist check (enforced)
+        trusted_domains = [
+            d.strip().lower()
+            for d in (valves.TRUSTED_DOMAINS or "").split(",")
+            if d.strip()
+        ]
+
+        if not trusted_domains:
+            return False, "No trusted domains configured."
+
+        hostname_lower = hostname.lower()
+
+        # Check if hostname matches any trusted domain (exact or subdomain)
+        is_trusted = False
+        for trusted_domain in trusted_domains:
+            if hostname_lower == trusted_domain or hostname_lower.endswith(
+                "." + trusted_domain
+            ):
+                is_trusted = True
+                break
+
+        if not is_trusted:
+            return (
+                False,
+                f"Domain '{hostname}' not in whitelist. Allowed: {', '.join(trusted_domains)}",
+            )
+
+        return True, None
+    except Exception as e:
+        return False, f"URL validation error: {e}"
+
+
+async def _fetch_bytes(valves, url: str) -> bytes:
+    """Fetch bytes from URL with timeout guard and SSRF protection."""
+    # Validate URL safety before fetching
+    is_safe, error_message = _is_safe_url(valves, url)
+    if not is_safe:
+        raise ValueError(error_message or "Unsafe URL")
+
+    def _sync_fetch(target: str) -> bytes:
+        with urllib.request.urlopen(
+            target, timeout=valves.INSTALL_FETCH_TIMEOUT
+        ) as resp:
+            return resp.read()
+
+    return await asyncio.wait_for(
+        asyncio.to_thread(_sync_fetch, url),
+        timeout=valves.INSTALL_FETCH_TIMEOUT + 1.0,
+    )
+
+
+def _parse_skill_md_meta(content: str, fallback_name: str) -> Tuple[str, str, str]:
+    """Parse markdown skill content into (name, description, body)."""
+    fm_match = re.match(r"^---\s*\n(.*?)\n---\s*\n", content, re.DOTALL)
+    if fm_match:
+        fm_text = fm_match.group(1)
+        body = content[fm_match.end() :].strip()
+        name = fallback_name
+        description = ""
+        for line in fm_text.split("\n"):
+            m_name = re.match(r"^name:\s*(.+)$", line)
+            if m_name:
+                name = m_name.group(1).strip().strip("\"'")
+            m_desc = re.match(r"^description:\s*(.+)$", line)
+            if m_desc:
+                description = m_desc.group(1).strip().strip("\"'")
+        return name, description, body
+
+    h1_match = re.search(r"^#\s+(.+)$", content.strip(), re.MULTILINE)
+    name = h1_match.group(1).strip() if h1_match else fallback_name
+    return name, "", content.strip()
+
+
+def _append_source_url_to_content(content: str, url: str, lang: str = "en-US") -> str:
+    """
+    Append installation source URL information to skill content.
+    Adds a reference link at the bottom of the content.
+    """
+    if not content or not url:
+        return content
+
+    # Remove any existing source references (to prevent duplication when updating)
+    content = re.sub(
+        r"\n*---\n+\*\*Installation Source.*?\*\*:.*?\n+---\n*$",
+        "",
+        content,
+        flags=re.DOTALL | re.IGNORECASE,
+    )
+
+    # Determine the appropriate language for the label
+    source_label = {
+        "en-US": "Installation Source",
+        "zh-CN": "安装源",
+        "zh-TW": "安裝來源",
+        "zh-HK": "安裝來源",
+        "ja-JP": "インストールソース",
+        "ko-KR": "설치 소스",
+        "fr-FR": "Source d'installation",
+        "de-DE": "Installationsquelle",
+        "es-ES": "Fuente de instalación",
+    }.get(lang, "Installation Source")
+
+    reference_text = {
+        "en-US": "For additional related files or documentation, you can reference the installation source below:",
+        "zh-CN": "如需获取相关文件或文档，可以参考下面的安装源：",
+        "zh-TW": "如需獲取相關檔案或文件，可以參考下面的安裝來源：",
+        "zh-HK": "如需獲取相關檔案或文件，可以參考下面的安裝來源：",
+        "ja-JP": "関連ファイルまたはドキュメントについては、以下のインストールソースを参照できます：",
+        "ko-KR": "관련 파일 또는 문서를 확인하려면 아래 설치 소스를 참조할 수 있습니다:",
+        "fr-FR": "Pour obtenir des fichiers ou des documents connexes, vous pouvez vous reporter à la source d'installation ci-dessous :",
+        "de-DE": "Für zusätzliche verwandte Dateien oder Dokumentation können Sie die folgende Installationsquelle referenzieren:",
+        "es-ES": "Para archivos o documentación relacionados, puede consultar la siguiente fuente de instalación:",
+    }.get(
+        lang,
+        "For additional related files or documentation, you can reference the installation source below:",
+    )
+
+    # Append source URL with reference
+    source_block = (
+        f"\n\n---\n**{source_label}**: [{url}]({url})\n\n*{reference_text}*\n---"
+    )
+    return content + source_block
+
+
+def _safe_extract_zip(zip_path: Path, extract_dir: Path) -> None:
+    """
+    Safely extract a ZIP file, validating member paths to prevent path traversal.
+    """
+    with zipfile.ZipFile(zip_path, "r") as zf:
+        for member in zf.namelist():
+            # Check for path traversal attempts
+            member_path = Path(extract_dir) / member
+            try:
+                # Ensure the resolved path is within extract_dir
+                member_path.resolve().relative_to(extract_dir.resolve())
+            except ValueError:
+                # Path is outside extract_dir (traversal attempt)
+                logger.warning(f"Skipping unsafe ZIP member: {member}")
+                continue
+
+            # Extract the member
+            zf.extract(member, extract_dir)
+
+
+def _safe_extract_tar(tar_path: Path, extract_dir: Path) -> None:
+    """
+    Safely extract a TAR file, validating member paths to prevent path traversal.
+    """
+    with tarfile.open(tar_path, "r:*") as tf:
+        for member in tf.getmembers():
+            # Check for path traversal attempts
+            member_path = Path(extract_dir) / member.name
+            try:
+                # Ensure the resolved path is within extract_dir
+                member_path.resolve().relative_to(extract_dir.resolve())
+            except ValueError:
+                # Path is outside extract_dir (traversal attempt)
+                logger.warning(f"Skipping unsafe TAR member: {member.name}")
+                continue
+
+            # Extract the member
+            tf.extract(member, extract_dir)
+
+
+def _extract_skill_from_archive(payload: bytes) -> Tuple[str, str, str]:
+    """Extract SKILL.md from zip/tar archives with path traversal protection."""
+    with tempfile.TemporaryDirectory(prefix="owui-skill-") as tmp:
+        root = Path(tmp)
+        archive_path = root / "pkg"
+        archive_path.write_bytes(payload)
+
+        extract_dir = root / "extract"
+        extract_dir.mkdir(parents=True, exist_ok=True)
+
+        extracted = False
+        try:
+            _safe_extract_zip(archive_path, extract_dir)
+            extracted = True
+        except Exception as e:
+            logger.debug(f"Failed to extract as ZIP: {e}")
+            pass
+
+        if not extracted:
+            try:
+                _safe_extract_tar(archive_path, extract_dir)
+                extracted = True
+            except Exception as e:
+                logger.debug(f"Failed to extract as TAR: {e}")
+                pass
+
+        if not extracted:
+            raise ValueError("install_parse")
+
+        # Only look for SKILL.md
+        candidates = list(extract_dir.rglob("SKILL.md"))
+        if not candidates:
+            raise ValueError("install_parse")
+
+        chosen = candidates[0]
+        text = chosen.read_text(encoding="utf-8", errors="ignore")
+        fallback_name = chosen.parent.name or "installed-skill"
+        return _parse_skill_md_meta(text, fallback_name)
+
+
+async def _install_single_skill(
+    valves,
+    url: str,
+    name: str,
+    user_id: str,
+    lang: str,
+    overwrite: bool,
+    __event_emitter__: Optional[Any] = None,
+) -> Dict[str, Any]:
+    """Internal method to install a single skill from URL."""
+    try:
+        if not (url or "").strip():
+            raise ValueError(_t(lang, "err_url_required"))
+
+        # Extract potential folder name from URL before normalization
+        url_folder = _extract_folder_name_from_url(url).strip()
+
+        parsed_name = ""
+        parsed_desc = ""
+        parsed_body = ""
+        payload = None
+
+        # Special handling for GitHub tree URLs
+        if "github.com" in url and "/tree/" in url:
+            fallback_file_urls = _resolve_github_tree_urls(url)
+            # Try to fetch SKILL.md directly from the tree path
+            for file_url in fallback_file_urls:
+                try:
+                    payload = await _fetch_bytes(valves, file_url)
+                    if payload:
+                        break
+                except Exception:
+                    continue
+
+            if payload:
+                # Successfully fetched direct file
+                text = payload.decode("utf-8", errors="ignore")
+                fallback = url_folder or "installed-skill"
+                parsed_name, parsed_desc, parsed_body = _parse_skill_md_meta(
+                    text, fallback
+                )
+            else:
+                # No direct file found at this GitHub tree URL path
+                raise ValueError(f"Could not find SKILL.md in {url}")
+        else:
+            # Handle other URL types (blob, direct markdown, archives)
+            normalized = _normalize_url(url)
+            payload = await _fetch_bytes(valves, normalized)
+
+            if normalized.lower().endswith((".zip", ".tar", ".tar.gz", ".tgz")):
+                parsed_name, parsed_desc, parsed_body = _extract_skill_from_archive(
+                    payload
+                )
+            else:
+                text = payload.decode("utf-8", errors="ignore")
+                # Use extracted folder name as fallback
+                fallback = url_folder or "installed-skill"
+                parsed_name, parsed_desc, parsed_body = _parse_skill_md_meta(
+                    text, fallback
+                )
+
+        final_name = (name or parsed_name or url_folder or "installed-skill").strip()
+        final_desc = (parsed_desc or final_name).strip()
+        final_content = (parsed_body or final_desc).strip()
+
+        # Append installation source URL to the skill content
+        final_content = _append_source_url_to_content(final_content, url, lang)
+
+        if not final_name:
+            raise ValueError(_t(lang, "err_name_required"))
+
+        existing = _find_skill(user_id=user_id, name=final_name)
+        # install_skill always overwrites by default (overwrite=True);
+        # ALLOW_OVERWRITE_ON_CREATE valve also controls this.
+        allow_overwrite = overwrite or valves.ALLOW_OVERWRITE_ON_CREATE
+        if existing:
+            sid = str(getattr(existing, "id", "") or "")
+            if not allow_overwrite:
+                # Should not normally reach here since install defaults overwrite=True
+                return {
+                    "error": f"Skill already exists: {final_name}",
+                    "hint": "Pass overwrite=true to replace the existing skill.",
+                }
+            updated = Skills.update_skill_by_id(
+                sid,
+                {
+                    "name": final_name,
+                    "description": final_desc,
+                    "content": final_content,
+                    "is_active": True,
+                },
+            )
+            await _emit_status(valves, __event_emitter__, _t(lang, "status_install_overwrite_done", name=final_name),
+                done=True,
+            )
+            return {
+                "success": True,
+                "action": "updated",
+                "id": str(getattr(updated, "id", "") or sid),
+                "name": final_name,
+                "source_url": url,
+            }
+
+        new_skill = Skills.insert_new_skill(
+            user_id=user_id,
+            form_data=SkillForm(
+                id=str(uuid.uuid4()),
+                name=final_name,
+                description=final_desc,
+                content=final_content,
+                meta=SkillMeta(),
+                is_active=True,
+            ),
+        )
+
+        await _emit_status(valves, __event_emitter__, _t(lang, "status_install_done", name=final_name),
+            done=True,
+        )
+        return {
+            "success": True,
+            "action": "installed",
+            "id": str(getattr(new_skill, "id", "") or ""),
+            "name": final_name,
+            "source_url": url,
+        }
+    except Exception as e:
+        key = None
+        if str(e) in {"invalid_url", "install_parse"}:
+            key = "err_invalid_url" if str(e) == "invalid_url" else "err_install_parse"
+        msg = (
+            _t(lang, key)
+            if key
+            else (
+                _t(lang, "err_unavailable")
+                if str(e) == "skills_model_unavailable"
+                else str(e)
+            )
+        )
+        logger.error(f"_install_single_skill failed for {url}: {msg}", exc_info=True)
+        return {"error": msg, "url": url}
+
+
 class Tools:
     """OpenWebUI native tools for simple skill lifecycle management."""
 
@@ -459,334 +1152,21 @@ class Tools:
             description="Whether to show operation status updates.",
         )
         ALLOW_OVERWRITE_ON_CREATE: bool = Field(
-            default=False,
+            default=True,
             description="Allow create_skill/install_skill to overwrite same-name skill by default.",
         )
         INSTALL_FETCH_TIMEOUT: float = Field(
             default=12.0,
             description="Timeout in seconds for URL fetch when installing a skill.",
         )
+        TRUSTED_DOMAINS: str = Field(
+            default="github.com,huggingface.co,githubusercontent.com",
+            description="Comma-separated list of primary trusted domains for skill downloads (always enforced). URLs with domains matching or containing these primary domains (including subdomains) are allowed. E.g., 'github.com' allows github.com and *.github.com.",
+        )
 
     def __init__(self):
         """Initialize plugin valves."""
         self.valves = self.Valves()
-
-    def _resolve_language(self, user_language: str) -> str:
-        """Normalize user language code to a supported translation key."""
-        value = str(user_language or "").strip()
-        if not value:
-            return "en-US"
-
-        normalized = value.replace("_", "-")
-
-        if normalized in TRANSLATIONS:
-            return normalized
-
-        lower_to_lang = {k.lower(): k for k in TRANSLATIONS.keys()}
-        if normalized.lower() in lower_to_lang:
-            return lower_to_lang[normalized.lower()]
-
-        if normalized in FALLBACK_MAP:
-            return FALLBACK_MAP[normalized]
-
-        lower_fallback = {k.lower(): v for k, v in FALLBACK_MAP.items()}
-        if normalized.lower() in lower_fallback:
-            return lower_fallback[normalized.lower()]
-
-        base = normalized.split("-")[0].lower()
-        return lower_fallback.get(base, "en-US")
-
-    def _t(self, lang: str, key: str, **kwargs) -> str:
-        """Return translated text for key with safe formatting."""
-        lang_key = self._resolve_language(lang)
-        text = TRANSLATIONS.get(lang_key, TRANSLATIONS["en-US"]).get(
-            key, TRANSLATIONS["en-US"].get(key, key)
-        )
-        if kwargs:
-            try:
-                text = text.format(**kwargs)
-            except KeyError:
-                pass
-        return text
-
-    async def _get_user_context(
-        self,
-        __user__: Optional[dict],
-        __event_call__: Optional[Any] = None,
-        __request__: Optional[Any] = None,
-    ) -> Dict[str, str]:
-        """Extract robust user context with frontend language fallback."""
-        if isinstance(__user__, (list, tuple)):
-            user_data = __user__[0] if __user__ else {}
-        elif isinstance(__user__, dict):
-            user_data = __user__
-        else:
-            user_data = {}
-
-        user_language = user_data.get("language", "en-US")
-
-        if __request__ and hasattr(__request__, "headers"):
-            accept_lang = __request__.headers.get("accept-language", "")
-            if accept_lang:
-                user_language = accept_lang.split(",")[0].split(";")[0]
-
-        if __event_call__:
-            try:
-                js_code = """
-                    try {
-                        return (
-                            document.documentElement.lang ||
-                            localStorage.getItem('locale') ||
-                            localStorage.getItem('language') ||
-                            navigator.language ||
-                            'en-US'
-                        );
-                    } catch (e) {
-                        return 'en-US';
-                    }
-                """
-                frontend_lang = await asyncio.wait_for(
-                    __event_call__({"type": "execute", "data": {"code": js_code}}),
-                    timeout=2.0,
-                )
-                if frontend_lang and isinstance(frontend_lang, str):
-                    user_language = frontend_lang
-            except Exception as e:
-                logger.warning(f"Failed to retrieve frontend language: {e}")
-
-        return {
-            "user_id": str(user_data.get("id", "")).strip(),
-            "user_name": user_data.get("name", "User"),
-            "user_language": user_language,
-        }
-
-    async def _emit_status(
-        self,
-        emitter: Optional[Any],
-        description: str,
-        done: bool = False,
-    ):
-        """Emit status event to OpenWebUI status bar when enabled."""
-        if self.valves.SHOW_STATUS and emitter:
-            await emitter(
-                {
-                    "type": "status",
-                    "data": {"description": description, "done": done},
-                }
-            )
-
-    def _require_skills_model(self):
-        """Ensure OpenWebUI Skills model APIs are available."""
-        if Skills is None or SkillForm is None or SkillMeta is None:
-            raise RuntimeError("skills_model_unavailable")
-
-    def _user_skills(self, user_id: str, access: str = "read") -> List[Any]:
-        """Load user-scoped skills using OpenWebUI Skills model."""
-        return Skills.get_skills_by_user_id(user_id, access) or []
-
-    def _find_skill(
-        self,
-        user_id: str,
-        skill_id: str = "",
-        name: str = "",
-    ) -> Optional[Any]:
-        """Find a skill by id or case-insensitive name within user scope."""
-        skills = self._user_skills(user_id, "read")
-        target_id = (skill_id or "").strip()
-        target_name = (name or "").strip().lower()
-
-        for skill in skills:
-            sid = str(getattr(skill, "id", "") or "")
-            sname = str(getattr(skill, "name", "") or "")
-            if target_id and sid == target_id:
-                return skill
-            if target_name and sname.lower() == target_name:
-                return skill
-        return None
-
-    def _extract_folder_name_from_url(self, url: str) -> str:
-        """Extract folder name from GitHub URL path.
-        Examples:
-          - https://github.com/.../tree/main/skills/xlsx -> xlsx
-          - https://github.com/.../blob/main/skills/README.md -> skills
-          - https://raw.githubusercontent.com/.../main/skills/README.md -> skills
-        """
-        try:
-            # Remove query string and fragments
-            path = url.split("?")[0].split("#")[0]
-            # Get last path component
-            parts = path.rstrip("/").split("/")
-            if parts:
-                last = parts[-1]
-                # Skip if it's a file extension
-                if "." not in last or last.startswith("."):
-                    return last
-                # Return parent directory if it's a filename
-                if len(parts) > 1:
-                    return parts[-2]
-        except Exception:
-            pass
-        return ""
-
-    async def _discover_skills_from_github_directory(
-        self, url: str, lang: str
-    ) -> List[str]:
-        """
-        Discover all skill subdirectories from a GitHub tree URL.
-        Uses GitHub API to list directory contents.
-
-        Example: https://github.com/anthropics/skills/tree/main/skills
-        Returns: List of individual skill tree URLs for each subdirectory
-        """
-        skill_urls = []
-        match = re.match(
-            r"https://github\.com/([^/]+)/([^/]+)/tree/([^/]+)(/.*)?\Z", url
-        )
-        if not match:
-            return skill_urls
-
-        owner = match.group(1)
-        repo = match.group(2)
-        branch = match.group(3)
-        path = match.group(4) or ""
-
-        try:
-            api_url = f"https://api.github.com/repos/{owner}/{repo}/contents{path}?ref={branch}"
-            response_bytes = await self._fetch_bytes(api_url)
-            contents = json.loads(response_bytes.decode("utf-8"))
-
-            if isinstance(contents, list):
-                for item in contents:
-                    if item.get("type") == "dir":
-                        subdir_name = item.get("name", "")
-                        if subdir_name and not subdir_name.startswith("."):
-                            subdir_url = f"https://github.com/{owner}/{repo}/tree/{branch}{path}/{subdir_name}"
-                            skill_urls.append(subdir_url)
-
-            skill_urls.sort()
-        except Exception as e:
-            logger.warning(
-                f"Failed to discover skills from GitHub directory {url}: {e}"
-            )
-
-        return skill_urls
-
-    def _resolve_github_tree_urls(self, url: str) -> List[str]:
-        """For GitHub tree URLs, resolve to direct file URLs to try.
-
-        Example: https://github.com/anthropics/skills/tree/main/skills/xlsx
-        Returns: [
-            https://raw.githubusercontent.com/anthropics/skills/main/skills/xlsx/SKILL.md,
-            https://raw.githubusercontent.com/anthropics/skills/main/skills/xlsx/README.md,
-        ]
-        """
-        urls = []
-        match = re.match(
-            r"https://github\.com/([^/]+)/([^/]+)/tree/([^/]+)(/.*)?\Z", url
-        )
-        if match:
-            owner = match.group(1)
-            repo = match.group(2)
-            branch = match.group(3)
-            path = match.group(4) or ""
-            base = f"https://raw.githubusercontent.com/{owner}/{repo}/{branch}{path}"
-            # Try SKILL.md first, then README.md
-            urls.append(f"{base}/SKILL.md")
-            urls.append(f"{base}/README.md")
-        return urls
-
-    def _normalize_url(self, url: str) -> str:
-        """Normalize supported URLs (GitHub blob -> raw, tree -> try direct files first)."""
-        value = (url or "").strip()
-        if not value.startswith("http://") and not value.startswith("https://"):
-            raise ValueError("invalid_url")
-
-        # Handle GitHub blob URLs -> convert to raw
-        if "github.com" in value and "/blob/" in value:
-            value = value.replace("github.com", "raw.githubusercontent.com")
-            value = value.replace("/blob/", "/")
-
-        # Note: GitHub tree URLs are handled separately in install_skill
-        # via _resolve_github_tree_urls()
-
-        return value
-
-    async def _fetch_bytes(self, url: str) -> bytes:
-        """Fetch bytes from URL with timeout guard."""
-
-        def _sync_fetch(target: str) -> bytes:
-            with urllib.request.urlopen(
-                target, timeout=self.valves.INSTALL_FETCH_TIMEOUT
-            ) as resp:
-                return resp.read()
-
-        return await asyncio.wait_for(
-            asyncio.to_thread(_sync_fetch, url),
-            timeout=self.valves.INSTALL_FETCH_TIMEOUT + 1.0,
-        )
-
-    def _parse_skill_md_meta(
-        self, content: str, fallback_name: str
-    ) -> Tuple[str, str, str]:
-        """Parse markdown skill content into (name, description, body)."""
-        fm_match = re.match(r"^---\s*\n(.*?)\n---\s*\n", content, re.DOTALL)
-        if fm_match:
-            fm_text = fm_match.group(1)
-            body = content[fm_match.end() :].strip()
-            name = fallback_name
-            description = ""
-            for line in fm_text.split("\n"):
-                m_name = re.match(r"^name:\s*(.+)$", line)
-                if m_name:
-                    name = m_name.group(1).strip().strip("\"'")
-                m_desc = re.match(r"^description:\s*(.+)$", line)
-                if m_desc:
-                    description = m_desc.group(1).strip().strip("\"'")
-            return name, description, body
-
-        h1_match = re.search(r"^#\s+(.+)$", content.strip(), re.MULTILINE)
-        name = h1_match.group(1).strip() if h1_match else fallback_name
-        return name, "", content.strip()
-
-    def _extract_skill_from_archive(self, payload: bytes) -> Tuple[str, str, str]:
-        """Extract first SKILL.md (or README.md) from zip/tar archives."""
-        with tempfile.TemporaryDirectory(prefix="owui-skill-") as tmp:
-            root = Path(tmp)
-            archive_path = root / "pkg"
-            archive_path.write_bytes(payload)
-
-            extract_dir = root / "extract"
-            extract_dir.mkdir(parents=True, exist_ok=True)
-
-            extracted = False
-            try:
-                with zipfile.ZipFile(archive_path, "r") as zf:
-                    zf.extractall(extract_dir)
-                    extracted = True
-            except Exception:
-                pass
-
-            if not extracted:
-                try:
-                    with tarfile.open(archive_path, "r:*") as tf:
-                        tf.extractall(extract_dir)
-                        extracted = True
-                except Exception:
-                    pass
-
-            if not extracted:
-                raise ValueError("install_parse")
-
-            candidates = list(extract_dir.rglob("SKILL.md"))
-            if not candidates:
-                candidates = list(extract_dir.rglob("README.md"))
-            if not candidates:
-                raise ValueError("install_parse")
-
-            chosen = candidates[0]
-            text = chosen.read_text(encoding="utf-8", errors="ignore")
-            fallback_name = chosen.parent.name or "installed-skill"
-            return self._parse_skill_md_meta(text, fallback_name)
 
     async def list_skills(
         self,
@@ -797,18 +1177,18 @@ class Tools:
         __request__: Optional[Any] = None,
     ) -> Dict[str, Any]:
         """List current user's OpenWebUI skills."""
-        user_ctx = await self._get_user_context(__user__, __event_call__, __request__)
+        user_ctx = await _get_user_context(__user__, __event_call__, __request__)
         lang = user_ctx["user_language"]
         user_id = user_ctx["user_id"]
 
         try:
-            self._require_skills_model()
+            _require_skills_model()
             if not user_id:
-                raise ValueError(self._t(lang, "err_user_required"))
+                raise ValueError(_t(lang, "err_user_required"))
 
-            await self._emit_status(__event_emitter__, self._t(lang, "status_listing"))
+            await _emit_status(self.valves, __event_emitter__, _t(lang, "status_listing"))
 
-            skills = self._user_skills(user_id, "read")
+            skills = _user_skills(user_id, "read")
             rows = []
             for skill in skills:
                 row = {
@@ -825,9 +1205,7 @@ class Tools:
             rows.sort(key=lambda x: (x.get("name") or "").lower())
             active_count = sum(1 for row in rows if row.get("is_active"))
 
-            await self._emit_status(
-                __event_emitter__,
-                self._t(
+            await _emit_status(self.valves, __event_emitter__, _t(
                     lang,
                     "status_list_done",
                     count=len(rows),
@@ -838,11 +1216,11 @@ class Tools:
             return {"count": len(rows), "skills": rows}
         except Exception as e:
             msg = (
-                self._t(lang, "err_unavailable")
+                _t(lang, "err_unavailable")
                 if str(e) == "skills_model_unavailable"
                 else str(e)
             )
-            await self._emit_status(__event_emitter__, msg, done=True)
+            await _emit_status(self.valves, __event_emitter__, msg, done=True)
             return {"error": msg}
 
     async def show_skill(
@@ -856,20 +1234,20 @@ class Tools:
         __request__: Optional[Any] = None,
     ) -> Dict[str, Any]:
         """Show one skill by id or name."""
-        user_ctx = await self._get_user_context(__user__, __event_call__, __request__)
+        user_ctx = await _get_user_context(__user__, __event_call__, __request__)
         lang = user_ctx["user_language"]
         user_id = user_ctx["user_id"]
 
         try:
-            self._require_skills_model()
+            _require_skills_model()
             if not user_id:
-                raise ValueError(self._t(lang, "err_user_required"))
+                raise ValueError(_t(lang, "err_user_required"))
 
-            await self._emit_status(__event_emitter__, self._t(lang, "status_showing"))
+            await _emit_status(self.valves, __event_emitter__, _t(lang, "status_showing"))
 
-            skill = self._find_skill(user_id=user_id, skill_id=skill_id, name=name)
+            skill = _find_skill(user_id=user_id, skill_id=skill_id, name=name)
             if not skill:
-                raise ValueError(self._t(lang, "err_not_found"))
+                raise ValueError(_t(lang, "err_not_found"))
 
             result = {
                 "id": str(getattr(skill, "id", "") or ""),
@@ -882,170 +1260,18 @@ class Tools:
                 result["content"] = getattr(skill, "content", "")
 
             skill_name = result.get("name") or result.get("id") or "unknown"
-            await self._emit_status(
-                __event_emitter__,
-                self._t(lang, "status_show_done", name=skill_name),
+            await _emit_status(self.valves, __event_emitter__, _t(lang, "status_show_done", name=skill_name),
                 done=True,
             )
             return result
         except Exception as e:
             msg = (
-                self._t(lang, "err_unavailable")
+                _t(lang, "err_unavailable")
                 if str(e) == "skills_model_unavailable"
                 else str(e)
             )
-            await self._emit_status(__event_emitter__, msg, done=True)
+            await _emit_status(self.valves, __event_emitter__, msg, done=True)
             return {"error": msg}
-
-    async def _install_single_skill(
-        self,
-        url: str,
-        name: str,
-        user_id: str,
-        lang: str,
-        overwrite: bool,
-        __event_emitter__: Optional[Any] = None,
-    ) -> Dict[str, Any]:
-        """Internal method to install a single skill from URL."""
-        try:
-            if not (url or "").strip():
-                raise ValueError(self._t(lang, "err_url_required"))
-
-            # Extract potential folder name from URL before normalization
-            url_folder = self._extract_folder_name_from_url(url).strip()
-
-            parsed_name = ""
-            parsed_desc = ""
-            parsed_body = ""
-            payload = None
-
-            # Special handling for GitHub tree URLs
-            if "github.com" in url and "/tree/" in url:
-                fallback_file_urls = self._resolve_github_tree_urls(url)
-                # Try to fetch SKILL.md or README.md directly from the tree path
-                for file_url in fallback_file_urls:
-                    try:
-                        payload = await self._fetch_bytes(file_url)
-                        if payload:
-                            break
-                    except Exception:
-                        continue
-
-                if payload:
-                    # Successfully fetched direct file
-                    text = payload.decode("utf-8", errors="ignore")
-                    fallback = url_folder or "installed-skill"
-                    parsed_name, parsed_desc, parsed_body = self._parse_skill_md_meta(
-                        text, fallback
-                    )
-                else:
-                    # Fallback: download entire branch as zip and extract
-                    # This is a last resort if direct file access fails
-                    raise ValueError(f"Could not find SKILL.md or README.md in {url}")
-            else:
-                # Handle other URL types (blob, direct markdown, archives)
-                normalized = self._normalize_url(url)
-                payload = await self._fetch_bytes(normalized)
-
-                if normalized.lower().endswith((".zip", ".tar", ".tar.gz", ".tgz")):
-                    parsed_name, parsed_desc, parsed_body = (
-                        self._extract_skill_from_archive(payload)
-                    )
-                else:
-                    text = payload.decode("utf-8", errors="ignore")
-                    # Use extracted folder name as fallback
-                    fallback = url_folder or "installed-skill"
-                    parsed_name, parsed_desc, parsed_body = self._parse_skill_md_meta(
-                        text, fallback
-                    )
-
-            final_name = (
-                name or parsed_name or url_folder or "installed-skill"
-            ).strip()
-            final_desc = (parsed_desc or final_name).strip()
-            final_content = (parsed_body or final_desc).strip()
-            if not final_name:
-                raise ValueError(self._t(lang, "err_name_required"))
-
-            existing = self._find_skill(user_id=user_id, name=final_name)
-            # install_skill always overwrites by default (overwrite=True);
-            # ALLOW_OVERWRITE_ON_CREATE valve also controls this.
-            allow_overwrite = overwrite or self.valves.ALLOW_OVERWRITE_ON_CREATE
-            if existing:
-                sid = str(getattr(existing, "id", "") or "")
-                if not allow_overwrite:
-                    # Should not normally reach here since install defaults overwrite=True
-                    return {
-                        "error": f"Skill already exists: {final_name}",
-                        "hint": "Pass overwrite=true to replace the existing skill.",
-                    }
-                updated = Skills.update_skill_by_id(
-                    sid,
-                    {
-                        "name": final_name,
-                        "description": final_desc,
-                        "content": final_content,
-                        "is_active": True,
-                    },
-                )
-                await self._emit_status(
-                    __event_emitter__,
-                    self._t(lang, "status_install_overwrite_done", name=final_name),
-                    done=True,
-                )
-                return {
-                    "success": True,
-                    "action": "updated",
-                    "id": str(getattr(updated, "id", "") or sid),
-                    "name": final_name,
-                    "source_url": url,
-                }
-
-            new_skill = Skills.insert_new_skill(
-                user_id=user_id,
-                form_data=SkillForm(
-                    id=str(uuid.uuid4()),
-                    name=final_name,
-                    description=final_desc,
-                    content=final_content,
-                    meta=SkillMeta(),
-                    is_active=True,
-                ),
-            )
-
-            await self._emit_status(
-                __event_emitter__,
-                self._t(lang, "status_install_done", name=final_name),
-                done=True,
-            )
-            return {
-                "success": True,
-                "action": "installed",
-                "id": str(getattr(new_skill, "id", "") or ""),
-                "name": final_name,
-                "source_url": url,
-            }
-        except Exception as e:
-            key = None
-            if str(e) in {"invalid_url", "install_parse"}:
-                key = (
-                    "err_invalid_url"
-                    if str(e) == "invalid_url"
-                    else "err_install_parse"
-                )
-            msg = (
-                self._t(lang, key)
-                if key
-                else (
-                    self._t(lang, "err_unavailable")
-                    if str(e) == "skills_model_unavailable"
-                    else str(e)
-                )
-            )
-            logger.error(
-                f"_install_single_skill failed for {url}: {msg}", exc_info=True
-            )
-            return {"error": msg, "url": url}
 
     async def install_skill(
         self,
@@ -1080,67 +1306,118 @@ class Tools:
         - GitHub skill directory (auto-discovery): https://github.com/owner/repo/tree/branch/path
         - GitHub blob URL: https://github.com/owner/repo/blob/branch/path/SKILL.md
         - Raw markdown URL: https://raw.githubusercontent.com/.../SKILL.md
-        - Archive URL: https://example.com/skill.zip (must contain SKILL.md or README.md)
+        - Archive URL: https://example.com/skill.zip (must contain SKILL.md)
         """
-        user_ctx = await self._get_user_context(__user__, __event_call__, __request__)
+        user_ctx = await _get_user_context(__user__, __event_call__, __request__)
         lang = user_ctx["user_language"]
         user_id = user_ctx["user_id"]
 
         try:
-            self._require_skills_model()
+            _require_skills_model()
             if not user_id:
-                raise ValueError(self._t(lang, "err_user_required"))
+                raise ValueError(_t(lang, "err_user_required"))
 
-            # Stage 1: Check for directory auto-discovery (single string GitHub URL)
-            if isinstance(url, str) and "github.com" in url and "/tree/" in url:
-                await self._emit_status(
-                    __event_emitter__,
-                    self._t(lang, "status_discovering_skills", url=(url or "")[-50:]),
-                )
-                discover_fn = getattr(
-                    self, "_discover_skills_from_github_directory", None
-                )
-                discovered = []
-                if callable(discover_fn):
-                    discovered = await discover_fn(url, lang)
-                else:
-                    logger.warning(
-                        "_discover_skills_from_github_directory is unavailable on current Tools instance."
+            # Stage 1: Check for directory auto-discovery (GitHub URLs)
+            if isinstance(url, str) and "github.com" in url:
+                # Auto-convert repo root URL to tree discovery URL
+                if _is_github_repo_root(url):
+                    await _emit_status(self.valves, __event_emitter__, _t(lang, "status_detecting_repo_root", url=url[-50:]),
                     )
-                if discovered:
-                    # Auto-discovered subdirectories, treat as batch
-                    url = discovered
+                    url = _normalize_github_repo_url(url)
+
+                # If URL contains /tree/, auto-discover all skill subdirectories
+                if "/tree/" in url:
+                    await _emit_status(self.valves, __event_emitter__, _t(lang, "status_discovering_skills", url=(url or "")[-50:]),
+                    )
+                    discover_fn = _discover_skills_from_github_directory
+                    discovered = []
+                    if callable(discover_fn):
+                        discovered = await discover_fn(self.valves, url, lang)
+                    else:
+                        logger.warning(
+                            "_discover_skills_from_github_directory is unavailable on current Tools instance."
+                        )
+                    if discovered:
+                        # Auto-discovered subdirectories, treat as batch
+                        url = discovered
 
             # Stage 2: Check if url is a list/tuple (batch mode)
             if isinstance(url, (list, tuple)):
-                urls = url
+                urls = list(url)
                 if not urls:
-                    raise ValueError(self._t(lang, "err_url_required"))
+                    raise ValueError(_t(lang, "err_url_required"))
 
-                await self._emit_status(
-                    __event_emitter__,
-                    self._t(lang, "status_installing_batch", total=len(urls)),
+                # Deduplicate URLs while preserving order
+                seen_urls = set()
+                unique_urls = []
+                duplicates_removed = 0
+                for url_item in urls:
+                    url_str = str(url_item).strip()
+                    if url_str not in seen_urls:
+                        unique_urls.append(url_str)
+                        seen_urls.add(url_str)
+                    else:
+                        duplicates_removed += 1
+
+                # Notify if duplicates were found
+                if duplicates_removed > 0:
+                    await _emit_notification(
+                        __event_emitter__,
+                        _t(
+                            lang,
+                            "status_batch_duplicates_removed",
+                            count=duplicates_removed,
+                        ),
+                        ntype="info",
+                    )
+
+                await _emit_status(self.valves, __event_emitter__, _t(lang, "status_installing_batch", total=len(unique_urls)),
                 )
 
                 results = []
-                for idx, single_url in enumerate(urls, 1):
-                    result = await self._install_single_skill(
-                        url=str(single_url).strip(),
+                installed_names = {}  # Track installed skill names to detect duplicates
+
+                for idx, single_url in enumerate(unique_urls, 1):
+                    result = await _install_single_skill(
+                        self.valves,
+                        url=single_url,
                         name="",  # Batch mode doesn't support per-item names
                         user_id=user_id,
                         lang=lang,
                         overwrite=overwrite,
                         __event_emitter__=__event_emitter__,
                     )
+
+                    # Track installed name to detect duplicates
+                    if result.get("success"):
+                        installed_name = result.get("name", "").lower()
+                        if installed_name in installed_names:
+                            # Duplicate skill name detected
+                            prev_url = installed_names[installed_name]
+                            logger.warning(
+                                f"Duplicate skill name detected: '{result.get('name')}' "
+                                f"from {single_url} (previously from {prev_url})"
+                            )
+                            await _emit_notification(
+                                __event_emitter__,
+                                _t(
+                                    lang,
+                                    "status_duplicate_skill_name",
+                                    name=result.get("name"),
+                                    action=result.get("action", "installed"),
+                                ),
+                                ntype="warning",
+                            )
+                        else:
+                            installed_names[installed_name] = single_url
+
                     results.append(result)
 
                 # Summary
                 success_count = sum(1 for r in results if r.get("success"))
                 error_count = len(results) - success_count
 
-                await self._emit_status(
-                    __event_emitter__,
-                    self._t(
+                await _emit_status(self.valves, __event_emitter__, _t(
                         lang,
                         "status_install_batch_done",
                         succeeded=success_count,
@@ -1159,13 +1436,12 @@ class Tools:
             else:
                 # Single mode
                 if not (url or "").strip():
-                    raise ValueError(self._t(lang, "err_url_required"))
+                    raise ValueError(_t(lang, "err_url_required"))
 
-                await self._emit_status(
-                    __event_emitter__, self._t(lang, "status_installing")
-                )
+                await _emit_status(self.valves, __event_emitter__, _t(lang, "status_installing"))
 
-                result = await self._install_single_skill(
+                result = await _install_single_skill(
+                    self.valves,
                     url=str(url).strip(),
                     name=name,
                     user_id=user_id,
@@ -1184,15 +1460,15 @@ class Tools:
                     else "err_install_parse"
                 )
             msg = (
-                self._t(lang, key)
+                _t(lang, key)
                 if key
                 else (
-                    self._t(lang, "err_unavailable")
+                    _t(lang, "err_unavailable")
                     if str(e) == "skills_model_unavailable"
                     else str(e)
                 )
             )
-            await self._emit_status(__event_emitter__, msg, done=True)
+            await _emit_status(self.valves, __event_emitter__, msg, done=True)
             logger.error(f"install_skill failed: {msg}", exc_info=True)
             return {"error": msg}
 
@@ -1201,29 +1477,29 @@ class Tools:
         name: str,
         description: str = "",
         content: str = "",
-        overwrite: bool = False,
+        overwrite: bool = True,
         __user__: Optional[dict] = None,
         __event_emitter__: Optional[Any] = None,
         __event_call__: Optional[Any] = None,
         __request__: Optional[Any] = None,
     ) -> Dict[str, Any]:
         """Create a new skill, or update same-name skill when overwrite is enabled."""
-        user_ctx = await self._get_user_context(__user__, __event_call__, __request__)
+        user_ctx = await _get_user_context(__user__, __event_call__, __request__)
         lang = user_ctx["user_language"]
         user_id = user_ctx["user_id"]
 
         try:
-            self._require_skills_model()
+            _require_skills_model()
             if not user_id:
-                raise ValueError(self._t(lang, "err_user_required"))
+                raise ValueError(_t(lang, "err_user_required"))
 
             skill_name = (name or "").strip()
             if not skill_name:
-                raise ValueError(self._t(lang, "err_name_required"))
+                raise ValueError(_t(lang, "err_name_required"))
 
-            await self._emit_status(__event_emitter__, self._t(lang, "status_creating"))
+            await _emit_status(self.valves, __event_emitter__, _t(lang, "status_creating"))
 
-            existing = self._find_skill(user_id=user_id, name=skill_name)
+            existing = _find_skill(user_id=user_id, name=skill_name)
             allow_overwrite = overwrite or self.valves.ALLOW_OVERWRITE_ON_CREATE
 
             final_description = (description or skill_name).strip()
@@ -1246,9 +1522,7 @@ class Tools:
                         "is_active": True,
                     },
                 )
-                await self._emit_status(
-                    __event_emitter__,
-                    self._t(lang, "status_create_overwrite_done", name=skill_name),
+                await _emit_status(self.valves, __event_emitter__, _t(lang, "status_create_overwrite_done", name=skill_name),
                     done=True,
                 )
                 return {
@@ -1270,9 +1544,7 @@ class Tools:
                 ),
             )
 
-            await self._emit_status(
-                __event_emitter__,
-                self._t(lang, "status_create_done", name=skill_name),
+            await _emit_status(self.valves, __event_emitter__, _t(lang, "status_create_done", name=skill_name),
                 done=True,
             )
             return {
@@ -1283,11 +1555,11 @@ class Tools:
             }
         except Exception as e:
             msg = (
-                self._t(lang, "err_unavailable")
+                _t(lang, "err_unavailable")
                 if str(e) == "skills_model_unavailable"
                 else str(e)
             )
-            await self._emit_status(__event_emitter__, msg, done=True)
+            await _emit_status(self.valves, __event_emitter__, msg, done=True)
             logger.error(f"create_skill failed: {msg}", exc_info=True)
             return {"error": msg}
 
@@ -1304,25 +1576,52 @@ class Tools:
         __event_call__: Optional[Any] = None,
         __request__: Optional[Any] = None,
     ) -> Dict[str, Any]:
-        """Update one skill's fields by id or name."""
-        user_ctx = await self._get_user_context(__user__, __event_call__, __request__)
+        """Modify an existing skill by updating one or more fields.
+
+        Locate skill by `skill_id` or `name` (case-insensitive). Update any of:
+        - `new_name`: Rename the skill (checked for name uniqueness)
+        - `description`: Update skill description
+        - `content`: Modify skill code/content
+        - `is_active`: Enable or disable the skill
+
+        Returns updated skill info and list of modified fields.
+        """
+        user_ctx = await _get_user_context(__user__, __event_call__, __request__)
         lang = user_ctx["user_language"]
         user_id = user_ctx["user_id"]
 
         try:
-            self._require_skills_model()
+            _require_skills_model()
             if not user_id:
-                raise ValueError(self._t(lang, "err_user_required"))
+                raise ValueError(_t(lang, "err_user_required"))
 
-            await self._emit_status(__event_emitter__, self._t(lang, "status_updating"))
+            await _emit_status(self.valves, __event_emitter__, _t(lang, "status_updating"))
 
-            skill = self._find_skill(user_id=user_id, skill_id=skill_id, name=name)
+            skill = _find_skill(user_id=user_id, skill_id=skill_id, name=name)
             if not skill:
-                raise ValueError(self._t(lang, "err_not_found"))
+                raise ValueError(_t(lang, "err_not_found"))
+
+            # Get skill ID early for collision detection
+            sid = str(getattr(skill, "id", "") or "")
 
             updates: Dict[str, Any] = {}
             if new_name.strip():
-                updates["name"] = new_name.strip()
+                # Check for name collision with other skills
+                new_name_clean = new_name.strip()
+                # Check if another skill already has this name (case-insensitive)
+                for other_skill in _user_skills(user_id, "read"):
+                    other_id = str(getattr(other_skill, "id", "") or "")
+                    other_name = str(getattr(other_skill, "name", "") or "")
+                    # Skip the current skill being updated
+                    if other_id == sid:
+                        continue
+                    if other_name.lower() == new_name_clean.lower():
+                        return {
+                            "error": f'Another skill already has the name "{new_name_clean}".',
+                            "hint": "Choose a different name or delete the conflicting skill first.",
+                        }
+
+                updates["name"] = new_name_clean
             if description.strip():
                 updates["description"] = description.strip()
             if content.strip():
@@ -1331,9 +1630,8 @@ class Tools:
                 updates["is_active"] = bool(is_active)
 
             if not updates:
-                raise ValueError(self._t(lang, "err_no_update_fields"))
+                raise ValueError(_t(lang, "err_no_update_fields"))
 
-            sid = str(getattr(skill, "id", "") or "")
             updated = Skills.update_skill_by_id(sid, updates)
             updated_name = str(
                 getattr(updated, "name", "")
@@ -1342,9 +1640,7 @@ class Tools:
                 or sid
             )
 
-            await self._emit_status(
-                __event_emitter__,
-                self._t(lang, "status_update_done", name=updated_name),
+            await _emit_status(self.valves, __event_emitter__, _t(lang, "status_update_done", name=updated_name),
                 done=True,
             )
             return {
@@ -1359,11 +1655,11 @@ class Tools:
             }
         except Exception as e:
             msg = (
-                self._t(lang, "err_unavailable")
+                _t(lang, "err_unavailable")
                 if str(e) == "skills_model_unavailable"
                 else str(e)
             )
-            await self._emit_status(__event_emitter__, msg, done=True)
+            await _emit_status(self.valves, __event_emitter__, msg, done=True)
             return {"error": msg}
 
     async def delete_skill(
@@ -1376,29 +1672,27 @@ class Tools:
         __request__: Optional[Any] = None,
     ) -> Dict[str, Any]:
         """Delete one skill by id or name."""
-        user_ctx = await self._get_user_context(__user__, __event_call__, __request__)
+        user_ctx = await _get_user_context(__user__, __event_call__, __request__)
         lang = user_ctx["user_language"]
         user_id = user_ctx["user_id"]
 
         try:
-            self._require_skills_model()
+            _require_skills_model()
             if not user_id:
-                raise ValueError(self._t(lang, "err_user_required"))
+                raise ValueError(_t(lang, "err_user_required"))
 
-            await self._emit_status(__event_emitter__, self._t(lang, "status_deleting"))
+            await _emit_status(self.valves, __event_emitter__, _t(lang, "status_deleting"))
 
-            skill = self._find_skill(user_id=user_id, skill_id=skill_id, name=name)
+            skill = _find_skill(user_id=user_id, skill_id=skill_id, name=name)
             if not skill:
-                raise ValueError(self._t(lang, "err_not_found"))
+                raise ValueError(_t(lang, "err_not_found"))
 
             sid = str(getattr(skill, "id", "") or "")
             sname = str(getattr(skill, "name", "") or "")
             Skills.delete_skill_by_id(sid)
             deleted_name = sname or sid or "unknown"
 
-            await self._emit_status(
-                __event_emitter__,
-                self._t(lang, "status_delete_done", name=deleted_name),
+            await _emit_status(self.valves, __event_emitter__, _t(lang, "status_delete_done", name=deleted_name),
                 done=True,
             )
             return {
@@ -1408,9 +1702,9 @@ class Tools:
             }
         except Exception as e:
             msg = (
-                self._t(lang, "err_unavailable")
+                _t(lang, "err_unavailable")
                 if str(e) == "skills_model_unavailable"
                 else str(e)
             )
-            await self._emit_status(__event_emitter__, msg, done=True)
+            await _emit_status(self.valves, __event_emitter__, msg, done=True)
             return {"error": msg}

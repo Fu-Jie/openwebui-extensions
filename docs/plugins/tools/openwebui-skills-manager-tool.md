@@ -1,6 +1,6 @@
 # OpenWebUI Skills Manager Tool
 
-**Author:** [Fu-Jie](https://github.com/Fu-Jie/openwebui-extensions) | **Version:** 0.2.1 | **Project:** [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions)
+**Author:** [Fu-Jie](https://github.com/Fu-Jie/openwebui-extensions) | **Version:** 0.3.0 | **Project:** [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions)
 
 A standalone OpenWebUI Tool plugin for managing native Workspace Skills across models.
 

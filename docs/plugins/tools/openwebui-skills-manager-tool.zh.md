@@ -1,6 +1,6 @@
 # OpenWebUI Skills 管理工具
 
-**Author:** [Fu-Jie](https://github.com/Fu-Jie/openwebui-extensions) | **Version:** 0.2.1 | **Project:** [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions)
+**Author:** [Fu-Jie](https://github.com/Fu-Jie/openwebui-extensions) | **Version:** 0.3.0 | **Project:** [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions)
 
 一个可跨模型使用的 OpenWebUI 原生 Tool 插件，用于管理 Workspace Skills。
 
