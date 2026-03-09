@@ -78,5 +78,23 @@ Plugin: {type}/{name} → v{new_version}
 ### Verification Status
 {filled-in 9-file checklist for each changed plugin}
 
+## Post-Release: Batch Plugin Installation
+
+After release is published, users can quickly install all plugins:
+
+```bash
+# Clone the repository
+git clone https://github.com/Fu-Jie/openwebui-extensions.git
+cd openwebui-extensions
+
+# Setup API key
+echo "api_key=sk-your-api-key-here" > scripts/.env
+
+# Install all plugins at once
+python scripts/install_all_plugins.py
+```
+
+See: [Deployment Guide](./scripts/DEPLOYMENT_GUIDE.md)
+
 ---
 ⚠️ **Waiting for user confirmation — no git operations will run until explicitly approved.**
