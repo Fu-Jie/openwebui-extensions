@@ -187,6 +187,26 @@ python scripts/extract_plugin_versions.py --json --output versions.json
 
 ---
 
+## Installing All Plugins to Your Instance
+
+After a release, you can quickly install all plugins to your local OpenWebUI instance:
+
+```bash
+# Clone the repository
+git clone https://github.com/Fu-Jie/openwebui-extensions.git
+cd openwebui-extensions
+
+# Create .env file with your API key
+echo "api_key=sk-your-api-key-here" > scripts/.env
+
+# Install all plugins at once
+python scripts/install_all_plugins.py
+```
+
+For detailed instructions, see [Deployment Guide](./scripts/DEPLOYMENT_GUIDE.md).
+
+---
+
 ## Author
 
 Fu-Jie  
