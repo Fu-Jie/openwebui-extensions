@@ -128,11 +128,13 @@ We follow [Semantic Versioning](https://semver.org/):
 ### release.yml
 
 **Triggers:**
+
 - ⭐ Push to `main` branch with `plugins/**/*.py` changes (auto-release)
 - Manual workflow dispatch
 - Push of version tags (`v*`)
 
 **Actions:**
+
 1. Detects version changes compared to last release
 2. Collects updated plugin files
 3. Generates release notes (with commit history)
@@ -141,9 +143,11 @@ We follow [Semantic Versioning](https://semver.org/):
 ### plugin-version-check.yml
 
 **Trigger:**
+
 - Pull requests that modify `plugins/**/*.py`
 
 **Actions:**
+
 1. Compares plugin versions between base and PR
 2. Checks if version was updated
 3. Checks if PR description is detailed enough
@@ -208,7 +212,7 @@ echo "url=http://localhost:3000" >> scripts/.env
 python scripts/install_all_plugins.py
 ```
 
-For detailed instructions, see [Deployment Guide](./scripts/DEPLOYMENT_GUIDE.md).
+For detailed instructions, see [Deployment Guide](https://github.com/Fu-Jie/openwebui-extensions/blob/main/scripts/DEPLOYMENT_GUIDE.md).
 
 ---
 

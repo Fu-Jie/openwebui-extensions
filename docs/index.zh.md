@@ -110,7 +110,7 @@ hide:
    - 浏览插件列表，选择你喜欢的插件。
    - 点击 "Get" 按钮，将其直接导入到你的 OpenWebUI 实例中。
 
-2. **快速安装全部插件**：想要一次性安装此项目中的所有插件到本地 OpenWebUI 实例，克隆此仓库后运行 `python scripts/install_all_plugins.py`，并在 `.env` 中配置好 API 密钥，详见[部署指南](../scripts/DEPLOYMENT_GUIDE.md)。
+2. **快速安装全部插件**：想要一次性安装此项目中的所有插件到本地 OpenWebUI 实例，克隆此仓库后运行 `python scripts/install_all_plugins.py`，并在 `.env` 中配置好 API 密钥，详见[部署指南](https://github.com/Fu-Jie/openwebui-extensions/blob/main/scripts/DEPLOYMENT_GUIDE.md)。
 
 ### 使用提示词
 

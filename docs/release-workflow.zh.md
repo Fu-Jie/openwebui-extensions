@@ -128,11 +128,13 @@ git push origin v1.0.0
 ### release.yml
 
 **触发条件:**
+
 - ⭐ 推送到 `main` 分支且修改了 `plugins/**/*.py`（自动发布）
 - 手动触发 (workflow_dispatch)
 - 推送版本标签 (`v*`)
 
 **动作:**
+
 1. 检测与上次 Release 的版本变化
 2. 收集更新的插件文件
 3. 生成发布说明（含提交记录）
@@ -141,9 +143,11 @@ git push origin v1.0.0
 ### plugin-version-check.yml
 
 **触发条件:**
+
 - 修改 `plugins/**/*.py` 的 Pull Request
 
 **动作:**
+
 1. 比较基础分支和 PR 的插件版本
 2. 检查是否有版本更新
 3. 检查 PR 描述是否足够详细
@@ -206,7 +210,7 @@ echo "url=http://localhost:3000" >> scripts/.env
 python scripts/install_all_plugins.py
 ```
 
-详细说明请参考 [部署指南](./scripts/DEPLOYMENT_GUIDE.md)。
+详细说明请参考 [部署指南](https://github.com/Fu-Jie/openwebui-extensions/blob/main/scripts/DEPLOYMENT_GUIDE.md)。
 
 ---
 

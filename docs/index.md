@@ -110,7 +110,7 @@ hide:
    - Browse the plugins and select the one you like.
    - Click "Get" to import it directly into your OpenWebUI instance.
 
-2. **Quick Install All Plugins**: To install all plugins to your local OpenWebUI instance at once, clone this repo and run `python scripts/install_all_plugins.py` after configuring your API key in `.env` — see [Deployment Guide](../scripts/DEPLOYMENT_GUIDE.md) for details.
+2. **Quick Install All Plugins**: To install all plugins to your local OpenWebUI instance at once, clone this repo and run `python scripts/install_all_plugins.py` after configuring your API key in `.env` — see [Deployment Guide](https://github.com/Fu-Jie/openwebui-extensions/blob/main/scripts/DEPLOYMENT_GUIDE.md) for details.
 
 ### Using Prompts
 

@@ -1,6 +1,6 @@
 # MkDocs Documentation Dependencies
 # Core MkDocs
-mkdocs>=1.5.0
+mkdocs>=1.5.0,<2.0.0
 
 # Material Theme for MkDocs
 mkdocs-material>=9.5.0
