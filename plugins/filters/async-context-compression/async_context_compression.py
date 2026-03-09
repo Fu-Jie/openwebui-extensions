@@ -5,7 +5,7 @@ author: Fu-Jie
 author_url: https://github.com/Fu-Jie/openwebui-extensions
 funding_url: https://github.com/open-webui
 description: Reduces token consumption in long conversations while maintaining coherence through intelligent summarization and message compression.
-version: 1.3.0
+version: 1.4.0
 openwebui_id: b1655bc8-6de9-4cad-8cb5-a6f7829a02ce
 license: MIT
 
@@ -460,7 +460,7 @@ TRANSLATIONS = {
         "status_context_summary_updated": "컨텍스트 요약 업데이트됨: {tokens} / {max_tokens} 토큰 ({ratio}%)",
         "status_generating_summary": "백그라운드에서 컨텍스트 요약 생성 중...",
         "status_summary_error": "요약 오류: {error}",
-        "summary_prompt_prefix": "【이전 요약: 다음은 이전 대화의 요약이며 문맥 참고용으로만 제공됩니다. 요약 내용 자체에 답하지 말고 последу의 최신 질문에 직접 답하세요.】\n\n",
+        "summary_prompt_prefix": "【이전 요약: 다음은 이전 대화의 요약이며 문맥 참고용으로만 제공됩니다. 요약 내용 자체에 답하지 말고 최신 질문에 직접 답하세요.】\n\n",
         "summary_prompt_suffix": "\n\n---\n다음은 최근 대화입니다:",
         "tool_trimmed": "... [도구 출력 잘림]\n{content}",
         "content_collapsed": "\n... [내용 접힘] ...\n",
@@ -566,6 +566,8 @@ class Filter:
             "de-AT": "de-DE",
         }
 
+        # Concurrency control: Lock per chat session
+        self._chat_locks = {}
         self._init_database()
 
     def _resolve_language(self, lang: str) -> str:
@@ -603,6 +605,104 @@ class Filter:
             except Exception as e:
                 logger.warning(f"Translation formatting failed for {key}: {e}")
         return text
+
+    def _get_chat_lock(self, chat_id: str) -> asyncio.Lock:
+        """Get or create an asyncio lock for a specific chat ID."""
+        if chat_id not in self._chat_locks:
+            self._chat_locks[chat_id] = asyncio.Lock()
+        return self._chat_locks[chat_id]
+
+    def _get_atomic_groups(self, messages: List[Dict]) -> List[List[int]]:
+        """
+        Groups message indices into atomic units that must be kept or dropped together.
+        Specifically handles native tool-calling sequences:
+        - assistant(tool_calls)
+        - tool(s)
+        - assistant(final response)
+        """
+        groups = []
+        current_group = []
+
+        for i, msg in enumerate(messages):
+            role = msg.get("role")
+            has_tool_calls = bool(msg.get("tool_calls"))
+
+            # Logic:
+            # 1. If assistant message has tool_calls, it starts a potential block.
+            # 2. If message is 'tool' role, it MUST belong to the preceding assistant group.
+            # 3. If message is 'assistant' and follows a 'tool' group, it's the final answer.
+
+            if role == "assistant" and has_tool_calls:
+                # Close previous group if any
+                if current_group:
+                    groups.append(current_group)
+                current_group = [i]
+            elif role == "tool":
+                # Force tool results into the current group
+                if not current_group:
+                    # An orphaned tool result? Group it alone but warn
+                    groups.append([i])
+                else:
+                    current_group.append(i)
+            elif (
+                role == "assistant"
+                and current_group
+                and messages[current_group[-1]].get("role") == "tool"
+            ):
+                # This is likely the assistant follow-up consuming tool results
+                current_group.append(i)
+                groups.append(current_group)
+                current_group = []
+            else:
+                # Regular message (user, or assistant without tool calls)
+                if current_group:
+                    groups.append(current_group)
+                    current_group = []
+                groups.append([i])
+
+        if current_group:
+            groups.append(current_group)
+
+        return groups
+
+    def _get_effective_keep_first(self, messages: List[Dict]) -> int:
+        """Protect configured head messages and all leading system messages."""
+        last_system_index = -1
+        for i, msg in enumerate(messages):
+            if msg.get("role") == "system":
+                last_system_index = i
+
+        return max(self.valves.keep_first, last_system_index + 1)
+
+    def _align_tail_start_to_atomic_boundary(
+        self, messages: List[Dict], raw_start_index: int, protected_prefix: int
+    ) -> int:
+        """
+        Align the retained tail to an atomic-group boundary.
+
+        If the raw tail start falls in the middle of an assistant/tool/assistant
+        chain, move it backward to the start of that chain so the next request
+        never begins with an orphaned tool result or assistant follow-up.
+        """
+        aligned_start = max(raw_start_index, protected_prefix)
+
+        if aligned_start <= protected_prefix or aligned_start >= len(messages):
+            return aligned_start
+
+        trimmable = messages[protected_prefix:]
+        local_start = aligned_start - protected_prefix
+
+        for group in self._get_atomic_groups(trimmable):
+            group_start = group[0]
+            group_end = group[-1] + 1
+
+            if local_start == group_start:
+                return aligned_start
+
+            if group_start < local_start < group_end:
+                return protected_prefix + group_start
+
+        return aligned_start
 
     async def _get_user_context(
         self,
@@ -1218,87 +1318,6 @@ class Filter:
                 content = msg.get("content", "")
                 if not isinstance(content, str):
                     continue
-
-                role = msg.get("role")
-
-                # Only process assistant messages with native tool outputs
-                if role == "assistant":
-                    # Detect tool output markers in assistant content
-                    if "tool_call_id:" in content or (
-                        content.startswith('"') and "\\&quot;" in content
-                    ):
-                        # Always trim tool outputs when enabled
-
-                        if self.valves.show_debug_log and __event_call__:
-                            await self._log(
-                                f"[Inlet] 🔍 Native tool output detected in assistant message.",
-                                event_call=__event_call__,
-                            )
-
-                        # Strategy 1: Tool Output / Code Block Trimming
-                        # Detect if message contains large tool outputs or code blocks
-                        # Improved regex to be less brittle
-                        is_tool_output = (
-                            "&quot;" in content
-                            or "Arguments:" in content
-                            or "```" in content
-                            or "<tool_code>" in content
-                        )
-
-                        if is_tool_output:
-                            # Regex to find the last occurrence of a tool output block or code block
-                            # This pattern looks for:
-                            # 1. OpenWebUI's escaped JSON format: ""&quot;...&quot;""
-                            # 2. "Arguments: {...}" pattern
-                            # 3. Generic code blocks: ```...```
-                            # 4. <tool_code>...</tool_code>
-                            # It captures the content *after* the last such block.
-                            tool_output_pattern = r'(?:""&quot;.*?&quot;""|Arguments:\s*\{[^}]+\}|```.*?```|<tool_code>.*?</tool_code>)\s*'
-
-                            # Find all matches
-                            matches = list(
-                                re.finditer(tool_output_pattern, content, re.DOTALL)
-                            )
-
-                            if matches:
-                                # Get the end position of the last match
-                                last_match_end = matches[-1].end()
-
-                                # Everything after the last tool output is the final answer
-                                final_answer = content[last_match_end:].strip()
-
-                                if final_answer:
-                                    msg["content"] = self._get_translation(
-                                        (
-                                            __user__.get("language", "en-US")
-                                            if __user__
-                                            else "en-US"
-                                        ),
-                                        "tool_trimmed",
-                                        content=final_answer,
-                                    )
-                                    trimmed_count += 1
-                            else:
-                                # Fallback: If no specific pattern matched, but it was identified as tool output,
-                                # try a simpler split or just mark as trimmed if no final answer can be extracted.
-                                # (Preserving backward compatibility or different model behaviors)
-                                parts = re.split(
-                                    r"(?:Arguments:\s*\{[^}]+\})\n+", content
-                                )
-                                if len(parts) > 1:
-                                    final_answer = parts[-1].strip()
-                                    if final_answer:
-                                        msg["content"] = self._get_translation(
-                                            (
-                                                __user__.get("language", "en-US")
-                                                if __user__
-                                                else "en-US"
-                                            ),
-                                            "tool_trimmed",
-                                            content=final_answer,
-                                        )
-                                        trimmed_count += 1
-
             if trimmed_count > 0 and self.valves.show_debug_log and __event_call__:
                 await self._log(
                     f"[Inlet] ✂️ Trimmed {trimmed_count} tool output message(s).",
@@ -1500,12 +1519,7 @@ class Filter:
         summary_record = await asyncio.to_thread(self._load_summary_record, chat_id)
 
         # Calculate effective_keep_first to ensure all system messages are protected
-        last_system_index = -1
-        for i, msg in enumerate(messages):
-            if msg.get("role") == "system":
-                last_system_index = i
-
-        effective_keep_first = max(self.valves.keep_first, last_system_index + 1)
+        effective_keep_first = self._get_effective_keep_first(messages)
 
         final_messages = []
 
@@ -1531,9 +1545,13 @@ class Filter:
             )
             summary_msg = {"role": "assistant", "content": summary_content}
 
-            # 3. Tail messages (Tail) - All messages starting from the last compression point
-            # Note: Must ensure head messages are not duplicated
-            start_index = max(compressed_count, effective_keep_first)
+            # 3. Tail messages (Tail) - All messages starting from the last compression point.
+            # Align legacy/raw progress to an atomic boundary so old summary rows do not
+            # reintroduce orphaned tool messages into the retained tail.
+            raw_start_index = max(compressed_count, effective_keep_first)
+            start_index = self._align_tail_start_to_atomic_boundary(
+                messages, raw_start_index, effective_keep_first
+            )
             tail_messages = messages[start_index:]
 
             if self.valves.show_debug_log and __event_call__:
@@ -1570,7 +1588,14 @@ class Filter:
             estimated_tokens = self._estimate_messages_tokens(calc_messages)
 
             # Since this is a hard limit check, only skip precise calculation if we are far below it (margin of 15%)
-            if estimated_tokens < max_context_tokens * 0.85:
+            # max_context_tokens == 0 means "no limit", skip reduction entirely
+            if max_context_tokens <= 0:
+                total_tokens = estimated_tokens
+                await self._log(
+                    f"[Inlet] 🔎 No max_context_tokens limit set (0). Skipping reduction. Est: {total_tokens}t",
+                    event_call=__event_call__,
+                )
+            elif estimated_tokens < max_context_tokens * 0.85:
                 total_tokens = estimated_tokens
                 await self._log(
                     f"[Inlet] 🔎 Fast Preflight Check (Est): {total_tokens}t / {max_context_tokens}t (Well within limit)",
@@ -1588,126 +1613,36 @@ class Filter:
                     event_call=__event_call__,
                 )
 
-            # If over budget, reduce history (Keep Last)
-            if total_tokens > max_context_tokens:
-                await self._log(
-                    f"[Inlet] ⚠️ Candidate prompt ({total_tokens} Tokens) exceeds limit ({max_context_tokens}). Reducing history...",
-                    log_type="warning",
-                    event_call=__event_call__,
-                )
+                # Identify atomic groups to avoid breaking tool-calling context
+                atomic_groups = self._get_atomic_groups(tail_messages)
 
-                # Dynamically remove messages from the start of tail_messages
-                # Always try to keep at least the last message (usually user input)
-                while total_tokens > max_context_tokens and len(tail_messages) > 1:
-                    # Strategy 1: Structure-Aware Assistant Trimming
-                    # Retain: Headers (#), First Line, Last Line. Collapse the rest.
-                    target_msg = None
-                    target_idx = -1
+                while total_tokens > max_context_tokens and len(atomic_groups) > 1:
+                    # Strategy 1: Structure-Aware Assistant Trimming (Optional, only for non-tool messages)
+                    # For simplicity and reliability in this fix, we prioritize Group-Drop over partial trim
+                    # if a group contains tool calls.
 
-                    # Find the oldest assistant message that is long and not yet trimmed
-                    for i, msg in enumerate(tail_messages):
-                        # Skip the last message (usually user input, protect it)
-                        if i == len(tail_messages) - 1:
-                            break
+                    # Strategy 2: Drop Oldest Atomic Group Entirely
+                    dropped_group_indices = atomic_groups.pop(0)
+                    # Note: indices in dropped_group_indices are relative to ORIGINAL tail_messages
+                    # But since we are popping from tail_messages itself, we need to be careful.
 
-                        if msg.get("role") == "assistant":
-                            content = str(msg.get("content", ""))
-                            is_trimmed = msg.get("metadata", {}).get(
-                                "is_trimmed", False
-                            )
-                            # Only target messages that are reasonably long (> 200 chars)
-                            if len(content) > 200 and not is_trimmed:
-                                target_msg = msg
-                                target_idx = i
-                                break
-
-                    # If found a suitable assistant message, apply structure-aware trimming
-                    if target_msg:
-                        content = str(target_msg.get("content", ""))
-                        lines = content.split("\n")
-                        kept_lines = []
-
-                        # Logic: Keep headers, first non-empty line, last non-empty line
-                        first_line_found = False
-                        last_line_idx = -1
-
-                        # Find last non-empty line index
-                        for idx in range(len(lines) - 1, -1, -1):
-                            if lines[idx].strip():
-                                last_line_idx = idx
-                                break
-
-                        for idx, line in enumerate(lines):
-                            stripped = line.strip()
-                            if not stripped:
-                                continue
-
-                            # Keep headers (H1-H6, requires space after #)
-                            if re.match(r"^#{1,6}\s+", stripped):
-                                kept_lines.append(line)
-                                continue
-
-                            # Keep first non-empty line
-                            if not first_line_found:
-                                kept_lines.append(line)
-                                first_line_found = True
-                                # Add placeholder if there's more content coming
-                                if idx < last_line_idx:
-                                    kept_lines.append(
-                                        self._get_translation(lang, "content_collapsed")
-                                    )
-                                continue
-
-                            # Keep last non-empty line
-                            if idx == last_line_idx:
-                                kept_lines.append(line)
-                                continue
-
-                        # Update message content
-                        new_content = "\n".join(kept_lines)
-
-                        # Safety check: If trimming didn't save much (e.g. mostly headers), force drop
-                        if len(new_content) > len(content) * 0.8:
-                            # Fallback to drop if structure preservation is too verbose
-                            pass
+                    # Extract and drop messages in this group from the actual list
+                    # Since we always pop group 0, we pop len(dropped_group_indices) times from front
+                    dropped_tokens = 0
+                    for _ in range(len(dropped_group_indices)):
+                        dropped = tail_messages.pop(0)
+                        if total_tokens == estimated_tokens:
+                            dropped_tokens += len(str(dropped.get("content", ""))) // 4
                         else:
-                            target_msg["content"] = new_content
-                            if "metadata" not in target_msg:
-                                target_msg["metadata"] = {}
-                            target_msg["metadata"]["is_trimmed"] = True
+                            dropped_tokens += self._count_tokens(
+                                str(dropped.get("content", ""))
+                            )
 
-                            # Calculate token reduction
-                            # Use current token strategy
-                            if total_tokens == estimated_tokens:
-                                old_tokens = len(content) // 4
-                                new_tokens = len(target_msg["content"]) // 4
-                            else:
-                                old_tokens = self._count_tokens(content)
-                                new_tokens = self._count_tokens(target_msg["content"])
-                            diff = old_tokens - new_tokens
-                            total_tokens -= diff
-
-                            if self.valves.show_debug_log and __event_call__:
-                                await self._log(
-                                    f"[Inlet] 📉 Structure-trimmed Assistant message. Saved: {diff} tokens.",
-                                    event_call=__event_call__,
-                                )
-                            continue
-
-                    # Strategy 2: Fallback - Drop Oldest Message Entirely (FIFO)
-                    # (User requested to remove progressive trimming for other cases)
-                    dropped = tail_messages.pop(0)
-                    if total_tokens == estimated_tokens:
-                        dropped_tokens = len(str(dropped.get("content", ""))) // 4
-                    else:
-                        dropped_tokens = self._count_tokens(
-                            str(dropped.get("content", ""))
-                        )
                     total_tokens -= dropped_tokens
 
                     if self.valves.show_debug_log and __event_call__:
                         await self._log(
-                            f"[Inlet] 🗑️ Dropped message from history to fit context. Role: {dropped.get('role')}, Tokens: {dropped_tokens}",
+                            f"[Inlet] 🗑️ Dropped atomic group ({len(dropped_group_indices)} msgs) to fit context. Tokens: {dropped_tokens}",
                             event_call=__event_call__,
                         )
 
@@ -1829,7 +1764,14 @@ class Filter:
             estimated_tokens = self._estimate_messages_tokens(calc_messages)
 
             # Only skip precise calculation if we are clearly below the limit
-            if estimated_tokens < max_context_tokens * 0.85:
+            # max_context_tokens == 0 means "no limit", skip reduction entirely
+            if max_context_tokens <= 0:
+                total_tokens = estimated_tokens
+                await self._log(
+                    f"[Inlet] 🔎 No max_context_tokens limit set (0). Skipping reduction. Est: {total_tokens}t",
+                    event_call=__event_call__,
+                )
+            elif estimated_tokens < max_context_tokens * 0.85:
                 total_tokens = estimated_tokens
                 await self._log(
                     f"[Inlet] 🔎 Fast limit check (Est): {total_tokens}t / {max_context_tokens}t",
@@ -1840,34 +1782,34 @@ class Filter:
                     self._calculate_messages_tokens, calc_messages
                 )
 
-            if total_tokens > max_context_tokens:
+            if total_tokens > max_context_tokens and max_context_tokens > 0:
                 await self._log(
                     f"[Inlet] ⚠️ Original messages ({total_tokens} Tokens) exceed limit ({max_context_tokens}). Reducing history...",
                     log_type="warning",
                     event_call=__event_call__,
                 )
 
-                # Dynamically remove messages from the start
-                # We'll respect effective_keep_first to protect system prompts
+                # Use atomic grouping to preserve tool-calling integrity
+                trimmable = final_messages[effective_keep_first:]
+                atomic_groups = self._get_atomic_groups(trimmable)
 
-                start_trim_index = effective_keep_first
-
-                while (
-                    total_tokens > max_context_tokens
-                    and len(final_messages)
-                    > start_trim_index + 1  # Keep at least 1 message after keep_first
-                ):
-                    dropped = final_messages.pop(start_trim_index)
-                    if total_tokens == estimated_tokens:
-                        dropped_tokens = len(str(dropped.get("content", ""))) // 4
-                    else:
-                        dropped_tokens = self._count_tokens(
-                            str(dropped.get("content", ""))
-                        )
+                while total_tokens > max_context_tokens and len(atomic_groups) > 1:
+                    dropped_group_indices = atomic_groups.pop(0)
+                    dropped_tokens = 0
+                    for _ in range(len(dropped_group_indices)):
+                        dropped = trimmable.pop(0)
+                        if total_tokens == estimated_tokens:
+                            dropped_tokens += len(str(dropped.get("content", ""))) // 4
+                        else:
+                            dropped_tokens += self._count_tokens(
+                                str(dropped.get("content", ""))
+                            )
                     total_tokens -= dropped_tokens
 
+                final_messages = final_messages[:effective_keep_first] + trimmable
+
                 await self._log(
-                    f"[Inlet] ✂️ Messages reduced. New total: {total_tokens} Tokens",
+                    f"[Inlet] ✂️ Messages reduced (atomic). New total: {total_tokens} Tokens",
                     event_call=__event_call__,
                 )
 
@@ -1948,12 +1890,28 @@ class Filter:
         model = body.get("model") or ""
         messages = body.get("messages", [])
 
-        # Calculate target compression progress directly
-        target_compressed_count = max(0, len(messages) - self.valves.keep_last)
+        # Calculate target compression progress directly, then align it to an atomic
+        # boundary so the saved summary never cuts through a tool-calling block.
+        effective_keep_first = self._get_effective_keep_first(messages)
+        raw_target_compressed_count = max(0, len(messages) - self.valves.keep_last)
+        target_compressed_count = self._align_tail_start_to_atomic_boundary(
+            messages, raw_target_compressed_count, effective_keep_first
+        )
 
-        # Process Token calculation and summary generation asynchronously in the background (do not wait for completion, do not affect output)
+        # Process Token calculation and summary generation asynchronously in the background
+        # Use a lock to prevent multiple concurrent summary tasks for the same chat
+        chat_lock = self._get_chat_lock(chat_id)
+
+        if chat_lock.locked():
+            if self.valves.debug_mode:
+                logger.info(
+                    f"[Outlet] Skipping summary task for {chat_id}: Task already in progress"
+                )
+            return body
+
         asyncio.create_task(
-            self._check_and_generate_summary_async(
+            self._locked_summary_task(
+                chat_lock,
                 chat_id,
                 model,
                 body,
@@ -1966,6 +1924,31 @@ class Filter:
         )
 
         return body
+
+    async def _locked_summary_task(
+        self,
+        lock: asyncio.Lock,
+        chat_id: str,
+        model: str,
+        body: dict,
+        user_data: Optional[dict],
+        target_compressed_count: Optional[int],
+        lang: str,
+        __event_emitter__: Callable,
+        __event_call__: Callable,
+    ):
+        """Wrapper to run summary generation with an async lock."""
+        async with lock:
+            await self._check_and_generate_summary_async(
+                chat_id,
+                model,
+                body,
+                user_data,
+                target_compressed_count,
+                lang,
+                __event_emitter__,
+                __event_call__,
+            )
 
     async def _check_and_generate_summary_async(
         self,
@@ -2134,11 +2117,19 @@ class Filter:
                     event_call=__event_call__,
                 )
 
-            # 2. Determine the range of messages to compress (Middle)
-            start_index = self.valves.keep_first
-            end_index = len(messages) - self.valves.keep_last
-            if self.valves.keep_last == 0:
-                end_index = len(messages)
+            # 2. Determine the range of messages to compress (Middle).
+            # Use the same aligned boundary used for summary persistence so the tail
+            # always starts at an atomic-group boundary.
+            start_index = self._get_effective_keep_first(messages)
+            if target_compressed_count is None:
+                raw_end_index = max(0, len(messages) - self.valves.keep_last)
+                end_index = self._align_tail_start_to_atomic_boundary(
+                    messages, raw_end_index, start_index
+                )
+            else:
+                end_index = self._align_tail_start_to_atomic_boundary(
+                    messages, target_compressed_count, start_index
+                )
 
             # Ensure indices are valid
             if start_index >= end_index:
@@ -2204,7 +2195,12 @@ class Filter:
             # Add buffer for prompt and output (approx 2000 tokens)
             estimated_input_tokens = middle_tokens + 2000
 
-            if estimated_input_tokens > max_context_tokens:
+            if max_context_tokens <= 0:
+                await self._log(
+                    "[🤖 Async Summary Task] No max_context_tokens limit set (0). Skipping middle-message truncation.",
+                    event_call=__event_call__,
+                )
+            elif estimated_input_tokens > max_context_tokens:
                 excess_tokens = estimated_input_tokens - max_context_tokens
                 await self._log(
                     f"[🤖 Async Summary Task] ⚠️ Middle messages ({middle_tokens} Tokens) + Buffer exceed summary model limit ({max_context_tokens}), need to remove approx {excess_tokens} Tokens",
@@ -2212,20 +2208,24 @@ class Filter:
                     event_call=__event_call__,
                 )
 
-                # Remove from the head of middle_messages
+                # Remove from the head of middle_messages using atomic groups
+                # to avoid creating orphaned tool-call/tool-result pairs.
                 removed_tokens = 0
                 removed_count = 0
 
-                while removed_tokens < excess_tokens and middle_messages:
-                    msg_to_remove = middle_messages.pop(0)
-                    msg_tokens = self._count_tokens(
-                        str(msg_to_remove.get("content", ""))
-                    )
-                    removed_tokens += msg_tokens
-                    removed_count += 1
+                summary_atomic_groups = self._get_atomic_groups(middle_messages)
+                while removed_tokens < excess_tokens and len(summary_atomic_groups) > 1:
+                    group_indices = summary_atomic_groups.pop(0)
+                    for _ in range(len(group_indices)):
+                        msg_to_remove = middle_messages.pop(0)
+                        msg_tokens = self._count_tokens(
+                            str(msg_to_remove.get("content", ""))
+                        )
+                        removed_tokens += msg_tokens
+                        removed_count += 1
 
                 await self._log(
-                    f"[🤖 Async Summary Task] Removed {removed_count} messages, totaling {removed_tokens} Tokens",
+                    f"[🤖 Async Summary Task] Removed {removed_count} messages (atomic), totaling {removed_tokens} Tokens",
                     event_call=__event_call__,
                 )
 
@@ -2443,11 +2443,25 @@ class Filter:
             logger.exception("[🤖 Async Summary Task] Unhandled exception")
 
     def _format_messages_for_summary(self, messages: list) -> str:
-        """Formats messages for summarization."""
+        """
+        Formats messages for summarization with metadata awareness.
+        Preserves IDs, names, and key metadata fragments to ensure traceability.
+        """
         formatted = []
         for i, msg in enumerate(messages, 1):
             role = msg.get("role", "unknown")
             content = msg.get("content", "")
+
+            # Extract Identity Metadata
+            msg_id = msg.get("id", "N/A")
+            msg_name = msg.get("name", "")
+            # Only pick non-system, interesting metadata keys
+            metadata = msg.get("metadata", {})
+            safe_meta = {
+                k: v
+                for k, v in metadata.items()
+                if k not in ["is_trimmed", "is_summary"]
+            }
 
             # Handle multimodal content
             if isinstance(content, list):
@@ -2460,10 +2474,13 @@ class Filter:
             # Handle role name
             role_name = {"user": "User", "assistant": "Assistant"}.get(role, role)
 
-            # User requested to remove truncation to allow full context for summary
-            # unless it exceeds model limits (which is handled by the LLM call itself or max_tokens)
+            meta_str = f" [ID: {msg_id}]"
+            if msg_name:
+                meta_str += f" [Name: {msg_name}]"
+            if safe_meta:
+                meta_str += f" [Meta: {safe_meta}]"
 
-            formatted.append(f"[{i}] {role_name}: {content}")
+            formatted.append(f"[{i}] {role_name}{meta_str}: {content}")
 
         return "\n\n".join(formatted)
 
@@ -2511,11 +2528,15 @@ This conversation may contain previous summaries (as system messages or text) an
 *   **Progress & Conclusions**: Completed steps and reached consensus.
 *   **Action Items/Next Steps**: Clear follow-up actions.
 
+### Identity Traceability
+The input dialogue contains message IDs (e.g., [ID: ...]) and optional names. 
+If a specific message contributes a critical decision, a unique code snippet, or a tool-calling result, please reference its ID or Name in your summary to maintain traceability.
+
 ---
 {new_conversation_text}
 ---
 
-Based on the content above, generate the summary:
+Based on the content above, generate the summary (including key message identities where relevant):
 """
         # Determine the model to use
         model = self._clean_model_id(self.valves.summary_model) or self._clean_model_id(

@@ -1,16 +1,15 @@
 # Async Context Compression Filter
 
-**Author:** [Fu-Jie](https://github.com/Fu-Jie/openwebui-extensions) | **Version:** 1.3.0 | **Project:** [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions) | **License:** MIT
+**Author:** [Fu-Jie](https://github.com/Fu-Jie/openwebui-extensions) | **Version:** 1.4.0 | **Project:** [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions) | **License:** MIT
 
 This filter reduces token consumption in long conversations through intelligent summarization and message compression while keeping conversations coherent.
 
-## What's new in 1.3.0
+## What's new in 1.4.0
 
-- **Internationalization (i18n)**: Complete localization of user-facing messages across 9 languages (English, Chinese, Japanese, Korean, French, German, Spanish, Italian).
-- **Smart Status Display**: Added `token_usage_status_threshold` valve (default 80%) to intelligently control when token usage status is shown.
-- **Improved Performance**: Frontend language detection and logging are optimized to be completely non-blocking, maintaining lightning-fast TTFB.
-- **Copilot SDK Integration**: Automatically detects and skips compression for copilot_sdk based models to prevent conflicts.
-- **Configuration**: `debug_mode` is now set to `false` by default for a quieter production experience.
+- **Atomic Message Grouping**: Introduced structure-aware grouping for `assistant-tool-tool-assistant` chains to prevent "No tool call found" errors.
+- **Tail Boundary Alignment**: Implemented automatic correction for truncation points to ensure they don't fall inside a tool-calling sequence.
+- **Chat Session Locking**: Added a session-based lock to prevent multiple concurrent summary tasks for the same chat ID.
+- **Enhanced Traceability**: Improved summary formatting to include message IDs, names, and metadata for better context tracking.
 
 ---
 
