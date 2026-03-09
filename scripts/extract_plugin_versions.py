@@ -285,9 +285,8 @@ def format_release_notes(
             prev_ver = prev_manifest.get("version") or prev.get("version")
 
             readme_url = _get_readme_url(curr.get("file_path", ""))
-            lines.append(f"- **{curr_title}**: v{prev_ver} → v{curr_ver}")
-            if readme_url:
-                lines.append(f"  - 📖 [README]({readme_url})")
+            readme_link = f" | [📖 README]({readme_url})" if readme_url else ""
+            lines.append(f"- **{curr_title}**: v{prev_ver} → v{curr_ver}{readme_link}")
         lines.append("")
 
     if comparison["removed"] and not ignore_removed:

@@ -436,54 +436,34 @@ jobs:
           CHANGED_PLUGIN_TITLE: ${{ needs.check-changes.outputs.changed_plugin_title }}
           CHANGED_PLUGIN_VERSION: ${{ needs.check-changes.outputs.changed_plugin_version }}
           DETECTED_CHANGES: ${{ needs.check-changes.outputs.release_notes }}
-          COMMITS: ${{ steps.commits.outputs.commits }}
           DOC_FILES: ${{ needs.check-changes.outputs.changed_doc_files }}
         run: |
           > release_notes.md
 
-          if [ -n "$CHANGED_PLUGIN_TITLE" ] && [ -n "$CHANGED_PLUGIN_VERSION" ]; then
-            echo "# $CHANGED_PLUGIN_TITLE v$CHANGED_PLUGIN_VERSION" >> release_notes.md
-            echo "" >> release_notes.md
-          elif [ -n "$TITLE" ]; then
-            echo "# $TITLE" >> release_notes.md
-            echo "" >> release_notes.md
-          fi
-
-          # 1. Release notes from v*.md files (highest priority, shown first)
+          # 1. Primary content from v*.md files (highest priority)
           if [ -n "$DOC_FILES" ]; then
             RELEASE_NOTE_FILES=$(echo "$DOC_FILES" | grep -E '^plugins/.*/v[^/]*\.md$' | grep -v '_CN\.md$' || true)
             if [ -n "$RELEASE_NOTE_FILES" ]; then
               while IFS= read -r file; do
                 [ -z "$file" ] && continue
                 if [ -f "$file" ]; then
-                  python3 -c "import pathlib, re; file_path = pathlib.Path(r'''$file'''); text = file_path.read_text(encoding='utf-8'); text = re.sub(r'^#\\s+.+?(?:\\r?\\n)+', '', text, count=1, flags=re.MULTILINE); print(text.lstrip().rstrip())" >> release_notes.md
+                  # Extract content, removing any H1 title from the file to avoid duplication
+                  python3 -c "import pathlib, re; file_path = pathlib.Path(r'''$file'''); text = file_path.read_text(encoding='utf-8'); text = re.sub(r'^#\s+.+?(?:\r?\n)+', '', text, count=1, flags=re.MULTILINE); print(text.lstrip().rstrip())" >> release_notes.md
                   echo "" >> release_notes.md
                 fi
               done <<< "$RELEASE_NOTE_FILES"
             fi
           fi
 
-          # 2. Plugin version changes detected by script
-          if [ -z "$CHANGED_PLUGIN_TITLE" ] && [ -z "$CHANGED_PLUGIN_VERSION" ] && [ -n "$TITLE" ]; then
-            echo "## $TITLE" >> release_notes.md
-            echo "" >> release_notes.md
-          fi
-          
+          # 2. Automated plugin version change summary
           if [ -n "$DETECTED_CHANGES" ] && ! echo "$DETECTED_CHANGES" | grep -q "No changes detected"; then
-            echo "## What's Changed" >> release_notes.md
+            echo "## Version Changes" >> release_notes.md
             echo "" >> release_notes.md
             echo "$DETECTED_CHANGES" >> release_notes.md
             echo "" >> release_notes.md
           fi
           
-          # 3. Commits (Conventional Commits format with body)
-          if [ -n "$COMMITS" ]; then
-            echo "## Commits" >> release_notes.md
-            echo "" >> release_notes.md
-            echo "$COMMITS" >> release_notes.md
-            echo "" >> release_notes.md
-          fi
-          
+          # 3. Manual additional notes from workflow dispatch
           if [ -n "$NOTES" ]; then
             echo "## Additional Notes" >> release_notes.md
             echo "" >> release_notes.md
@@ -493,29 +473,14 @@ jobs:
           
           cat >> release_notes.md << 'EOF'
           
-          ## Download
-          
-          📦 **Download the updated plugin files below**
-          
-          ### Installation
-          
-          #### From OpenWebUI Community
-          1. Open OpenWebUI Admin Panel
-          2. Navigate to Functions/Tools
-          3. Search for the plugin name
-          4. Click Install
-          
-          #### Manual Installation
-          1. Download the plugin file (`.py`) from the assets below
-          2. Open OpenWebUI Admin Panel → Functions
-          3. Click "Create Function" → Import
-          4. Paste the plugin code
-          
           ---
           
-          📚 [Documentation](https://fu-jie.github.io/openwebui-extensions/)
+          📚 [Documentation Portal](https://fu-jie.github.io/openwebui-extensions/)
           🐛 [Report Issues](https://github.com/Fu-Jie/openwebui-extensions/issues)
           EOF
+
+          echo "=== Final Release Notes ==="
+          cat release_notes.md
 
           echo "=== Release Notes ==="
           cat release_notes.md
