@@ -73,11 +73,13 @@ Create two versioned release notes files:
 #### Required Sections
 
 Each file must include:
-1. **Title**: `# v{version} Release Notes` (EN) / `# v{version} 版本发布说明` (CN)
-2. **Overview**: One paragraph summarizing this release
-3. **New Features** / **新功能**: Bulleted list of features
-4. **Bug Fixes** / **问题修复**: Bulleted list of fixes
-5. **Migration Notes** / **迁移说明**: Breaking changes or Valve key renames (omit section if none)
+0. **Marketplace Link**: Direct link to the plugin on openwebui.com (e.g., `**[🚀 Get/Update on OpenWebUI Community](URL)**`)
+1. **Overview**: One paragraph summarizing this release
+2. **New Features** / **新功能**: Bulleted list of features
+3. **Bug Fixes** / **问题修复**: Bulleted list of fixes
+4. **Related Issues** / **相关 Issue**: Link to the GitHub Issue(s) resolved in this release (e.g., `**[#56](URL)**`). MANDATORY if the release resolves a reported issue.
+5. **Related PRs** / **相关 PR**: Link to the Pull Request(s) associated with this release. (e.g., `**[#123](URL)**`). MANDATORY if the release is being prepared within an existing PR.
+6. **Migration Notes** / **迁移说明**: Breaking changes or Valve key renames (omit section if none)
 6. **Companion Plugins** / **配套插件** (optional): If a companion plugin was updated
 
 If a release notes file already exists for this version, update it rather than creating a new one.
@@ -98,8 +100,10 @@ Generate the commit message following `commit-message.instructions.md` rules:
 - **Language**: English ONLY
 - **Format**: `type(scope): subject` + blank line + body bullets
 - **Scope**: use plugin folder name (e.g., `github-copilot-sdk`)
-- **Body**: 1-3 bullets summarizing key changes
-- Explicitly mention "READMEs and docs synced" if version was bumped
+- **Body**: 
+    - 1-3 bullets summarizing key changes
+    - Explicitly mention "READMEs and docs synced" if version was bumped
+    - **MUST** end with `Closes #XX` or `Fixes #XX` if an issue is being resolved.
 
 Present the full commit message to the user for review before executing.
 
