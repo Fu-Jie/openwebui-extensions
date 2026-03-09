@@ -187,15 +187,20 @@ python scripts/extract_plugin_versions.py --json --output versions.json
 
 ## 批量安装所有插件到你的实例
 
-在发布之后，你可以快速将所有插件安装到本地 OpenWebUI 实例：
+在发布之后，你可以快速将所有插件安装到 OpenWebUI 实例：
 
 ```bash
 # 克隆仓库
 git clone https://github.com/Fu-Jie/openwebui-extensions.git
 cd openwebui-extensions
 
-# 创建 .env 文件并配置 API 密钥
+# 配置 API 密钥和实例地址
 echo "api_key=sk-your-api-key-here" > scripts/.env
+echo "url=http://localhost:3000" >> scripts/.env
+
+# 如果是远程实例，需要设置相应的 baseURL：
+# echo "url=http://192.168.1.10:3000" >> scripts/.env
+# echo "url=https://openwebui.example.com" >> scripts/.env
 
 # 一次性安装所有插件
 python scripts/install_all_plugins.py

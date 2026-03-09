@@ -87,8 +87,13 @@ After release is published, users can quickly install all plugins:
 git clone https://github.com/Fu-Jie/openwebui-extensions.git
 cd openwebui-extensions
 
-# Setup API key
+# Setup API key and instance URL
 echo "api_key=sk-your-api-key-here" > scripts/.env
+echo "url=http://localhost:3000" >> scripts/.env
+
+# If using remote instance, configure the baseURL:
+# echo "url=http://192.168.1.10:3000" >> scripts/.env
+# echo "url=https://openwebui.example.com" >> scripts/.env
 
 # Install all plugins at once
 python scripts/install_all_plugins.py

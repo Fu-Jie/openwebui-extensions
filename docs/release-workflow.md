@@ -189,15 +189,20 @@ python scripts/extract_plugin_versions.py --json --output versions.json
 
 ## Installing All Plugins to Your Instance
 
-After a release, you can quickly install all plugins to your local OpenWebUI instance:
+After a release, you can quickly install all plugins to your OpenWebUI instance:
 
 ```bash
 # Clone the repository
 git clone https://github.com/Fu-Jie/openwebui-extensions.git
 cd openwebui-extensions
 
-# Create .env file with your API key
+# Configure API key and instance URL
 echo "api_key=sk-your-api-key-here" > scripts/.env
+echo "url=http://localhost:3000" >> scripts/.env
+
+# For remote instances, set the appropriate baseURL:
+# echo "url=http://192.168.1.10:3000" >> scripts/.env
+# echo "url=https://openwebui.example.com" >> scripts/.env
 
 # Install all plugins at once
 python scripts/install_all_plugins.py
