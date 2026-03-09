@@ -103,13 +103,6 @@ hide:
 
 ## Quick Start
 
-### Using Prompts
-
-1. Browse the [Prompt Library](prompts/library.md) and select a prompt
-2. Click the **Copy** button to copy the prompt to your clipboard
-3. In OpenWebUI, click the "Prompt" button above the input box
-4. Paste the content and save
-
 ### Using Plugins
 
 1. **Install from OpenWebUI Community (Recommended)**:
@@ -117,11 +110,14 @@ hide:
    - Browse the plugins and select the one you like.
    - Click "Get" to import it directly into your OpenWebUI instance.
 
-2. **Manual Installation**:
-   - Browse the [Plugin Center](plugins/index.md) and download the plugin file (`.py`)
-   - Open OpenWebUI **Admin Panel** → **Settings** → **Plugins**
-   - Click the upload button and select the `.py` file
-   - Refresh the page and enable the plugin in your chat settings
+2. **Quick Install All Plugins**: To install all plugins to your local OpenWebUI instance at once, clone this repo and run `python scripts/install_all_plugins.py` after configuring your API key in `.env` — see [Deployment Guide](../scripts/DEPLOYMENT_GUIDE.md) for details.
+
+### Using Prompts
+
+1. Browse the [Prompt Library](prompts/library.md) and select a prompt
+2. Click the **Copy** button to copy the prompt to your clipboard
+3. In OpenWebUI, click the "Prompt" button above the input box
+4. Paste the content and save
 
 ---
 

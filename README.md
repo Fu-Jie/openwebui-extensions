@@ -163,13 +163,6 @@ For code examples, please check the `docs/examples/` directory.
 
 This project is a collection of resources and does not require a Python environment. Simply download the files you need and import them into your OpenWebUI instance.
 
-### Using Prompts
-
-1. Browse the `/prompts` directory and select a prompt file (`.md`).
-2. Copy the file content.
-3. In the OpenWebUI chat interface, click the "Prompt" button above the input box.
-4. Paste the content and save.
-
 ### Using Plugins
 
 1. **Install from OpenWebUI Community (Recommended)**:
@@ -178,6 +171,13 @@ This project is a collection of resources and does not require a Python environm
    - Click "Get" to import it directly into your OpenWebUI instance.
 
 2. **Quick Install All Plugins**: To install all plugins to your local OpenWebUI instance at once, clone this repo and run `python scripts/install_all_plugins.py` after configuring your API key in `.env` — see [Deployment Guide](./scripts/DEPLOYMENT_GUIDE.md) for details.
+
+### Using Prompts
+
+1. Browse the `/prompts` directory and select a prompt file (`.md`).
+2. Copy the file content.
+3. In the OpenWebUI chat interface, click the "Prompt" button above the input box.
+4. Paste the content and save.
 
 ### Contributing
 

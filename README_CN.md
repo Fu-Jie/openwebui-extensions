@@ -175,4 +175,11 @@ Open WebUI 的前端增强扩展：
 
 2. **快速安装所有插件**：如果想一次性安装此项目中的所有插件到本地 OpenWebUI 实例，克隆此仓库后运行 `python scripts/install_all_plugins.py`，并在 `.env` 中配置好 API 密钥，详见 [部署指南](./scripts/DEPLOYMENT_GUIDE.md)。
 
+### 使用提示词
+
+1. 浏览 `/prompts` 目录并选择一个提示词文件（`.md`）。
+2. 复制文件内容。
+3. 在 OpenWebUI 聊天界面中，点击输入框上方的"提示词"按钮。
+4. 粘贴内容并保存。
+
 [贡献指南](./CONTRIBUTING_CN.md) | [更新日志](./CHANGELOG.md)
