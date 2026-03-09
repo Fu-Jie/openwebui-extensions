@@ -14,23 +14,23 @@ def main():
     base_dir = Path(__file__).parent.parent
     
     print("\n" + "="*80)
-    print("✨ 异步上下文压缩本地部署工具 — 验证状态")
+    print("✨ Async Context Compression Local Deployment Tools — Verification Status")
     print("="*80 + "\n")
     
     files_to_check = {
-        "🐍 Python 脚本": [
+        "🐍 Python Scripts": [
             "scripts/deploy_async_context_compression.py",
             "scripts/deploy_filter.py",
             "scripts/deploy_pipe.py",
         ],
-        "📖 部署文档": [
+        "📖 Deployment Documentation": [
             "scripts/README.md",
             "scripts/QUICK_START.md",
             "scripts/DEPLOYMENT_GUIDE.md",
             "scripts/DEPLOYMENT_SUMMARY.md",
             "plugins/filters/async-context-compression/DEPLOYMENT_REFERENCE.md",
         ],
-        "🧪 测试文件": [
+        "🧪 Test Files": [
             "tests/scripts/test_deploy_filter.py",
         ],
     }
@@ -59,24 +59,24 @@ def main():
     print("\n" + "="*80)
     
     if all_exist:
-        print("✅ 所有部署工具文件已准备就绪！")
+        print("✅ All deployment tool files are ready!")
         print("="*80 + "\n")
         
-        print("🚀 快速开始（3 种方式）：\n")
+        print("🚀 Quick Start (3 ways):\n")
         
-        print("  方式 1: 最简单 (推荐)")
+        print("  Method 1: Easiest (Recommended)")
         print("  ─────────────────────────────────────────────────────────")
         print("    cd scripts")
         print("    python deploy_async_context_compression.py")
         print()
         
-        print("  方式 2: 通用工具")
+        print("  Method 2: Generic Tool")
         print("  ─────────────────────────────────────────────────────────")
         print("    cd scripts")
         print("    python deploy_filter.py")
         print()
         
-        print("  方式 3: 部署其他 Filter")
+        print("  Method 3: Deploy Other Filters")
         print("  ─────────────────────────────────────────────────────────")
         print("    cd scripts")
         print("    python deploy_filter.py --list")
@@ -84,18 +84,18 @@ def main():
         print()
         
         print("="*80 + "\n")
-        print("📚 文档参考：\n")
-        print("  • 快速开始:    scripts/QUICK_START.md")
-        print("  • 完整指南:    scripts/DEPLOYMENT_GUIDE.md")
-        print("  • 技术总结:    scripts/DEPLOYMENT_SUMMARY.md")
-        print("  • 脚本说明:    scripts/README.md")
-        print("  • 测试覆盖:    pytest tests/scripts/test_deploy_filter.py -v")
+        print("📚 Documentation References:\n")
+        print("  • Quick Start:        scripts/QUICK_START.md")
+        print("  • Complete Guide:     scripts/DEPLOYMENT_GUIDE.md")
+        print("  • Technical Summary:  scripts/DEPLOYMENT_SUMMARY.md")
+        print("  • Script Info:        scripts/README.md")
+        print("  • Test Coverage:      pytest tests/scripts/test_deploy_filter.py -v")
         print()
         
         print("="*80 + "\n")
         return 0
     else:
-        print("❌ 某些文件缺失！")
+        print("❌ Some files are missing!")
         print("="*80 + "\n")
         return 1
 

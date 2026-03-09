@@ -1,45 +1,45 @@
-# 🔄 部署脚本的更新机制 (Deployment Update Mechanism)
+# 🔄 Deployment Scripts Update Mechanism
 
-## 核心答案
+## Core Answer
 
-✅ **是的，再次部署会自动更新！**
+✅ **Yes, re-deploying automatically updates the plugin!**
 
-部署脚本采用**智能两阶段策略**：
-1. 🔄 **优先尝试更新** (UPDATE) — 如果插件已存在
-2. 📝 **自动创建** (CREATE) — 如果更新失败（插件不存在）
+The deployment script uses a **smart two-stage strategy**:
+1. 🔄 **Try UPDATE First** (if plugin exists)
+2. 📝 **Auto CREATE** (if update fails — plugin doesn't exist)
 
-## 工作流程图
+## Workflow Diagram
 
 ```
-运行部署脚本
+Run deploy script
     ↓
-读取本地代码和元数据
+Read local code and metadata
     ↓
-发送 UPDATE 请求到 OpenWebUI
+Send UPDATE request to OpenWebUI
     ↓
        ├─ HTTP 200 ✅
-       │  └─ 插件已存在 → 更新成功！
+       │  └─ Plugin exists → Update successful!
        │
-       └─ 其他状态代码 (404, 400 等)
-          └─ 插件不存在或更新失败
+       └─ Other status codes (404, 400, etc.)
+          └─ Plugin doesn't exist or update failed
              ↓
-             发送 CREATE 请求
+             Send CREATE request
              ↓
              ├─ HTTP 200 ✅
-             │  └─ 创建成功！
+             │  └─ Creation successful!
              │
-             └─ 失败
-                └─ 显示错误信息
+             └─ Failed
+                └─ Display error message
 ```
 
-## 详细步骤分析
+## Detailed Step-by-step
 
-### 步骤 1️⃣: 尝试更新 (UPDATE)
+### Step 1️⃣: Try UPDATE First
 
 ```python
-# 代码位置: deploy_filter.py 第 220-230 行
+# Code location: deploy_filter.py line 220-230
 
-update_url = "http://localhost:3003/api/v1/functions/id/{filter_id}/update"
+update_url = "http://localhost:3000/api/v1/functions/id/{filter_id}/update"
 
 response = requests.post(
     update_url,
@@ -53,24 +53,24 @@ if response.status_code == 200:
     return True
 ```
 
-**这一步**:
-- 向 OpenWebUI API 发送 **POST** 到 `/api/v1/functions/id/{filter_id}/update`
-- 如果返回 **HTTP 200**，说明插件已存在且成功更新
-- 包含的内容:
-  - 完整的最新代码
-  - 元数据 (title, version, author, description 等)
-  - 清单信息 (manifest)
+**What Happens**:
+- Send **POST** to `/api/v1/functions/id/{filter_id}/update`
+- If returns **HTTP 200**, plugin exists and update succeeded
+- Includes:
+  - Complete latest code
+  - Metadata (title, version, author, description, etc.)
+  - Manifest information
 
-### 步骤 2️⃣: 若更新失败，尝试创建 (CREATE)
+### Step 2️⃣: If UPDATE Fails, Try CREATE
 
 ```python
-# 代码位置: deploy_filter.py 第 231-245 行
+# Code location: deploy_filter.py line 231-245
 
 if response.status_code != 200:
     print(f"⚠️  Update failed with status {response.status_code}, "
           "attempting to create instead...")
     
-    create_url = "http://localhost:3003/api/v1/functions/create"
+    create_url = "http://localhost:3000/api/v1/functions/create"
     res_create = requests.post(
         create_url,
         headers=headers,
@@ -83,96 +83,96 @@ if response.status_code != 200:
         return True
 ```
 
-**这一步**:
-- 如果更新失败 (HTTP ≠ 200)，自动尝试创建
-- 向 `/api/v1/functions/create` 发送 **POST** 请求
-- 使用**相同的 payload**（代码、元数据都一样）
-- 如果创建成功，第一次部署到 OpenWebUI
+**What Happens**:
+- If update fails (HTTP ≠ 200), auto-attempt create
+- Send **POST** to `/api/v1/functions/create`
+- Uses **same payload** (code, metadata identical)
+- If creation succeeds, first deployment to OpenWebUI
 
-## 实际使用场景
+## Real-world Scenarios
 
-### 场景 A: 第一次部署
+### Scenario A: First Deployment
 
 ```bash
 $ python deploy_async_context_compression.py
 
 📦 Deploying filter 'Async Context Compression' (version 1.3.0)...
    File: .../async_context_compression.py
-⚠️  Update failed with status 404, attempting to create instead...  ← 第一次，插件不存在
-✅ Successfully created 'Async Context Compression' filter!         ← 创建成功
+⚠️  Update failed with status 404, attempting to create instead...  ← First time, plugin doesn't exist
+✅ Successfully created 'Async Context Compression' filter!         ← Creation succeeds
 ```
 
-**发生的事**:
-1. 尝试 UPDATE → 失败 (HTTP 404 — 插件不存在)
-2. 自动尝试 CREATE → 成功 (HTTP 200)
-3. 插件被创建到 OpenWebUI
+**What Happens**:
+1. Try UPDATE → fails (HTTP 404 — plugin doesn't exist)
+2. Auto-try CREATE → succeeds (HTTP 200)
+3. Plugin created in OpenWebUI
 
 ---
 
-### 场景 B: 再次部署 (修改代码后)
+### Scenario B: Re-deploy After Code Changes
 
 ```bash
-# 第一次修改代码，再次部署
+# Made first code change, deploying again
 $ python deploy_async_context_compression.py
 
 📦 Deploying filter 'Async Context Compression' (version 1.3.1)...
    File: .../async_context_compression.py
-✅ Successfully updated 'Async Context Compression' filter!         ← 直接更新！
+✅ Successfully updated 'Async Context Compression' filter!         ← Direct update!
 ```
 
-**发生的事**:
-1. 读取修改后的代码
-2. 尝试 UPDATE → 成功 (HTTP 200 — 插件已存在)
-3. OpenWebUI 中的插件被更新为最新代码
-4. **无需重启 OpenWebUI**，立即生效！
+**What Happens**:
+1. Read modified code
+2. Try UPDATE → succeeds (HTTP 200 — plugin exists)
+3. Plugin in OpenWebUI updated to latest code
+4. **No need to restart OpenWebUI**, takes effect immediately!
 
 ---
 
-### 场景 C: 多次快速迭代
+### Scenario C: Multiple Fast Iterations
 
 ```bash
-# 第1次修改
+# 1st change
 $ python deploy_async_context_compression.py
 ✅ Successfully updated 'Async Context Compression' filter!
 
-# 第2次修改
+# 2nd change
 $ python deploy_async_context_compression.py
 ✅ Successfully updated 'Async Context Compression' filter!
 
-# 第3次修改
+# 3rd change
 $ python deploy_async_context_compression.py
 ✅ Successfully updated 'Async Context Compression' filter!
 
-# ... 无限制地重复 ...
+# ... repeat infinitely ...
 ```
 
-**特点**:
-- 🚀 每次更新只需 5 秒
-- 📝 每次都是增量更新
-- ✅ 无需重启 OpenWebUI
-- 🔄 可以无限制地重复
+**Characteristics**:
+- 🚀 Each update takes only 5 seconds
+- 📝 Each is an incremental update
+- ✅ No need to restart OpenWebUI
+- 🔄 Can repeat indefinitely
 
-## 更新的内容清单
+## What Gets Updated
 
-每次部署时，以下内容会被更新：
+Each deployment updates the following:
 
-✅ **代码** — 全部最新的 Python 代码  
-✅ **版本号** — 从 docstring 自动提取  
-✅ **标题** — 插件的显示名称  
-✅ **作者信息** — author, author_url  
-✅ **描述** — plugin description  
-✅ **元数据** — funding_url, openwebui_id 等  
+✅ **Code** — All latest Python code  
+✅ **Version** — Auto-extracted from docstring  
+✅ **Title** — Plugin display name  
+✅ **Author Info** — author, author_url  
+✅ **Description** — Plugin description  
+✅ **Metadata** — funding_url, openwebui_id, etc.  
 
-❌ **配置不会被覆盖** — 用户在 OpenWebUI 中设置的 Valves 配置保持不变
+❌ **Configuration NOT Overwritten** — User's Valves settings in OpenWebUI stay unchanged
 
-## 版本号管理
+## Version Number Management
 
-### 更新时版本号会变吗？
+### Does Version Change on Update?
 
-✅ **是的，会变！**
+✅ **Yes!**
 
 ```python
-# async_context_compression.py 的 docstring
+# docstring in async_context_compression.py
 
 """
 title: Async Context Compression
@@ -180,124 +180,124 @@ version: 1.3.0
 """
 ```
 
-**每次部署时**:
-1. 脚本从 docstring 读取版本号
-2. 发送给 OpenWebUI 的 manifest 包含这个版本号
-3. 如果代码中改了版本号，部署时会更新到新版本
+**Each deployment**:
+1. Script reads version from docstring
+2. Sends this version in manifest to OpenWebUI
+3. If you change version in code, deployment updates to new version
 
-**最佳实践**:
+**Best Practice**:
 ```bash
-# 1. 修改代码
+# 1. Modify code
 vim async_context_compression.py
 
-# 2. 更新版本号（在 docstring 中）
-# 版本: 1.3.0 → 1.3.1
+# 2. Update version (in docstring)
+# version: 1.3.0 → 1.3.1
 
-# 3. 部署
+# 3. Deploy
 python deploy_async_context_compression.py
 
-# 结果: OpenWebUI 中显示版本 1.3.1
+# Result: OpenWebUI shows version 1.3.1
 ```
 
-## 部署失败的情况
+## Deployment Failure Cases
 
-### 情况 1: 网络错误
+### Case 1: Network Error
 
 ```bash
-❌ Connection error: Could not reach OpenWebUI at localhost:3003
+❌ Connection error: Could not reach OpenWebUI at localhost:3000
    Make sure OpenWebUI is running and accessible.
 ```
 
-**原因**: OpenWebUI 未运行或端口错误  
-**解决**: 检查 OpenWebUI 是否在运行
+**Cause**: OpenWebUI not running or wrong port  
+**Solution**: Check if OpenWebUI is running
 
-### 情况 2: API 密钥无效
+### Case 2: Invalid API Key
 
 ```bash
 ❌ Failed to update or create. Status: 401
    Error: {"error": "Unauthorized"}
 ```
 
-**原因**: .env 中的 API 密钥无效或过期  
-**解决**: 更新 `.env` 文件中的 api_key
+**Cause**: API key in .env is invalid or expired  
+**Solution**: Update api_key in `.env` file
 
-### 情况 3: 服务器错误
+### Case 3: Server Error
 
 ```bash
 ❌ Failed to update or create. Status: 500
    Error: Internal server error
 ```
 
-**原因**: OpenWebUI 服务器内部错误  
-**解决**: 检查 OpenWebUI 日志
+**Cause**: OpenWebUI server internal error  
+**Solution**: Check OpenWebUI logs
 
-## 设置版本号的最佳实践
+## Setting Version Numbers — Best Practices
 
-### 语义化版本 (Semantic Versioning)
+### Semantic Versioning
 
-遵循 `MAJOR.MINOR.PATCH` 格式：
+Follow `MAJOR.MINOR.PATCH` format:
 
 ```python
 """
 version: 1.3.0
   │  │  │
-  │  │  └─ PATCH: Bug 修复 (1.3.0 → 1.3.1)
-  │  └────── MINOR: 新功能 (1.3.0 → 1.4.0)
-  └───────── MAJOR: 破坏性变更 (1.3.0 → 2.0.0)
+  │  │  └─ PATCH: Bug fixes (1.3.0 → 1.3.1)
+  │  └────── MINOR: New features (1.3.0 → 1.4.0)
+  └───────── MAJOR: Breaking changes (1.3.0 → 2.0.0)
 """
 ```
 
-**例子**:
+**Examples**:
 
 ```python
-# Bug 修复 (PATCH)
+# Bug fix (PATCH)
 version: 1.3.0 → 1.3.1
 
-# 新功能 (MINOR)
+# New feature (MINOR)
 version: 1.3.0 → 1.4.0
 
-# 重大更新 (MAJOR)
+# Major update (MAJOR)
 version: 1.3.0 → 2.0.0
 ```
 
-## 完整的迭代工作流
+## Complete Iteration Workflow
 
 ```bash
-# 1. 首次部署
+# 1. First deployment
 cd scripts
 python deploy_async_context_compression.py
-# 结果: 创建插件 (第一次)
+# Result: Plugin created (first time)
 
-# 2. 修改代码
+# 2. Modify code
 vim ../plugins/filters/async-context-compression/async_context_compression.py
-# 修改内容...
+# Edit code...
 
-# 3. 再次部署 (自动更新)
+# 3. Deploy again (auto-update)
 python deploy_async_context_compression.py
-# 结果: 更新插件 (立即生效，无需重启 OpenWebUI)
+# Result: Plugin updated (takes effect immediately, no OpenWebUI restart)
 
-# 4. 重复步骤 2-3，无限次迭代
-# 每次修改 → 每次部署 → 立即测试 → 继续改进
+# 4. Repeat steps 2-3 indefinitely
+# Modify → Deploy → Test → Improve → Repeat
 ```
 
-## 自动更新的优势
+## Benefits of Auto-update
 
-| 优势 | 说明 |
-|-----|------|
-| ⚡ **快速迭代** | 修改代码 → 部署 (5秒) → 测试，无需等待 |
-| 🔄 **自动检测** | 无需手动判断是创建还是更新 |
-| 📝 **版本管理** | 版本号自动从代码提取 |
-| ✅ **无需重启** | OpenWebUI 无需重启，配置保持不变 |
-| 🛡️ **安全更新** | 用户配置 (Valves) 不会被覆盖 |
+| Benefit | Details |
+|---------|---------|
+| ⚡ **Fast Iteration** | Code change → Deploy (5s) → Test, no waiting |
+| 🔄 **Auto-detection** | No manual decision between create/update |
+| 📝 **Version Management** | Version auto-extracted from code |
+| ✅ **No Restart Needed** | OpenWebUI runs continuously, config stays same |
+| 🛡️ **Safe Updates** | User settings (Valves) never overwritten |
 
-## 禁用自动更新? ❌
+## Disable Auto-update? ❌
 
-通常**不需要**禁用自动更新，因为：
+Usually **not needed** because:
 
-1. ✅ 更新是幂等的 (多次更新相同代码 = 无变化)
-2. ✅ 用户配置不会被修改
-3. ✅ 版本号自动管理
-4. ✅ 失败时自动回退
+1. ✅ Updates are idempotent (same code deployed multiple times = no change)
+2. ✅ User configuration not modified
+3. ✅ Version numbers auto-managed
+4. ✅ Failures auto-rollback
 
 但如果真的需要控制，可以：
 - 手动修改脚本 (修改 `deploy_filter.py`)

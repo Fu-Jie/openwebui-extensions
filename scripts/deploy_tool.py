@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """
-Deploy Filter plugins to OpenWebUI instance.
+Deploy Tools plugins to OpenWebUI instance.
 
-This script deploys filter plugins (like async_context_compression) to a running
-OpenWebUI instance. It reads the plugin metadata and submits it to the local API.
+This script deploys tool plugins to a running OpenWebUI instance.
+It reads the plugin metadata and submits it to the local API.
 
 Usage:
-    python deploy_filter.py                      # Deploy async_context_compression
-    python deploy_filter.py <filter_name>        # Deploy specific filter
+    python deploy_tool.py                       # Deploy OpenWebUI Skills Manager Tool
+    python deploy_tool.py <tool_name>           # Deploy specific tool
+    python deploy_tool.py --list                # List available tools
 """
 
 import requests
@@ -21,52 +22,84 @@ from typing import Optional, Dict, Any
 # ─── Configuration ───────────────────────────────────────────────────────────
 SCRIPT_DIR = Path(__file__).parent
 ENV_FILE = SCRIPT_DIR / ".env"
-FILTERS_DIR = SCRIPT_DIR.parent / "plugins/filters"
+TOOLS_DIR = SCRIPT_DIR.parent / "plugins/tools"
 
-# Default target filter
-DEFAULT_FILTER = "async-context-compression"
+# Default target tool
+DEFAULT_TOOL = "openwebui-skills-manager"
 
 
 def _load_api_key() -> str:
-    """Load API key from .env file in the same directory as this script.
+    """Load API key from .env file in the same directory as this script."""
+    env_values = {}
+    if ENV_FILE.exists():
+        for line in ENV_FILE.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            env_values[key.strip().lower()] = value.strip().strip('"').strip("'")
 
-    The .env file should contain a line like:
-        api_key=sk-xxxxxxxxxxxx
-    """
-    if not ENV_FILE.exists():
-        raise FileNotFoundError(
-            f".env file not found at {ENV_FILE}. "
-            "Please create it with: api_key=sk-xxxxxxxxxxxx"
+    api_key = (
+        os.getenv("OPENWEBUI_API_KEY")
+        or os.getenv("api_key")
+        or env_values.get("api_key")
+        or env_values.get("openwebui_api_key")
+    )
+
+    if not api_key:
+        raise ValueError(
+            f"Missing api_key. Please create {ENV_FILE} with: "
+            "api_key=sk-xxxxxxxxxxxx"
         )
-
-    for line in ENV_FILE.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if line.startswith("api_key="):
-            key = line.split("=", 1)[1].strip()
-            if key:
-                return key
-
-    raise ValueError("api_key not found in .env file.")
+    return api_key
 
 
-def _find_filter_file(filter_name: str) -> Optional[Path]:
-    """Find the main Python file for a filter.
+def _get_base_url() -> str:
+    """Load base URL from .env file or environment."""
+    env_values = {}
+    if ENV_FILE.exists():
+        for line in ENV_FILE.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            env_values[key.strip().lower()] = value.strip().strip('"').strip("'")
+
+    base_url = (
+        os.getenv("OPENWEBUI_URL")
+        or os.getenv("OPENWEBUI_BASE_URL")
+        or os.getenv("url")
+        or env_values.get("url")
+        or env_values.get("openwebui_url")
+        or env_values.get("openwebui_base_url")
+    )
+
+    if not base_url:
+        raise ValueError(
+            f"Missing url. Please create {ENV_FILE} with: "
+            "url=http://localhost:3000"
+        )
+    return base_url.rstrip("/")
+
+
+def _find_tool_file(tool_name: str) -> Optional[Path]:
+    """Find the main Python file for a tool.
     
     Args:
-        filter_name: Directory name of the filter (e.g., 'async-context-compression')
+        tool_name: Directory name of the tool (e.g., 'openwebui-skills-manager')
     
     Returns:
         Path to the main Python file, or None if not found.
     """
-    filter_dir = FILTERS_DIR / filter_name
-    if not filter_dir.exists():
+    tool_dir = TOOLS_DIR / tool_name
+    if not tool_dir.exists():
         return None
     
-    # Try to find a .py file matching the filter name
-    py_files = list(filter_dir.glob("*.py"))
+    # Try to find a .py file matching the tool name
+    py_files = list(tool_dir.glob("*.py"))
     
-    # Prefer a file with the filter name (with hyphens converted to underscores)
-    preferred_name = filter_name.replace("-", "_") + ".py"
+    # Prefer a file with the tool name (with hyphens converted to underscores)
+    preferred_name = tool_name.replace("-", "_") + ".py"
     for py_file in py_files:
         if py_file.name == preferred_name:
             return py_file
@@ -79,14 +112,7 @@ def _find_filter_file(filter_name: str) -> Optional[Path]:
 
 
 def _extract_metadata(content: str) -> Dict[str, Any]:
-    """Extract metadata from the plugin docstring.
-    
-    Args:
-        content: Python file content
-    
-    Returns:
-        Dictionary with extracted metadata (title, author, version, etc.)
-    """
+    """Extract metadata from the plugin docstring."""
     metadata = {}
     
     # Extract docstring
@@ -108,32 +134,21 @@ def _extract_metadata(content: str) -> Dict[str, Any]:
     return metadata
 
 
-def _build_filter_payload(
-    filter_name: str, file_path: Path, content: str, metadata: Dict[str, Any]
+def _build_tool_payload(
+    tool_name: str, file_path: Path, content: str, metadata: Dict[str, Any]
 ) -> Dict[str, Any]:
-    """Build the payload for the filter update/create API.
-    
-    Args:
-        filter_name: Directory name of the filter
-        file_path: Path to the plugin file
-        content: File content
-        metadata: Extracted metadata
-    
-    Returns:
-        Payload dictionary ready for API submission
-    """
-    # Generate a unique ID from filter name
-    filter_id = metadata.get("id", filter_name).replace("-", "_")
-    title = metadata.get("title", filter_name)
+    """Build the payload for the tool update/create API."""
+    tool_id = metadata.get("id", tool_name).replace("-", "_")
+    title = metadata.get("title", tool_name)
     author = metadata.get("author", "Fu-Jie")
     author_url = metadata.get("author_url", "https://github.com/Fu-Jie/openwebui-extensions")
     funding_url = metadata.get("funding_url", "https://github.com/open-webui")
-    description = metadata.get("description", f"Filter plugin: {title}")
+    description = metadata.get("description", f"Tool plugin: {title}")
     version = metadata.get("version", "1.0.0")
     openwebui_id = metadata.get("openwebui_id", "")
     
     payload = {
-        "id": filter_id,
+        "id": tool_id,
         "name": title,
         "meta": {
             "description": description,
@@ -144,9 +159,9 @@ def _build_filter_payload(
                 "funding_url": funding_url,
                 "description": description,
                 "version": version,
-                "type": "filter",
+                "type": "tool",
             },
-            "type": "filter",
+            "type": "tool",
         },
         "content": content,
     }
@@ -158,28 +173,29 @@ def _build_filter_payload(
     return payload
 
 
-def deploy_filter(filter_name: str = DEFAULT_FILTER) -> bool:
-    """Deploy a filter plugin to OpenWebUI.
+def deploy_tool(tool_name: str = DEFAULT_TOOL) -> bool:
+    """Deploy a tool plugin to OpenWebUI.
     
     Args:
-        filter_name: Directory name of the filter to deploy
+        tool_name: Directory name of the tool to deploy
     
     Returns:
         True if successful, False otherwise
     """
-    # 1. Load API key
+    # 1. Load API key and base URL
     try:
         api_key = _load_api_key()
-    except (FileNotFoundError, ValueError) as e:
+        base_url = _get_base_url()
+    except ValueError as e:
         print(f"[ERROR] {e}")
         return False
 
-    # 2. Find filter file
-    file_path = _find_filter_file(filter_name)
+    # 2. Find tool file
+    file_path = _find_tool_file(tool_name)
     if not file_path:
-        print(f"[ERROR] Filter '{filter_name}' not found in {FILTERS_DIR}")
-        print(f"[INFO] Available filters:")
-        for d in FILTERS_DIR.iterdir():
+        print(f"[ERROR] Tool '{tool_name}' not found in {TOOLS_DIR}")
+        print(f"[INFO] Available tools:")
+        for d in TOOLS_DIR.iterdir():
             if d.is_dir() and not d.name.startswith("_"):
                 print(f"       - {d.name}")
         return False
@@ -197,11 +213,11 @@ def deploy_filter(filter_name: str = DEFAULT_FILTER) -> bool:
         return False
 
     version = metadata.get("version", "1.0.0")
-    title = metadata.get("title", filter_name)
-    filter_id = metadata.get("id", filter_name).replace("-", "_")
+    title = metadata.get("title", tool_name)
+    tool_id = metadata.get("id", tool_name).replace("-", "_")
 
     # 4. Build payload
-    payload = _build_filter_payload(filter_name, file_path, content, metadata)
+    payload = _build_tool_payload(tool_name, file_path, content, metadata)
 
     # 5. Build headers
     headers = {
@@ -210,11 +226,11 @@ def deploy_filter(filter_name: str = DEFAULT_FILTER) -> bool:
         "Authorization": f"Bearer {api_key}",
     }
 
-    # 6. Send update request
-    update_url = "http://localhost:3000/api/v1/functions/id/{}/update".format(filter_id)
-    create_url = "http://localhost:3000/api/v1/functions/create"
+    # 6. Send update request through the native tool endpoints
+    update_url = f"{base_url}/api/v1/tools/id/{tool_id}/update"
+    create_url = f"{base_url}/api/v1/tools/create"
     
-    print(f"📦 Deploying filter '{title}' (version {version})...")
+    print(f"📦 Deploying tool '{title}' (version {version})...")
     print(f"   File: {file_path}")
     
     try:
@@ -227,7 +243,7 @@ def deploy_filter(filter_name: str = DEFAULT_FILTER) -> bool:
         )
         
         if response.status_code == 200:
-            print(f"✅ Successfully updated '{title}' filter!")
+            print(f"✅ Successfully updated '{title}' tool!")
             return True
         else:
             print(
@@ -244,7 +260,7 @@ def deploy_filter(filter_name: str = DEFAULT_FILTER) -> bool:
             )
             
             if res_create.status_code == 200:
-                print(f"✅ Successfully created '{title}' filter!")
+                print(f"✅ Successfully created '{title}' tool!")
                 return True
             else:
                 print(f"❌ Failed to update or create. Status: {res_create.status_code}")
@@ -257,7 +273,7 @@ def deploy_filter(filter_name: str = DEFAULT_FILTER) -> bool:
                 
     except requests.exceptions.ConnectionError:
         print(
-            "❌ Connection error: Could not reach OpenWebUI at localhost:3000"
+            "❌ Connection error: Could not reach OpenWebUI at {base_url}"
         )
         print("   Make sure OpenWebUI is running and accessible.")
         return False
@@ -269,38 +285,38 @@ def deploy_filter(filter_name: str = DEFAULT_FILTER) -> bool:
         return False
 
 
-def list_filters() -> None:
-    """List all available filters."""
-    print("📋 Available filters:")
-    filters = [d.name for d in FILTERS_DIR.iterdir() if d.is_dir() and not d.name.startswith("_")]
+def list_tools() -> None:
+    """List all available tools."""
+    print("📋 Available tools:")
+    tools = [d.name for d in TOOLS_DIR.iterdir() if d.is_dir() and not d.name.startswith("_")]
     
-    if not filters:
-        print("   (No filters found)")
+    if not tools:
+        print("   (No tools found)")
         return
     
-    for filter_name in sorted(filters):
-        filter_dir = FILTERS_DIR / filter_name
-        py_file = _find_filter_file(filter_name)
+    for tool_name in sorted(tools):
+        tool_dir = TOOLS_DIR / tool_name
+        py_file = _find_tool_file(tool_name)
         
         if py_file:
             content = py_file.read_text(encoding="utf-8")
             metadata = _extract_metadata(content)
-            title = metadata.get("title", filter_name)
+            title = metadata.get("title", tool_name)
             version = metadata.get("version", "?")
-            print(f"   - {filter_name:<30} {title:<40} v{version}")
+            print(f"   - {tool_name:<30} {title:<40} v{version}")
         else:
-            print(f"   - {filter_name:<30} (no Python file found)")
+            print(f"   - {tool_name:<30} (no Python file found)")
 
 
 if __name__ == "__main__":
     if len(sys.argv) > 1:
         if sys.argv[1] == "--list" or sys.argv[1] == "-l":
-            list_filters()
+            list_tools()
         else:
-            filter_name = sys.argv[1]
-            success = deploy_filter(filter_name)
+            tool_name = sys.argv[1]
+            success = deploy_tool(tool_name)
             sys.exit(0 if success else 1)
     else:
-        # Deploy default filter
-        success = deploy_filter()
+        # Deploy default tool
+        success = deploy_tool()
         sys.exit(0 if success else 1)

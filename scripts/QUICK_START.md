@@ -1,76 +1,76 @@
-# ⚡ 快速部署参考 (Quick Deployment Reference)
+# ⚡ Quick Deployment Reference
 
-## 一行命令部署
+## One-line Deploy Commands
 
 ```bash
-# 部署 async_context_compression Filter（默认）
+# Deploy async_context_compression Filter (default)
 cd scripts && python deploy_filter.py
 
-# 列出所有可用 Filter
+# List all available Filters
 cd scripts && python deploy_filter.py --list
 ```
 
-## 前置步骤（仅需一次）
+## Setup Steps (One time only)
 
 ```bash
-# 1. 进入 scripts 目录
+# 1. Enter scripts directory
 cd scripts
 
-# 2. 创建 .env 文件，包含 OpenWebUI API 密钥
+# 2. Create .env file with your OpenWebUI API key
 echo "api_key=sk-your-api-key-here" > .env
 
-# 3. 确保 OpenWebUI 运行在 localhost:3003
+# 3. Make sure OpenWebUI is running on localhost:3000
 ```
 
-## 获取 API 密钥
+## Get Your API Key
 
-1. 打开 OpenWebUI → 用户头像 → Settings
-2. 找到 "API Keys" 部分
-3. 复制密钥（sk-开头）
-4. 粘贴到 `.env` 文件
+1. Open OpenWebUI → user avatar → Settings
+2. Find "API Keys" section
+3. Copy your key (starts with sk-)
+4. Paste into `.env` file
 
-## 部署流程
+## Deployment Workflow
 
 ```bash
-# 1. 编辑插件代码
+# 1. Edit plugin code
 vim ../plugins/filters/async-context-compression/async_context_compression.py
 
-# 2. 部署到本地
+# 2. Deploy to local
 python deploy_filter.py
 
-# 3. 在 OpenWebUI 测试（无需重启）
+# 3. Test in OpenWebUI (no restart needed)
 
-# 4. 重复部署（自动覆盖）
+# 4. Deploy again (auto-overwrites)
 python deploy_filter.py
 ```
 
-## 常见命令
+## Common Commands
 
-| 命令 | 说明 |
-|------|------|
-| `python deploy_filter.py` | 部署 async_context_compression |
-| `python deploy_filter.py filter-name` | 部署指定 Filter |
-| `python deploy_filter.py --list` | 列出所有可用 Filter |
-| `python deploy_pipe.py` | 部署 GitHub Copilot SDK Pipe |
+| Command | Description |
+|---------|-------------|
+| `python deploy_filter.py` | Deploy async_context_compression |
+| `python deploy_filter.py filter-name` | Deploy specific Filter |
+| `python deploy_filter.py --list` | List all available Filters |
+| `python deploy_pipe.py` | Deploy GitHub Copilot SDK Pipe |
 
-## 故障诊断
+## Troubleshooting
 
-| 错误 | 原因 | 解决方案 |
-|------|------|----------|
-| Connection error | OpenWebUI 未运行 | 启动 OpenWebUI 或检查端口 |
-| .env not found | 未创建配置文件 | `echo "api_key=sk-..." > .env` |
-| Filter not found | Filter 名称错误 | 运行 `python deploy_filter.py --list` |
-| Status 401 | API 密钥无效 | 更新 `.env` 中的密钥 |
+| Error | Cause | Solution |
+|-------|-------|----------|
+| Connection error | OpenWebUI not running | Start OpenWebUI or check port |
+| .env not found | Config file not created | `echo "api_key=sk-..." > .env` |
+| Filter not found | Filter name is wrong | Run `python deploy_filter.py --list` |
+| Status 401 | API key invalid | Update key in `.env` |
 
-## 文件位置
+## File Locations
 
 ```
 openwebui-extensions/
 ├── scripts/
-│   ├── deploy_filter.py        ← Filter 部署工具
-│   ├── deploy_pipe.py          ← Pipe 部署工具
-│   ├── .env                    ← API 密钥（不提交）
-│   └── DEPLOYMENT_GUIDE.md     ← 完整指南
+│   ├── deploy_filter.py        ← Filter deployment tool
+│   ├── deploy_pipe.py          ← Pipe deployment tool
+│   ├── .env                    ← API key (don't commit)
+│   └── DEPLOYMENT_GUIDE.md     ← Full guide
 │
 └── plugins/
     └── filters/
@@ -80,26 +80,26 @@ openwebui-extensions/
             └── README_CN.md
 ```
 
-## 工作流建议
+## Suggested Workflow
 
-### 快速迭代开发
+### Fast Iterative Development
 
 ```bash
-# Terminal 1: 启动 OpenWebUI（如果未运行）
-docker run -d -p 3003:8080 ghcr.io/open-webui/open-webui:latest
+# Terminal 1: Start OpenWebUI (if not running)
+docker run -d -p 3000:8080 ghcr.io/open-webui/open-webui:latest
 
-# Terminal 2: 开发环节（重复执行）
+# Terminal 2: Development loop (repeated)
 cd scripts
-code ../plugins/filters/async-context-compression/  # 编辑代码
-python deploy_filter.py                             # 部署
-# → 在 OpenWebUI 测试
-# → 返回编辑，重复
+code ../plugins/filters/async-context-compression/  # Edit code
+python deploy_filter.py                             # Deploy
+# → Test in OpenWebUI
+# → Go back to edit, repeat
 ```
 
-### CI/CD 集成
+### CI/CD Integration
 
 ```bash
-# 在 GitHub Actions 中
+# In GitHub Actions
 - name: Deploy filter to staging
   run: |
     cd scripts
@@ -110,4 +110,4 @@ python deploy_filter.py                             # 部署
 
 ---
 
-📚 **更多帮助**: 查看 `DEPLOYMENT_GUIDE.md`
+📚 **More Help**: See `DEPLOYMENT_GUIDE.md`

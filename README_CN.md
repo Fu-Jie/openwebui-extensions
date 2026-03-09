@@ -166,4 +166,13 @@ Open WebUI 的前端增强扩展：
 
 本项目是一个资源集合，无需安装 Python 环境。你只需要下载对应的文件并导入到你的 OpenWebUI 实例中即可。
 
+### 使用插件
+
+1. **从官方社区安装（推荐）**：
+   - 访问我的主页：[Fu-Jie 的个人页面](https://openwebui.com/u/Fu-Jie)
+   - 浏览插件并选择你喜欢的
+   - 点击"Get"按钮直接导入到你的 OpenWebUI 实例
+
+2. **快速安装所有插件**：如果想一次性安装此项目中的所有插件到本地 OpenWebUI 实例，克隆此仓库后运行 `python scripts/install_all_plugins.py`，并在 `.env` 中配置好 API 密钥，详见 [部署指南](./scripts/DEPLOYMENT_GUIDE.md)。
+
 [贡献指南](./CONTRIBUTING_CN.md) | [更新日志](./CHANGELOG.md)

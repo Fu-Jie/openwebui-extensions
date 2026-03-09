@@ -1,114 +1,114 @@
-# 📦 Async Context Compression — 本地部署工具 (Local Deployment Tools)
+# 📦 Async Context Compression — Local Deployment Tools
 
-## 🎯 功能概述
+## 🎯 Feature Overview
 
-为 `async_context_compression` Filter 插件添加了完整的本地部署工具链，支持快速迭代开发无需重启 OpenWebUI。
+Added a complete local deployment toolchain for the `async_context_compression` Filter plugin, supporting fast iterative development without restarting OpenWebUI.
 
-## 📋 新增文件
+## 📋 New Files
 
-### 1. **deploy_filter.py** — Filter 插件部署脚本
-- **位置**: `scripts/deploy_filter.py`
-- **功能**: 自动部署 Filter 类插件到本地 OpenWebUI 实例
-- **特性**:
-  - ✅ 从 Python docstring 自动提取元数据
-  - ✅ 智能版本号识别（semantic versioning）
-  - ✅ 支持多个 Filter 插件管理
-  - ✅ 自动更新或创建插件
-  - ✅ 详细的错误诊断和连接测试
-  - ✅ 列表指令查看所有可用 Filter
-- **代码行数**: ~300 行
+### 1. **deploy_filter.py** — Filter Plugin Deployment Script
+- **Location**: `scripts/deploy_filter.py`
+- **Function**: Auto-deploy Filter-type plugins to local OpenWebUI instance
+- **Features**:
+  - ✅ Auto-extract metadata from Python docstring
+  - ✅ Smart semantic version recognition
+  - ✅ Support multiple Filter plugin management
+  - ✅ Auto-update or create plugins
+  - ✅ Detailed error diagnostics and connection testing
+  - ✅ List command to view all available Filters
+- **Code Lines**: ~300
 
-### 2. **DEPLOYMENT_GUIDE.md** — 完整部署指南
-- **位置**: `scripts/DEPLOYMENT_GUIDE.md`
-- **内容**:
-  - 前置条件和快速开始
-  - 脚本详细说明
-  - API 密钥获取方法
-  - 故障排除指南
-  - 分步工作流示例
+### 2. **DEPLOYMENT_GUIDE.md** — Complete Deployment Guide
+- **Location**: `scripts/DEPLOYMENT_GUIDE.md`
+- **Contents**:
+  - Prerequisites and quick start
+  - Detailed script documentation
+  - API key retrieval method
+  - Troubleshooting guide
+  - Step-by-step workflow examples
 
-### 3. **QUICK_START.md** — 快速参考卡片
-- **位置**: `scripts/QUICK_START.md`
-- **内容**:
-  - 一行命令部署
-  - 前置步骤
-  - 常见命令表格
-  - 故障诊断速查表
-  - CI/CD 集成示例
+### 3. **QUICK_START.md** — Quick Reference Card
+- **Location**: `scripts/QUICK_START.md`
+- **Contents**:
+  - One-line deployment command
+  - Setup steps
+  - Common commands table
+  - Troubleshooting quick-reference table
+  - CI/CD integration examples
 
-### 4. **test_deploy_filter.py** — 单元测试套件
-- **位置**: `tests/scripts/test_deploy_filter.py`
-- **测试覆盖**:
-  - ✅ Filter 文件发现 (3 个测试)
-  - ✅ 元数据提取 (3 个测试)
-  - ✅ API 负载构建 (4 个测试)
-- **测试通过率**: 10/10 ✅
+### 4. **test_deploy_filter.py** — Unit Test Suite
+- **Location**: `tests/scripts/test_deploy_filter.py`
+- **Test Coverage**:
+  - ✅ Filter file discovery (3 tests)
+  - ✅ Metadata extraction (3 tests)
+  - ✅ API payload building (4 tests)
+- **Pass Rate**: 10/10 ✅
 
-## 🚀 使用方式
+## 🚀 Usage
 
-### 基本部署（一行命令）
+### Basic Deploy (One-liner)
 
 ```bash
 cd scripts
 python deploy_filter.py
 ```
 
-### 列出所有可用 Filter
+### List All Available Filters
 
 ```bash
 python deploy_filter.py --list
 ```
 
-### 部署指定 Filter
+### Deploy Specific Filter
 
 ```bash
 python deploy_filter.py folder-memory
 python deploy_filter.py context_enhancement_filter
 ```
 
-## 🔧 工作原理
+## 🔧 How It Works
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│ 1. 加载 API 密钥 (.env)                                      │
+│ 1. Load API key (.env)                                      │
 └──────────────────┬──────────────────────────────────────────┘
                    │
 ┌──────────────────▼──────────────────────────────────────────┐
-│ 2. 查找 Filter 插件文件                                      │
-│    - 从名称推断文件路径                                     │
-│    - 支持 hyphen-case 和 snake_case 查找                    │
+│ 2. Find Filter plugin file                                  │
+│    - Infer file path from name                              │
+│    - Support hyphen-case and snake_case lookup              │
 └──────────────────┬──────────────────────────────────────────┘
                    │
 ┌──────────────────▼──────────────────────────────────────────┐
-│ 3. 读取 Python 源代码                                        │
-│    - 提取 docstring 元数据                                  │
+│ 3. Read Python source code                                  │
+│    - Extract docstring metadata                             │
 │    - title, version, author, description, openwebui_id      │
 └──────────────────┬──────────────────────────────────────────┘
                    │
 ┌──────────────────▼──────────────────────────────────────────┐
-│ 4. 构建 API 请求负载                                        │
-│    - 组装 manifest 和 meta 信息                             │
-│    - 包含完整源代码内容                                     │
+│ 4. Build API request payload                                │
+│    - Assemble manifest and meta info                        │
+│    - Include complete source code content                   │
 └──────────────────┬──────────────────────────────────────────┘
                    │
 ┌──────────────────▼──────────────────────────────────────────┐
-│ 5. 发送请求                                                │
-│    - POST /api/v1/functions/id/{id}/update （更新）         │
-│    - POST /api/v1/functions/create （创建备用）             │
+│ 5. Send request                                             │
+│    - POST /api/v1/functions/id/{id}/update (update)         │
+│    - POST /api/v1/functions/create (create fallback)        │
 └──────────────────┬──────────────────────────────────────────┘
                    │
 ┌──────────────────▼──────────────────────────────────────────┐
-│ 6. 显示结果和诊断                                           │
-│    - ✅ 更新/创建成功                                       │
-│    - ❌ 错误信息和解决建议                                  │
+│ 6. Display results and diagnostics                          │
+│    - ✅ Update/create success                               │
+│    - ❌ Error messages and solutions                        │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-## 📊 支持的 Filter 列表
+## 📊 Supported Filters List
 
-脚本自动发现以下 Filter：
+Script auto-discovers the following Filters:
 
-| Filter 名称 | Python 文件 | 版本 |
+| Filter Name | Python File | Version |
 |-----------|-----------|------|
 | async-context-compression | async_context_compression.py | 1.3.0+ |
 | chat-session-mapping-filter | chat_session_mapping_filter.py | 0.1.0+ |
@@ -118,11 +118,11 @@ python deploy_filter.py context_enhancement_filter
 | markdown_normalizer | markdown_normalizer.py | 1.2.8+ |
 | web_gemini_multimodel_filter | web_gemini_multimodel_filter.py | 0.3.2+ |
 
-## ⚙️ 技术细节
+## ⚙️ Technical Details
 
-### 元数据提取
+### Metadata Extraction
 
-脚本从 Python 文件顶部的 docstring 中提取元数据：
+Script extracts metadata from the docstring at the top of Python file:
 
 ```python
 """
@@ -137,111 +137,111 @@ openwebui_id: b1655bc8-6de9-4cad-8cb5-a6f7829a02ce
 """
 ```
 
-**支持的元数据字段**:
-- `title` — Filter 显示名称 ✅
-- `id` — 唯一标识符 ✅
-- `author` — 作者名称 ✅
-- `author_url` — 作者主页链接 ✅
-- `funding_url` — 项目链接 ✅
-- `description` — 功能描述 ✅
-- `version` — 语义化版本号 ✅
-- `openwebui_id` — OpenWebUI UUID （可选）
+**Supported Metadata Fields**:
+- `title` — Filter display name ✅
+- `id` — Unique identifier ✅
+- `author` — Author name ✅
+- `author_url` — Author homepage ✅
+- `funding_url` — Project link ✅
+- `description` — Feature description ✅
+- `version` — Semantic version number ✅
+- `openwebui_id` — OpenWebUI UUID (optional)
 
-### API 集成
+### API Integration
 
-脚本使用 OpenWebUI REST API：
+Script uses OpenWebUI REST API:
 
 ```
 POST /api/v1/functions/id/{filter_id}/update
-- 更新现有 Filter
-- HTTP 200: 更新成功
-- HTTP 404: Filter 不存在，自动尝试创建
+- Update existing Filter
+- HTTP 200: Update success
+- HTTP 404: Filter not found, auto-attempt create
 
 POST /api/v1/functions/create
-- 创建新 Filter
-- HTTP 200: 创建成功
+- Create new Filter
+- HTTP 200: Creation success
 ```
 
-**认证**: Bearer token (API 密钥方式)
+**Authentication**: Bearer token (API key method)
 
-## 🔐 安全性
+## 🔐 Security
 
-### API 密钥管理
+### API Key Management
 
 ```bash
-# 1. 创建 .env 文件
+# 1. Create .env file
 echo "api_key=sk-your-key-here" > scripts/.env
 
-# 2. 将 .env 添加到 .gitignore
+# 2. Add .env to .gitignore
 echo "scripts/.env" >> .gitignore
 
-# 3. 不要提交 API 密钥
+# 3. Don't commit API key
 git add scripts/.gitignore
 git commit -m "chore: add .env to gitignore"
 ```
 
-### 最佳实践
+### Best Practices
 
-- ✅ 使用长期认证令牌（而不是短期 JWT）
-- ✅ 定期轮换 API 密钥
-- ✅ 限制密钥权限范围
-- ✅ 在可信网络中使用
-- ✅ 生产环境使用 CI/CD 秘密管理
+- ✅ Use long-term auth tokens (not short-term JWT)
+- ✅ Rotate API keys periodically
+- ✅ Limit key permission scope
+- ✅ Use only on trusted networks
+- ✅ Use CI/CD secret management in production
 
-## 🧪 测试验证
+## 🧪 Test Verification
 
-### 运行测试套件
+### Run Test Suite
 
 ```bash
 pytest tests/scripts/test_deploy_filter.py -v
 ```
 
-### 测试覆盖范围
+### Test Coverage
 
 ```
-✅ TestFilterDiscovery (3 个测试)
+✅ TestFilterDiscovery (3 tests)
    - test_find_async_context_compression
    - test_find_nonexistent_filter
    - test_find_filter_with_underscores
 
-✅ TestMetadataExtraction (3 个测试)
+✅ TestMetadataExtraction (3 tests)
    - test_extract_metadata_from_async_compression
    - test_extract_metadata_empty_file
    - test_extract_metadata_multiline_docstring
 
-✅ TestPayloadBuilding (4 个测试)
+✅ TestPayloadBuilding (4 tests)
    - test_build_filter_payload_basic
    - test_payload_has_required_fields
    - test_payload_with_openwebui_id
 
-✅ TestVersionExtraction (1 个测试)
+✅ TestVersionExtraction (1 test)
    - test_extract_valid_version
 
-结果: 10/10 通过 ✅
+Result: 10/10 PASSED ✅
 ```
 
-## 💡 常见用例
+## 💡 Common Use Cases
 
-### 用例 1: 修复 Bug 后快速测试
+### Use Case 1: Quick Test After Bug Fix
 
 ```bash
-# 1. 修改代码
+# 1. Modify code
 vim plugins/filters/async-context-compression/async_context_compression.py
 
-# 2. 立即部署（不需要重启 OpenWebUI）
+# 2. Deploy immediately (no OpenWebUI restart needed)
 cd scripts && python deploy_filter.py
 
-# 3. 在 OpenWebUI 中测试修复
-# 4. 重复迭代（返回步骤 1）
+# 3. Test fix in OpenWebUI
+# 4. Iterate (return to step 1)
 ```
 
-### 用例 2: 开发新的 Filter
+### Use Case 2: Develop New Filter
 
 ```bash
-# 1. 创建新 Filter 目录
+# 1. Create new Filter directory
 mkdir plugins/filters/my-new-filter
 
-# 2. 编写代码（包含必要的 docstring 元数据）
+# 2. Write code (include required docstring metadata)
 cat > plugins/filters/my-new-filter/my_new_filter.py << 'EOF'
 """
 title: My New Filter
@@ -254,33 +254,33 @@ class Filter:
     # ... implementation ...
 EOF
 
-# 3. 首次部署（创建）
+# 3. First deployment (create)
 cd scripts && python deploy_filter.py my-new-filter
 
-# 4. 在 OpenWebUI UI 测试
-# 5. 重复更新
+# 4. Test in OpenWebUI UI
+# 5. Repeat updates
 cd scripts && python deploy_filter.py my-new-filter
 ```
 
-### 用例 3: 版本更新和发布
+### Use Case 3: Version Update and Release
 
 ```bash
-# 1. 更新版本号
+# 1. Update version number
 vim plugins/filters/async-context-compression/async_context_compression.py
-# 修改: version: 1.3.0 → version: 1.4.0
+# Change: version: 1.3.0 → version: 1.4.0
 
-# 2. 部署新版本
+# 2. Deploy new version
 cd scripts && python deploy_filter.py
 
-# 3. 测试通过后提交
+# 3. After testing, commit
 git add plugins/filters/async-context-compression/
 git commit -m "feat(filters): update async-context-compression to 1.4.0"
 git push
 ```
 
-## 🔄 CI/CD 集成
+## 🔄 CI/CD Integration
 
-### GitHub Actions 示例
+### GitHub Actions Example
 
 ```yaml
 name: Deploy Filter on Release
@@ -308,71 +308,71 @@ jobs:
           api_key: ${{ secrets.OPENWEBUI_API_KEY }}
 ```
 
-## 📚 参考文档
+## 📚 Reference Documentation
 
-- [完整部署指南](DEPLOYMENT_GUIDE.md)
-- [快速参考卡片](QUICK_START.md)
-- [测试套件](../tests/scripts/test_deploy_filter.py)
-- [插件开发指南](../docs/development/plugin-guide.md)
-- [OpenWebUI 文档](https://docs.openwebui.com/)
+- [Complete Deployment Guide](DEPLOYMENT_GUIDE.md)
+- [Quick Reference Card](QUICK_START.md)
+- [Test Suite](../tests/scripts/test_deploy_filter.py)
+- [Plugin Development Guide](../docs/development/plugin-guide.md)
+- [OpenWebUI Documentation](https://docs.openwebui.com/)
 
-## 🎓 学习资源
+## 🎓 Learning Resources
 
-### 架构理解
+### Architecture Understanding
 
 ```
-OpenWebUI 系统设计
+OpenWebUI System Design
     ↓
-Filter 插件类型定义
+Filter Plugin Type Definition
     ↓
-REST API 接口 (/api/v1/functions)
+REST API Interface (/api/v1/functions)
     ↓
-本地部署脚本实现 (deploy_filter.py)
+Local Deployment Script Implementation (deploy_filter.py)
     ↓
-元数据提取和投递
+Metadata Extraction and Delivery
 ```
 
-### 调试技巧
+### Debugging Tips
 
-1. **启用详细日志**:
+1. **Enable Verbose Logging**:
    ```bash
    python deploy_filter.py 2>&1 | tee deploy.log
    ```
 
-2. **测试 API 连接**:
+2. **Test API Connection**:
    ```bash
-   curl -X GET http://localhost:3003/api/v1/functions \
+   curl -X GET http://localhost:3000/api/v1/functions \
      -H "Authorization: Bearer $API_KEY"
    ```
 
-3. **验证 .env 文件**:
+3. **Verify .env File**:
    ```bash
    grep "api_key=" scripts/.env
    ```
 
-## 📞 故障排除
+## 📞 Troubleshooting
 
-| 问题 | 诊断 | 解决方案 |
-|------|------|----------|
-| Connection error | OpenWebUI 地址/端口不对 | 检查 localhost:3003；修改 URL 如需要 |
-| .env not found | 未创建配置文件 | `echo "api_key=sk-..." > scripts/.env` |
-| Filter not found | 插件名称错误 | 运行 `python deploy_filter.py --list` |
-| Status 401 | API 密钥无效/过期 | 更新 `.env` 中的密钥 |
-| Status 500 | 服务器错误 | 检查 OpenWebUI 服务日志 |
+| Issue | Diagnosis | Solution |
+|-------|-----------|----------|
+| Connection error | Wrong OpenWebUI address/port | Check localhost:3000; modify URL if needed |
+| .env not found | Config file not created | `echo "api_key=sk-..." > scripts/.env` |
+| Filter not found | Wrong Plugin name | Run `python deploy_filter.py --list` |
+| Status 401 | Invalid/expired API key | Update key in `.env` |
+| Status 500 | Server error | Check OpenWebUI service logs |
 
-## ✨ 特色功能
+## ✨ Highlight Features
 
-| 特性 | 描述 |
-|------|------|
-| 🔍 自动发现 | 自动查找所有 Filter 插件 |
-| 📊 元数据提取 | 从代码自动提取版本和元数据 |
-| ♻️ 自动更新 | 智能处理更新或创建 |
-| 🛡️ 错误处理 | 详细的错误提示和诊断信息 |
-| 🚀 快速迭代 | 秒级部署，无需重启 |
-| 🧪 完整测试 | 10 个单元测试覆盖核心功能 |
+| Feature | Description |
+|---------|-------------|
+| 🔍 Auto Discovery | Automatically find all Filter plugins |
+| 📊 Metadata Extraction | Auto-extract version and metadata from code |
+| ♻️ Auto-update | Smart handling of update or create |
+| 🛡️ Error Handling | Detailed error messages and diagnostics |
+| 🚀 Fast Iteration | Second-level deployment, no restart |
+| 🧪 Complete Testing | 10 unit tests covering core functions |
 
 ---
 
-**最后更新**: 2026-03-09  
-**作者**: Fu-Jie  
-**项目**: [openwebui-extensions](https://github.com/Fu-Jie/openwebui-extensions)
+**Last Updated**: 2026-03-09  
+**Author**: Fu-Jie  
+**Project**: [openwebui-extensions](https://github.com/Fu-Jie/openwebui-extensions)

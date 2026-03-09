@@ -1,91 +1,91 @@
-# 🔄 快速参考：部署更新机制 (Quick Reference)
+# 🔄 Quick Reference: Deployment Update Mechanism
 
-## 最简短的答案
+## The Shortest Answer
 
-✅ **再次部署会自动更新。**
+✅ **Re-deploying automatically updates the plugin.**
 
-## 工作原理 (30 秒理解)
+## How It Works (30-second understanding)
 
 ```
-每次运行部署脚本：
-1. 优先尝试 UPDATE（如果插件已存在）→ 更新成功
-2. 失败时自动 CREATE（第一次部署时）→ 创建成功
+Each time you run the deploy script:
+1. Priority: try UPDATE (if plugin exists) → succeeds
+2. Fallback: auto CREATE (first deployment) → succeeds
 
-结果：
-✅ 不管第几次部署，脚本都能正确处理
-✅ 无需手动判断创建还是更新
-✅ 立即生效，无需重启
+Result:
+✅ Works correctly every time, regardless of deployment count
+✅ No manual judgement needed between create vs update
+✅ Takes effect immediately, no restart needed
 ```
 
-## 三个场景
+## Three Scenarios
 
-| 场景 | 发生什么 | 结果 |
-|------|---------|------|
-| **第1次部署** | UPDATE 失败 → CREATE 成功 | ✅ 插件被创建 |
-| **修改代码后再次部署** | UPDATE 直接成功 | ✅ 插件立即更新 |
-| **未修改，重复部署** | UPDATE 成功 (无任何变化) | ✅ 无效果 (安全) |
+| Scenario | What Happens | Result |
+|----------|-------------|--------|
+| **First deployment** | UPDATE fails → CREATE succeeds | ✅ Plugin created |
+| **Deploy after code change** | UPDATE succeeds directly | ✅ Plugin updates instantly |
+| **Deploy without changes** | UPDATE succeeds (no change) | ✅ Safe (no effect) |
 
-## 开发流程
+## Development Workflow
 
 ```bash
-# 1. 第一次部署
+# 1. First deployment
 python deploy_async_context_compression.py
-# 结果: ✅ Created
+# Result: ✅ Created
 
-# 2. 修改代码
+# 2. Modify code
 vim ../plugins/filters/async-context-compression/async_context_compression.py
-# 编辑...
+# Edit...
 
-# 3. 再次部署 (自动更新)
+# 3. Deploy again (auto-update)
 python deploy_async_context_compression.py
-# 结果: ✅ Updated
+# Result: ✅ Updated
 
-# 4. 继续修改，重复部署
-# ... 可以无限重复 ...
+# 4. Continue editing and redeploying
+# ... can repeat infinitely ...
 ```
 
-## 关键点
+## Key Points
 
-✅ **自动化** — 不用管是更新还是创建  
-✅ **快速** — 每次部署 5 秒  
-✅ **安全** — 用户配置不会被覆盖  
-✅ **即时** — 无需重启 OpenWebUI  
-✅ **版本管理** — 自动从代码提取版本号  
+✅ **Automated** — No need to worry about create vs update  
+✅ **Fast** — Each deployment takes 5 seconds  
+✅ **Safe** — User configuration never gets overwritten  
+✅ **Instant** — No need to restart OpenWebUI  
+✅ **Version Management** — Auto-extracted from code  
 
-## 版本号怎么管理？
+## How to Manage Version Numbers?
 
-修改代码中的版本号：
+Modify the version in your code:
 
 ```python
 # async_context_compression.py
 
 """
-version: 1.3.0 → 1.3.1 (修复 Bug)
-version: 1.3.0 → 1.4.0 (新功能)
-version: 1.3.0 → 2.0.0 (重大更新)
+version: 1.3.0 → 1.3.1 (Bug fixes)
+version: 1.3.0 → 1.4.0 (New features)
+version: 1.3.0 → 2.0.0 (Major updates)
 """
 ```
 
-然后部署，脚本会自动读取新版本号并更新。
+Then deploy, the script will auto-read the new version and update.
 
-## 常见问题速答
+## Quick Q&A
 
-**Q: 用户的配置会被覆盖吗？**  
-A: ❌ 不会，Valves 配置保持不变
+**Q: Will user configuration be overwritten?**  
+A: ❌ No, Valves configuration stays the same
 
-**Q: 需要重启 OpenWebUI 吗？**  
-A: ❌ 不需要，立即生效
+**Q: Do I need to restart OpenWebUI?**  
+A: ❌ No, takes effect immediately
 
-**Q: 更新失败了会怎样？**  
-A: ✅ 安全，保持原有插件不变
+**Q: What if update fails?**  
+A: ✅ Safe, keeps original plugin intact
 
-**Q: 可以无限制地重复部署吗？**  
-A: ✅ 可以，完全幂等
+**Q: Can I deploy unlimited times?**  
+A: ✅ Yes, completely idempotent
 
-## 一行总结
+## One-liner Summary
 
-> 首次部署创建插件，之后每次部署自动更新，5 秒即时反馈，无需重启。
+> First deployment creates plugin, subsequent deployments auto-update, 5-second feedback, no restart needed.
 
 ---
 
-📖 详细文档：`scripts/UPDATE_MECHANISM.md`
+📖 Full docs: `scripts/UPDATE_MECHANISM.md`
