@@ -5,17 +5,16 @@ author: Fu-Jie
 author_url: https://github.com/Fu-Jie/openwebui-extensions
 funding_url: https://github.com/open-webui
 description: Reduces token consumption in long conversations while maintaining coherence through intelligent summarization and message compression.
-version: 1.4.0
+version: 1.4.1
 openwebui_id: b1655bc8-6de9-4cad-8cb5-a6f7829a02ce
 license: MIT
 
 ═══════════════════════════════════════════════════════════════════════════════
-📌 What's new in 1.3.0
+📌 What's new in 1.4.1
 ═══════════════════════════════════════════════════════════════════════════════
 
-  ✅ Smart Status Display: Added `token_usage_status_threshold` valve (default 80%) to control when token usage status is shown, reducing unnecessary notifications.
-  ✅ Copilot SDK Integration: Automatically detects and skips compression for copilot_sdk based models to prevent conflicts.
-  ✅ Improved User Experience: Status messages now only appear when token usage exceeds the configured threshold, keeping the interface cleaner.
+  ✅ Reverse-Unfolding Mechanism: Accurately reconstructs the expanded native tool-calling sequence during the outlet phase to permanently fix coordinate drift and missing summaries for long tool-based conversations.
+  ✅ Safer Tool Trimming: Refactored `enable_tool_output_trimming` to strictly use atomic block groups for safe trimming, completely preventing JSON payload corruption.
 
 ═══════════════════════════════════════════════════════════════════════════════
 📌 Overview
@@ -122,7 +121,7 @@ model_thresholds
 
 enable_tool_output_trimming
   Default: false
-  Description: When enabled and `function_calling: "native"` is active, trims verbose tool outputs to extract only the final answer.
+  Description: When enabled and `function_calling: "native"` is active, collapses oversized native tool outputs (role="tool" messages exceeding ~1200 chars) to a short placeholder, reducing context size while preserving tool-call chain structure.
 
 keep_first
   Default: 1
@@ -268,10 +267,13 @@ import hashlib
 import time
 import contextlib
 import logging
+from copy import deepcopy
 from functools import lru_cache
 
 # Setup logger
 logger = logging.getLogger(__name__)
+
+SUMMARY_METADATA_SOURCE = "async_context_compression"
 
 # Open WebUI built-in imports
 from open_webui.utils.chat import generate_chat_completion
@@ -279,6 +281,16 @@ from open_webui.models.users import Users
 from open_webui.models.models import Models
 from fastapi.requests import Request
 from open_webui.main import app as webui_app
+
+try:
+    from open_webui.models.chats import Chats
+except ModuleNotFoundError:  # pragma: no cover - filter runs inside OpenWebUI
+    Chats = None
+
+try:
+    from open_webui.models.chat_messages import ChatMessages
+except ModuleNotFoundError:  # pragma: no cover - filter runs inside OpenWebUI
+    ChatMessages = None
 
 # Open WebUI internal database (re-use shared connection)
 try:
@@ -612,6 +624,325 @@ class Filter:
             self._chat_locks[chat_id] = asyncio.Lock()
         return self._chat_locks[chat_id]
 
+    def _is_summary_message(self, message: Dict[str, Any]) -> bool:
+        """Return True when the message is this filter's injected summary marker."""
+        metadata = message.get("metadata", {})
+        if not isinstance(metadata, dict):
+            return False
+        return bool(
+            metadata.get("is_summary")
+            and metadata.get("source") == SUMMARY_METADATA_SOURCE
+        )
+
+    def _build_summary_message(
+        self, summary_text: str, lang: str, covered_until: int
+    ) -> Dict[str, Any]:
+        """Create a summary marker message with original-history progress metadata."""
+        summary_content = (
+            self._get_translation(lang, "summary_prompt_prefix")
+            + f"{summary_text}"
+            + self._get_translation(lang, "summary_prompt_suffix")
+        )
+        return {
+            "role": "assistant",
+            "content": summary_content,
+            "metadata": {
+                "is_summary": True,
+                "source": SUMMARY_METADATA_SOURCE,
+                "covered_until": max(0, int(covered_until)),
+            },
+        }
+
+    def _get_summary_view_state(self, messages: List[Dict]) -> Dict[str, Optional[int]]:
+        """Inspect the current message view and recover summary marker metadata."""
+        for index, message in enumerate(messages):
+            if not self._is_summary_message(message):
+                continue
+
+            metadata = message.get("metadata", {})
+            covered_until = metadata.get("covered_until", 0)
+            if not isinstance(covered_until, int) or covered_until < 0:
+                covered_until = 0
+
+            return {
+                "summary_index": index,
+                "base_progress": covered_until,
+            }
+
+        return {"summary_index": None, "base_progress": 0}
+
+    def _get_original_history_count(self, messages: List[Dict]) -> int:
+        """Map the current visible message list back to original-history size."""
+        summary_state = self._get_summary_view_state(messages)
+        summary_index = summary_state["summary_index"]
+        base_progress = summary_state["base_progress"] or 0
+
+        if summary_index is None:
+            return len(messages)
+
+        return base_progress + max(0, len(messages) - summary_index - 1)
+
+    def _calculate_target_compressed_count(self, messages: List[Dict]) -> int:
+        """Calculate the next summary boundary in original-history coordinates."""
+        summary_state = self._get_summary_view_state(messages)
+        summary_index = summary_state["summary_index"]
+        base_progress = summary_state["base_progress"] or 0
+
+        original_count = self._get_original_history_count(messages)
+        raw_target = max(base_progress, original_count - self.valves.keep_last)
+
+        if summary_index is None:
+            protected_prefix = self._get_effective_keep_first(messages)
+            return self._align_tail_start_to_atomic_boundary(
+                messages, raw_target, protected_prefix
+            )
+
+        if raw_target <= base_progress:
+            return base_progress
+
+        tail_messages = messages[summary_index + 1 :]
+        local_target = raw_target - base_progress
+        aligned_local_target = self._align_tail_start_to_atomic_boundary(
+            tail_messages, local_target, 0
+        )
+        return base_progress + aligned_local_target
+
+    def _reconstruct_active_history_branch(
+        self, history_messages: Any, current_id: Optional[str]
+    ) -> List[Dict[str, Any]]:
+        """Rebuild the active chat branch from OpenWebUI `history.messages` data."""
+        if not isinstance(history_messages, dict) or not history_messages:
+            return []
+
+        if isinstance(current_id, str) and current_id in history_messages:
+            ordered_messages: List[Dict[str, Any]] = []
+            visited = set()
+            cursor = current_id
+
+            while isinstance(cursor, str) and cursor and cursor not in visited:
+                visited.add(cursor)
+                node = history_messages.get(cursor)
+                if not isinstance(node, dict):
+                    break
+
+                ordered_messages.append(deepcopy(node))
+                cursor = node.get("parentId") or node.get("parent_id")
+
+            if ordered_messages:
+                ordered_messages.reverse()
+                return ordered_messages
+
+        sortable_messages = []
+        for index, node in enumerate(history_messages.values()):
+            if not isinstance(node, dict):
+                continue
+
+            timestamp = node.get("timestamp")
+            if not isinstance(timestamp, (int, float)):
+                timestamp = node.get("created_at")
+            if not isinstance(timestamp, (int, float)):
+                timestamp = index
+
+            sortable_messages.append((float(timestamp), index, deepcopy(node)))
+
+        sortable_messages.sort(key=lambda item: (item[0], item[1]))
+        return [message for _, _, message in sortable_messages]
+
+    def _load_full_chat_messages(self, chat_id: str) -> List[Dict[str, Any]]:
+        """Load the full persisted chat history for summary decisions when available."""
+        if not chat_id or Chats is None:
+            return []
+
+        try:
+            chat_record = Chats.get_chat_by_id(chat_id)
+        except Exception as exc:
+            logger.warning(f"[Chat Load] Failed to fetch chat {chat_id}: {exc}")
+            return []
+
+        chat_payload = getattr(chat_record, "chat", None)
+        if not isinstance(chat_payload, dict):
+            return []
+
+        direct_messages = chat_payload.get("messages")
+        if isinstance(direct_messages, list) and direct_messages:
+            return deepcopy(direct_messages)
+
+        history = chat_payload.get("history")
+        if not isinstance(history, dict):
+            return []
+
+        history_messages = history.get("messages")
+        if not isinstance(history_messages, dict) or not history_messages:
+            return []
+
+        current_id = history.get("currentId") or history.get("current_id")
+        return self._reconstruct_active_history_branch(history_messages, current_id)
+
+    def _shorten_tool_call_id(self, tool_call_id: str, max_length: int = 40) -> str:
+        """Keep tool call IDs within provider limits while staying deterministic."""
+        if not isinstance(tool_call_id, str):
+            return tool_call_id
+
+        cleaned_id = tool_call_id.strip()
+        if len(cleaned_id) <= max_length:
+            return cleaned_id
+
+        hash_suffix = hashlib.sha1(cleaned_id.encode("utf-8")).hexdigest()[:8]
+        prefix_length = max(0, max_length - len(hash_suffix) - 1)
+        return f"{cleaned_id[:prefix_length]}_{hash_suffix}"
+
+    def _normalize_native_tool_call_ids(self, messages: List[Dict]) -> int:
+        """Normalize overlong native tool-call IDs and keep assistant/tool links aligned."""
+        rewritten_ids: Dict[str, str] = {}
+
+        for message in messages:
+            tool_calls = message.get("tool_calls")
+            if not isinstance(tool_calls, list):
+                continue
+
+            for tool_call in tool_calls:
+                if not isinstance(tool_call, dict):
+                    continue
+
+                original_id = tool_call.get("id")
+                if not isinstance(original_id, str) or not original_id.strip():
+                    continue
+
+                normalized_id = rewritten_ids.get(original_id)
+                if normalized_id is None:
+                    normalized_id = self._shorten_tool_call_id(original_id)
+                    rewritten_ids[original_id] = normalized_id
+
+                tool_call["id"] = normalized_id
+
+        if not rewritten_ids:
+            return 0
+
+        normalized_count = 0
+        for message in messages:
+            tool_call_id = message.get("tool_call_id")
+            if not isinstance(tool_call_id, str):
+                continue
+
+            normalized_id = rewritten_ids.get(tool_call_id)
+            if normalized_id and normalized_id != tool_call_id:
+                message["tool_call_id"] = normalized_id
+                normalized_count += 1
+
+        return sum(1 for old_id, new_id in rewritten_ids.items() if old_id != new_id)
+
+    def _trim_native_tool_outputs(self, messages: List[Dict], lang: str) -> int:
+        """Collapse verbose native tool outputs while preserving tool-call structure."""
+        trimmed_count = 0
+        tool_trim_threshold_chars = 1200
+        collapsed_text = self._get_translation(lang, "content_collapsed").strip()
+
+        for group in self._get_atomic_groups(messages):
+            if len(group) < 2:
+                continue
+
+            grouped_messages = [messages[index] for index in group]
+            first_message = grouped_messages[0]
+            trailing_messages = grouped_messages[1:]
+
+            if not (
+                first_message.get("role") == "assistant"
+                and first_message.get("tool_calls")
+                and trailing_messages
+            ):
+                continue
+
+            last_message = grouped_messages[-1]
+            assistant_followup = None
+            tool_messages = trailing_messages
+
+            if (
+                len(grouped_messages) >= 3
+                and last_message.get("role") == "assistant"
+                and all(msg.get("role") == "tool" for msg in grouped_messages[1:-1])
+            ):
+                assistant_followup = last_message
+                tool_messages = grouped_messages[1:-1]
+            elif not all(msg.get("role") == "tool" for msg in trailing_messages):
+                continue
+
+            tool_chars = sum(len(str(msg.get("content", ""))) for msg in tool_messages)
+            if tool_chars < tool_trim_threshold_chars:
+                continue
+
+            for tool_message in tool_messages:
+                metadata = tool_message.get("metadata", {})
+                if not isinstance(metadata, dict):
+                    metadata = {}
+                metadata["is_trimmed"] = True
+                metadata["trimmed_by"] = SUMMARY_METADATA_SOURCE
+                tool_message["metadata"] = metadata
+                tool_message["content"] = collapsed_text
+                trimmed_count += 1
+
+            if assistant_followup is not None:
+                final_content = assistant_followup.get("content", "")
+                if isinstance(final_content, str) and final_content.strip():
+                    assistant_metadata = assistant_followup.get("metadata", {})
+                    if not isinstance(assistant_metadata, dict):
+                        assistant_metadata = {}
+                    if not assistant_metadata.get("tool_outputs_trimmed"):
+                        assistant_followup["content"] = self._get_translation(
+                            lang, "tool_trimmed", content=final_content
+                        )
+                        assistant_metadata["tool_outputs_trimmed"] = True
+                        assistant_metadata["trimmed_by"] = SUMMARY_METADATA_SOURCE
+                        assistant_followup["metadata"] = assistant_metadata
+
+        for message in messages:
+            content = message.get("content", "")
+            if (
+                not isinstance(content, str)
+                or '<details type="tool_calls"' not in content
+            ):
+                continue
+
+            trimmed_blocks = 0
+
+            def _replace_tool_block(match: re.Match) -> str:
+                nonlocal trimmed_blocks
+                block = match.group(0)
+                result_match = re.search(r'result="([^"]*)"', block)
+
+                if not result_match:
+                    return block
+
+                if len(result_match.group(1)) < tool_trim_threshold_chars:
+                    return block
+
+                trimmed_blocks += 1
+                return re.sub(
+                    r'result="([^"]*)"',
+                    f'result="&quot;{collapsed_text}&quot;"',
+                    block,
+                    count=1,
+                )
+
+            new_content = re.sub(
+                r'<details type="tool_calls"[\s\S]*?</details>',
+                _replace_tool_block,
+                content,
+            )
+
+            if trimmed_blocks <= 0:
+                continue
+
+            metadata = message.get("metadata", {})
+            if not isinstance(metadata, dict):
+                metadata = {}
+            metadata["tool_outputs_trimmed"] = True
+            metadata["trimmed_by"] = SUMMARY_METADATA_SOURCE
+            message["metadata"] = metadata
+            message["content"] = new_content
+            trimmed_count += trimmed_blocks
+
+        return trimmed_count
+
     def _get_atomic_groups(self, messages: List[Dict]) -> List[List[int]]:
         """
         Groups message indices into atomic units that must be kept or dropped together.
@@ -724,17 +1055,21 @@ class Filter:
         if __event_call__:
             try:
                 js_code = """
-                    return (
-                        document.documentElement.lang ||
-                        localStorage.getItem('locale') || 
-                        localStorage.getItem('language') || 
-                        navigator.language || 
-                        'en-US'
-                    );
+                    try {
+                        return (
+                            document.documentElement.lang ||
+                            localStorage.getItem('locale') ||
+                            localStorage.getItem('language') ||
+                            navigator.language ||
+                            'en-US'
+                        );
+                    } catch (e) {
+                        return 'en-US';
+                    }
                 """
                 frontend_lang = await asyncio.wait_for(
                     __event_call__({"type": "execute", "data": {"code": js_code}}),
-                    timeout=1.0,
+                    timeout=2.0,
                 )
                 if frontend_lang and isinstance(frontend_lang, str):
                     user_language = frontend_lang
@@ -1133,6 +1468,256 @@ class Filter:
             "message_id": str(message_id).strip(),
         }
 
+    def _infer_native_function_calling_from_messages(self, messages: Any) -> bool:
+        """Infer native function-calling mode from tool-shaped messages."""
+        if not isinstance(messages, list):
+            return False
+
+        for message in messages:
+            if not isinstance(message, dict):
+                continue
+
+            tool_calls = message.get("tool_calls")
+            if isinstance(tool_calls, list) and tool_calls:
+                return True
+
+            if message.get("role") == "tool":
+                return True
+
+            content = message.get("content", "")
+            if isinstance(content, str) and '<details type="tool_calls"' in content:
+                return True
+
+        return False
+
+    def _summarize_message_shape(
+        self, messages: Any, limit: int = 12
+    ) -> List[Dict[str, Any]]:
+        """Build a compact structural summary of recent messages for debugging."""
+        if not isinstance(messages, list):
+            return []
+
+        summary = []
+        for index, message in enumerate(messages[:limit]):
+            if not isinstance(message, dict):
+                summary.append(
+                    {
+                        "index": index,
+                        "type": type(message).__name__,
+                    }
+                )
+                continue
+
+            content = message.get("content", "")
+            tool_calls = message.get("tool_calls")
+            metadata = message.get("metadata", {})
+
+            entry = {
+                "index": index,
+                "role": message.get("role", "unknown"),
+                "has_tool_calls": bool(isinstance(tool_calls, list) and tool_calls),
+                "tool_call_count": len(tool_calls)
+                if isinstance(tool_calls, list)
+                else 0,
+                "tool_call_id_lengths": [
+                    len(str(tc.get("id", "")))
+                    for tc in tool_calls[:3]
+                    if isinstance(tc, dict)
+                ]
+                if isinstance(tool_calls, list)
+                else [],
+                "has_tool_call_id": isinstance(message.get("tool_call_id"), str),
+                "tool_call_id_length": len(str(message.get("tool_call_id", "")))
+                if isinstance(message.get("tool_call_id"), str)
+                else 0,
+                "content_type": type(content).__name__,
+                "content_length": len(content) if isinstance(content, str) else 0,
+                "has_tool_details_block": isinstance(content, str)
+                and '<details type="tool_calls"' in content,
+                "metadata_keys": sorted(metadata.keys())[:8]
+                if isinstance(metadata, dict)
+                else [],
+            }
+
+            if isinstance(content, list):
+                entry["content_part_types"] = [
+                    part.get("type", type(part).__name__)
+                    for part in content[:5]
+                    if isinstance(part, dict)
+                ]
+
+            summary.append(entry)
+
+        return summary
+
+    def _build_native_tool_debug_snapshot(self, body: Any) -> Dict[str, Any]:
+        """Collect a structural snapshot of the request for tool-calling diagnosis."""
+        if not isinstance(body, dict):
+            return {"body_type": type(body).__name__}
+
+        messages = body.get("messages", [])
+        metadata = body.get("metadata", {})
+        params = body.get("params", {})
+
+        role_counts: Dict[str, int] = {}
+        tool_detail_blocks = 0
+        tool_role_indices = []
+        assistant_tool_call_indices = []
+
+        if isinstance(messages, list):
+            for index, message in enumerate(messages):
+                if not isinstance(message, dict):
+                    continue
+
+                role = str(message.get("role", "unknown"))
+                role_counts[role] = role_counts.get(role, 0) + 1
+
+                if role == "tool":
+                    tool_role_indices.append(index)
+
+                tool_calls = message.get("tool_calls")
+                if isinstance(tool_calls, list) and tool_calls:
+                    assistant_tool_call_indices.append(index)
+
+                content = message.get("content", "")
+                if isinstance(content, str) and '<details type="tool_calls"' in content:
+                    tool_detail_blocks += content.count('<details type="tool_calls"')
+
+        return {
+            "body_keys": sorted(body.keys()),
+            "metadata_keys": sorted(metadata.keys()) if isinstance(metadata, dict) else [],
+            "params_keys": sorted(params.keys()) if isinstance(params, dict) else [],
+            "metadata_function_calling": metadata.get("function_calling")
+            if isinstance(metadata, dict)
+            else None,
+            "params_function_calling": params.get("function_calling")
+            if isinstance(params, dict)
+            else None,
+            "message_count": len(messages) if isinstance(messages, list) else 0,
+            "role_counts": role_counts,
+            "assistant_tool_call_indices": assistant_tool_call_indices[:8],
+            "tool_role_indices": tool_role_indices[:8],
+            "tool_detail_blocks": tool_detail_blocks,
+            "inferred_native": self._infer_native_function_calling_from_messages(
+                messages
+            ),
+            "message_shape": self._summarize_message_shape(messages),
+        }
+
+    def _build_summary_progress_snapshot(self, messages: Any) -> Dict[str, Any]:
+        """Collect compact summary-boundary diagnostics for a message list."""
+        if not isinstance(messages, list):
+            return {"messages_type": type(messages).__name__}
+
+        summary_state = self._get_summary_view_state(messages)
+        sample = []
+        for index, message in enumerate(messages[:4]):
+            if not isinstance(message, dict):
+                sample.append({"index": index, "type": type(message).__name__})
+                continue
+
+            content = message.get("content", "")
+            sample.append(
+                {
+                    "index": index,
+                    "role": message.get("role", "unknown"),
+                    "id": message.get("id", ""),
+                    "parentId": message.get("parentId") or message.get("parent_id"),
+                    "tool_call_id": message.get("tool_call_id", ""),
+                    "tool_call_count": len(message.get("tool_calls", []))
+                    if isinstance(message.get("tool_calls"), list)
+                    else 0,
+                    "is_summary": self._is_summary_message(message),
+                    "content_length": len(content) if isinstance(content, str) else 0,
+                }
+            )
+
+        tail_sample = []
+        start_index = max(0, len(messages) - 3)
+        for index, message in enumerate(messages[start_index:], start=start_index):
+            if not isinstance(message, dict):
+                tail_sample.append({"index": index, "type": type(message).__name__})
+                continue
+
+            content = message.get("content", "")
+            tail_sample.append(
+                {
+                    "index": index,
+                    "role": message.get("role", "unknown"),
+                    "id": message.get("id", ""),
+                    "parentId": message.get("parentId") or message.get("parent_id"),
+                    "tool_call_id": message.get("tool_call_id", ""),
+                    "tool_call_count": len(message.get("tool_calls", []))
+                    if isinstance(message.get("tool_calls"), list)
+                    else 0,
+                    "is_summary": self._is_summary_message(message),
+                    "content_length": len(content) if isinstance(content, str) else 0,
+                }
+            )
+
+        return {
+            "message_count": len(messages),
+            "summary_state": summary_state,
+            "original_history_count": self._get_original_history_count(messages),
+            "target_compressed_count": self._calculate_target_compressed_count(messages),
+            "effective_keep_first": self._get_effective_keep_first(messages),
+            "head_sample": sample,
+            "tail_sample": tail_sample,
+        }
+
+    def _unfold_messages(self, messages: Any) -> List[Dict[str, Any]]:
+        """
+        Reverse-expand compact UI messages back into their native tool-calling sequence
+        by parsing the hidden 'output' dictionary, identical to what OpenWebUI does
+        in the inlet phase (middleware.py:process_messages_with_output).
+        """
+        if not isinstance(messages, list):
+            return messages
+
+        unfolded = []
+        for msg in messages:
+            if not isinstance(msg, dict):
+                unfolded.append(msg)
+                continue
+
+            # If it's an assistant message with the hidden 'output' field, unfold it
+            if msg.get("role") == "assistant" and isinstance(msg.get("output"), list) and msg.get("output"):
+                try:
+                    from open_webui.utils.misc import convert_output_to_messages
+                    expanded = convert_output_to_messages(msg["output"], raw=True)
+                    if expanded:
+                        unfolded.extend(expanded)
+                        continue
+                except ImportError:
+                    pass # Fallback if for some reason the internal import fails
+
+            # Clean message (strip 'output' field just like inlet does)
+            clean_msg = {k: v for k, v in msg.items() if k != "output"}
+            unfolded.append(clean_msg)
+            
+        return unfolded
+
+    def _get_function_calling_mode(self, body: dict) -> str:
+        """Read function-calling mode from all known OpenWebUI payload locations."""
+        metadata = body.get("metadata", {}) if isinstance(body, dict) else {}
+        params = body.get("params", {}) if isinstance(body, dict) else {}
+        messages = body.get("messages", []) if isinstance(body, dict) else []
+
+        if isinstance(metadata, dict):
+            mode = metadata.get("function_calling")
+            if isinstance(mode, str) and mode.strip():
+                return mode.strip()
+
+        if isinstance(params, dict):
+            mode = params.get("function_calling")
+            if isinstance(mode, str) and mode.strip():
+                return mode.strip()
+
+        if self._infer_native_function_calling_from_messages(messages):
+            return "native"
+
+        return ""
+
     async def _emit_debug_log(
         self,
         __event_call__,
@@ -1166,26 +1751,33 @@ class Filter:
             # Construct JS code
             js_code = f"""
                 (async function() {{
-                    console.group("🗜️ Async Context Compression Debug");
-                    console.log("Chat ID:", {json.dumps(chat_id)});
-                    console.log("Messages:", {original_count} + " -> " + {compressed_count});
-                    console.log("Compression Ratio:", {json.dumps(log_data['ratio'])});
-                    console.log("Summary Length:", {summary_length} + " chars");
-                    console.log("Configuration:", {{
-                        "Keep First": {kept_first},
-                        "Keep Last": {kept_last}
-                    }});
-                    console.groupEnd();
+                    try {{
+                        console.group("🗜️ Async Context Compression Debug");
+                        console.log("Chat ID:", {json.dumps(chat_id)});
+                        console.log("Messages:", {original_count} + " -> " + {compressed_count});
+                        console.log("Compression Ratio:", {json.dumps(log_data['ratio'])});
+                        console.log("Summary Length:", {summary_length} + " chars");
+                        console.log("Configuration:", {{
+                            "Keep First": {kept_first},
+                            "Keep Last": {kept_last}
+                        }});
+                        console.groupEnd();
+                        return true;
+                    }} catch (e) {{
+                        console.error("[Compression] Failed to emit summary debug log", e);
+                        return false;
+                    }}
                 }})();
             """
 
-            asyncio.create_task(
+            await asyncio.wait_for(
                 __event_call__(
                     {
                         "type": "execute",
                         "data": {"code": js_code},
                     }
-                )
+                ),
+                timeout=2.0,
             )
         except Exception as e:
             logger.error(f"Error emitting debug log: {e}")
@@ -1225,11 +1817,24 @@ class Filter:
                 safe_message = clean_message.replace('"', '\\"').replace("\n", "\\n")
 
                 js_code = f"""
-                    console.log("%c[Compression] {safe_message}", "{css}");
+                    try {{
+                        console.log("%c[Compression] {safe_message}", "{css}");
+                        return true;
+                    }} catch (e) {{
+                        console.error("[Compression] Failed to emit console log", e);
+                        return false;
+                    }}
                 """
-                asyncio.create_task(
-                    event_call({"type": "execute", "data": {"code": js_code}})
+                await asyncio.wait_for(
+                    event_call({"type": "execute", "data": {"code": js_code}}),
+                    timeout=2.0,
                 )
+            except ValueError as ve:
+                if "broadcast" in str(ve).lower():
+                    logger.debug("Cannot broadcast to frontend without explicit room; suppressing further frontend logs in this session.")
+                    self.valves.show_debug_log = False
+                else:
+                    logger.error(f"Failed to process log to frontend: ValueError: {ve}")
             except Exception as e:
                 logger.error(
                     f"Failed to process log to frontend: {type(e).__name__}: {e}"
@@ -1292,37 +1897,72 @@ class Filter:
         Compression Strategy: Only responsible for injecting existing summaries, no Token calculation.
         """
 
-        # Check if compression should be skipped (e.g., for copilot_sdk)
         if self._should_skip_compression(body, __model__):
             if self.valves.debug_mode:
                 logger.info(
                     "[Inlet] Skipping compression: copilot_sdk detected in base model"
                 )
-            if self.valves.show_debug_log and __event_call__:
-                await self._log(
-                    "[Inlet] ⏭️ Skipping compression: copilot_sdk detected",
-                    event_call=__event_call__,
-                )
             return body
 
         messages = body.get("messages", [])
+        user_ctx = await self._get_user_context(__user__, __event_call__)
+        lang = user_ctx["user_language"]
+
+        if self.valves.show_debug_log and __event_call__:
+            debug_snapshot = self._build_native_tool_debug_snapshot(body)
+            await self._log(
+                "[Inlet] 🧩 Request structure snapshot: "
+                + json.dumps(debug_snapshot, ensure_ascii=False),
+                event_call=__event_call__,
+            )
+
+        normalized_tool_call_count = self._normalize_native_tool_call_ids(messages)
+        if (
+            normalized_tool_call_count > 0
+            and self.valves.show_debug_log
+            and __event_call__
+        ):
+            await self._log(
+                f"[Inlet] 🪪 Normalized {normalized_tool_call_count} overlong tool call ID(s).",
+                event_call=__event_call__,
+            )
 
         # --- Native Tool Output Trimming (Opt-in, only for native function calling) ---
-        metadata = body.get("metadata", {})
-        is_native_func_calling = metadata.get("function_calling") == "native"
+        function_calling_mode = self._get_function_calling_mode(body)
+        is_native_func_calling = function_calling_mode == "native"
+
+        if self.valves.show_debug_log and __event_call__:
+            trimming_state = (
+                "enabled" if self.valves.enable_tool_output_trimming else "disabled"
+            )
+            await self._log(
+                "[Inlet] ✂️ Tool trimming check: "
+                f"state={trimming_state}, function_calling={function_calling_mode or 'unset'}, "
+                f"message_count={len(messages)}",
+                event_call=__event_call__,
+            )
 
         if self.valves.enable_tool_output_trimming and is_native_func_calling:
-            trimmed_count = 0
-
-            for msg in messages:
-                content = msg.get("content", "")
-                if not isinstance(content, str):
-                    continue
-            if trimmed_count > 0 and self.valves.show_debug_log and __event_call__:
+            trimmed_count = self._trim_native_tool_outputs(messages, lang)
+            if self.valves.show_debug_log and __event_call__:
                 await self._log(
-                    f"[Inlet] ✂️ Trimmed {trimmed_count} tool output message(s).",
+                    (
+                        f"[Inlet] ✂️ Trimmed {trimmed_count} tool output message(s)."
+                        if trimmed_count > 0
+                        else "[Inlet] ✂️ Tool trimming checked, but no oversized native tool outputs were found."
+                    ),
                     event_call=__event_call__,
                 )
+        elif self.valves.show_debug_log and __event_call__:
+            skip_reason = (
+                "tool trimming disabled"
+                if not self.valves.enable_tool_output_trimming
+                else f"function_calling={function_calling_mode or 'unset'}"
+            )
+            await self._log(
+                f"[Inlet] ✂️ Tool trimming skipped: {skip_reason}.",
+                event_call=__event_call__,
+            )
 
         chat_ctx = self._get_chat_context(body, __metadata__)
         chat_id = chat_ctx["chat_id"]
@@ -1502,13 +2142,9 @@ class Filter:
                     event_call=__event_call__,
                 )
 
-        # Record the target compression progress for the original messages, for use in outlet
-        # Target is to compress up to the (total - keep_last) message
-        target_compressed_count = max(0, len(messages) - self.valves.keep_last)
-
-        # Get user context for i18n
-        user_ctx = await self._get_user_context(__user__, __event_call__)
-        lang = user_ctx["user_language"]
+        # Log the aligned compression boundary using the same original-history
+        # coordinate mapping as outlet/async summary generation.
+        target_compressed_count = self._calculate_target_compressed_count(messages)
 
         await self._log(
             f"[Inlet] Recorded target compression progress: {target_compressed_count}",
@@ -1537,21 +2173,21 @@ class Filter:
             if effective_keep_first > 0:
                 head_messages = messages[:effective_keep_first]
 
-            # 2. Summary message (Inserted as Assistant message)
-            summary_content = (
-                self._get_translation(lang, "summary_prompt_prefix")
-                + f"{summary_record.summary}"
-                + self._get_translation(lang, "summary_prompt_suffix")
-            )
-            summary_msg = {"role": "assistant", "content": summary_content}
-
-            # 3. Tail messages (Tail) - All messages starting from the last compression point.
+            # 2. Tail messages (Tail) - All messages starting from the last compression point.
             # Align legacy/raw progress to an atomic boundary so old summary rows do not
             # reintroduce orphaned tool messages into the retained tail.
             raw_start_index = max(compressed_count, effective_keep_first)
             start_index = self._align_tail_start_to_atomic_boundary(
                 messages, raw_start_index, effective_keep_first
             )
+
+            # 3. Summary message (Inserted as Assistant message)
+            summary_msg = self._build_summary_message(
+                summary_record.summary,
+                lang,
+                start_index,
+            )
+
             tail_messages = messages[start_index:]
 
             if self.valves.show_debug_log and __event_call__:
@@ -1657,6 +2293,7 @@ class Filter:
             final_messages = candidate_messages
 
             # Calculate detailed token stats for logging
+            summary_content = summary_msg.get("content", "")
             if total_tokens == estimated_tokens:
                 system_tokens = (
                     len(system_prompt_msg.get("content", "")) // 4
@@ -1890,13 +2527,49 @@ class Filter:
         model = body.get("model") or ""
         messages = body.get("messages", [])
 
+        if self.valves.show_debug_log and __event_call__:
+            outlet_snapshot = self._build_native_tool_debug_snapshot(body)
+            outlet_progress = self._build_summary_progress_snapshot(messages)
+            await self._log(
+                "[Outlet] 🧩 Body structure snapshot: "
+                + json.dumps(outlet_snapshot, ensure_ascii=False),
+                event_call=__event_call__,
+            )
+            await self._log(
+                "[Outlet] 📐 Body summary-progress snapshot: "
+                + json.dumps(outlet_progress, ensure_ascii=False),
+                event_call=__event_call__,
+            )
+
+        # Unfold compact tool messages to align with inlet's exact coordinate system
+        # In the outlet phase, the frontend payload often lacks the hidden 'output' field.
+        # We try to load the full, raw history from the database first.
+        db_messages = self._load_full_chat_messages(chat_id)
+        messages_to_unfold = db_messages if (db_messages and len(db_messages) >= len(messages)) else messages
+        
+        summary_messages = self._unfold_messages(messages_to_unfold)
+        message_source = "outlet-db-unfolded" if db_messages and len(summary_messages) != len(messages) else "outlet-body-unfolded" if len(summary_messages) != len(messages) else "outlet-body"
+
+        if self.valves.show_debug_log and __event_call__:
+            source_progress = self._build_summary_progress_snapshot(summary_messages)
+            await self._log(
+                f"[Outlet] 📚 Summary source messages: {message_source} ({len(summary_messages)} msgs, body carried {len(messages)})",
+                event_call=__event_call__,
+            )
+            await self._log(
+                "[Outlet] 📐 Summary source progress snapshot: "
+                + json.dumps(source_progress, ensure_ascii=False),
+                event_call=__event_call__,
+            )
+
         # Calculate target compression progress directly, then align it to an atomic
         # boundary so the saved summary never cuts through a tool-calling block.
-        effective_keep_first = self._get_effective_keep_first(messages)
-        raw_target_compressed_count = max(0, len(messages) - self.valves.keep_last)
-        target_compressed_count = self._align_tail_start_to_atomic_boundary(
-            messages, raw_target_compressed_count, effective_keep_first
+        target_compressed_count = self._calculate_target_compressed_count(
+            summary_messages
         )
+
+        summary_body = dict(body)
+        summary_body["messages"] = summary_messages
 
         # Process Token calculation and summary generation asynchronously in the background
         # Use a lock to prevent multiple concurrent summary tasks for the same chat
@@ -1914,7 +2587,7 @@ class Filter:
                 chat_lock,
                 chat_id,
                 model,
-                body,
+                summary_body,
                 __user__,
                 target_compressed_count,
                 lang,
@@ -2098,38 +2771,43 @@ class Filter:
         """
         Generates summary asynchronously (runs in background, does not block response).
         Logic:
-        1. Extract middle messages (remove keep_first and keep_last).
-        2. Check Token limit, if exceeding max_context_tokens, remove from the head of middle messages.
-        3. Generate summary for the remaining middle messages.
+        1. Extract the visible message slice that maps to the next original-history boundary.
+        2. If the summary model window is smaller than that slice, keep the oldest slice and trim the newest atomic groups.
+        3. Generate summary for the remaining messages and save the exact covered boundary.
         """
         try:
             await self._log(
                 f"\n[🤖 Async Summary Task] Starting...", event_call=__event_call__
             )
 
-            # 1. Get target compression progress
-            # If target_compressed_count is not passed (should not happen with new logic), estimate it
+            # 1. Get target compression progress in original-history coordinates.
             if target_compressed_count is None:
-                target_compressed_count = max(0, len(messages) - self.valves.keep_last)
+                target_compressed_count = self._calculate_target_compressed_count(
+                    messages
+                )
                 await self._log(
                     f"[🤖 Async Summary Task] ⚠️ target_compressed_count is None, estimating: {target_compressed_count}",
                     log_type="warning",
                     event_call=__event_call__,
                 )
 
-            # 2. Determine the range of messages to compress (Middle).
-            # Use the same aligned boundary used for summary persistence so the tail
-            # always starts at an atomic-group boundary.
-            start_index = self._get_effective_keep_first(messages)
-            if target_compressed_count is None:
-                raw_end_index = max(0, len(messages) - self.valves.keep_last)
-                end_index = self._align_tail_start_to_atomic_boundary(
-                    messages, raw_end_index, start_index
-                )
+            # 2. Determine the visible message range that maps to the target original
+            # compression progress.
+            summary_state = self._get_summary_view_state(messages)
+            summary_index = summary_state["summary_index"]
+            base_progress = summary_state["base_progress"] or 0
+
+            if summary_index is None:
+                start_index = self._get_effective_keep_first(messages)
+                end_index = min(len(messages), target_compressed_count)
+                protected_prefix = 0
             else:
-                end_index = self._align_tail_start_to_atomic_boundary(
-                    messages, target_compressed_count, start_index
+                start_index = summary_index
+                end_index = min(
+                    len(messages),
+                    summary_index + 1 + max(0, target_compressed_count - base_progress),
                 )
+                protected_prefix = 1
 
             # Ensure indices are valid
             if start_index >= end_index:
@@ -2208,21 +2886,24 @@ class Filter:
                     event_call=__event_call__,
                 )
 
-                # Remove from the head of middle_messages using atomic groups
-                # to avoid creating orphaned tool-call/tool-result pairs.
+                # Trim newest messages first so saved progress still reflects the exact
+                # original-history boundary actually covered by the summary.
                 removed_tokens = 0
                 removed_count = 0
 
-                summary_atomic_groups = self._get_atomic_groups(middle_messages)
+                trimmable_middle = middle_messages[protected_prefix:]
+                summary_atomic_groups = self._get_atomic_groups(trimmable_middle)
                 while removed_tokens < excess_tokens and len(summary_atomic_groups) > 1:
-                    group_indices = summary_atomic_groups.pop(0)
+                    group_indices = summary_atomic_groups.pop()
                     for _ in range(len(group_indices)):
-                        msg_to_remove = middle_messages.pop(0)
+                        msg_to_remove = trimmable_middle.pop()
                         msg_tokens = self._count_tokens(
                             str(msg_to_remove.get("content", ""))
                         )
                         removed_tokens += msg_tokens
                         removed_count += 1
+
+                middle_messages = middle_messages[:protected_prefix] + trimmable_middle
 
                 await self._log(
                     f"[🤖 Async Summary Task] Removed {removed_count} messages (atomic), totaling {removed_tokens} Tokens",
@@ -2272,6 +2953,13 @@ class Filter:
                 )
                 return
 
+            if summary_index is None:
+                saved_compressed_count = start_index + len(middle_messages)
+            else:
+                saved_compressed_count = base_progress + max(
+                    0, len(middle_messages) - protected_prefix
+                )
+
             # 6. Save new summary
             await self._log(
                 "[Optimization] Saving summary in a background thread to avoid blocking the event loop.",
@@ -2279,7 +2967,7 @@ class Filter:
             )
 
             await asyncio.to_thread(
-                self._save_summary, chat_id, new_summary, target_compressed_count
+                self._save_summary, chat_id, new_summary, saved_compressed_count
             )
 
             # Send completion status notification
@@ -2304,7 +2992,7 @@ class Filter:
                 event_call=__event_call__,
             )
             await self._log(
-                f"[🤖 Async Summary Task] Progress update: Compressed up to original message {target_compressed_count}",
+                f"[🤖 Async Summary Task] Progress update: Compressed up to original message {saved_compressed_count}",
                 event_call=__event_call__,
             )
 
@@ -2334,41 +3022,32 @@ class Filter:
                         except Exception:
                             pass  # Ignore DB errors here, best effort
 
-                    # 2. Calculate Effective Keep First
-                    last_system_index = -1
-                    for i, msg in enumerate(messages):
-                        if msg.get("role") == "system":
-                            last_system_index = i
-                    effective_keep_first = max(
-                        self.valves.keep_first, last_system_index + 1
+                    # 2. Construct Next Context using the saved original-history boundary.
+                    next_summary_msg = self._build_summary_message(
+                        new_summary, lang, saved_compressed_count
                     )
+                    if summary_index is None:
+                        effective_keep_first = self._get_effective_keep_first(messages)
+                        head_msgs = (
+                            messages[:effective_keep_first]
+                            if effective_keep_first > 0
+                            else []
+                        )
+                        visible_tail_start = max(
+                            saved_compressed_count, effective_keep_first
+                        )
+                    else:
+                        head_msgs = messages[:summary_index]
+                        visible_tail_start = (
+                            summary_index
+                            + 1
+                            + max(0, saved_compressed_count - base_progress)
+                        )
 
-                    # 3. Construct Next Context
-                    # Head
-                    head_msgs = (
-                        messages[:effective_keep_first]
-                        if effective_keep_first > 0
-                        else []
-                    )
-
-                    # Summary
-                    summary_content = (
-                        self._get_translation(lang, "summary_prompt_prefix")
-                        + f"{new_summary}"
-                        + self._get_translation(lang, "summary_prompt_suffix")
-                    )
-                    summary_msg = {"role": "assistant", "content": summary_content}
-
-                    # Tail (using target_compressed_count which is what we just compressed up to)
-                    # Note: target_compressed_count is the index *after* the last compressed message?
-                    # In _generate_summary_async, target_compressed_count is passed in.
-                    # It represents the number of messages to be covered by summary (excluding keep_last).
-                    # So tail starts at max(target_compressed_count, effective_keep_first).
-                    start_index = max(target_compressed_count, effective_keep_first)
-                    tail_msgs = messages[start_index:]
+                    tail_msgs = messages[visible_tail_start:]
 
                     # Assemble
-                    next_context = head_msgs + [summary_msg] + tail_msgs
+                    next_context = head_msgs + [next_summary_msg] + tail_msgs
 
                     # Inject system prompt if needed
                     if system_prompt_msg:
@@ -2392,7 +3071,7 @@ class Filter:
                         if self._should_show_status(usage_ratio):
                             status_msg = self._get_translation(
                                 lang,
-                                "status_context_summary_updated",
+                                "status_context_usage",
                                 tokens=token_count,
                                 max_tokens=max_context_tokens,
                                 ratio=f"{usage_ratio*100:.1f}",

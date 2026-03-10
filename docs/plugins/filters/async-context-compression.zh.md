@@ -1,17 +1,15 @@
 # 异步上下文压缩过滤器
 
-**作者:** [Fu-Jie](https://github.com/Fu-Jie/openwebui-extensions) | **版本:** 1.4.0 | **项目:** [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions) | **许可证:** MIT
+**作者:** [Fu-Jie](https://github.com/Fu-Jie/openwebui-extensions) | **版本:** 1.4.1 | **项目:** [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions) | **许可证:** MIT
 
 > **重要提示**：为了确保所有过滤器的可维护性和易用性，每个过滤器都应附带清晰、完整的文档，以确保其功能、配置和使用方法得到充分说明。
 
 本过滤器通过智能摘要和消息压缩技术，在保持对话连贯性的同时，显著降低长对话的 Token 消耗。
 
-## 1.4.0 版本更新
+## 1.4.1 版本更新
 
-- **原子消息组 (Atomic Grouping)**: 引入结构感知的消息分组逻辑，确保工具调用链被整体保留或移除，彻底解决 "No tool call found" 错误。
-- **尾部边界自动对齐**: 实现了截断点的自动修正逻辑，确保历史上下文截断不会落在工具调用序列中间。
-- **会话级异步锁**: 增加了基于 `chat_id` 的后台任务锁，防止同一会话并发触发多个总结任务。
-- **元数据溯源增强**: 优化了总结输入格式，在总结中保留了消息 ID、参与者名称及关键元数据，提升上下文可追踪性。
+- **逆向展开机制**: 引入 `_unfold_messages` 机制以在 `outlet` 阶段精确对齐坐标系，彻底解决了由于前端视图折叠导致长轮次工具调用对话出现进度漂移或跳过生成摘要的问题。
+- **更安全的工具内容裁剪**: 重构了 `enable_tool_output_trimming`，现在严格使用原子级分组进行安全的原生工具内容裁剪，替代了激进的正则表达式匹配，防止 JSON 载荷损坏。
 
 ---
 

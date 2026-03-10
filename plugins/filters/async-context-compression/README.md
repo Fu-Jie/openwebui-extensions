@@ -1,15 +1,13 @@
 # Async Context Compression Filter
 
-**Author:** [Fu-Jie](https://github.com/Fu-Jie/openwebui-extensions) | **Version:** 1.4.0 | **Project:** [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions) | **License:** MIT
+**Author:** [Fu-Jie](https://github.com/Fu-Jie/openwebui-extensions) | **Version:** 1.4.1 | **Project:** [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions) | **License:** MIT
 
 This filter reduces token consumption in long conversations through intelligent summarization and message compression while keeping conversations coherent.
 
-## What's new in 1.4.0
+## What's new in 1.4.1
 
-- **Atomic Message Grouping**: Introduced structure-aware grouping for `assistant-tool-tool-assistant` chains to prevent "No tool call found" errors.
-- **Tail Boundary Alignment**: Implemented automatic correction for truncation points to ensure they don't fall inside a tool-calling sequence.
-- **Chat Session Locking**: Added a session-based lock to prevent multiple concurrent summary tasks for the same chat ID.
-- **Enhanced Traceability**: Improved summary formatting to include message IDs, names, and metadata for better context tracking.
+- **Reverse-Unfolding Mechanism**: Accurately reconstructs the expanded native tool-calling sequence during the outlet phase to permanently fix coordinate drift and missing summaries for long tool-based conversations.
+- **Safer Tool Trimming**: Refactored `enable_tool_output_trimming` to strictly use atomic block groups for safe trimming, completely preventing JSON payload corruption.
 
 ---
 
