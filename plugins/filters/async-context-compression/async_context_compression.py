@@ -1516,27 +1516,31 @@ class Filter:
                 "index": index,
                 "role": message.get("role", "unknown"),
                 "has_tool_calls": bool(isinstance(tool_calls, list) and tool_calls),
-                "tool_call_count": len(tool_calls)
-                if isinstance(tool_calls, list)
-                else 0,
-                "tool_call_id_lengths": [
-                    len(str(tc.get("id", "")))
-                    for tc in tool_calls[:3]
-                    if isinstance(tc, dict)
-                ]
-                if isinstance(tool_calls, list)
-                else [],
+                "tool_call_count": (
+                    len(tool_calls) if isinstance(tool_calls, list) else 0
+                ),
+                "tool_call_id_lengths": (
+                    [
+                        len(str(tc.get("id", "")))
+                        for tc in tool_calls[:3]
+                        if isinstance(tc, dict)
+                    ]
+                    if isinstance(tool_calls, list)
+                    else []
+                ),
                 "has_tool_call_id": isinstance(message.get("tool_call_id"), str),
-                "tool_call_id_length": len(str(message.get("tool_call_id", "")))
-                if isinstance(message.get("tool_call_id"), str)
-                else 0,
+                "tool_call_id_length": (
+                    len(str(message.get("tool_call_id", "")))
+                    if isinstance(message.get("tool_call_id"), str)
+                    else 0
+                ),
                 "content_type": type(content).__name__,
                 "content_length": len(content) if isinstance(content, str) else 0,
                 "has_tool_details_block": isinstance(content, str)
                 and '<details type="tool_calls"' in content,
-                "metadata_keys": sorted(metadata.keys())[:8]
-                if isinstance(metadata, dict)
-                else [],
+                "metadata_keys": (
+                    sorted(metadata.keys())[:8] if isinstance(metadata, dict) else []
+                ),
             }
 
             if isinstance(content, list):
@@ -1585,14 +1589,16 @@ class Filter:
 
         return {
             "body_keys": sorted(body.keys()),
-            "metadata_keys": sorted(metadata.keys()) if isinstance(metadata, dict) else [],
+            "metadata_keys": (
+                sorted(metadata.keys()) if isinstance(metadata, dict) else []
+            ),
             "params_keys": sorted(params.keys()) if isinstance(params, dict) else [],
-            "metadata_function_calling": metadata.get("function_calling")
-            if isinstance(metadata, dict)
-            else None,
-            "params_function_calling": params.get("function_calling")
-            if isinstance(params, dict)
-            else None,
+            "metadata_function_calling": (
+                metadata.get("function_calling") if isinstance(metadata, dict) else None
+            ),
+            "params_function_calling": (
+                params.get("function_calling") if isinstance(params, dict) else None
+            ),
             "message_count": len(messages) if isinstance(messages, list) else 0,
             "role_counts": role_counts,
             "assistant_tool_call_indices": assistant_tool_call_indices[:8],
@@ -1624,9 +1630,11 @@ class Filter:
                     "id": message.get("id", ""),
                     "parentId": message.get("parentId") or message.get("parent_id"),
                     "tool_call_id": message.get("tool_call_id", ""),
-                    "tool_call_count": len(message.get("tool_calls", []))
-                    if isinstance(message.get("tool_calls"), list)
-                    else 0,
+                    "tool_call_count": (
+                        len(message.get("tool_calls", []))
+                        if isinstance(message.get("tool_calls"), list)
+                        else 0
+                    ),
                     "is_summary": self._is_summary_message(message),
                     "content_length": len(content) if isinstance(content, str) else 0,
                 }
@@ -1647,9 +1655,11 @@ class Filter:
                     "id": message.get("id", ""),
                     "parentId": message.get("parentId") or message.get("parent_id"),
                     "tool_call_id": message.get("tool_call_id", ""),
-                    "tool_call_count": len(message.get("tool_calls", []))
-                    if isinstance(message.get("tool_calls"), list)
-                    else 0,
+                    "tool_call_count": (
+                        len(message.get("tool_calls", []))
+                        if isinstance(message.get("tool_calls"), list)
+                        else 0
+                    ),
                     "is_summary": self._is_summary_message(message),
                     "content_length": len(content) if isinstance(content, str) else 0,
                 }
@@ -1659,7 +1669,9 @@ class Filter:
             "message_count": len(messages),
             "summary_state": summary_state,
             "original_history_count": self._get_original_history_count(messages),
-            "target_compressed_count": self._calculate_target_compressed_count(messages),
+            "target_compressed_count": self._calculate_target_compressed_count(
+                messages
+            ),
             "effective_keep_first": self._get_effective_keep_first(messages),
             "head_sample": sample,
             "tail_sample": tail_sample,
@@ -1681,20 +1693,25 @@ class Filter:
                 continue
 
             # If it's an assistant message with the hidden 'output' field, unfold it
-            if msg.get("role") == "assistant" and isinstance(msg.get("output"), list) and msg.get("output"):
+            if (
+                msg.get("role") == "assistant"
+                and isinstance(msg.get("output"), list)
+                and msg.get("output")
+            ):
                 try:
                     from open_webui.utils.misc import convert_output_to_messages
+
                     expanded = convert_output_to_messages(msg["output"], raw=True)
                     if expanded:
                         unfolded.extend(expanded)
                         continue
                 except ImportError:
-                    pass # Fallback if for some reason the internal import fails
+                    pass  # Fallback if for some reason the internal import fails
 
             # Clean message (strip 'output' field just like inlet does)
             clean_msg = {k: v for k, v in msg.items() if k != "output"}
             unfolded.append(clean_msg)
-            
+
         return unfolded
 
     def _get_function_calling_mode(self, body: dict) -> str:
@@ -1831,7 +1848,9 @@ class Filter:
                 )
             except ValueError as ve:
                 if "broadcast" in str(ve).lower():
-                    logger.debug("Cannot broadcast to frontend without explicit room; suppressing further frontend logs in this session.")
+                    logger.debug(
+                        "Cannot broadcast to frontend without explicit room; suppressing further frontend logs in this session."
+                    )
                     self.valves.show_debug_log = False
                 else:
                     logger.error(f"Failed to process log to frontend: ValueError: {ve}")
@@ -2545,10 +2564,22 @@ class Filter:
         # In the outlet phase, the frontend payload often lacks the hidden 'output' field.
         # We try to load the full, raw history from the database first.
         db_messages = self._load_full_chat_messages(chat_id)
-        messages_to_unfold = db_messages if (db_messages and len(db_messages) >= len(messages)) else messages
-        
+        messages_to_unfold = (
+            db_messages
+            if (db_messages and len(db_messages) >= len(messages))
+            else messages
+        )
+
         summary_messages = self._unfold_messages(messages_to_unfold)
-        message_source = "outlet-db-unfolded" if db_messages and len(summary_messages) != len(messages) else "outlet-body-unfolded" if len(summary_messages) != len(messages) else "outlet-body"
+        message_source = (
+            "outlet-db-unfolded"
+            if db_messages and len(summary_messages) != len(messages)
+            else (
+                "outlet-body-unfolded"
+                if len(summary_messages) != len(messages)
+                else "outlet-body"
+            )
+        )
 
         if self.valves.show_debug_log and __event_call__:
             source_progress = self._build_summary_progress_snapshot(summary_messages)
@@ -3179,43 +3210,37 @@ class Filter:
             event_call=__event_call__,
         )
 
-        # Build summary prompt (Optimized)
+        # Build summary prompt (Optimized for State/Working Memory and Tool Calling)
         summary_prompt = f"""
-You are a professional conversation context compression expert. Your task is to create a high-fidelity summary of the following conversation content.
-This conversation may contain previous summaries (as system messages or text) and subsequent conversation content.
+You are an expert Context Compression Engine. Your goal is to create a high-fidelity, highly dense "Working Memory" from the provided conversation.
+This conversation may contain previous Working Memories and raw native tool-calling sequences (JSON arguments and results).
 
-### Core Objectives
-1.  **Comprehensive Summary**: Concisely summarize key information, user intent, and assistant responses from the conversation.
-2.  **De-noising**: Remove greetings, repetitions, confirmations, and other non-essential information.
-3.  **Key Retention**:
-    *   **Code snippets, commands, and technical parameters must be preserved verbatim. Do not modify or generalize them.**
-    *   User intent, core requirements, decisions, and action items must be clearly preserved.
-4.  **Coherence**: The generated summary should be a cohesive whole that can replace the original conversation as context.
-5.  **Detailed Record**: Since length is permitted, please preserve details, reasoning processes, and nuances of multi-turn interactions as much as possible, rather than just high-level generalizations.
+### Rules of Engagement
+1.  **Incremental Integration**: If the conversation begins with an existing Working Memory/Summary, you must PRESERVE its core facts and MERGE the new conversation events into it. Do not discard older facts.
+2.  **Tool-Call Decompression**: Raw JSON/Text outputs from tools are noisy. Extract ONLY the definitive facts, actionable data, or root causes of errors. Ignore the structural payload.
+3.  **Ruthless Denoising**: Completely eliminate greetings, apologies ("I'm sorry for the error"), acknowledgments ("Sure, I can do that"), and redundant confirmations.
+4.  **Verbatim Retention**: ANY code snippets, shell commands, file paths, specific parameters, and Message IDs (e.g., [ID: ...]) MUST be kept exactly as they appear to maintain traceability.
+5.  **Logic Preservation**: Clearly link "what the user asked" -> "what the tool found" -> "how the system reacted".
 
-### Output Requirements
-*   **Format**: Structured text, logically clear.
-*   **Language**: Consistent with the conversation language (usually English).
-*   **Length**: Strictly control within {self.valves.max_summary_tokens} Tokens.
-*   **Strictly Forbidden**: Do not output "According to the conversation...", "The summary is as follows..." or similar filler. Output the summary content directly.
+### Output Constraints
+*   **Format**: Strictly follow the Markdown structure below.
+*   **Length**: Maximum {self.valves.max_summary_tokens} Tokens.
+*   **Tone**: Robotic, objective, dense.
+*   **Language**: Consistent with the conversation language.
+*   **Forbidden**: NO conversational openings/closings (e.g., "Here is the summary", "Hope this helps"). Output the data directly.
 
 ### Suggested Summary Structure
-*   **Current Goal/Topic**: A one-sentence summary of the problem currently being solved.
-*   **Key Information & Context**:
-    *   Confirmed facts/parameters.
-    *   **Code/Technical Details** (Wrap in code blocks).
-*   **Progress & Conclusions**: Completed steps and reached consensus.
-*   **Action Items/Next Steps**: Clear follow-up actions.
-
-### Identity Traceability
-The input dialogue contains message IDs (e.g., [ID: ...]) and optional names. 
-If a specific message contributes a critical decision, a unique code snippet, or a tool-calling result, please reference its ID or Name in your summary to maintain traceability.
+*   **Current Goal**: What is the user ultimately trying to achieve?
+*   **Working Memory & Facts**: (Bullet points of established facts, parsed tool results, and constraints. Cite Message IDs if critical).
+*   **Code & Artifacts**: (Only if applicable. Include exact code blocks).
+*   **Recent Actions**: (e.g., "Attempted to run script, failed with SyntaxError, applied fix").
+*   **Pending/Next Steps**: What is waiting to be done.
 
 ---
 {new_conversation_text}
 ---
 
-Based on the content above, generate the summary (including key message identities where relevant):
+Generate the Working Memory:
 """
         # Determine the model to use
         model = self._clean_model_id(self.valves.summary_model) or self._clean_model_id(
