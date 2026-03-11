@@ -277,12 +277,37 @@ class OpenWebUIStats:
             },
         }
 
+    def _get_plugin_obj(self, post: dict) -> dict:
+        """Extract the actual plugin object from post['data'] (handling different keys like function/tool/pipe)."""
+        data = post.get("data", {}) or {}
+        if not data:
+            return {}
+        
+        # Priority 1: Use post['type'] as the key (standard behavior)
+        post_type = post.get("type")
+        if post_type and post_type in data and data[post_type]:
+            return data[post_type]
+
+        # Priority 2: Fallback to 'function' (most common for actions/filters/pipes)
+        if "function" in data and data["function"]:
+            return data["function"]
+
+        # Priority 3: Try other known keys
+        for k in ["tool", "pipe", "action", "filter", "prompt", "model"]:
+            if k in data and data[k]:
+                return data[k]
+        
+        # Priority 4: If there's only one key in data, assume that's the one
+        if len(data) == 1:
+            return list(data.values())[0] or {}
+
+        return {}
+
     def _resolve_post_type(self, post: dict) -> str:
         """Resolve the post category type"""
         top_type = post.get("type")
-        function_data = post.get("data", {}) or {}
-        function_obj = function_data.get("function", {}) or {}
-        meta = function_obj.get("meta", {}) or {}
+        plugin_obj = self._get_plugin_obj(post)
+        meta = plugin_obj.get("meta", {}) or {}
         manifest = meta.get("manifest", {}) or {}
 
         # Category identification priority:
@@ -292,8 +317,8 @@ class OpenWebUIStats:
         post_type = "unknown"
         if meta.get("type"):
             post_type = meta.get("type")
-        elif function_obj.get("type"):
-            post_type = function_obj.get("type")
+        elif plugin_obj.get("type"):
+            post_type = plugin_obj.get("type")
         elif top_type:
             post_type = top_type
         elif not meta and not function_obj:
@@ -302,7 +327,7 @@ class OpenWebUIStats:
         post_type = self._normalize_post_type(post_type)
 
         # Unified and heuristic identification logic
-        if post_type == "unknown" and function_obj:
+        if post_type == "unknown" and plugin_obj:
             post_type = "action"
 
         if post_type == "action" or post_type == "unknown":
@@ -600,9 +625,8 @@ class OpenWebUIStats:
         for post in posts:
             post_type = self._resolve_post_type(post)
 
-            function_data = post.get("data", {}) or {}
-            function_obj = function_data.get("function", {}) or {}
-            meta = function_obj.get("meta", {}) or {}
+            plugin_obj = self._get_plugin_obj(post)
+            meta = plugin_obj.get("meta", {}) or {}
             manifest = meta.get("manifest", {}) or {}
 
             # Accumulate statistics

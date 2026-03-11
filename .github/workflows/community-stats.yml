@@ -38,9 +38,12 @@ jobs:
         id: old_stats
         run: |
           if [ -f docs/community-stats.json ]; then
+            cp docs/community-stats.json docs/community-stats.json.old
             echo "total_posts=$(jq -r '.total_posts // 0' docs/community-stats.json)" >> $GITHUB_OUTPUT
+            echo "versions=$(jq -r '[.posts[] | {slug: .slug, version: .version}] | sort_by(.slug) | map("\(.slug):\(.version)") | join(",")' docs/community-stats.json)" >> $GITHUB_OUTPUT
           else
             echo "total_posts=0" >> $GITHUB_OUTPUT
+            echo "versions=" >> $GITHUB_OUTPUT
           fi
 
       - name: Generate stats report
@@ -56,12 +59,15 @@ jobs:
         id: new_stats
         run: |
           echo "total_posts=$(jq -r '.total_posts // 0' docs/community-stats.json)" >> $GITHUB_OUTPUT
+          echo "versions=$(jq -r '[.posts[] | {slug: .slug, version: .version}] | sort_by(.slug) | map("\(.slug):\(.version)") | join(",")' docs/community-stats.json)" >> $GITHUB_OUTPUT
 
       - name: Check for significant changes
         id: check_changes
         run: |
           OLD_POSTS="${{ steps.old_stats.outputs.total_posts }}"
           NEW_POSTS="${{ steps.new_stats.outputs.total_posts }}"
+          OLD_VERSIONS="${{ steps.old_stats.outputs.versions }}"
+          NEW_VERSIONS="${{ steps.new_stats.outputs.versions }}"
           
           SHOULD_COMMIT="false"
           CHANGE_REASON=""
@@ -69,14 +75,20 @@ jobs:
           if [ "$NEW_POSTS" -gt "$OLD_POSTS" ]; then
             SHOULD_COMMIT="true"
             CHANGE_REASON="new plugin added ($OLD_POSTS -> $NEW_POSTS)"
-            echo "📦 New plugin detected: $OLD_POSTS -> $NEW_POSTS"
+          elif [ "$NEW_POSTS" -lt "$OLD_POSTS" ]; then
+            SHOULD_COMMIT="true"
+            CHANGE_REASON="plugin removed ($OLD_POSTS -> $NEW_POSTS)"
+          elif [ "$OLD_VERSIONS" != "$NEW_VERSIONS" ]; then
+            SHOULD_COMMIT="true"
+            CHANGE_REASON="plugin versions updated"
+            echo "🔄 Version change detected"
           fi
           
           echo "should_commit=$SHOULD_COMMIT" >> $GITHUB_OUTPUT
           echo "change_reason=$CHANGE_REASON" >> $GITHUB_OUTPUT
           
           if [ "$SHOULD_COMMIT" = "false" ]; then
-            echo "ℹ️ No significant changes detected, skipping commit"
+            echo "ℹ️ No significant changes (posts or versions), skipping commit"
           else
             echo "✅ Significant changes detected: $CHANGE_REASON"
           fi
