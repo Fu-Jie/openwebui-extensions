@@ -73,12 +73,14 @@ python deploy_async_context_compression.py
 ```
 
 **Features**:
+
 - ✅ Optimized specifically for async_context_compression
 - ✅ Clear deployment steps and confirmation
 - ✅ Friendly error messages
 - ✅ Shows next steps after successful deployment
 
 **Sample Output**:
+
 ```
 ======================================================================
 🚀 Deploying Async Context Compression Filter Plugin
@@ -117,6 +119,7 @@ python deploy_filter.py --list
 ```
 
 **Features**:
+
 - ✅ Generic Filter deployment tool
 - ✅ Supports multiple plugins
 - ✅ Auto metadata extraction
@@ -142,6 +145,7 @@ python deploy_tool.py openwebui-skills-manager
 ```
 
 **Features**:
+
 - ✅ Supports Tools plugin deployment
 - ✅ Auto-detects `Tools` class definition
 - ✅ Smart update/create logic
@@ -290,6 +294,7 @@ git status  # should not show .env
 ```
 
 **Solution**:
+
 ```bash
 # 1. Check if OpenWebUI is running
 curl http://localhost:3000
@@ -309,6 +314,7 @@ curl http://localhost:3000
 ```
 
 **Solution**:
+
 ```bash
 echo "api_key=sk-your-api-key" > .env
 cat .env  # verify file created
@@ -321,6 +327,7 @@ cat .env  # verify file created
 ```
 
 **Solution**:
+
 ```bash
 # List all available Filters
 python deploy_filter.py --list
@@ -337,6 +344,7 @@ python deploy_filter.py async-context-compression
 ```
 
 **Solution**:
+
 ```bash
 # 1. Verify API key is correct
 grep "api_key=" .env
@@ -370,7 +378,7 @@ python deploy_async_context_compression.py
 
 ### Method 2: Verify in OpenWebUI
 
-1. Open OpenWebUI: http://localhost:3000
+1. Open OpenWebUI: <http://localhost:3000>
 2. Go to Settings → Filters
 3. Check if 'Async Context Compression' is listed
 4. Verify version number is correct (should be latest)
@@ -380,6 +388,7 @@ python deploy_async_context_compression.py
 1. Open a new conversation
 2. Enable 'Async Context Compression' Filter
 3. Have multiple-turn conversation and verify compression/summarization works
+
 ## 💡 Advanced Usage
 
 ### Automated Deploy & Test
@@ -473,4 +482,3 @@ Newly created deployment-related files:
 **Last Updated**: 2026-03-09  
 **Script Status**: ✅ Ready for production  
 **Test Coverage**: 10/10 passed ✅
-

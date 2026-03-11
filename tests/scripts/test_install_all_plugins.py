@@ -66,7 +66,7 @@ def test_build_payload_uses_native_tool_shape_for_tools():
             "description": "Demo tool description",
             "openwebui_id": "12345678-1234-1234-1234-123456789abc",
         },
-        content='class Tools:\n    pass\n',
+        content="class Tools:\n    pass\n",
         function_id="demo_tool",
     )
 
@@ -79,7 +79,7 @@ def test_build_payload_uses_native_tool_shape_for_tools():
             "description": "Demo tool description",
             "manifest": {},
         },
-        "content": 'class Tools:\n    pass\n',
+        "content": "class Tools:\n    pass\n",
         "access_grants": [],
     }
 
@@ -89,7 +89,7 @@ def test_build_api_urls_uses_tool_endpoints_for_tools():
         plugin_type="tool",
         file_path=Path("plugins/tools/demo/demo_tool.py"),
         metadata={"title": "Demo Tool"},
-        content='class Tools:\n    pass\n',
+        content="class Tools:\n    pass\n",
         function_id="demo_tool",
     )
 
@@ -101,7 +101,9 @@ def test_build_api_urls_uses_tool_endpoints_for_tools():
     assert create_url == "http://localhost:3000/api/v1/tools/create"
 
 
-def test_discover_plugins_only_returns_supported_openwebui_plugins(tmp_path, monkeypatch):
+def test_discover_plugins_only_returns_supported_openwebui_plugins(
+    tmp_path, monkeypatch
+):
     actions_dir = tmp_path / "plugins" / "actions"
     filters_dir = tmp_path / "plugins" / "filters"
     pipes_dir = tmp_path / "plugins" / "pipes"
@@ -110,7 +112,9 @@ def test_discover_plugins_only_returns_supported_openwebui_plugins(tmp_path, mon
     write_plugin(actions_dir / "flash-card" / "flash_card.py", PLUGIN_HEADER)
     write_plugin(actions_dir / "flash-card" / "flash_card_cn.py", PLUGIN_HEADER)
     write_plugin(actions_dir / "infographic" / "verify_generation.py", PLUGIN_HEADER)
-    write_plugin(filters_dir / "missing-id" / "missing_id.py", '"""\ntitle: Missing ID\n"""\n')
+    write_plugin(
+        filters_dir / "missing-id" / "missing_id.py", '"""\ntitle: Missing ID\n"""\n'
+    )
     write_plugin(pipes_dir / "sdk" / "github_copilot_sdk.py", PLUGIN_HEADER)
     write_plugin(tools_dir / "skills" / "openwebui_skills_manager.py", PLUGIN_HEADER)
 
@@ -150,7 +154,9 @@ def test_discover_plugins_only_returns_supported_openwebui_plugins(tmp_path, mon
         ("class Action:\n    pass\n", "missing plugin header"),
     ],
 )
-def test_discover_plugins_reports_missing_metadata(tmp_path, monkeypatch, header, expected_reason):
+def test_discover_plugins_reports_missing_metadata(
+    tmp_path, monkeypatch, header, expected_reason
+):
     action_dir = tmp_path / "plugins" / "actions"
     plugin_file = action_dir / "demo" / "demo.py"
     write_plugin(plugin_file, header)

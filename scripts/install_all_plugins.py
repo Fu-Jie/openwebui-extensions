@@ -187,9 +187,7 @@ def build_payload(candidate: PluginCandidate) -> Dict[str, object]:
     manifest = dict(candidate.metadata)
     manifest.setdefault("title", candidate.title)
     manifest.setdefault("author", "Fu-Jie")
-    manifest.setdefault(
-        "author_url", "https://github.com/Fu-Jie/openwebui-extensions"
-    )
+    manifest.setdefault("author_url", "https://github.com/Fu-Jie/openwebui-extensions")
     manifest.setdefault("funding_url", "https://github.com/open-webui")
     manifest.setdefault(
         "description", f"{candidate.plugin_type.title()} plugin: {candidate.title}"
@@ -233,7 +231,9 @@ def build_api_urls(base_url: str, candidate: PluginCandidate) -> Tuple[str, str]
     )
 
 
-def discover_plugins(plugin_types: Sequence[str]) -> Tuple[List[PluginCandidate], List[Tuple[Path, str]]]:
+def discover_plugins(
+    plugin_types: Sequence[str],
+) -> Tuple[List[PluginCandidate], List[Tuple[Path, str]]]:
     candidates: List[PluginCandidate] = []
     skipped: List[Tuple[Path, str]] = []
 
@@ -344,7 +344,9 @@ def print_skipped_summary(skipped: Sequence[Tuple[Path, str]]) -> None:
     for _, reason in skipped:
         counts[reason] = counts.get(reason, 0) + 1
 
-    summary = ", ".join(f"{reason}: {count}" for reason, count in sorted(counts.items()))
+    summary = ", ".join(
+        f"{reason}: {count}" for reason, count in sorted(counts.items())
+    )
     print(f"Skipped {len(skipped)} files ({summary}).")
 
 
@@ -421,19 +423,19 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             failed_candidates.append(candidate)
             print(f"  [FAILED] {message}")
 
-    print(f"\n" + "="*80)
+    print(f"\n" + "=" * 80)
     print(
         f"Finished: {success_count}/{len(candidates)} plugins installed successfully."
     )
-    
+
     if failed_candidates:
         print(f"\n❌ {len(failed_candidates)} plugin(s) failed to install:")
         for candidate in failed_candidates:
             print(f"   • {candidate.title} ({candidate.plugin_type})")
             print(f"     → Check the error message above")
         print()
-    
-    print("="*80)
+
+    print("=" * 80)
     return 0 if success_count == len(candidates) else 1
 
 

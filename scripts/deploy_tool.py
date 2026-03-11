@@ -76,52 +76,51 @@ def _get_base_url() -> str:
 
     if not base_url:
         raise ValueError(
-            f"Missing url. Please create {ENV_FILE} with: "
-            "url=http://localhost:3000"
+            f"Missing url. Please create {ENV_FILE} with: " "url=http://localhost:3000"
         )
     return base_url.rstrip("/")
 
 
 def _find_tool_file(tool_name: str) -> Optional[Path]:
     """Find the main Python file for a tool.
-    
+
     Args:
         tool_name: Directory name of the tool (e.g., 'openwebui-skills-manager')
-    
+
     Returns:
         Path to the main Python file, or None if not found.
     """
     tool_dir = TOOLS_DIR / tool_name
     if not tool_dir.exists():
         return None
-    
+
     # Try to find a .py file matching the tool name
     py_files = list(tool_dir.glob("*.py"))
-    
+
     # Prefer a file with the tool name (with hyphens converted to underscores)
     preferred_name = tool_name.replace("-", "_") + ".py"
     for py_file in py_files:
         if py_file.name == preferred_name:
             return py_file
-    
+
     # Otherwise, return the first .py file (usually the only one)
     if py_files:
         return py_files[0]
-    
+
     return None
 
 
 def _extract_metadata(content: str) -> Dict[str, Any]:
     """Extract metadata from the plugin docstring."""
     metadata = {}
-    
+
     # Extract docstring
     match = re.search(r'"""(.*?)"""', content, re.DOTALL)
     if not match:
         return metadata
-    
+
     docstring = match.group(1)
-    
+
     # Extract key-value pairs
     for line in docstring.split("\n"):
         line = line.strip()
@@ -130,7 +129,7 @@ def _extract_metadata(content: str) -> Dict[str, Any]:
             key = parts[0].strip().lower()
             value = parts[1].strip()
             metadata[key] = value
-    
+
     return metadata
 
 
@@ -141,12 +140,14 @@ def _build_tool_payload(
     tool_id = metadata.get("id", tool_name).replace("-", "_")
     title = metadata.get("title", tool_name)
     author = metadata.get("author", "Fu-Jie")
-    author_url = metadata.get("author_url", "https://github.com/Fu-Jie/openwebui-extensions")
+    author_url = metadata.get(
+        "author_url", "https://github.com/Fu-Jie/openwebui-extensions"
+    )
     funding_url = metadata.get("funding_url", "https://github.com/open-webui")
     description = metadata.get("description", f"Tool plugin: {title}")
     version = metadata.get("version", "1.0.0")
     openwebui_id = metadata.get("openwebui_id", "")
-    
+
     payload = {
         "id": tool_id,
         "name": title,
@@ -165,20 +166,20 @@ def _build_tool_payload(
         },
         "content": content,
     }
-    
+
     # Add openwebui_id if available
     if openwebui_id:
         payload["meta"]["manifest"]["openwebui_id"] = openwebui_id
-    
+
     return payload
 
 
 def deploy_tool(tool_name: str = DEFAULT_TOOL) -> bool:
     """Deploy a tool plugin to OpenWebUI.
-    
+
     Args:
         tool_name: Directory name of the tool to deploy
-    
+
     Returns:
         True if successful, False otherwise
     """
@@ -207,7 +208,7 @@ def deploy_tool(tool_name: str = DEFAULT_TOOL) -> bool:
 
     content = file_path.read_text(encoding="utf-8")
     metadata = _extract_metadata(content)
-    
+
     if not metadata:
         print(f"[ERROR] Could not extract metadata from {file_path}")
         return False
@@ -229,10 +230,10 @@ def deploy_tool(tool_name: str = DEFAULT_TOOL) -> bool:
     # 6. Send update request through the native tool endpoints
     update_url = f"{base_url}/api/v1/tools/id/{tool_id}/update"
     create_url = f"{base_url}/api/v1/tools/create"
-    
+
     print(f"📦 Deploying tool '{title}' (version {version})...")
     print(f"   File: {file_path}")
-    
+
     try:
         # Try update first
         response = requests.post(
@@ -241,7 +242,7 @@ def deploy_tool(tool_name: str = DEFAULT_TOOL) -> bool:
             data=json.dumps(payload),
             timeout=10,
         )
-        
+
         if response.status_code == 200:
             print(f"✅ Successfully updated '{title}' tool!")
             return True
@@ -250,7 +251,7 @@ def deploy_tool(tool_name: str = DEFAULT_TOOL) -> bool:
                 f"⚠️  Update failed with status {response.status_code}, "
                 "attempting to create instead..."
             )
-            
+
             # Try create if update fails
             res_create = requests.post(
                 create_url,
@@ -258,23 +259,23 @@ def deploy_tool(tool_name: str = DEFAULT_TOOL) -> bool:
                 data=json.dumps(payload),
                 timeout=10,
             )
-            
+
             if res_create.status_code == 200:
                 print(f"✅ Successfully created '{title}' tool!")
                 return True
             else:
-                print(f"❌ Failed to update or create. Status: {res_create.status_code}")
+                print(
+                    f"❌ Failed to update or create. Status: {res_create.status_code}"
+                )
                 try:
                     error_msg = res_create.json()
                     print(f"   Error: {error_msg}")
                 except:
                     print(f"   Response: {res_create.text[:500]}")
                 return False
-                
+
     except requests.exceptions.ConnectionError:
-        print(
-            "❌ Connection error: Could not reach OpenWebUI at {base_url}"
-        )
+        print("❌ Connection error: Could not reach OpenWebUI at {base_url}")
         print("   Make sure OpenWebUI is running and accessible.")
         return False
     except requests.exceptions.Timeout:
@@ -288,16 +289,18 @@ def deploy_tool(tool_name: str = DEFAULT_TOOL) -> bool:
 def list_tools() -> None:
     """List all available tools."""
     print("📋 Available tools:")
-    tools = [d.name for d in TOOLS_DIR.iterdir() if d.is_dir() and not d.name.startswith("_")]
-    
+    tools = [
+        d.name for d in TOOLS_DIR.iterdir() if d.is_dir() and not d.name.startswith("_")
+    ]
+
     if not tools:
         print("   (No tools found)")
         return
-    
+
     for tool_name in sorted(tools):
         tool_dir = TOOLS_DIR / tool_name
         py_file = _find_tool_file(tool_name)
-        
+
         if py_file:
             content = py_file.read_text(encoding="utf-8")
             metadata = _extract_metadata(content)

@@ -114,6 +114,7 @@ class Filter:
 
         # Check if it's a Copilot model
         is_copilot_model = self._is_copilot_model(current_model)
+        body["is_copilot_model"] = is_copilot_model
 
         await self._emit_debug_log(
             __event_emitter__,

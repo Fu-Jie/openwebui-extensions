@@ -5,6 +5,7 @@
 ✅ **Yes, re-deploying automatically updates the plugin!**
 
 The deployment script uses a **smart two-stage strategy**:
+
 1. 🔄 **Try UPDATE First** (if plugin exists)
 2. 📝 **Auto CREATE** (if update fails — plugin doesn't exist)
 
@@ -54,6 +55,7 @@ if response.status_code == 200:
 ```
 
 **What Happens**:
+
 - Send **POST** to `/api/v1/functions/id/{filter_id}/update`
 - If returns **HTTP 200**, plugin exists and update succeeded
 - Includes:
@@ -84,6 +86,7 @@ if response.status_code != 200:
 ```
 
 **What Happens**:
+
 - If update fails (HTTP ≠ 200), auto-attempt create
 - Send **POST** to `/api/v1/functions/create`
 - Uses **same payload** (code, metadata identical)
@@ -103,6 +106,7 @@ $ python deploy_async_context_compression.py
 ```
 
 **What Happens**:
+
 1. Try UPDATE → fails (HTTP 404 — plugin doesn't exist)
 2. Auto-try CREATE → succeeds (HTTP 200)
 3. Plugin created in OpenWebUI
@@ -121,6 +125,7 @@ $ python deploy_async_context_compression.py
 ```
 
 **What Happens**:
+
 1. Read modified code
 2. Try UPDATE → succeeds (HTTP 200 — plugin exists)
 3. Plugin in OpenWebUI updated to latest code
@@ -147,6 +152,7 @@ $ python deploy_async_context_compression.py
 ```
 
 **Characteristics**:
+
 - 🚀 Each update takes only 5 seconds
 - 📝 Each is an incremental update
 - ✅ No need to restart OpenWebUI
@@ -181,11 +187,13 @@ version: 1.3.0
 ```
 
 **Each deployment**:
+
 1. Script reads version from docstring
 2. Sends this version in manifest to OpenWebUI
 3. If you change version in code, deployment updates to new version
 
 **Best Practice**:
+
 ```bash
 # 1. Modify code
 vim async_context_compression.py
@@ -300,6 +308,7 @@ Usually **not needed** because:
 4. ✅ Failures auto-rollback
 
 但如果真的需要控制，可以：
+
 - 手动修改脚本 (修改 `deploy_filter.py`)
 - 或分别使用 UPDATE/CREATE 的具体 API 端点
 
@@ -323,6 +332,7 @@ Usually **not needed** because:
 ### Q: 可以同时部署多个插件吗？
 
 ✅ **可以！**  
+
 ```bash
 python deploy_filter.py async-context-compression
 python deploy_filter.py folder-memory
@@ -337,6 +347,7 @@ python deploy_filter.py context_enhancement_filter
 ---
 
 **总结**: 部署脚本的更新机制完全自动化，开发者只需修改代码，每次运行 `deploy_async_context_compression.py` 就会自动：
+
 1. ✅ 创建（第一次）或更新（后续）插件
 2. ✅ 从代码提取最新的元数据和版本号
 3. ✅ 立即生效，无需重启 OpenWebUI

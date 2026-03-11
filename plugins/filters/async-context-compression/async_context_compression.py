@@ -1886,19 +1886,9 @@ class Filter:
         """
         Check if compression should be skipped.
         Returns True if:
-        1. The base model includes 'copilot_sdk'
         """
-        # Check if base model includes copilot_sdk
-        if __model__:
-            base_model_id = __model__.get("base_model_id", "")
-            if "copilot_sdk" in base_model_id.lower():
-                return True
-
-        # Also check model in body
-        model_id = body.get("model", "")
-        if "copilot_sdk" in model_id.lower():
+        if body.get("is_copilot_model", False):
             return True
-
         return False
 
     async def inlet(

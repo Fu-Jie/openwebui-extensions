@@ -11,9 +11,9 @@ Usage:
 To get started:
     1. Create .env file with your OpenWebUI API key:
        echo "api_key=sk-your-key-here" > .env
-    
+
     2. Make sure OpenWebUI is running on localhost:3000
-    
+
     3. Run this script:
        python deploy_async_context_compression.py
 """
@@ -34,10 +34,10 @@ def main():
     print("🚀 Deploying Async Context Compression Filter Plugin")
     print("=" * 70)
     print()
-    
+
     # Deploy the filter
     success = deploy_filter("async-context-compression")
-    
+
     if success:
         print()
         print("=" * 70)
@@ -63,7 +63,7 @@ def main():
         print("  • Check network connectivity")
         print()
         return 1
-    
+
     return 0
 
 

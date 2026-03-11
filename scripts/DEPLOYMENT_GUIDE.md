@@ -9,6 +9,7 @@ This directory contains automated scripts for deploying plugins in development t
 1. **OpenWebUI Running**: Make sure OpenWebUI is running locally (default `http://localhost:3000`)
 2. **API Key**: You need a valid OpenWebUI API key
 3. **Environment File**: Create a `.env` file in this directory containing your API key:
+
    ```
    api_key=sk-xxxxxxxxxxxxx
    ```
@@ -42,12 +43,14 @@ python deploy_filter.py --list
 Used to deploy Filter-type plugins (such as message filtering, context compression, etc.).
 
 **Key Features**:
+
 - ✅ Auto-extracts metadata from Python files (version, author, description, etc.)
 - ✅ Attempts to update existing plugins, creates if not found
 - ✅ Supports multiple Filter plugin management
 - ✅ Detailed error messages and connection diagnostics
 
 **Usage**:
+
 ```bash
 # Deploy async_context_compression (default)
 python deploy_filter.py
@@ -62,6 +65,7 @@ python deploy_filter.py -l
 ```
 
 **Workflow**:
+
 1. Load API key from `.env`
 2. Find target Filter plugin directory
 3. Read Python source file
@@ -76,6 +80,7 @@ python deploy_filter.py -l
 Used to deploy Pipe-type plugins (such as GitHub Copilot SDK).
 
 **Usage**:
+
 ```bash
 python deploy_pipe.py
 ```
@@ -101,6 +106,7 @@ Create a dedicated long-term API key in OpenWebUI Settings for deployment purpos
 **Cause**: OpenWebUI is not running or port is different
 
 **Solution**:
+
 - Make sure OpenWebUI is running
 - Check which port OpenWebUI is actually listening on (usually 3000)
 - Edit the URL in the script if needed
@@ -110,6 +116,7 @@ Create a dedicated long-term API key in OpenWebUI Settings for deployment purpos
 **Cause**: `.env` file was not created
 
 **Solution**:
+
 ```bash
 echo "api_key=sk-your-api-key-here" > .env
 ```
@@ -119,6 +126,7 @@ echo "api_key=sk-your-api-key-here" > .env
 **Cause**: Filter directory name is incorrect
 
 **Solution**:
+
 ```bash
 # List all available Filters
 python deploy_filter.py --list
@@ -129,6 +137,7 @@ python deploy_filter.py --list
 **Cause**: API key is invalid or expired
 
 **Solution**:
+
 1. Verify your API key is valid
 2. Generate a new API key
 3. Update the `.env` file
@@ -177,7 +186,8 @@ python deploy_filter.py async-context-compression
 
 ## Security Considerations
 
-⚠️ **Important**: 
+⚠️ **Important**:
+
 - ✅ Add `.env` file to `.gitignore` (avoid committing sensitive info)
 - ✅ Never commit API keys to version control
 - ✅ Use only on trusted networks

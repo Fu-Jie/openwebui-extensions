@@ -7,6 +7,7 @@ Added a complete local deployment toolchain for the `async_context_compression` 
 ## 📋 New Files
 
 ### 1. **deploy_filter.py** — Filter Plugin Deployment Script
+
 - **Location**: `scripts/deploy_filter.py`
 - **Function**: Auto-deploy Filter-type plugins to local OpenWebUI instance
 - **Features**:
@@ -19,6 +20,7 @@ Added a complete local deployment toolchain for the `async_context_compression` 
 - **Code Lines**: ~300
 
 ### 2. **DEPLOYMENT_GUIDE.md** — Complete Deployment Guide
+
 - **Location**: `scripts/DEPLOYMENT_GUIDE.md`
 - **Contents**:
   - Prerequisites and quick start
@@ -28,6 +30,7 @@ Added a complete local deployment toolchain for the `async_context_compression` 
   - Step-by-step workflow examples
 
 ### 3. **QUICK_START.md** — Quick Reference Card
+
 - **Location**: `scripts/QUICK_START.md`
 - **Contents**:
   - One-line deployment command
@@ -37,6 +40,7 @@ Added a complete local deployment toolchain for the `async_context_compression` 
   - CI/CD integration examples
 
 ### 4. **test_deploy_filter.py** — Unit Test Suite
+
 - **Location**: `tests/scripts/test_deploy_filter.py`
 - **Test Coverage**:
   - ✅ Filter file discovery (3 tests)
@@ -138,6 +142,7 @@ openwebui_id: b1655bc8-6de9-4cad-8cb5-a6f7829a02ce
 ```
 
 **Supported Metadata Fields**:
+
 - `title` — Filter display name ✅
 - `id` — Unique identifier ✅
 - `author` — Author name ✅
@@ -335,17 +340,20 @@ Metadata Extraction and Delivery
 ### Debugging Tips
 
 1. **Enable Verbose Logging**:
+
    ```bash
    python deploy_filter.py 2>&1 | tee deploy.log
    ```
 
 2. **Test API Connection**:
+
    ```bash
    curl -X GET http://localhost:3000/api/v1/functions \
      -H "Authorization: Bearer $API_KEY"
    ```
 
 3. **Verify .env File**:
+
    ```bash
    grep "api_key=" scripts/.env
    ```

@@ -49,53 +49,78 @@ def _load_api_key() -> str:
     raise ValueError("api_key not found in .env file.")
 
 
+def _load_openwebui_base_url() -> str:
+    """Load OpenWebUI base URL from .env file or environment.
+
+    Checks in order:
+    1. OPENWEBUI_BASE_URL in .env
+    2. OPENWEBUI_BASE_URL environment variable
+    3. Default to http://localhost:3000
+    """
+    if ENV_FILE.exists():
+        for line in ENV_FILE.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if line.startswith("OPENWEBUI_BASE_URL="):
+                url = line.split("=", 1)[1].strip()
+                if url:
+                    return url
+
+    # Try environment variable
+    url = os.environ.get("OPENWEBUI_BASE_URL")
+    if url:
+        return url
+
+    # Default
+    return "http://localhost:3000"
+
+
 def _find_filter_file(filter_name: str) -> Optional[Path]:
     """Find the main Python file for a filter.
-    
+
     Args:
         filter_name: Directory name of the filter (e.g., 'async-context-compression')
-    
+
     Returns:
         Path to the main Python file, or None if not found.
     """
     filter_dir = FILTERS_DIR / filter_name
     if not filter_dir.exists():
         return None
-    
+
     # Try to find a .py file matching the filter name
     py_files = list(filter_dir.glob("*.py"))
-    
+
     # Prefer a file with the filter name (with hyphens converted to underscores)
     preferred_name = filter_name.replace("-", "_") + ".py"
     for py_file in py_files:
         if py_file.name == preferred_name:
             return py_file
-    
+
     # Otherwise, return the first .py file (usually the only one)
     if py_files:
         return py_files[0]
-    
+
     return None
 
 
 def _extract_metadata(content: str) -> Dict[str, Any]:
     """Extract metadata from the plugin docstring.
-    
+
     Args:
         content: Python file content
-    
+
     Returns:
         Dictionary with extracted metadata (title, author, version, etc.)
     """
     metadata = {}
-    
+
     # Extract docstring
     match = re.search(r'"""(.*?)"""', content, re.DOTALL)
     if not match:
         return metadata
-    
+
     docstring = match.group(1)
-    
+
     # Extract key-value pairs
     for line in docstring.split("\n"):
         line = line.strip()
@@ -104,7 +129,7 @@ def _extract_metadata(content: str) -> Dict[str, Any]:
             key = parts[0].strip().lower()
             value = parts[1].strip()
             metadata[key] = value
-    
+
     return metadata
 
 
@@ -112,13 +137,13 @@ def _build_filter_payload(
     filter_name: str, file_path: Path, content: str, metadata: Dict[str, Any]
 ) -> Dict[str, Any]:
     """Build the payload for the filter update/create API.
-    
+
     Args:
         filter_name: Directory name of the filter
         file_path: Path to the plugin file
         content: File content
         metadata: Extracted metadata
-    
+
     Returns:
         Payload dictionary ready for API submission
     """
@@ -126,12 +151,14 @@ def _build_filter_payload(
     filter_id = metadata.get("id", filter_name).replace("-", "_")
     title = metadata.get("title", filter_name)
     author = metadata.get("author", "Fu-Jie")
-    author_url = metadata.get("author_url", "https://github.com/Fu-Jie/openwebui-extensions")
+    author_url = metadata.get(
+        "author_url", "https://github.com/Fu-Jie/openwebui-extensions"
+    )
     funding_url = metadata.get("funding_url", "https://github.com/open-webui")
     description = metadata.get("description", f"Filter plugin: {title}")
     version = metadata.get("version", "1.0.0")
     openwebui_id = metadata.get("openwebui_id", "")
-    
+
     payload = {
         "id": filter_id,
         "name": title,
@@ -150,20 +177,20 @@ def _build_filter_payload(
         },
         "content": content,
     }
-    
+
     # Add openwebui_id if available
     if openwebui_id:
         payload["meta"]["manifest"]["openwebui_id"] = openwebui_id
-    
+
     return payload
 
 
 def deploy_filter(filter_name: str = DEFAULT_FILTER) -> bool:
     """Deploy a filter plugin to OpenWebUI.
-    
+
     Args:
         filter_name: Directory name of the filter to deploy
-    
+
     Returns:
         True if successful, False otherwise
     """
@@ -191,7 +218,7 @@ def deploy_filter(filter_name: str = DEFAULT_FILTER) -> bool:
 
     content = file_path.read_text(encoding="utf-8")
     metadata = _extract_metadata(content)
-    
+
     if not metadata:
         print(f"[ERROR] Could not extract metadata from {file_path}")
         return False
@@ -211,12 +238,14 @@ def deploy_filter(filter_name: str = DEFAULT_FILTER) -> bool:
     }
 
     # 6. Send update request
-    update_url = "http://localhost:3000/api/v1/functions/id/{}/update".format(filter_id)
-    create_url = "http://localhost:3000/api/v1/functions/create"
-    
+    base_url = _load_openwebui_base_url()
+    update_url = "{}/api/v1/functions/id/{}/update".format(base_url, filter_id)
+    create_url = "{}/api/v1/functions/create".format(base_url)
+
     print(f"📦 Deploying filter '{title}' (version {version})...")
     print(f"   File: {file_path}")
-    
+    print(f"   Target: {base_url}")
+
     try:
         # Try update first
         response = requests.post(
@@ -225,7 +254,7 @@ def deploy_filter(filter_name: str = DEFAULT_FILTER) -> bool:
             data=json.dumps(payload),
             timeout=10,
         )
-        
+
         if response.status_code == 200:
             print(f"✅ Successfully updated '{title}' filter!")
             return True
@@ -234,7 +263,7 @@ def deploy_filter(filter_name: str = DEFAULT_FILTER) -> bool:
                 f"⚠️  Update failed with status {response.status_code}, "
                 "attempting to create instead..."
             )
-            
+
             # Try create if update fails
             res_create = requests.post(
                 create_url,
@@ -242,23 +271,24 @@ def deploy_filter(filter_name: str = DEFAULT_FILTER) -> bool:
                 data=json.dumps(payload),
                 timeout=10,
             )
-            
+
             if res_create.status_code == 200:
                 print(f"✅ Successfully created '{title}' filter!")
                 return True
             else:
-                print(f"❌ Failed to update or create. Status: {res_create.status_code}")
+                print(
+                    f"❌ Failed to update or create. Status: {res_create.status_code}"
+                )
                 try:
                     error_msg = res_create.json()
                     print(f"   Error: {error_msg}")
                 except:
                     print(f"   Response: {res_create.text[:500]}")
                 return False
-                
+
     except requests.exceptions.ConnectionError:
-        print(
-            "❌ Connection error: Could not reach OpenWebUI at localhost:3000"
-        )
+        base_url = _load_openwebui_base_url()
+        print(f"❌ Connection error: Could not reach OpenWebUI at {base_url}")
         print("   Make sure OpenWebUI is running and accessible.")
         return False
     except requests.exceptions.Timeout:
@@ -272,16 +302,20 @@ def deploy_filter(filter_name: str = DEFAULT_FILTER) -> bool:
 def list_filters() -> None:
     """List all available filters."""
     print("📋 Available filters:")
-    filters = [d.name for d in FILTERS_DIR.iterdir() if d.is_dir() and not d.name.startswith("_")]
-    
+    filters = [
+        d.name
+        for d in FILTERS_DIR.iterdir()
+        if d.is_dir() and not d.name.startswith("_")
+    ]
+
     if not filters:
         print("   (No filters found)")
         return
-    
+
     for filter_name in sorted(filters):
         filter_dir = FILTERS_DIR / filter_name
         py_file = _find_filter_file(filter_name)
-        
+
         if py_file:
             content = py_file.read_text(encoding="utf-8")
             metadata = _extract_metadata(content)
