@@ -321,7 +321,7 @@ class OpenWebUIStats:
             post_type = plugin_obj.get("type")
         elif top_type:
             post_type = top_type
-        elif not meta and not function_obj:
+        elif not meta and not plugin_obj:
             post_type = "post"
 
         post_type = self._normalize_post_type(post_type)
