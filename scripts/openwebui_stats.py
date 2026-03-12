@@ -639,8 +639,8 @@ class OpenWebUIStats:
             stats["total_saves"] += post.get("saveCount", 0)
             stats["total_comments"] += post.get("commentCount", 0)
 
-            # Key: only count downloadable types (exclude post, review)
-            if post_type in self.DOWNLOADABLE_TYPES:
+            # Key: exclude post and review types from stats (only count plugins)
+            if post_type not in ("post", "review"):
                 stats["total_views"] += post_views
                 if post_type not in stats["by_type"]:
                     stats["by_type"][post_type] = 0
