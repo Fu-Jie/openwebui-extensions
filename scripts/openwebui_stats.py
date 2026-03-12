@@ -282,7 +282,7 @@ class OpenWebUIStats:
         data = post.get("data", {}) or {}
         if not data:
             return {}
-        
+
         # Priority 1: Use post['type'] as the key (standard behavior)
         post_type = post.get("type")
         if post_type and post_type in data and data[post_type]:
@@ -296,7 +296,7 @@ class OpenWebUIStats:
         for k in ["tool", "pipe", "action", "filter", "prompt", "model"]:
             if k in data and data[k]:
                 return data[k]
-        
+
         # Priority 4: If there's only one key in data, assume that's the one
         if len(data) == 1:
             return list(data.values())[0] or {}
@@ -639,13 +639,12 @@ class OpenWebUIStats:
             stats["total_saves"] += post.get("saveCount", 0)
             stats["total_comments"] += post.get("commentCount", 0)
 
-            # Key: total views do not include non-downloadable types (e.g., post, review)
+            # Key: only count downloadable types in by_type (exclude post, review)
             if post_type in self.DOWNLOADABLE_TYPES or post_downloads > 0:
                 stats["total_views"] += post_views
-
-            if post_type not in stats["by_type"]:
-                stats["by_type"][post_type] = 0
-            stats["by_type"][post_type] += 1
+                if post_type not in stats["by_type"]:
+                    stats["by_type"][post_type] = 0
+                stats["by_type"][post_type] += 1
 
             # Individual post information
             created_at = datetime.fromtimestamp(post.get("createdAt", 0))
