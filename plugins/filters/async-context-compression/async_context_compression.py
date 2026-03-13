@@ -5,16 +5,17 @@ author: Fu-Jie
 author_url: https://github.com/Fu-Jie/openwebui-extensions
 funding_url: https://github.com/open-webui
 description: Reduces token consumption in long conversations while maintaining coherence through intelligent summarization and message compression.
-version: 1.4.1
+version: 1.4.2
 openwebui_id: b1655bc8-6de9-4cad-8cb5-a6f7829a02ce
 license: MIT
 
 ═══════════════════════════════════════════════════════════════════════════════
-📌 What's new in 1.4.1
+📌 What's new in 1.4.2
 ═══════════════════════════════════════════════════════════════════════════════
 
-  ✅ Reverse-Unfolding Mechanism: Accurately reconstructs the expanded native tool-calling sequence during the outlet phase to permanently fix coordinate drift and missing summaries for long tool-based conversations.
-  ✅ Safer Tool Trimming: Refactored `enable_tool_output_trimming` to strictly use atomic block groups for safe trimming, completely preventing JSON payload corruption.
+  ✅ Enhanced Summary Path Robustness: Thread __request__ context through entire summary generation pipeline for reliable authentication and provider handling.
+  ✅ Improved Error Diagnostics: LLM response validation failures now include complete response body in error logs for better troubleshooting.
+  ✅ Smart Previous Summary Loading: Automatically load and merge previous summaries from DB when not present in outlet payload, enabling incremental state merging.
 
 ═══════════════════════════════════════════════════════════════════════════════
 📌 Overview
@@ -2502,6 +2503,7 @@ class Filter:
         __model__: dict = None,
         __event_emitter__: Callable[[Any], Awaitable[None]] = None,
         __event_call__: Callable[[Any], Awaitable[None]] = None,
+        __request__: Request = None,
     ) -> dict:
         """
         Executed after the LLM response is complete.
@@ -2614,6 +2616,7 @@ class Filter:
                 lang,
                 __event_emitter__,
                 __event_call__,
+                __request__,
             )
         )
 
@@ -2630,6 +2633,7 @@ class Filter:
         lang: str,
         __event_emitter__: Callable,
         __event_call__: Callable,
+        __request__: Request = None,
     ):
         """Wrapper to run summary generation with an async lock."""
         async with lock:
@@ -2642,6 +2646,7 @@ class Filter:
                 lang,
                 __event_emitter__,
                 __event_call__,
+                __request__,
             )
 
     async def _check_and_generate_summary_async(
@@ -2654,6 +2659,7 @@ class Filter:
         lang: str = "en-US",
         __event_emitter__: Callable[[Any], Awaitable[None]] = None,
         __event_call__: Callable[[Any], Awaitable[None]] = None,
+        __request__: Request = None,
     ):
         """
         Background processing: Calculates Token count and generates summary (does not block response).
@@ -2757,6 +2763,7 @@ class Filter:
                     lang,
                     __event_emitter__,
                     __event_call__,
+                    __request__,
                 )
             else:
                 await self._log(
@@ -2788,6 +2795,7 @@ class Filter:
         lang: str = "en-US",
         __event_emitter__: Callable[[Any], Awaitable[None]] = None,
         __event_call__: Callable[[Any], Awaitable[None]] = None,
+        __request__: Request = None,
     ):
         """
         Generates summary asynchronously (runs in background, does not block response).
@@ -2941,8 +2949,25 @@ class Filter:
             # 4. Build conversation text
             conversation_text = self._format_messages_for_summary(middle_messages)
 
-            # 5. Call LLM to generate new summary
-            # Note: previous_summary is not passed here because old summary (if any) is already included in middle_messages
+            # 5. Determine previous_summary to pass to LLM.
+            # When summary_index is not None, the old summary message is already the first
+            # entry of middle_messages (protected_prefix=1), so it appears verbatim in
+            # conversation_text — no need to inject separately.
+            # When summary_index is None the outlet messages come from raw DB history that
+            # has never had the summary injected, so we must load it from DB explicitly.
+            if summary_index is None:
+                previous_summary = await asyncio.to_thread(
+                    self._load_summary, chat_id, body
+                )
+                if previous_summary:
+                    await self._log(
+                        "[🤖 Async Summary Task] Loaded previous summary from DB to pass as context (summary not in messages)",
+                        event_call=__event_call__,
+                    )
+            else:
+                previous_summary = None  # already embedded in middle_messages[0]
+
+            # 6. Call LLM to generate new summary
 
             # Send status notification for starting summary generation
             if __event_emitter__:
@@ -2959,11 +2984,12 @@ class Filter:
                 )
 
             new_summary = await self._call_summary_llm(
-                None,
                 conversation_text,
                 {**body, "model": summary_model_id},
                 user_data,
                 __event_call__,
+                __request__,
+                previous_summary=previous_summary,
             )
 
             if not new_summary:
@@ -3186,11 +3212,12 @@ class Filter:
 
     async def _call_summary_llm(
         self,
-        previous_summary: Optional[str],
         new_conversation_text: str,
         body: dict,
         user_data: dict,
         __event_call__: Callable[[Any], Awaitable[None]] = None,
+        __request__: Request = None,
+        previous_summary: Optional[str] = None,
     ) -> str:
         """
         Calls the LLM to generate a summary using Open WebUI's built-in method.
@@ -3201,33 +3228,52 @@ class Filter:
         )
 
         # Build summary prompt (Optimized for State/Working Memory and Tool Calling)
-        summary_prompt = f"""
-You are an expert Context Compression Engine. Your goal is to create a high-fidelity, highly dense "Working Memory" from the provided conversation.
-This conversation may contain previous Working Memories and raw native tool-calling sequences (JSON arguments and results).
+        previous_summary_block = (
+            f"<previous_working_memory>\n{previous_summary}\n</previous_working_memory>\n\n"
+            if previous_summary
+            else ""
+        )
+        summary_prompt = f"""You are an expert Context Compression Engine. Produce a high-fidelity, maximally dense "Working Memory" snapshot from the inputs below.
 
-### Rules of Engagement
-1.  **Incremental Integration**: If the conversation begins with an existing Working Memory/Summary, you must PRESERVE its core facts and MERGE the new conversation events into it. Do not discard older facts.
-2.  **Tool-Call Decompression**: Raw JSON/Text outputs from tools are noisy. Extract ONLY the definitive facts, actionable data, or root causes of errors. Ignore the structural payload.
-3.  **Ruthless Denoising**: Completely eliminate greetings, apologies ("I'm sorry for the error"), acknowledgments ("Sure, I can do that"), and redundant confirmations.
-4.  **Verbatim Retention**: ANY code snippets, shell commands, file paths, specific parameters, and Message IDs (e.g., [ID: ...]) MUST be kept exactly as they appear to maintain traceability.
-5.  **Logic Preservation**: Clearly link "what the user asked" -> "what the tool found" -> "how the system reacted".
+### Processing Rules
+1.  **State-Aware Merging**: If `<previous_working_memory>` is provided, you MUST merge it with the new conversation. Preserve facts that are still true; UPDATE or SUPERSEDE facts whose state has changed (e.g., "bug X exists" → "bug X fixed in commit abc"); REMOVE facts fully resolved with no future relevance.
+2.  **Goal Tracking**: Reflect the LATEST user intent as "Current Goal". If the goal has shifted, move the old goal to Working Memory as "Prior Goal (completed/abandoned)".
+3.  **Tool-Call Decompression**: From raw JSON tool arguments/results, extract ONLY: definitive facts, concrete return values, error codes, root causes. Discard structural boilerplate.
+4.  **Error & Exception Verbatim**: Stack traces, error messages, exception types, and exit codes MUST be quoted exactly — they are primary debugging artifacts.
+5.  **Ruthless Denoising**: Delete greetings, apologies, acknowledgments, and any phrase that carries zero information.
+6.  **Verbatim Retention**: Code snippets, shell commands, file paths, config values, and Message IDs (e.g., [ID: ...]) MUST appear character-for-character.
+7.  **Causal Chain**: For each tool call or action, record: trigger → operation → outcome (one line per event).
 
 ### Output Constraints
-*   **Format**: Strictly follow the Markdown structure below.
-*   **Length**: Maximum {self.valves.max_summary_tokens} Tokens.
-*   **Tone**: Robotic, objective, dense.
-*   **Language**: Consistent with the conversation language.
-*   **Forbidden**: NO conversational openings/closings (e.g., "Here is the summary", "Hope this helps"). Output the data directly.
+*   **Format**: Follow the Required Structure below — omit a section only if it has zero content.
+*   **Token Budget**: Stay under {self.valves.max_summary_tokens} tokens. Prioritize recency and actionability when trimming.
+*   **Tone**: Terse, robotic, third-person where applicable.
+*   **Language**: Match the dominant language of the conversation.
+*   **Forbidden**: No preamble, no closing remarks, no meta-commentary. Start directly with the first section header.
 
-### Suggested Summary Structure
-*   **Current Goal**: What is the user ultimately trying to achieve?
-*   **Working Memory & Facts**: (Bullet points of established facts, parsed tool results, and constraints. Cite Message IDs if critical).
-*   **Code & Artifacts**: (Only if applicable. Include exact code blocks).
-*   **Recent Actions**: (e.g., "Attempted to run script, failed with SyntaxError, applied fix").
-*   **Pending/Next Steps**: What is waiting to be done.
+### Required Output Structure
+## Current Goal
+(Single sentence: what the user is trying to achieve RIGHT NOW)
+
+## Working Memory & Facts
+(Bullet list — each item: one established fact, constraint, or parsed tool result. Mark superseded items as ~~old~~ → new. Cite [ID: ...] when critical.)
+
+## Code & Artifacts
+(Only if present. Exact code blocks with language tags. File paths as inline code.)
+
+## Causal Log
+(Chronological. Format: `[MSG_ID?] action → result`. One line per event. Keep only the last N events that remain causally relevant.)
+
+## Errors & Exceptions
+(Only if unresolved. Exact quoted text. Include error type, message, and last known stack frame.)
+
+## Pending / Next Steps
+(Ordered list. First item = most immediate action.)
 
 ---
+{previous_summary_block}<new_conversation>
 {new_conversation_text}
+</new_conversation>
 ---
 
 Generate the Working Memory:
@@ -3277,8 +3323,8 @@ Generate the Working Memory:
                 event_call=__event_call__,
             )
 
-            # Create Request object
-            request = Request(scope={"type": "http", "app": webui_app})
+            # Use the injected request if available, otherwise fall back to a minimal synthetic one
+            request = __request__ or Request(scope={"type": "http", "app": webui_app})
 
             # Call generate_chat_completion
             response = await generate_chat_completion(request, payload, user)
@@ -3299,8 +3345,13 @@ Generate the Working Memory:
                 or "choices" not in response
                 or not response["choices"]
             ):
+                try:
+                    response_repr = json_module.dumps(response, ensure_ascii=False, indent=2)
+                except Exception:
+                    response_repr = repr(response)
                 raise ValueError(
-                    f"LLM response format incorrect or empty: {type(response).__name__}"
+                    f"LLM response format incorrect or empty: {type(response).__name__}\n"
+                    f"Full response:\n{response_repr}"
                 )
 
             summary = response["choices"][0]["message"]["content"].strip()

@@ -1,13 +1,14 @@
 # Async Context Compression Filter
 
-**Author:** [Fu-Jie](https://github.com/Fu-Jie/openwebui-extensions) | **Version:** 1.4.1 | **Project:** [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions) | **License:** MIT
+**Author:** [Fu-Jie](https://github.com/Fu-Jie/openwebui-extensions) | **Version:** 1.4.2 | **Project:** [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions) | **License:** MIT
 
 This filter reduces token consumption in long conversations through intelligent summarization and message compression while keeping conversations coherent.
 
-## What's new in 1.4.1
+## What's new in 1.4.2
 
-- **Reverse-Unfolding Mechanism**: Accurately reconstructs the expanded native tool-calling sequence during the outlet phase to permanently fix coordinate drift and missing summaries for long tool-based conversations.
-- **Safer Tool Trimming**: Refactored `enable_tool_output_trimming` to strictly use atomic block groups for safe trimming, completely preventing JSON payload corruption.
+- **Enhanced Summary Path Robustness**: Thread `__request__` context through entire summary generation pipeline for reliable authentication and provider handling.
+- **Improved Error Diagnostics**: LLM response validation failures now include complete response body in error logs for transparent troubleshooting.
+- **Smart Previous Summary Loading**: Automatically load and merge previous summaries from DB when not present in outlet payload, enabling incremental state merging across summary generations.
 
 ---
 

@@ -1,15 +1,16 @@
 # 异步上下文压缩过滤器
 
-**作者:** [Fu-Jie](https://github.com/Fu-Jie/openwebui-extensions) | **版本:** 1.4.1 | **项目:** [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions) | **许可证:** MIT
+**作者:** [Fu-Jie](https://github.com/Fu-Jie/openwebui-extensions) | **版本:** 1.4.2 | **项目:** [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions) | **许可证:** MIT
 
 > **重要提示**：为了确保所有过滤器的可维护性和易用性，每个过滤器都应附带清晰、完整的文档，以确保其功能、配置和使用方法得到充分说明。
 
 本过滤器通过智能摘要和消息压缩技术，在保持对话连贯性的同时，显著降低长对话的 Token 消耗。
 
-## 1.4.1 版本更新
+## 1.4.2 版本更新
 
-- **逆向展开机制**: 引入 `_unfold_messages` 机制以在 `outlet` 阶段精确对齐坐标系，彻底解决了由于前端视图折叠导致长轮次工具调用对话出现进度漂移或跳过生成摘要的问题。
-- **更安全的工具内容裁剪**: 重构了 `enable_tool_output_trimming`，现在严格使用原子级分组进行安全的原生工具内容裁剪，替代了激进的正则表达式匹配，防止 JSON 载荷损坏。
+- **强化摘要路径健壮性**: 在整个摘要生成管道中透传 `__request__` 上下文，确保认证和提供商处理的可靠性。
+- **改进错误诊断**: LLM 响应校验失败时，错误日志现在包含完整的响应体，便于透明的故障排除。
+- **智能旧摘要加载**: 当 outlet payload 中缺失摘要消息时，自动从 DB 加载并合并前一代摘要，实现增量式状态合并。
 
 ---
 
