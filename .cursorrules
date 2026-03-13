@@ -1,0 +1,8 @@
+# 🤖 Cursor/Gemini Multi-Agent Protocol
+
+1. **STATUS CHECK**: Always run `python3 scripts/agent_sync.py status` first.
+2. **REGISTRATION**: Run `python3 scripts/agent_sync.py register gemini-id "Gemini" "Current task"`.
+3. **LOCKING**: Never edit without `python3 scripts/agent_sync.py lock gemini-id <path>`.
+4. **STANDARDS**: Refer to `.agent/rules/plugin_standards.md` for coding guidelines.
+
+Full details in `COOPERATION.md`.
