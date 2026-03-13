@@ -8,6 +8,9 @@ This filter reduces token consumption in long conversations through intelligent 
 
 - **Reverse-Unfolding Mechanism**: Accurately reconstructs the expanded native tool-calling sequence during the outlet phase to permanently fix coordinate drift and missing summaries for long tool-based conversations.
 - **Safer Tool Trimming**: Refactored `enable_tool_output_trimming` to strictly use atomic block groups for safe trimming, completely preventing JSON payload corruption.
+- **Strengthened Summary Path**: Thread real `__request__` context through the entire summary pipeline instead of using minimal synthetic requests, improving compatibility with various LLM providers.
+- **Smarter Previous Summary Loading**: When outlet payload lacks an injected summary, the filter now explicitly loads the previous summary from the database and merges it into the LLM prompt for incremental context preservation.
+- **Better Error Diagnostics**: LLM response validation errors now print the complete response body for immediate troubleshooting instead of just the type name.
 
 ---
 
