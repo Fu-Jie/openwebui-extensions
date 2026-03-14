@@ -20,11 +20,11 @@ Filter 充当消息管线中的中间件：
 
     ---
 
-    通过智能总结减少长对话的 token 消耗，同时保持连贯性。
+    通过更稳健的摘要回退和更清晰的失败提示，降低长对话的 token 消耗并保持连贯性。
 
-    **版本：** 1.4.1
+    **版本：** 1.5.0
 
-    [:octicons-arrow-right-24: 查看文档](async-context-compression.md)
+    [:octicons-arrow-right-24: 查看文档](async-context-compression.zh.md)
 
 - :material-text-box-plus:{ .lg .middle } **Context Enhancement**
 

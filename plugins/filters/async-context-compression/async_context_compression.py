@@ -5,17 +5,17 @@ author: Fu-Jie
 author_url: https://github.com/Fu-Jie/openwebui-extensions
 funding_url: https://github.com/open-webui
 description: Reduces token consumption in long conversations while maintaining coherence through intelligent summarization and message compression.
-version: 1.4.2
+version: 1.5.0
 openwebui_id: b1655bc8-6de9-4cad-8cb5-a6f7829a02ce
 license: MIT
 
 ═══════════════════════════════════════════════════════════════════════════════
-📌 What's new in 1.4.2
+📌 What's new in 1.5.0
 ═══════════════════════════════════════════════════════════════════════════════
 
-  ✅ Enhanced Summary Path Robustness: Thread __request__ context through entire summary generation pipeline for reliable authentication and provider handling.
-  ✅ Improved Error Diagnostics: LLM response validation failures now include complete response body in error logs for better troubleshooting.
-  ✅ Smart Previous Summary Loading: Automatically load and merge previous summaries from DB when not present in outlet payload, enabling incremental state merging.
+  ✅ Stronger Working-Memory Prompt: Refined XML summary instructions to better preserve useful context in general chat and multi-step tool workflows.
+  ✅ Clearer Frontend Debug Logs: Reworked browser-console debug output into grouped, structured snapshots for faster diagnosis.
+  ✅ Safer Tool Trimming Defaults: Native tool-output trimming is now enabled by default with a configurable 600-character threshold.
 
 ═══════════════════════════════════════════════════════════════════════════════
 📌 Overview
@@ -121,8 +121,12 @@ model_thresholds
   Example: {"gpt-4": {"compression_threshold_tokens": 8000, "max_context_tokens": 32000}}
 
 enable_tool_output_trimming
-  Default: false
-  Description: When enabled and `function_calling: "native"` is active, collapses oversized native tool outputs (role="tool" messages exceeding ~1200 chars) to a short placeholder, reducing context size while preserving tool-call chain structure.
+  Default: true
+  Description: When enabled and `function_calling: "native"` is active, collapses oversized native tool outputs to a short placeholder while preserving the tool-call chain structure.
+
+tool_trim_threshold_chars
+  Default: 600
+  Description: Trim native tool outputs when their total content length reaches this many characters.
 
 keep_first
   Default: 1
@@ -146,7 +150,7 @@ max_summary_tokens
   Description: The maximum number of tokens allowed for the generated summary.
 
 summary_temperature
-  Default: 0.3
+  Default: 0.1
   Description: Controls the randomness of the summary generation. Lower values produce more deterministic output.
 
 debug_mode
@@ -265,6 +269,7 @@ import re
 import asyncio
 import json
 import hashlib
+import math
 import time
 import contextlib
 import logging
@@ -287,11 +292,6 @@ try:
     from open_webui.models.chats import Chats
 except ModuleNotFoundError:  # pragma: no cover - filter runs inside OpenWebUI
     Chats = None
-
-try:
-    from open_webui.models.chat_messages import ChatMessages
-except ModuleNotFoundError:  # pragma: no cover - filter runs inside OpenWebUI
-    ChatMessages = None
 
 # Open WebUI internal database (re-use shared connection)
 try:
@@ -412,7 +412,8 @@ TRANSLATIONS = {
         "status_loaded_summary": "Loaded historical summary (Hidden {count} historical messages)",
         "status_context_summary_updated": "Context Summary Updated: {tokens} / {max_tokens} Tokens ({ratio}%)",
         "status_generating_summary": "Generating context summary in background...",
-        "status_summary_error": "Summary Error: {error}",
+        "status_summary_error": "Summary Error: {error} | Check browser console (F12) for details",
+        "status_external_refs_injected": "Bypassed chat RAG and injected {count} referenced chat context(s)",
         "summary_prompt_prefix": "【Previous Summary: The following is a summary of the historical conversation, provided for context only. Do not reply to the summary content itself; answer the subsequent latest questions directly.】\n\n",
         "summary_prompt_suffix": "\n\n---\nBelow is the recent conversation:",
         "tool_trimmed": "... [Tool outputs trimmed]\n{content}",
@@ -424,7 +425,8 @@ TRANSLATIONS = {
         "status_loaded_summary": "已加载历史总结 (隐藏了 {count} 条历史消息)",
         "status_context_summary_updated": "上下文总结已更新: {tokens} / {max_tokens} Tokens ({ratio}%)",
         "status_generating_summary": "正在后台生成上下文总结...",
-        "status_summary_error": "总结生成错误: {error}",
+        "status_summary_error": "总结生成错误: {error} | 请查看浏览器控制台(F12)获取详情",
+        "status_external_refs_injected": "已绕过 chat RAG，并注入 {count} 个引用聊天上下文",
         "summary_prompt_prefix": "【前情提要：以下是历史对话的总结，仅供上下文参考。请不要回复总结内容本身，直接回答之后最新的问题。】\n\n",
         "summary_prompt_suffix": "\n\n---\n以下是最近的对话：",
         "tool_trimmed": "... [工具输出已裁剪]\n{content}",
@@ -436,7 +438,8 @@ TRANSLATIONS = {
         "status_loaded_summary": "已載入歷史總結 (隱藏了 {count} 條歷史訊息)",
         "status_context_summary_updated": "上下文總結已更新: {tokens} / {max_tokens} Tokens ({ratio}%)",
         "status_generating_summary": "正在後台生成上下文總結...",
-        "status_summary_error": "總結生成錯誤: {error}",
+        "status_summary_error": "總結生成錯誤: {error} | 請查看瀏覽器控制台(F12)獲取詳情",
+        "status_external_refs_injected": "已繞過 chat RAG，並注入 {count} 個引用聊天上下文",
         "summary_prompt_prefix": "【前情提要：以下是歷史對話的總結，僅供上下文參考。請不要回覆總結內容本身，直接回答之後最新的問題。】\n\n",
         "summary_prompt_suffix": "\n\n---\n以下是最近的對話：",
         "tool_trimmed": "... [工具輸出已裁剪]\n{content}",
@@ -448,7 +451,8 @@ TRANSLATIONS = {
         "status_loaded_summary": "已載入歷史總結 (隱藏了 {count} 條歷史訊息)",
         "status_context_summary_updated": "上下文總結已更新: {tokens} / {max_tokens} Tokens ({ratio}%)",
         "status_generating_summary": "正在後台生成上下文總結...",
-        "status_summary_error": "總結生成錯誤: {error}",
+        "status_summary_error": "總結生成錯誤: {error} | 請查看瀏覽器控制台(F12)獲取詳情",
+        "status_external_refs_injected": "已繞過 chat RAG，並注入 {count} 個引用聊天上下文",
         "summary_prompt_prefix": "【前情提要：以下是歷史對話的總結，僅供上下文参考。請不要回覆總結內容本身，直接回答之後最新的問題。】\n\n",
         "summary_prompt_suffix": "\n\n---\n以下是最近的對話：",
         "tool_trimmed": "... [工具輸出已裁剪]\n{content}",
@@ -460,7 +464,8 @@ TRANSLATIONS = {
         "status_loaded_summary": "履歴の要約を読み込みました ({count} 件の履歴メッセージを非表示)",
         "status_context_summary_updated": "コンテキストの要約が更新されました: {tokens} / {max_tokens} トークン ({ratio}%)",
         "status_generating_summary": "バックグラウンドでコンテキスト要約を生成しています...",
-        "status_summary_error": "要約エラー: {error}",
+        "status_summary_error": "要約エラー: {error} | 詳細はブラウザコンソール (F12) を確認してください",
+        "status_external_refs_injected": "chat RAG をバイパスし、参照チャットの文脈を {count} 件注入しました",
         "summary_prompt_prefix": "【これまでのあらすじ：以下は過去の会話の要約であり、コンテキストの参考としてのみ提供されます。要約の内容自体には返答せず、その後の最新の質問に直接答えてください。】\n\n",
         "summary_prompt_suffix": "\n\n---\n以下は最近の会話です：",
         "tool_trimmed": "... [ツールの出力をトリミングしました]\n{content}",
@@ -472,7 +477,8 @@ TRANSLATIONS = {
         "status_loaded_summary": "이전 요약 불러옴 ({count}개의 이전 메시지 숨김)",
         "status_context_summary_updated": "컨텍스트 요약 업데이트됨: {tokens} / {max_tokens} 토큰 ({ratio}%)",
         "status_generating_summary": "백그라운드에서 컨텍스트 요약 생성 중...",
-        "status_summary_error": "요약 오류: {error}",
+        "status_summary_error": "요약 오류: {error} | 자세한 내용은 브라우저 콘솔(F12)을 확인하세요",
+        "status_external_refs_injected": "chat RAG를 우회하고 참조 채팅 컨텍스트 {count}개를 주입했습니다",
         "summary_prompt_prefix": "【이전 요약: 다음은 이전 대화의 요약이며 문맥 참고용으로만 제공됩니다. 요약 내용 자체에 답하지 말고 최신 질문에 직접 답하세요.】\n\n",
         "summary_prompt_suffix": "\n\n---\n다음은 최근 대화입니다:",
         "tool_trimmed": "... [도구 출력 잘림]\n{content}",
@@ -484,7 +490,8 @@ TRANSLATIONS = {
         "status_loaded_summary": "Résumé historique chargé ({count} messages d'historique masqués)",
         "status_context_summary_updated": "Résumé du contexte mis à jour : {tokens} / {max_tokens} jetons ({ratio}%)",
         "status_generating_summary": "Génération du résumé du contexte en arrière-plan...",
-        "status_summary_error": "Erreur de résumé : {error}",
+        "status_summary_error": "Erreur de résumé : {error} | Consultez la console du navigateur (F12) pour plus de détails",
+        "status_external_refs_injected": "Chat RAG contourné, {count} contexte(s) de chat référencé(s) injecté(s)",
         "summary_prompt_prefix": "【Résumé précédent : Ce qui suit est un résumé de la conversation historique, fourni uniquement pour le contexte. Ne répondez pas au contenu du résumé lui-même ; répondez directement aux dernières questions.】\n\n",
         "summary_prompt_suffix": "\n\n---\nVoici la conversation récente :",
         "tool_trimmed": "... [Sorties d'outils coupées]\n{content}",
@@ -496,7 +503,8 @@ TRANSLATIONS = {
         "status_loaded_summary": "Historische Zusammenfassung geladen ({count} historische Nachrichten ausgeblendet)",
         "status_context_summary_updated": "Kontextzusammenfassung aktualisiert: {tokens} / {max_tokens} Tokens ({ratio}%)",
         "status_generating_summary": "Kontextzusammenfassung wird im Hintergrund generiert...",
-        "status_summary_error": "Zusammenfassungsfehler: {error}",
+        "status_summary_error": "Zusammenfassungsfehler: {error} | Details siehe Browserkonsole (F12)",
+        "status_external_refs_injected": "Chat-RAG umgangen und {count} referenzierte Chat-Kontexte injiziert",
         "summary_prompt_prefix": "【Vorherige Zusammenfassung: Das Folgende ist eine Zusammenfassung der historischen Konversation, die nur als Kontext dient. Antworten Sie nicht auf den Inhalt der Zusammenfassung selbst, sondern direkt auf die nachfolgenden neuesten Fragen.】\n\n",
         "summary_prompt_suffix": "\n\n---\nHier ist die jüngste Konversation:",
         "tool_trimmed": "... [Werkzeugausgaben gekürzt]\n{content}",
@@ -508,7 +516,8 @@ TRANSLATIONS = {
         "status_loaded_summary": "Resumen histórico cargado ({count} mensajes históricos ocultos)",
         "status_context_summary_updated": "Resumen del contexto actualizado: {tokens} / {max_tokens} Tokens ({ratio}%)",
         "status_generating_summary": "Generando resumen del contexto en segundo plano...",
-        "status_summary_error": "Error de resumen: {error}",
+        "status_summary_error": "Error de resumen: {error} | Consulte la consola del navegador (F12) para ver los detalles",
+        "status_external_refs_injected": "Se omitió chat RAG y se inyectaron {count} contexto(s) de chats referenciados",
         "summary_prompt_prefix": "【Resumen anterior: El siguiente es un resumen de la conversación histórica, proporcionado solo como contexto. No responda al contenido del resumen en sí; responda directamente a las preguntas más recientes.】\n\n",
         "summary_prompt_suffix": "\n\n---\nA continuación se muestra la conversación reciente:",
         "tool_trimmed": "... [Salidas de herramientas recortadas]\n{content}",
@@ -520,7 +529,8 @@ TRANSLATIONS = {
         "status_loaded_summary": "Riepilogo storico caricato ({count} messaggi storici nascosti)",
         "status_context_summary_updated": "Riepilogo contesto aggiornato: {tokens} / {max_tokens} Token ({ratio}%)",
         "status_generating_summary": "Generazione riepilogo contesto in background...",
-        "status_summary_error": "Errore riepilogo: {error}",
+        "status_summary_error": "Errore riepilogo: {error} | Controlla la console del browser (F12) per i dettagli",
+        "status_external_refs_injected": "Chat RAG bypassato e iniettati {count} contesto/i di chat referenziate",
         "summary_prompt_prefix": "【Riepilogo precedente: Il seguente è un riepilogo della conversazione storica, fornito solo per contesto. Non rispondere al contenuto del riepilogo stesso; rispondi direttamente alle domande più recenti.】\n\n",
         "summary_prompt_suffix": "\n\n---\nDi seguito è riportata la conversazione recente:",
         "tool_trimmed": "... [Output degli strumenti tagliati]\n{content}",
@@ -536,6 +546,123 @@ if tiktoken:
         TIKTOKEN_ENCODING = tiktoken.get_encoding("o200k_base")
     except Exception as e:
         logger.error(f"[Init] Failed to load tiktoken encoding: {e}")
+
+
+ASCII_PUNCTUATION_CHARS = ".,:;!?/\\()[]{}<>-=+*_`"
+SCRIPT_BYTE_COEFFICIENTS = {
+    "han": 0.295,
+    "kana": 0.235,
+    "hangul": 0.175,
+    "cyr": 0.13,
+    "arabic": 0.135,
+    "thai": 0.145,
+    "other": 0.22,
+}
+
+
+def _sample_script_mix(text: str, limit: int = 256) -> tuple[Dict[str, int], str]:
+    counts = {key: 0 for key in SCRIPT_BYTE_COEFFICIENTS}
+    seen = 0
+
+    for char in text:
+        codepoint = ord(char)
+        if codepoint < 128:
+            continue
+
+        seen += 1
+        if 0x3040 <= codepoint <= 0x30FF or 0x31F0 <= codepoint <= 0x31FF:
+            counts["kana"] += 1
+        elif (
+            0x3400 <= codepoint <= 0x4DBF
+            or 0x4E00 <= codepoint <= 0x9FFF
+            or 0xF900 <= codepoint <= 0xFAFF
+        ):
+            counts["han"] += 1
+        elif (
+            0x1100 <= codepoint <= 0x11FF
+            or 0x3130 <= codepoint <= 0x318F
+            or 0xAC00 <= codepoint <= 0xD7AF
+        ):
+            counts["hangul"] += 1
+        elif (
+            0x0400 <= codepoint <= 0x052F
+            or 0x2DE0 <= codepoint <= 0x2DFF
+            or 0xA640 <= codepoint <= 0xA69F
+        ):
+            counts["cyr"] += 1
+        elif (
+            0x0600 <= codepoint <= 0x06FF
+            or 0x0750 <= codepoint <= 0x077F
+            or 0x08A0 <= codepoint <= 0x08FF
+        ):
+            counts["arabic"] += 1
+        elif 0x0E00 <= codepoint <= 0x0E7F:
+            counts["thai"] += 1
+        else:
+            counts["other"] += 1
+
+        if seen >= limit:
+            break
+
+    total = sum(counts.values())
+    if total == 0:
+        return counts, "ascii"
+
+    top_counts = sorted(counts.values(), reverse=True)
+    if top_counts[1] >= max(8, top_counts[0] * 0.35):
+        return counts, "mixed"
+
+    return counts, max(counts, key=counts.get)
+
+
+@lru_cache(maxsize=4096)
+def _estimate_text_tokens(text: str) -> int:
+    """Fast token estimate using C-backed string primitives."""
+    if not text:
+        return 0
+
+    char_count = len(text)
+    spaces = text.count(" ") + text.count("\t")
+    newlines = text.count("\n") + text.count("\r")
+
+    if text.isascii():
+        punctuation = sum(text.count(ch) for ch in ASCII_PUNCTUATION_CHARS)
+        codeish = newlines > 0 or punctuation * 6 > char_count
+        if codeish:
+            estimate = (
+                char_count * 0.20
+                + spaces * 0.10
+                + newlines * 0.18
+                + punctuation * 0.08
+            )
+        else:
+            estimate = char_count * 0.17 + spaces * 0.24 + punctuation * 0.05
+
+        return max(1, math.ceil(estimate))
+
+    ascii_chars = len(text.encode("ascii", "ignore"))
+    non_ascii_bytes = len(text.encode("utf-8")) - ascii_chars
+    script_counts, script_profile = _sample_script_mix(text)
+    sampled_total = max(1, sum(script_counts.values()))
+    byte_coefficient = sum(
+        (script_counts[key] / sampled_total) * SCRIPT_BYTE_COEFFICIENTS[key]
+        for key in SCRIPT_BYTE_COEFFICIENTS
+    )
+    estimate = (
+        ascii_chars * 0.21
+        + non_ascii_bytes * byte_coefficient
+        + (spaces + newlines) * 0.08
+    )
+
+    if script_profile in ("cyr", "arabic"):
+        estimate += newlines * 0.04
+    else:
+        estimate += newlines * 0.08
+
+    if char_count < 256 and script_profile not in ("cyr", "arabic"):
+        estimate *= 0.94
+
+    return max(1, math.ceil(estimate))
 
 
 @lru_cache(maxsize=1024)
@@ -554,8 +681,7 @@ def _get_cached_tokens(text: str) -> int:
             )
             pass
 
-    # Fallback strategy: Rough estimation (1 token ≈ 4 chars)
-    return len(text) // 4
+    return _estimate_text_tokens(text)
 
 
 class Filter:
@@ -581,6 +707,7 @@ class Filter:
 
         # Concurrency control: Lock per chat session
         self._chat_locks = {}
+        self._pending_inlet_messages: Dict[str, List[Dict[str, Any]]] = {}
         self._init_database()
 
     def _resolve_language(self, lang: str) -> str:
@@ -625,6 +752,69 @@ class Filter:
             self._chat_locks[chat_id] = asyncio.Lock()
         return self._chat_locks[chat_id]
 
+    def _capture_pending_inlet_messages(
+        self, chat_id: str, messages: List[Dict[str, Any]]
+    ) -> None:
+        """Persist transient inlet-only messages so outlet can rebuild sent context."""
+        pending_messages = []
+        for message in messages:
+            if not isinstance(message, dict):
+                continue
+
+            metadata = message.get("metadata", {})
+            if not isinstance(metadata, dict):
+                continue
+
+            if metadata.get("is_external_references") or metadata.get(
+                "external_references"
+            ):
+                pending_messages.append(deepcopy(message))
+
+        if pending_messages:
+            self._pending_inlet_messages[chat_id] = pending_messages
+        else:
+            self._pending_inlet_messages.pop(chat_id, None)
+
+    def _restore_pending_inlet_messages(
+        self, chat_id: str, messages: List[Dict[str, Any]]
+    ) -> List[Dict[str, Any]]:
+        """Reapply transient inlet-only messages after outlet rebuilds persisted history."""
+        pending_messages = self._pending_inlet_messages.pop(chat_id, None)
+        if not pending_messages:
+            return messages
+
+        restored_messages = list(messages)
+        base_keep_first = self._get_effective_keep_first(messages)
+
+        for pending_message in pending_messages:
+            if not isinstance(pending_message, dict):
+                continue
+
+            pending_content = pending_message.get("content", "")
+            if any(
+                isinstance(existing, dict)
+                and existing.get("role") == pending_message.get("role")
+                and existing.get("content", "") == pending_content
+                for existing in restored_messages
+            ):
+                continue
+
+            metadata = pending_message.get("metadata", {})
+            covered_until = (
+                metadata.get("covered_until", base_keep_first)
+                if isinstance(metadata, dict)
+                else base_keep_first
+            )
+            try:
+                insert_index = int(covered_until)
+            except Exception:
+                insert_index = base_keep_first
+
+            insert_index = max(0, min(insert_index, len(restored_messages)))
+            restored_messages.insert(insert_index, deepcopy(pending_message))
+
+        return restored_messages
+
     def _is_summary_message(self, message: Dict[str, Any]) -> bool:
         """Return True when the message is this filter's injected summary marker."""
         metadata = message.get("metadata", {})
@@ -654,9 +844,20 @@ class Filter:
             },
         }
 
+    def _is_external_reference_message(self, message: Dict[str, Any]) -> bool:
+        metadata = message.get("metadata", {})
+        if not isinstance(metadata, dict):
+            return False
+        return bool(
+            metadata.get("is_external_references")
+            or metadata.get("source") == "external_references"
+        )
+
     def _get_summary_view_state(self, messages: List[Dict]) -> Dict[str, Optional[int]]:
         """Inspect the current message view and recover summary marker metadata."""
         for index, message in enumerate(messages):
+            if self._is_external_reference_message(message):
+                continue
             if not self._is_summary_message(message):
                 continue
 
@@ -832,13 +1033,33 @@ class Filter:
 
         return sum(1 for old_id, new_id in rewritten_ids.items() if old_id != new_id)
 
-    def _trim_native_tool_outputs(self, messages: List[Dict], lang: str) -> int:
+    def _trim_native_tool_outputs(
+        self, messages: List[Dict], lang: str, collect_debug: bool = False
+    ) -> tuple[int, Optional[Dict[str, Any]]]:
         """Collapse verbose native tool outputs while preserving tool-call structure."""
         trimmed_count = 0
-        tool_trim_threshold_chars = 1200
+        tool_trim_threshold_chars = self.valves.tool_trim_threshold_chars
         collapsed_text = self._get_translation(lang, "content_collapsed").strip()
+        atomic_groups = self._get_atomic_groups(messages)
+        debug_stats = (
+            {
+                "threshold_chars": tool_trim_threshold_chars,
+                "atomic_groups": len(atomic_groups),
+                "native_groups_checked": 0,
+                "native_groups_over_threshold": 0,
+                "largest_native_group_chars": 0,
+                "native_group_samples": [],
+                "detail_messages_checked": 0,
+                "detail_blocks_found": 0,
+                "detail_blocks_over_threshold": 0,
+                "largest_detail_result_chars": 0,
+                "detail_block_samples": [],
+            }
+            if collect_debug
+            else None
+        )
 
-        for group in self._get_atomic_groups(messages):
+        for group in atomic_groups:
             if len(group) < 2:
                 continue
 
@@ -868,8 +1089,25 @@ class Filter:
                 continue
 
             tool_chars = sum(len(str(msg.get("content", ""))) for msg in tool_messages)
+            if debug_stats is not None:
+                debug_stats["native_groups_checked"] += 1
+                debug_stats["largest_native_group_chars"] = max(
+                    debug_stats["largest_native_group_chars"], tool_chars
+                )
+                if len(debug_stats["native_group_samples"]) < 5:
+                    debug_stats["native_group_samples"].append(
+                        {
+                            "group_size": len(grouped_messages),
+                            "tool_count": len(tool_messages),
+                            "tool_chars": tool_chars,
+                            "trimmed": tool_chars >= tool_trim_threshold_chars,
+                        }
+                    )
+
             if tool_chars < tool_trim_threshold_chars:
                 continue
+            if debug_stats is not None:
+                debug_stats["native_groups_over_threshold"] += 1
 
             for tool_message in tool_messages:
                 metadata = tool_message.get("metadata", {})
@@ -904,6 +1142,8 @@ class Filter:
                 continue
 
             trimmed_blocks = 0
+            if debug_stats is not None:
+                debug_stats["detail_messages_checked"] += 1
 
             def _replace_tool_block(match: re.Match) -> str:
                 nonlocal trimmed_blocks
@@ -913,9 +1153,20 @@ class Filter:
                 if not result_match:
                     return block
 
-                if len(result_match.group(1)) < tool_trim_threshold_chars:
+                result_chars = len(result_match.group(1))
+                if debug_stats is not None:
+                    debug_stats["detail_blocks_found"] += 1
+                    debug_stats["largest_detail_result_chars"] = max(
+                        debug_stats["largest_detail_result_chars"], result_chars
+                    )
+                    if len(debug_stats["detail_block_samples"]) < 5:
+                        debug_stats["detail_block_samples"].append(result_chars)
+
+                if result_chars < tool_trim_threshold_chars:
                     return block
 
+                if debug_stats is not None:
+                    debug_stats["detail_blocks_over_threshold"] += 1
                 trimmed_blocks += 1
                 return re.sub(
                     r'result="([^"]*)"',
@@ -942,7 +1193,7 @@ class Filter:
             message["content"] = new_content
             trimmed_count += trimmed_blocks
 
-        return trimmed_count
+        return trimmed_count, debug_stats
 
     def _get_atomic_groups(self, messages: List[Dict]) -> List[List[int]]:
         """
@@ -1267,9 +1518,358 @@ class Filter:
             description="Only show token usage status when usage exceeds this percentage (0-100). Set to 0 to always show.",
         )
         enable_tool_output_trimming: bool = Field(
-            default=False,
+            default=True,
             description="Enable trimming of large tool outputs (only works with native function calling).",
         )
+        tool_trim_threshold_chars: int = Field(
+            default=600,
+            ge=1,
+            description="Trim native tool outputs when their total content length reaches this many characters.",
+        )
+
+    async def _handle_external_chat_references(
+        self,
+        body: dict,
+        user_data: Optional[dict] = None,
+        __event_call__: Callable = None,
+        __request__: Request = None,
+    ) -> dict:
+        metadata = body.get("metadata", {})
+        files = metadata.get("files", [])
+
+        if not files:
+            return body
+
+        chat_files = [f for f in files if f.get("type") == "chat"]
+        if not chat_files:
+            return body
+
+        if __event_call__:
+            await self._log(
+                f"[Inlet] 📎 Found {len(chat_files)} external chat reference(s)",
+                event_call=__event_call__,
+            )
+
+        model_id = self._clean_model_id(body.get("model"))
+        thresholds = self._get_model_thresholds(model_id) or {}
+        max_context_tokens = thresholds.get(
+            "max_context_tokens", self.valves.max_context_tokens
+        )
+        max_summary_tokens = self.valves.max_summary_tokens or 4096
+        summary_model = (
+            self._clean_model_id(self.valves.summary_model)
+            or self._clean_model_id(body.get("model"))
+            or "gpt-4o-mini"
+        )
+        summary_model_max_context = self._get_summary_model_context_limit(
+            summary_model
+        )
+
+        base_messages = body.get("messages", [])
+        base_message_tokens = self._estimate_messages_tokens(base_messages)
+        remaining_direct_budget = (
+            max(0, max_context_tokens - base_message_tokens)
+            if max_context_tokens and max_context_tokens > 0
+            else max_summary_tokens
+        )
+
+        referenced_summaries = []
+        for chat_file in chat_files:
+            ref_chat_id = chat_file.get("id")
+            if isinstance(ref_chat_id, str):
+                ref_chat_title = chat_file.get("name", f"Chat {ref_chat_id[:8]}...")
+            else:
+                ref_chat_title = chat_file.get("name", "Unknown Chat")
+
+            if not ref_chat_id:
+                continue
+
+            summary_record = await asyncio.to_thread(
+                self._load_summary_record, ref_chat_id
+            )
+
+            if summary_record and summary_record.summary:
+                remaining_direct_budget = max(
+                    0,
+                    remaining_direct_budget
+                    - _estimate_text_tokens(summary_record.summary),
+                )
+                referenced_summaries.append(
+                    {
+                        "chat_id": ref_chat_id,
+                        "title": ref_chat_title,
+                        "summary": summary_record.summary,
+                        "type": "existing",
+                    }
+                )
+                if __event_call__:
+                    await self._log(
+                        f"[Inlet] ✅ Found existing summary for referenced chat '{ref_chat_title}' ({len(summary_record.summary)} chars)",
+                        event_call=__event_call__,
+                )
+            else:
+                chat_messages = await asyncio.to_thread(
+                    self._load_full_chat_messages, ref_chat_id
+                )
+                if not chat_messages:
+                    if __event_call__:
+                        await self._log(
+                            f"[Inlet] ⚠️ No messages found for '{ref_chat_title}', skipping",
+                            event_call=__event_call__,
+                        )
+                    continue
+
+                conversation_text = self._format_messages_for_summary(chat_messages)
+                estimated_tokens = _estimate_text_tokens(conversation_text)
+                inject_full_chat = estimated_tokens <= max(0, remaining_direct_budget)
+
+                if inject_full_chat:
+                    referenced_summaries.append(
+                        {
+                            "chat_id": ref_chat_id,
+                            "title": ref_chat_title,
+                            "summary": conversation_text,
+                            "type": "full",
+                        }
+                    )
+                    remaining_direct_budget = max(
+                        0, remaining_direct_budget - estimated_tokens
+                    )
+                    if __event_call__:
+                        await self._log(
+                            f"[Inlet] 📄 Chat '{ref_chat_title}' fits current model budget ({estimated_tokens} tokens), injecting full content",
+                            event_call=__event_call__,
+                        )
+                else:
+                    summary_input_text = conversation_text
+                    covered_message_count = len(chat_messages)
+                    covers_full_history = True
+
+                    if (
+                        summary_model_max_context > 0
+                        and estimated_tokens > summary_model_max_context
+                    ):
+                        summary_input_text = self._truncate_messages_for_summary(
+                            chat_messages, summary_model_max_context
+                        )
+                        truncated_tokens = _estimate_text_tokens(summary_input_text)
+                        covered_message_count = 0
+                        covers_full_history = False
+                        if __event_call__:
+                            await self._log(
+                                f"[Inlet] ✂️ Chat '{ref_chat_title}' exceeds summary input budget, truncating recent window from {estimated_tokens} to {truncated_tokens} tokens before summarization",
+                                event_call=__event_call__,
+                            )
+
+                    summary = ""
+                    generated_with_llm = False
+
+                    if isinstance(user_data, dict) and user_data.get("id"):
+                        if __event_call__:
+                            await self._log(
+                                f"[Inlet] 🤖 Generating referenced chat summary for '{ref_chat_title}' with model '{summary_model}'",
+                                event_call=__event_call__,
+                            )
+                        try:
+                            summary = await self._call_summary_llm(
+                                summary_input_text,
+                                {"model": summary_model},
+                                user_data,
+                                __event_call__,
+                                __request__,
+                                previous_summary=None,
+                            )
+                            generated_with_llm = bool(summary)
+                        except Exception as exc:
+                            logger.warning(
+                                "[Inlet] Referenced chat summary failed for '%s': %s",
+                                ref_chat_title,
+                                exc,
+                            )
+                            if __event_call__:
+                                await self._log(
+                                    f"[Inlet] ⚠️ Referenced chat summary failed for '{ref_chat_title}', falling back to direct contextual injection: {exc}",
+                                    log_type="warning",
+                                    event_call=__event_call__,
+                                )
+                    else:
+                        if __event_call__:
+                            await self._log(
+                                f"[Inlet] ⚠️ Missing user context for '{ref_chat_title}', falling back to direct contextual injection without LLM summary",
+                                event_call=__event_call__,
+                            )
+
+                    if not summary:
+                        summary = summary_input_text
+                        if __event_call__:
+                            await self._log(
+                                f"[Inlet] 📎 Falling back to direct contextual injection for '{ref_chat_title}'",
+                                event_call=__event_call__,
+                            )
+
+                    summary_estimate = _estimate_text_tokens(summary)
+                    if summary_estimate > max_summary_tokens:
+                        target_chars = max(
+                            1, int(len(summary) * max_summary_tokens / summary_estimate)
+                        )
+                        summary = summary[:target_chars]
+                        if __event_call__:
+                            await self._log(
+                                f"[Inlet] ✂️ Trimmed injected context for '{ref_chat_title}' to stay near {max_summary_tokens} tokens",
+                                event_call=__event_call__,
+                            )
+                        summary_estimate = _estimate_text_tokens(summary)
+
+                    remaining_direct_budget = max(
+                        0, remaining_direct_budget - summary_estimate
+                    )
+
+                    referenced_summaries.append(
+                        {
+                            "chat_id": ref_chat_id,
+                            "title": ref_chat_title,
+                            "summary": summary,
+                            "type": "generated_summary" if generated_with_llm else "direct_fallback",
+                        }
+                    )
+
+                    if generated_with_llm and covers_full_history and covered_message_count > 0:
+                        await asyncio.to_thread(
+                            self._save_summary,
+                            ref_chat_id,
+                            summary,
+                            covered_message_count,
+                        )
+                        if __event_call__:
+                            await self._log(
+                                f"[Inlet] 💾 Saved summary cache for '{ref_chat_title}'",
+                                event_call=__event_call__,
+                            )
+
+        if not referenced_summaries:
+            return body
+
+        summary_parts = []
+        for ref in referenced_summaries:
+            summary_parts.append(
+                f'<referenced_chat id="{ref["chat_id"]}" name="{ref["title"]}">\n{ref["summary"]}\n</referenced_chat>'
+            )
+
+        if summary_parts:
+            ref_context = "\n\n".join(summary_parts)
+            ref_content = f"<referenced_chats>\n{ref_context}\n</referenced_chats>"
+
+            body["__external_references__"] = {
+                "content": ref_content,
+                "references": [
+                    {"chat_id": ref["chat_id"], "title": ref["title"]}
+                    for ref in referenced_summaries
+                ],
+            }
+
+            if __event_call__:
+                await self._log(
+                    f"[Inlet] 💉 Prepared {len(referenced_summaries)} referenced chat context block(s) for injection",
+                    event_call=__event_call__,
+                )
+
+        return body
+
+    async def _generate_referenced_summaries_background(
+        self,
+        referenced_chats: List[Dict[str, Any]],
+        user_data: Optional[dict] = None,
+        __request__: Request = None,
+        __event_call__: Callable = None,
+    ) -> List[Dict[str, Any]]:
+        """Generate cacheable summaries for referenced chats when enough context is available."""
+        if not referenced_chats:
+            return []
+
+        generated_summaries = []
+        summary_model = (
+            self._clean_model_id(self.valves.summary_model) or "gpt-4o-mini"
+        )
+        summary_model_max_context = self._get_summary_model_context_limit(
+            summary_model
+        )
+
+        for referenced_chat in referenced_chats:
+            if not isinstance(referenced_chat, dict):
+                continue
+
+            ref_chat_id = referenced_chat.get("chat_id")
+            ref_chat_title = referenced_chat.get("title", "Unknown Chat")
+            if not ref_chat_id:
+                continue
+
+            summary_input_text = referenced_chat.get("conversation_text", "")
+            covers_full_history = bool(
+                referenced_chat.get("covers_full_history", True)
+            )
+            covered_message_count = int(
+                referenced_chat.get("covered_message_count", 0) or 0
+            )
+
+            if not isinstance(summary_input_text, str) or not summary_input_text.strip():
+                chat_messages = await asyncio.to_thread(
+                    self._load_full_chat_messages, ref_chat_id
+                )
+                if not chat_messages:
+                    continue
+                summary_input_text = self._format_messages_for_summary(chat_messages)
+                covers_full_history = True
+                covered_message_count = len(chat_messages)
+
+            estimated_tokens = _estimate_text_tokens(summary_input_text)
+            if (
+                summary_model_max_context > 0
+                and estimated_tokens > summary_model_max_context
+            ):
+                chat_messages = await asyncio.to_thread(
+                    self._load_full_chat_messages, ref_chat_id
+                )
+                if chat_messages:
+                    summary_input_text = self._truncate_messages_for_summary(
+                        chat_messages, summary_model_max_context
+                    )
+                    covers_full_history = False
+                    covered_message_count = 0
+
+            if not isinstance(user_data, dict) or not user_data.get("id"):
+                continue
+
+            summary = await self._call_summary_llm(
+                summary_input_text,
+                {"model": summary_model},
+                user_data,
+                __event_call__,
+                __request__,
+                previous_summary=None,
+            )
+
+            if not summary:
+                continue
+
+            generated_summaries.append(
+                {
+                    "chat_id": ref_chat_id,
+                    "title": ref_chat_title,
+                    "summary": summary,
+                    "covers_full_history": covers_full_history,
+                    "covered_message_count": covered_message_count,
+                }
+            )
+
+            if covers_full_history and covered_message_count > 0:
+                await asyncio.to_thread(
+                    self._save_summary,
+                    ref_chat_id,
+                    summary,
+                    covered_message_count,
+                )
+
+        return generated_summaries
 
     def _save_summary(self, chat_id: str, summary: str, compressed_count: int):
         """Saves the summary to the database."""
@@ -1340,21 +1940,50 @@ class Filter:
         """Counts the number of tokens in the text."""
         return _get_cached_tokens(text)
 
+    def _extract_text_content(self, content: Any) -> str:
+        """Extract human-readable text from string, multimodal list, or dict payloads."""
+        if isinstance(content, str):
+            return content
+
+        if isinstance(content, dict):
+            text_value = content.get("text")
+            if isinstance(text_value, str):
+                return text_value
+            nested_content = content.get("content")
+            if isinstance(nested_content, str):
+                return nested_content
+            return ""
+
+        if isinstance(content, list):
+            text_parts = []
+            for part in content:
+                if isinstance(part, dict):
+                    text_value = part.get("text")
+                    if isinstance(text_value, str) and text_value:
+                        text_parts.append(text_value)
+                        continue
+
+                    nested_content = part.get("content")
+                    if isinstance(nested_content, str) and nested_content:
+                        text_parts.append(nested_content)
+
+            return " ".join(text_parts)
+
+        return str(content) if content is not None else ""
+
+    def _message_content_char_length(self, content: Any) -> int:
+        return len(self._extract_text_content(content))
+
+    def _estimate_content_tokens(self, content: Any) -> int:
+        return _estimate_text_tokens(self._extract_text_content(content))
+
     def _calculate_messages_tokens(self, messages: List[Dict]) -> int:
         """Calculates the total tokens for a list of messages."""
         start_time = time.time()
         total_tokens = 0
         for msg in messages:
-            content = msg.get("content", "")
-            if isinstance(content, list):
-                # Handle multimodal content
-                text_content = ""
-                for part in content:
-                    if isinstance(part, dict) and part.get("type") == "text":
-                        text_content += part.get("text", "")
-                total_tokens += self._count_tokens(text_content)
-            else:
-                total_tokens += self._count_tokens(str(content))
+            content = self._extract_text_content(msg.get("content", ""))
+            total_tokens += self._count_tokens(content)
 
         duration = (time.time() - start_time) * 1000
         if self.valves.debug_mode:
@@ -1365,18 +1994,12 @@ class Filter:
         return total_tokens
 
     def _estimate_messages_tokens(self, messages: List[Dict]) -> int:
-        """Fast estimation of tokens based on character count (1/4 ratio)."""
-        total_chars = 0
+        """Fast estimation of tokens using mixed-script heuristics."""
+        total_tokens = 0
         for msg in messages:
-            content = msg.get("content", "")
-            if isinstance(content, list):
-                for part in content:
-                    if isinstance(part, dict) and part.get("type") == "text":
-                        total_chars += len(part.get("text", ""))
-            else:
-                total_chars += len(str(content))
+            total_tokens += self._estimate_content_tokens(msg.get("content", ""))
 
-        return total_chars // 4
+        return total_tokens
 
     def _get_model_thresholds(self, model_id: str) -> Dict[str, int]:
         """Gets threshold configuration for a specific model.
@@ -1432,6 +2055,18 @@ class Filter:
             "compression_threshold_tokens": self.valves.compression_threshold_tokens,
             "max_context_tokens": self.valves.max_context_tokens,
         }
+
+    def _get_summary_model_context_limit(self, model_id: Optional[str]) -> int:
+        """Resolve the effective input context window for summary requests."""
+        cleaned_model_id = self._clean_model_id(model_id)
+        thresholds = (
+            self._get_model_thresholds(cleaned_model_id) if cleaned_model_id else {}
+        ) or {}
+
+        if self.valves.summary_model_max_context > 0:
+            return self.valves.summary_model_max_context
+
+        return thresholds.get("max_context_tokens", self.valves.max_context_tokens)
 
     def _get_chat_context(
         self, body: dict, __metadata__: Optional[dict] = None
@@ -1536,7 +2171,7 @@ class Filter:
                     else 0
                 ),
                 "content_type": type(content).__name__,
-                "content_length": len(content) if isinstance(content, str) else 0,
+                "content_length": self._message_content_char_length(content),
                 "has_tool_details_block": isinstance(content, str)
                 and '<details type="tool_calls"' in content,
                 "metadata_keys": (
@@ -1637,7 +2272,7 @@ class Filter:
                         else 0
                     ),
                     "is_summary": self._is_summary_message(message),
-                    "content_length": len(content) if isinstance(content, str) else 0,
+                    "content_length": self._message_content_char_length(content),
                 }
             )
 
@@ -1662,7 +2297,7 @@ class Filter:
                         else 0
                     ),
                     "is_summary": self._is_summary_message(message),
-                    "content_length": len(content) if isinstance(content, str) else 0,
+                    "content_length": self._message_content_char_length(content),
                 }
             )
 
@@ -1677,6 +2312,138 @@ class Filter:
             "head_sample": sample,
             "tail_sample": tail_sample,
         }
+
+    def _format_debug_message_sample(self, entries: List[Dict[str, Any]]) -> str:
+        parts = []
+        for entry in entries:
+            if not isinstance(entry, dict):
+                continue
+
+            index = entry.get("index", "?")
+            role = entry.get("role", entry.get("type", "unknown"))
+            content_length = entry.get("content_length", 0)
+            flags = []
+            tool_call_count = entry.get("tool_call_count", 0)
+            if tool_call_count:
+                flags.append(f"tc={tool_call_count}")
+            if entry.get("has_tool_call_id"):
+                flags.append(f"tcid={entry.get('tool_call_id_length', 0)}")
+            if entry.get("has_tool_details_block"):
+                flags.append("details")
+            if entry.get("is_summary"):
+                flags.append("summary")
+
+            suffix = f" [{' '.join(flags)}]" if flags else ""
+            parts.append(f"#{index} {role}({content_length}){suffix}")
+
+        return " | ".join(parts) if parts else "-"
+
+    def _format_native_tool_debug_snapshot(self, snapshot: Dict[str, Any]) -> str:
+        if not isinstance(snapshot, dict):
+            return str(snapshot)
+
+        role_counts = snapshot.get("role_counts", {})
+        role_summary = (
+            " ".join(f"{role}={count}" for role, count in role_counts.items())
+            if isinstance(role_counts, dict) and role_counts
+            else "-"
+        )
+        assistant_tool_calls = snapshot.get("assistant_tool_call_indices", [])
+        tool_indices = snapshot.get("tool_role_indices", [])
+        body_keys = ",".join(snapshot.get("body_keys", [])[:6]) or "-"
+        metadata_keys = ",".join(snapshot.get("metadata_keys", [])[:8]) or "-"
+        params_keys = ",".join(snapshot.get("params_keys", [])[:8]) or "-"
+
+        lines = [
+            (
+                f"summary: messages={snapshot.get('message_count', 0)}"
+                f" | inferred_native={snapshot.get('inferred_native', False)}"
+                f" | detail_blocks={snapshot.get('tool_detail_blocks', 0)}"
+            ),
+            f"roles: {role_summary}",
+            (
+                f"fc: metadata={snapshot.get('metadata_function_calling') or 'unset'}"
+                f" | params={snapshot.get('params_function_calling') or 'unset'}"
+            ),
+            f"tool_calls@: {assistant_tool_calls[:6] or '-'}",
+            f"tool_msgs@: {tool_indices[:6] or '-'}",
+            f"keys: body={body_keys} | metadata={metadata_keys} | params={params_keys}",
+            "sample: " + self._format_debug_message_sample(snapshot.get("message_shape", [])),
+        ]
+        return "\n".join(lines)
+
+    def _format_summary_progress_snapshot(self, snapshot: Dict[str, Any]) -> str:
+        if not isinstance(snapshot, dict):
+            return str(snapshot)
+
+        summary_state = snapshot.get("summary_state", {})
+        summary_index = (
+            summary_state.get("summary_index")
+            if isinstance(summary_state, dict)
+            else None
+        )
+        base_progress = (
+            summary_state.get("base_progress")
+            if isinstance(summary_state, dict)
+            else None
+        )
+        lines = [
+            (
+                f"summary: messages={snapshot.get('message_count', 0)}"
+                f" | original={snapshot.get('original_history_count', 0)}"
+                f" | target={snapshot.get('target_compressed_count', 0)}"
+                f" | keep_first={snapshot.get('effective_keep_first', 0)}"
+            ),
+            (
+                f"marker: summary_index={summary_index if summary_index is not None else 'none'}"
+                f" | base_progress={base_progress if base_progress is not None else 0}"
+            ),
+            "head: " + self._format_debug_message_sample(snapshot.get("head_sample", [])),
+            "tail: " + self._format_debug_message_sample(snapshot.get("tail_sample", [])),
+        ]
+        return "\n".join(lines)
+
+    def _format_tool_trim_debug_stats(self, stats: Dict[str, Any]) -> str:
+        if not isinstance(stats, dict):
+            return str(stats)
+
+        native_samples = stats.get("native_group_samples", [])
+        native_sample_text = (
+            " | ".join(
+                (
+                    f"{sample.get('group_size', '?')}msg/"
+                    f"{sample.get('tool_count', '?')}tool/"
+                    f"{sample.get('tool_chars', 0)}c/"
+                    f"{'trim' if sample.get('trimmed') else 'keep'}"
+                )
+                for sample in native_samples[:5]
+                if isinstance(sample, dict)
+            )
+            or "-"
+        )
+        detail_samples = stats.get("detail_block_samples", [])
+        detail_sample_text = (
+            ", ".join(str(sample) for sample in detail_samples[:5]) if detail_samples else "-"
+        )
+
+        lines = [
+            (
+                f"summary: threshold={stats.get('threshold_chars', 0)}"
+                f" | atomic_groups={stats.get('atomic_groups', 0)}"
+                f" | native_checked={stats.get('native_groups_checked', 0)}"
+                f" | native_over={stats.get('native_groups_over_threshold', 0)}"
+                f" | native_max={stats.get('largest_native_group_chars', 0)}"
+            ),
+            f"native_samples: {native_sample_text}",
+            (
+                f"detail: messages={stats.get('detail_messages_checked', 0)}"
+                f" | blocks={stats.get('detail_blocks_found', 0)}"
+                f" | over={stats.get('detail_blocks_over_threshold', 0)}"
+                f" | max={stats.get('largest_detail_result_chars', 0)}"
+            ),
+            f"detail_samples: {detail_sample_text}",
+        ]
+        return "\n".join(lines)
 
     def _unfold_messages(self, messages: Any) -> List[Dict[str, Any]]:
         """
@@ -1704,8 +2471,28 @@ class Filter:
 
                     expanded = convert_output_to_messages(msg["output"], raw=True)
                     if expanded:
-                        unfolded.extend(expanded)
-                        continue
+                        expanded_has_tool_structure = any(
+                            isinstance(expanded_msg, dict)
+                            and (
+                                expanded_msg.get("role") == "tool"
+                                or bool(expanded_msg.get("tool_calls"))
+                            )
+                            for expanded_msg in expanded
+                        )
+                        expanded_chars = sum(
+                            self._message_content_char_length(
+                                expanded_msg.get("content", "")
+                            )
+                            for expanded_msg in expanded
+                            if isinstance(expanded_msg, dict)
+                        )
+                        original_chars = self._message_content_char_length(
+                            msg.get("content", "")
+                        )
+
+                        if expanded_has_tool_structure or expanded_chars > original_chars:
+                            unfolded.extend(expanded)
+                            continue
                 except ImportError:
                     pass  # Fallback if for some reason the internal import fails
 
@@ -1800,65 +2587,103 @@ class Filter:
         except Exception as e:
             logger.error(f"Error emitting debug log: {e}")
 
-    async def _log(self, message: str, log_type: str = "info", event_call=None):
-        """Unified logging to both backend (print) and frontend (console.log)"""
-        # Backend logging
-        if self.valves.debug_mode:
-            logger.info(message)
+    async def _emit_frontend_console_log(
+        self,
+        message: str,
+        log_type: str = "info",
+        event_call=None,
+        force: bool = False,
+    ):
+        """Emit a browser-console log, optionally bypassing the debug-log valve."""
+        if not event_call:
+            return
+        if not force and not self.valves.show_debug_log:
+            return
 
-        # Frontend logging
-        if self.valves.show_debug_log and event_call:
-            try:
-                css = "color: #3b82f6;"  # Blue default
-                if log_type == "error":
-                    css = "color: #ef4444; font-weight: bold;"  # Red
-                elif log_type == "warning":
-                    css = "color: #f59e0b;"  # Orange
-                elif log_type == "success":
-                    css = "color: #10b981; font-weight: bold;"  # Green
+        try:
+            css = "color: #3b82f6;"
+            console_method = "log"
+            if log_type == "error":
+                css = "color: #ef4444; font-weight: bold;"
+                console_method = "error"
+            elif log_type == "warning":
+                css = "color: #f59e0b;"
+                console_method = "warn"
+            elif log_type == "success":
+                css = "color: #10b981; font-weight: bold;"
 
-                # Clean message for frontend: remove separators and extra newlines
-                lines = message.split("\n")
-                # Keep lines that don't start with lots of equals or hyphens
-                filtered_lines = [
-                    line
-                    for line in lines
-                    if not line.strip().startswith("====")
-                    and not line.strip().startswith("----")
-                ]
-                clean_message = "\n".join(filtered_lines).strip()
+            lines = message.split("\n")
+            filtered_lines = [
+                line
+                for line in lines
+                if not line.strip().startswith("====")
+                and not line.strip().startswith("----")
+            ]
+            clean_message = "\n".join(filtered_lines).strip()
 
-                if not clean_message:
-                    return
+            if not clean_message:
+                return
 
-                # Escape quotes in message for JS string
-                safe_message = clean_message.replace('"', '\\"').replace("\n", "\\n")
+            message_lines = [
+                line.rstrip() for line in clean_message.split("\n") if line.strip()
+            ]
+            header_line = message_lines[0] if message_lines else clean_message
+            detail_lines = message_lines[1:] if len(message_lines) > 1 else []
 
+            if detail_lines:
                 js_code = f"""
                     try {{
-                        console.log("%c[Compression] {safe_message}", "{css}");
+                        const header = {json.dumps("[Compression] " + header_line, ensure_ascii=False)};
+                        const detailLines = {json.dumps(detail_lines, ensure_ascii=False)};
+                        console.groupCollapsed("%c" + header, "{css}");
+                        for (const line of detailLines) {{
+                            console.{console_method}(line);
+                        }}
+                        console.groupEnd();
                         return true;
                     }} catch (e) {{
                         console.error("[Compression] Failed to emit console log", e);
                         return false;
                     }}
                 """
-                await asyncio.wait_for(
-                    event_call({"type": "execute", "data": {"code": js_code}}),
-                    timeout=2.0,
+            else:
+                js_code = f"""
+                    try {{
+                        console.{console_method}("%c" + {json.dumps("[Compression] " + header_line, ensure_ascii=False)}, "{css}");
+                        return true;
+                    }} catch (e) {{
+                        console.error("[Compression] Failed to emit console log", e);
+                        return false;
+                    }}
+                """
+
+            await asyncio.wait_for(
+                event_call({"type": "execute", "data": {"code": js_code}}),
+                timeout=2.0,
+            )
+        except ValueError as ve:
+            if "broadcast" in str(ve).lower():
+                logger.debug(
+                    "Cannot broadcast to frontend without explicit room; suppressing further frontend logs in this session."
                 )
-            except ValueError as ve:
-                if "broadcast" in str(ve).lower():
-                    logger.debug(
-                        "Cannot broadcast to frontend without explicit room; suppressing further frontend logs in this session."
-                    )
+                if not force:
                     self.valves.show_debug_log = False
-                else:
-                    logger.error(f"Failed to process log to frontend: ValueError: {ve}")
-            except Exception as e:
-                logger.error(
-                    f"Failed to process log to frontend: {type(e).__name__}: {e}"
-                )
+            else:
+                logger.error(f"Failed to process log to frontend: ValueError: {ve}")
+        except Exception as e:
+            logger.error(
+                f"Failed to process log to frontend: {type(e).__name__}: {e}"
+            )
+
+    async def _log(self, message: str, log_type: str = "info", event_call=None):
+        """Unified logging to both backend (print) and frontend (console.log)"""
+        # Backend logging
+        if self.valves.debug_mode:
+            logger.info(message)
+
+        await self._emit_frontend_console_log(
+            message, log_type=log_type, event_call=event_call
+        )
 
     def _should_show_status(self, usage_ratio: float) -> bool:
         """
@@ -1921,8 +2746,8 @@ class Filter:
         if self.valves.show_debug_log and __event_call__:
             debug_snapshot = self._build_native_tool_debug_snapshot(body)
             await self._log(
-                "[Inlet] 🧩 Request structure snapshot: "
-                + json.dumps(debug_snapshot, ensure_ascii=False),
+                "[Inlet] 🧩 Request structure\n"
+                + self._format_native_tool_debug_snapshot(debug_snapshot),
                 event_call=__event_call__,
             )
 
@@ -1953,8 +2778,18 @@ class Filter:
             )
 
         if self.valves.enable_tool_output_trimming and is_native_func_calling:
-            trimmed_count = self._trim_native_tool_outputs(messages, lang)
+            trimmed_count, trim_debug = self._trim_native_tool_outputs(
+                messages,
+                lang,
+                collect_debug=bool(self.valves.show_debug_log and __event_call__),
+            )
             if self.valves.show_debug_log and __event_call__:
+                if trim_debug is not None:
+                    await self._log(
+                        "[Inlet] ✂️ Tool trimming stats\n"
+                        + self._format_tool_trim_debug_stats(trim_debug),
+                        event_call=__event_call__,
+                    )
                 await self._log(
                     (
                         f"[Inlet] ✂️ Trimmed {trimmed_count} tool output message(s)."
@@ -1976,6 +2811,14 @@ class Filter:
 
         chat_ctx = self._get_chat_context(body, __metadata__)
         chat_id = chat_ctx["chat_id"]
+
+        body = await self._handle_external_chat_references(
+            body,
+            user_data=__user__,
+            __event_call__=__event_call__,
+            __request__=__request__,
+        )
+        messages = body.get("messages", [])
 
         # Extract system prompt for accurate token calculation
         # 1. For custom models: check DB (Models.get_model_by_id)
@@ -2168,6 +3011,7 @@ class Filter:
         effective_keep_first = self._get_effective_keep_first(messages)
 
         final_messages = []
+        external_refs_injected_count = 0
 
         if summary_record:
             # Summary exists, build view: [Head] + [Summary Message] + [Tail]
@@ -2192,21 +3036,57 @@ class Filter:
             )
 
             # 3. Summary message (Inserted as Assistant message)
+            external_refs = body.pop("__external_references__", None)
             summary_msg = self._build_summary_message(
                 summary_record.summary,
                 lang,
                 start_index,
             )
 
+            if external_refs:
+                external_content = external_refs.get("content", "")
+                if external_content:
+                    external_refs_injected_count = len(
+                        external_refs.get("references", [])
+                    )
+                    summary_msg["content"] = (
+                        f"<external_references>\n{external_content}\n</external_references>\n\n"
+                        + summary_msg["content"]
+                    )
+                    summary_msg["metadata"]["external_references"] = external_refs.get(
+                        "references", []
+                    )
+
             tail_messages = messages[start_index:]
 
             if self.valves.show_debug_log and __event_call__:
-                tail_preview = [
-                    f"{i + start_index}: [{m.get('role')}] {m.get('content', '')[:30]}..."
-                    for i, m in enumerate(tail_messages)
-                ]
                 await self._log(
-                    f"[Inlet] 📜 Tail Messages (Start Index: {start_index}): {tail_preview}",
+                    "[Inlet] 📜 Tail messages\n"
+                    f"start_index={start_index} | tail_count={len(tail_messages)}\n"
+                    + "tail: "
+                    + self._format_debug_message_sample(
+                        [
+                            {
+                                "index": i + start_index,
+                                "role": m.get("role", "unknown"),
+                                "content_length": self._message_content_char_length(
+                                    m.get("content", "")
+                                ),
+                                "tool_call_count": (
+                                    len(m.get("tool_calls", []))
+                                    if isinstance(m.get("tool_calls"), list)
+                                    else 0
+                                ),
+                                "has_tool_details_block": isinstance(
+                                    m.get("content", ""), str
+                                )
+                                and '<details type="tool_calls"' in m.get("content", ""),
+                                "is_summary": self._is_summary_message(m),
+                            }
+                            for i, m in enumerate(tail_messages[:8])
+                            if isinstance(m, dict)
+                        ]
+                    ),
                     event_call=__event_call__,
                 )
 
@@ -2244,7 +3124,8 @@ class Filter:
             elif estimated_tokens < max_context_tokens * 0.85:
                 total_tokens = estimated_tokens
                 await self._log(
-                    f"[Inlet] 🔎 Fast Preflight Check (Est): {total_tokens}t / {max_context_tokens}t (Well within limit)",
+                    "[Inlet] 🔎 Sent-context preflight (estimated)\n"
+                    f"sent_context_tokens={total_tokens} | max_context_tokens={max_context_tokens} | status=well_within_limit",
                     event_call=__event_call__,
                 )
             else:
@@ -2255,7 +3136,8 @@ class Filter:
 
                 # Preflight Check Log
                 await self._log(
-                    f"[Inlet] 🔎 Precise Preflight Check: {total_tokens}t / {max_context_tokens}t ({(total_tokens/max_context_tokens*100):.1f}%)",
+                    "[Inlet] 🔎 Sent-context preflight (precise)\n"
+                    f"sent_context_tokens={total_tokens} | max_context_tokens={max_context_tokens} | usage={(total_tokens/max_context_tokens*100):.1f}%",
                     event_call=__event_call__,
                 )
 
@@ -2278,7 +3160,9 @@ class Filter:
                     for _ in range(len(dropped_group_indices)):
                         dropped = tail_messages.pop(0)
                         if total_tokens == estimated_tokens:
-                            dropped_tokens += len(str(dropped.get("content", ""))) // 4
+                            dropped_tokens += self._estimate_content_tokens(
+                                dropped.get("content", "")
+                            )
                         else:
                             dropped_tokens += self._count_tokens(
                                 str(dropped.get("content", ""))
@@ -2296,7 +3180,8 @@ class Filter:
                 candidate_messages = head_messages + [summary_msg] + tail_messages
 
                 await self._log(
-                    f"[Inlet] ✂️ History reduced. New total: {total_tokens} Tokens (Tail size: {len(tail_messages)})",
+                    "[Inlet] ✂️ Sent-context history reduced\n"
+                    f"sent_context_tokens={total_tokens} | tail_size={len(tail_messages)}",
                     event_call=__event_call__,
                 )
 
@@ -2306,12 +3191,12 @@ class Filter:
             summary_content = summary_msg.get("content", "")
             if total_tokens == estimated_tokens:
                 system_tokens = (
-                    len(system_prompt_msg.get("content", "")) // 4
+                    self._estimate_content_tokens(system_prompt_msg.get("content", ""))
                     if system_prompt_msg
                     else 0
                 )
                 head_tokens = self._estimate_messages_tokens(head_messages)
-                summary_tokens = len(summary_content) // 4
+                summary_tokens = self._estimate_content_tokens(summary_content)
                 tail_tokens = self._estimate_messages_tokens(tail_messages)
             else:
                 system_tokens = (
@@ -2332,7 +3217,8 @@ class Filter:
             )
 
             await self._log(
-                f"[Inlet] Applied summary: {system_info} + Head({len(head_messages)} msg, {head_tokens}t) + Summary({summary_tokens}t) + Tail({len(tail_messages)} msg, {tail_tokens}t) = Total({total_section_tokens}t)",
+                "[Inlet] ✅ Sent context assembled\n"
+                f"sent_context_tokens={total_section_tokens} | {system_info} + Head({len(head_messages)} msg, {head_tokens}t) + Summary({summary_tokens}t) + Tail({len(tail_messages)} msg, {tail_tokens}t)",
                 log_type="success",
                 event_call=__event_call__,
             )
@@ -2389,16 +3275,50 @@ class Filter:
                 self.valves.keep_last,
             )
         else:
-            # No summary, use original messages
-            # But still need to check budget!
-            final_messages = messages
+            external_refs = body.pop("__external_references__", None)
 
-            # Include system prompt in calculation
-            calc_messages = final_messages
+            if external_refs and external_refs.get("content") and messages:
+                external_content = external_refs.get("content", "")
+                external_refs_injected_count = len(external_refs.get("references", []))
+                ref_msg = {
+                    "role": "assistant",
+                    "content": (
+                        f"<external_references>\n{external_content}\n</external_references>\n\n"
+                        + "Here are references to other conversations that may be relevant to this discussion."
+                    ),
+                    "metadata": {
+                        "is_summary": True,
+                        "is_external_references": True,
+                        "source": "external_references",
+                        "covered_until": effective_keep_first,
+                        "external_references": external_refs.get("references", []),
+                    },
+                }
+
+                head_messages = messages[:effective_keep_first]
+                tail_messages = messages[effective_keep_first:]
+                candidate_messages = head_messages + [ref_msg] + tail_messages
+
+                if __event_call__:
+                    await self._log(
+                        f"[Inlet] 📎 💉 Injected {external_refs_injected_count} external chat reference(s) as contextual block (head: {len(head_messages)}, tail: {len(tail_messages)})",
+                        event_call=__event_call__,
+                    )
+            else:
+                candidate_messages = messages if messages else []
+
+            if not candidate_messages:
+                return body
+
+            final_messages = candidate_messages
+
+            calc_messages = candidate_messages
             if system_prompt_msg:
-                is_in_messages = any(m.get("role") == "system" for m in final_messages)
+                is_in_messages = any(
+                    m.get("role") == "system" for m in candidate_messages
+                )
                 if not is_in_messages:
-                    calc_messages = [system_prompt_msg] + final_messages
+                    calc_messages = [system_prompt_msg] + candidate_messages
 
             # Get max context limit
             model = self._clean_model_id(body.get("model"))
@@ -2437,7 +3357,7 @@ class Filter:
                 )
 
                 # Use atomic grouping to preserve tool-calling integrity
-                trimmable = final_messages[effective_keep_first:]
+                trimmable = candidate_messages[effective_keep_first:]
                 atomic_groups = self._get_atomic_groups(trimmable)
 
                 while total_tokens > max_context_tokens and len(atomic_groups) > 1:
@@ -2445,15 +3365,22 @@ class Filter:
                     dropped_tokens = 0
                     for _ in range(len(dropped_group_indices)):
                         dropped = trimmable.pop(0)
+                        if self._is_external_reference_message(dropped):
+                            trimmable.insert(0, dropped)
+                            break
                         if total_tokens == estimated_tokens:
-                            dropped_tokens += len(str(dropped.get("content", ""))) // 4
+                            dropped_tokens += self._estimate_content_tokens(
+                                dropped.get("content", "")
+                            )
                         else:
                             dropped_tokens += self._count_tokens(
                                 str(dropped.get("content", ""))
                             )
                     total_tokens -= dropped_tokens
 
-                final_messages = final_messages[:effective_keep_first] + trimmable
+                candidate_messages = (
+                    candidate_messages[:effective_keep_first] + trimmable
+                )
 
                 await self._log(
                     f"[Inlet] ✂️ Messages reduced (atomic). New total: {total_tokens} Tokens",
@@ -2487,11 +3414,40 @@ class Filter:
                         )
 
         body["messages"] = final_messages
+        self._capture_pending_inlet_messages(chat_id, final_messages)
 
         await self._log(
-            f"[Inlet] Final send: {len(body['messages'])} messages\n{'='*60}\n",
+            f"[Inlet] ✅ Final send\nsent_message_count={len(body['messages'])}\n{'='*60}\n",
             event_call=__event_call__,
         )
+
+        metadata = body.get("metadata", {})
+        files = metadata.get("files", [])
+        if files:
+            new_files = [f for f in files if f.get("type") != "chat"]
+            if len(new_files) != len(files):
+                metadata["files"] = new_files
+                body["metadata"] = metadata
+                if __event_call__:
+                    await self._log(
+                        f"[Inlet] 🗑️ Removed {len(files) - len(new_files)} chat reference(s) from files to prevent RAG",
+                        event_call=__event_call__,
+                    )
+
+        if external_refs_injected_count > 0 and __event_emitter__:
+            await __event_emitter__(
+                {
+                    "type": "status",
+                    "data": {
+                        "description": self._get_translation(
+                            lang,
+                            "status_external_refs_injected",
+                            count=external_refs_injected_count,
+                        ),
+                        "done": True,
+                    },
+                }
+            )
 
         return body
 
@@ -2542,46 +3498,63 @@ class Filter:
             outlet_snapshot = self._build_native_tool_debug_snapshot(body)
             outlet_progress = self._build_summary_progress_snapshot(messages)
             await self._log(
-                "[Outlet] 🧩 Body structure snapshot: "
-                + json.dumps(outlet_snapshot, ensure_ascii=False),
+                "[Outlet] 🧩 Body structure\n"
+                + self._format_native_tool_debug_snapshot(outlet_snapshot),
                 event_call=__event_call__,
             )
             await self._log(
-                "[Outlet] 📐 Body summary-progress snapshot: "
-                + json.dumps(outlet_progress, ensure_ascii=False),
+                "[Outlet] 📐 Body summary-progress\n"
+                + self._format_summary_progress_snapshot(outlet_progress),
                 event_call=__event_call__,
             )
 
-        # Unfold compact tool messages to align with inlet's exact coordinate system
-        # In the outlet phase, the frontend payload often lacks the hidden 'output' field.
-        # We try to load the full, raw history from the database first.
-        db_messages = self._load_full_chat_messages(chat_id)
-        messages_to_unfold = (
-            db_messages
-            if (db_messages and len(db_messages) >= len(messages))
-            else messages
-        )
-
-        summary_messages = self._unfold_messages(messages_to_unfold)
-        message_source = (
-            "outlet-db-unfolded"
-            if db_messages and len(summary_messages) != len(messages)
-            else (
+        # Unfold compact tool messages to align with inlet's exact coordinate system.
+        # Native tool-calling payloads in outlet can miss hidden `output` fields, so
+        # preserve the older DB fallback there only.
+        function_calling_mode = self._get_function_calling_mode(body)
+        if function_calling_mode == "native":
+            db_messages = self._load_full_chat_messages(chat_id)
+            messages_to_unfold = (
+                db_messages
+                if (db_messages and len(db_messages) >= len(messages))
+                else messages
+            )
+            summary_messages = self._unfold_messages(messages_to_unfold)
+            if messages_to_unfold is db_messages:
+                message_source = (
+                    "outlet-db-unfolded"
+                    if len(summary_messages) != len(db_messages)
+                    else "outlet-db"
+                )
+            else:
+                message_source = (
+                    "outlet-body-unfolded"
+                    if len(summary_messages) != len(messages)
+                    else "outlet-body"
+                )
+        else:
+            summary_messages = self._unfold_messages(messages)
+            message_source = (
                 "outlet-body-unfolded"
                 if len(summary_messages) != len(messages)
                 else "outlet-body"
             )
-        )
+
+        restored_count_before = len(summary_messages)
+        summary_messages = self._restore_pending_inlet_messages(chat_id, summary_messages)
+        if len(summary_messages) != restored_count_before:
+            message_source = f"{message_source}+pending"
 
         if self.valves.show_debug_log and __event_call__:
             source_progress = self._build_summary_progress_snapshot(summary_messages)
             await self._log(
-                f"[Outlet] 📚 Summary source messages: {message_source} ({len(summary_messages)} msgs, body carried {len(messages)})",
+                "[Outlet] 📚 Full-history source selected\n"
+                f"source={message_source} | source_message_count={len(summary_messages)} | body_message_count={len(messages)}",
                 event_call=__event_call__,
             )
             await self._log(
-                "[Outlet] 📐 Summary source progress snapshot: "
-                + json.dumps(source_progress, ensure_ascii=False),
+                "[Outlet] 📐 Summary source progress\n"
+                + self._format_summary_progress_snapshot(source_progress),
                 event_call=__event_call__,
             )
 
@@ -2673,7 +3646,7 @@ class Filter:
 
             if self.valves.debug_mode or self.valves.show_debug_log:
                 await self._log(
-                    f"\n{'='*60}\n[Outlet] Chat ID: {chat_id}\n[Outlet] Response complete\n[Outlet] Calculated target compression progress: {target_compressed_count} (Messages: {len(messages)})",
+                    f"\n{'='*60}\n[Outlet] Chat ID: {chat_id}\n[Outlet] Response complete\n[Outlet] Full-history compression target: progress={target_compressed_count} | source_messages={len(messages)}",
                     event_call=__event_call__,
                 )
                 await self._log(
@@ -2688,7 +3661,7 @@ class Filter:
             )
 
             await self._log(
-                f"\n[🔍 Background Calculation] Starting Token count...",
+                "\n[🔍 Background Calculation] Starting full-history token count...",
                 event_call=__event_call__,
             )
 
@@ -2701,7 +3674,8 @@ class Filter:
             if estimated_tokens < compression_threshold_tokens * 0.85:
                 current_tokens = estimated_tokens
                 await self._log(
-                    f"[🔍 Background Calculation] Fast estimate ({current_tokens}) is well below threshold ({compression_threshold_tokens}). Skipping tiktoken.",
+                    "[🔍 Background Calculation] Full-history estimate below threshold\n"
+                    f"source_history_tokens_est={current_tokens} | compression_threshold_tokens={compression_threshold_tokens} | precise_count_skipped=true",
                     event_call=__event_call__,
                 )
             else:
@@ -2710,7 +3684,8 @@ class Filter:
                     self._calculate_messages_tokens, messages
                 )
                 await self._log(
-                    f"[🔍 Background Calculation] Precise token count: {current_tokens}",
+                    "[🔍 Background Calculation] Full-history precise token count\n"
+                    f"source_history_tokens={current_tokens}",
                     event_call=__event_call__,
                 )
 
@@ -2748,7 +3723,8 @@ class Filter:
             # Check if compression is needed
             if current_tokens >= compression_threshold_tokens:
                 await self._log(
-                    f"[🔍 Background Calculation] ⚡ Compression threshold triggered (Token: {current_tokens} >= {compression_threshold_tokens})",
+                    "[🔍 Background Calculation] ⚡ Full-history threshold triggered\n"
+                    f"source_history_tokens={current_tokens} | compression_threshold_tokens={compression_threshold_tokens}",
                     log_type="warning",
                     event_call=__event_call__,
                 )
@@ -2767,7 +3743,8 @@ class Filter:
                 )
             else:
                 await self._log(
-                    f"[🔍 Background Calculation] Compression threshold not reached (Token: {current_tokens} < {compression_threshold_tokens})",
+                    "[🔍 Background Calculation] Full-history threshold not reached\n"
+                    f"source_history_tokens={current_tokens} | compression_threshold_tokens={compression_threshold_tokens}",
                     event_call=__event_call__,
                 )
 
@@ -2775,8 +3752,28 @@ class Filter:
             await self._log(
                 f"[🔍 Background Calculation] ❌ Error: {str(e)}",
                 log_type="error",
-                event_call=__event_call__,
+                event_call=None,
             )
+            if __event_call__ and not getattr(e, "_frontend_logged", False):
+                await self._emit_frontend_console_log(
+                    f"[🔍 Background Calculation] ❌ Error: {str(e)}",
+                    log_type="error",
+                    event_call=__event_call__,
+                    force=True,
+                )
+            if __event_emitter__:
+                await __event_emitter__(
+                    {
+                        "type": "status",
+                        "data": {
+                            "description": self._get_translation(
+                                lang, "status_summary_error", error=str(e)[:100]
+                            ),
+                            "done": True,
+                        },
+                    }
+                )
+            logger.exception("[🔍 Background Calculation] Unhandled exception")
 
     def _clean_model_id(self, model_id: Optional[str]) -> Optional[str]:
         """Cleans the model ID by removing whitespace and quotes."""
@@ -2880,76 +3877,25 @@ class Filter:
                 )
                 return
 
-            thresholds = self._get_model_thresholds(summary_model_id)
-            # Priority: 1. summary_model_max_context (if > 0) -> 2. model_thresholds -> 3. global max_context_tokens
-            if self.valves.summary_model_max_context > 0:
-                max_context_tokens = self.valves.summary_model_max_context
-            else:
-                max_context_tokens = thresholds.get(
-                    "max_context_tokens", self.valves.max_context_tokens
-                )
+            max_context_tokens = self._get_summary_model_context_limit(
+                summary_model_id
+            )
+            request_limits = self._compute_summary_request_limits(max_context_tokens)
 
             await self._log(
                 f"[🤖 Async Summary Task] Using max limit for model {summary_model_id}: {max_context_tokens} Tokens",
                 event_call=__event_call__,
             )
-
-            # Calculate tokens for middle messages only (plus buffer for prompt)
-            # We only send middle_messages to the summary model, so we shouldn't count the full history against its limit.
-            middle_tokens = await asyncio.to_thread(
-                self._calculate_messages_tokens, middle_messages
-            )
-            # Add buffer for prompt and output (approx 2000 tokens)
-            estimated_input_tokens = middle_tokens + 2000
-
-            if max_context_tokens <= 0:
+            if max_context_tokens > 0:
                 await self._log(
-                    "[🤖 Async Summary Task] No max_context_tokens limit set (0). Skipping middle-message truncation.",
-                    event_call=__event_call__,
-                )
-            elif estimated_input_tokens > max_context_tokens:
-                excess_tokens = estimated_input_tokens - max_context_tokens
-                await self._log(
-                    f"[🤖 Async Summary Task] ⚠️ Middle messages ({middle_tokens} Tokens) + Buffer exceed summary model limit ({max_context_tokens}), need to remove approx {excess_tokens} Tokens",
-                    log_type="warning",
+                    "[🤖 Async Summary Task] Summary request budget: "
+                    f"input<={request_limits['max_input_tokens']}t | "
+                    f"output<={request_limits['max_output_tokens']}t | "
+                    f"safety={request_limits['safety_margin_tokens']}t",
                     event_call=__event_call__,
                 )
 
-                # Trim newest messages first so saved progress still reflects the exact
-                # original-history boundary actually covered by the summary.
-                removed_tokens = 0
-                removed_count = 0
-
-                trimmable_middle = middle_messages[protected_prefix:]
-                summary_atomic_groups = self._get_atomic_groups(trimmable_middle)
-                while removed_tokens < excess_tokens and len(summary_atomic_groups) > 1:
-                    group_indices = summary_atomic_groups.pop()
-                    for _ in range(len(group_indices)):
-                        msg_to_remove = trimmable_middle.pop()
-                        msg_tokens = self._count_tokens(
-                            str(msg_to_remove.get("content", ""))
-                        )
-                        removed_tokens += msg_tokens
-                        removed_count += 1
-
-                middle_messages = middle_messages[:protected_prefix] + trimmable_middle
-
-                await self._log(
-                    f"[🤖 Async Summary Task] Removed {removed_count} messages (atomic), totaling {removed_tokens} Tokens",
-                    event_call=__event_call__,
-                )
-
-            if not middle_messages:
-                await self._log(
-                    f"[🤖 Async Summary Task] Middle messages empty after truncation, skipping summary generation",
-                    event_call=__event_call__,
-                )
-                return
-
-            # 4. Build conversation text
-            conversation_text = self._format_messages_for_summary(middle_messages)
-
-            # 5. Determine previous_summary to pass to LLM.
+            # Determine previous_summary to pass to LLM before final prompt budgeting.
             # When summary_index is not None, the old summary message is already the first
             # entry of middle_messages (protected_prefix=1), so it appears verbatim in
             # conversation_text — no need to inject separately.
@@ -2965,7 +3911,101 @@ class Filter:
                         event_call=__event_call__,
                     )
             else:
-                previous_summary = None  # already embedded in middle_messages[0]
+                previous_summary = None
+
+            if max_context_tokens <= 0:
+                await self._log(
+                    "[🤖 Async Summary Task] No max_context_tokens limit set (0). Skipping final request budgeting.",
+                    event_call=__event_call__,
+                )
+            # Fit the exact final request prompt, not just middle-message heuristics.
+            prompt_tokens = 0
+            while max_context_tokens > 0:
+                if not middle_messages:
+                    await self._log(
+                        "[🤖 Async Summary Task] Middle messages empty after final request shrink, skipping summary generation",
+                        event_call=__event_call__,
+                    )
+                    return
+
+                conversation_text = self._format_messages_for_summary(middle_messages)
+                summary_prompt = self._build_summary_prompt(
+                    conversation_text, previous_summary=previous_summary
+                )
+                prompt_tokens = await asyncio.to_thread(
+                    self._count_tokens, summary_prompt
+                )
+
+                if prompt_tokens <= request_limits["max_input_tokens"]:
+                    break
+
+                overflow_tokens = prompt_tokens - request_limits["max_input_tokens"]
+                await self._log(
+                    f"[🤖 Async Summary Task] ⚠️ Final summary request input ({prompt_tokens} Tokens) exceeds safe budget ({request_limits['max_input_tokens']}), shrinking by at least {overflow_tokens} Tokens",
+                    log_type="warning",
+                    event_call=__event_call__,
+                )
+
+                trimmable_middle = middle_messages[protected_prefix:]
+                summary_atomic_groups = self._get_atomic_groups(trimmable_middle)
+                if len(summary_atomic_groups) > 1:
+                    group_indices = summary_atomic_groups.pop()
+                    removed_count = len(group_indices)
+                    removed_preview_tokens = sum(
+                        self._estimate_content_tokens(
+                            trimmable_middle[-offset].get("content", "")
+                        )
+                        for offset in range(1, removed_count + 1)
+                    )
+                    for _ in range(removed_count):
+                        trimmable_middle.pop()
+                    middle_messages = middle_messages[:protected_prefix] + trimmable_middle
+                    await self._log(
+                        f"[🤖 Async Summary Task] Removed newest atomic group ({removed_count} msgs, est {removed_preview_tokens} Tokens) to fit final request payload",
+                        event_call=__event_call__,
+                    )
+                    continue
+
+                if protected_prefix > 0:
+                    middle_messages = middle_messages[1:]
+                    protected_prefix = 0
+                    await self._log(
+                        "[🤖 Async Summary Task] Dropped embedded previous summary marker from compression input to fit final request payload",
+                        log_type="warning",
+                        event_call=__event_call__,
+                    )
+                    continue
+
+                if previous_summary:
+                    previous_summary = None
+                    await self._log(
+                        "[🤖 Async Summary Task] Dropped DB-backed previous summary from prompt to fit final request payload",
+                        log_type="warning",
+                        event_call=__event_call__,
+                    )
+                    continue
+
+                await self._log(
+                    "[🤖 Async Summary Task] Unable to fit final summary request within model budget after shrinking. Skipping summary generation.",
+                    log_type="error",
+                    event_call=__event_call__,
+                )
+                return
+
+            if not middle_messages:
+                await self._log(
+                    "[🤖 Async Summary Task] Middle messages empty after truncation, skipping summary generation",
+                    event_call=__event_call__,
+                )
+                return
+
+            # 4. Build conversation text using the fitted request payload.
+            conversation_text = self._format_messages_for_summary(middle_messages)
+            if max_context_tokens > 0:
+                await self._log(
+                    f"[🤖 Async Summary Task] Final fitted summary input: {prompt_tokens} / {request_limits['max_input_tokens']} Tokens",
+                    event_call=__event_call__,
+                )
 
             # 6. Call LLM to generate new summary
 
@@ -3148,8 +4188,15 @@ class Filter:
             await self._log(
                 f"[🤖 Async Summary Task] ❌ Error: {str(e)}",
                 log_type="error",
-                event_call=__event_call__,
+                event_call=None,
             )
+            if __event_call__ and not getattr(e, "_frontend_logged", False):
+                await self._emit_frontend_console_log(
+                    f"[🤖 Async Summary Task] ❌ Error: {str(e)}",
+                    log_type="error",
+                    event_call=__event_call__,
+                    force=True,
+                )
 
             if __event_emitter__:
                 await __event_emitter__(
@@ -3168,6 +4215,57 @@ class Filter:
 
             logger.exception("[🤖 Async Summary Task] Unhandled exception")
 
+    def _truncate_messages_for_summary(self, messages: list, max_tokens: int) -> str:
+        formatted = []
+        total_tokens = 0
+
+        for msg in reversed(messages):
+            role = msg.get("role", "unknown")
+            content = self._extract_text_content(msg.get("content", ""))
+            msg_id = msg.get("id", "N/A")
+            msg_name = msg.get("name", "")
+
+            name_part = f" [ID: {msg_id}]" if msg_name else f" [ID: {msg_id}]"
+            formatted_msg = f"#### {role.capitalize()}{name_part}\n{content}\n"
+            formatted_msg_tokens = _estimate_text_tokens(formatted_msg)
+
+            if total_tokens + formatted_msg_tokens > max_tokens:
+                break
+            formatted.append(formatted_msg)
+            total_tokens += formatted_msg_tokens
+
+        formatted.reverse()
+        return "\n".join(formatted)
+
+    def _compute_summary_request_limits(
+        self, max_context_tokens: int
+    ) -> Dict[str, int]:
+        """Reserve conservative input/output budgets for summary requests."""
+        desired_output_tokens = max(1, int(self.valves.max_summary_tokens or 1))
+        if max_context_tokens <= 0:
+            return {
+                "max_context_tokens": 0,
+                "max_input_tokens": 0,
+                "max_output_tokens": desired_output_tokens,
+                "safety_margin_tokens": 0,
+            }
+
+        safety_margin_tokens = min(4096, max(512, max_context_tokens // 20))
+        available_after_margin = max(512, max_context_tokens - safety_margin_tokens)
+        max_output_tokens = min(
+            desired_output_tokens, max(512, available_after_margin // 3)
+        )
+        max_input_tokens = max(
+            256, max_context_tokens - max_output_tokens - safety_margin_tokens
+        )
+
+        return {
+            "max_context_tokens": max_context_tokens,
+            "max_input_tokens": max_input_tokens,
+            "max_output_tokens": max_output_tokens,
+            "safety_margin_tokens": safety_margin_tokens,
+        }
+
     def _format_messages_for_summary(self, messages: list) -> str:
         """
         Formats messages for summarization with metadata awareness.
@@ -3176,7 +4274,7 @@ class Filter:
         formatted = []
         for i, msg in enumerate(messages, 1):
             role = msg.get("role", "unknown")
-            content = msg.get("content", "")
+            content = self._extract_text_content(msg.get("content", ""))
 
             # Extract Identity Metadata
             msg_id = msg.get("id", "N/A")
@@ -3188,14 +4286,6 @@ class Filter:
                 for k, v in metadata.items()
                 if k not in ["is_trimmed", "is_summary"]
             }
-
-            # Handle multimodal content
-            if isinstance(content, list):
-                text_parts = []
-                for part in content:
-                    if isinstance(part, dict) and part.get("type") == "text":
-                        text_parts.append(part.get("text", ""))
-                content = " ".join(text_parts)
 
             # Handle role name
             role_name = {"user": "User", "assistant": "Assistant"}.get(role, role)
@@ -3209,6 +4299,127 @@ class Filter:
             formatted.append(f"[{i}] {role_name}{meta_str}: {content}")
 
         return "\n\n".join(formatted)
+
+    def _build_summary_prompt(
+        self,
+        new_conversation_text: str,
+        previous_summary: Optional[str] = None,
+    ) -> str:
+        """Build the exact summary prompt sent to the LLM."""
+        previous_summary_block = (
+            f"<previous_working_memory>\n{previous_summary}\n</previous_working_memory>\n\n"
+            if previous_summary
+            else ""
+        )
+        return f"""You are an expert Conversation-and-Tool-State Compression Engine. Produce a compact, low-loss working memory for continuing a multi-turn chat that may include repeated tool usage, external references, and partial/trimmed content.
+
+### Primary Objective
+Preserve the information that most helps the NEXT response stay accurate, consistent, and context-aware. Prefer continuity over maximal compression. Do not drop useful state just because it is old or already resolved if it still changes what the assistant should remember.
+
+### Processing Rules
+1. **State-Aware Merging**: If `<previous_working_memory>` exists, merge it with the new input. Preserve still-valid facts; update changed state; remove only information that is clearly obsolete and no longer useful.
+2. **User Intent First**: Preserve the current user goal, explicit preferences, constraints, dislikes, decisions, and acceptance criteria before less important detail.
+3. **Persistent Context Gate**: Put something in `<persistent_context>` ONLY if it is likely to remain useful across future turns beyond the immediate task, such as stable user preferences, lasting project facts, standing constraints, chosen defaults, or durable decisions. Do NOT store short-term topics, one-off questions, or speculative user traits there.
+4. **Recent Progress Gate**: Put current-task developments, recent requests, intermediate conclusions, and short-lived context into `<recent_progress>` instead of `<persistent_context>`, even if they seem important right now.
+5. **Tool-State Compression**: For tool calls, keep only durable state: tool name, purpose, decisive inputs when important, verified outputs, key metrics, errors, root causes, and what remains unfinished. Discard raw boilerplate and long low-value payloads.
+6. **Error Preservation**: Preserve important error messages, exception names, exit codes, and last useful stack/location details when they help future turns, even if partially resolved.
+7. **External Reference Handling**: If `<external_references>` or `<referenced_chats>` blocks appear, treat them as supplemental context sources. Keep only durable facts, prior decisions, or constraints relevant to the current thread. Do not mention wrappers or that references were injected.
+8. **Trim-Aware Discipline**: If content is marked trimmed/collapsed, treat omitted portions as unknown. Keep visible facts only; never infer hidden details.
+9. **Verification Discipline**: Distinguish verified facts, inferred conclusions, and open questions. Do not silently upgrade uncertainty into fact. If a point is not explicitly established, label it `INFERRED:` or `OPEN:`.
+10. **Verbatim Retention**: Preserve exact code, commands, file paths, config values, numbers, and short error strings character-for-character when they matter.
+11. **Denoising**: Remove greetings, repetition, filler, UI/debug wrappers, and placeholder text such as "[Content collapsed]" unless the placeholder itself is materially relevant.
+12. **Summary Hygiene**: Absorb prior summary content semantically, but do not echo prompt wrappers, XML input tags, or old summary boilerplate into the new result.
+13. **Continuity Anchors**: Preserve created deliverables, published links, message IDs, explicit decisions, chosen defaults, and pending asks whenever they could affect the next turn.
+14. **Preference Evidence Rule**: Only record user preferences when they are explicitly stated, repeatedly demonstrated, or materially affect future replies. Do not infer durable preferences from a single request.
+15. **Loss-Minimization Bias**: When unsure whether a fact may matter later, keep a short factual note instead of deleting it, but place it in the least-strong section that fits.
+16. **General-Chat Coverage**: Even without tools or code, preserve unanswered questions, promised follow-ups, personal constraints, and conversation commitments that the next reply should honor.
+
+### Output Constraints
+* **Format**: Output XML only. No markdown. No prose outside the XML root.
+* **Token Budget**: Stay under {self.valves.max_summary_tokens} tokens. Trim low-value detail before high-value state.
+* **Language**: Match the dominant conversation language.
+* **Style**: Dense, factual, low-fluff, easy for another assistant turn to consume.
+* **Empty Sections**: Omit empty sections entirely.
+
+### Output Schema
+Use this exact top-level structure:
+
+<working_memory>
+  <current_goal>...</current_goal>
+  <user_preferences>
+    <item>...</item>
+  </user_preferences>
+  <persistent_context>
+    <item>...</item>
+  </persistent_context>
+  <recent_progress>
+    <item>...</item>
+  </recent_progress>
+  <tool_state>
+    <item>tool=... | purpose=... | result=... | status=... | next=...</item>
+  </tool_state>
+  <errors_and_warnings>
+    <item>...</item>
+  </errors_and_warnings>
+  <open_loops>
+    <item>...</item>
+  </open_loops>
+  <next_reply_guidance>
+    <item>...</item>
+  </next_reply_guidance>
+</working_memory>
+
+### Output Notes
+* Use `<item>` entries for lists.
+* When useful, include `[ID: ...]` inline inside text.
+* For inferred or uncertain items, begin the item text with `INFERRED:` or `OPEN:`.
+* `<current_goal>` should describe the latest actionable objective, not a broad theme.
+* `<user_preferences>` should contain only explicit or high-confidence recurring preferences that affect response style or decisions.
+* `<persistent_context>` should be sparse and conservative. When unsure, place the item in `<recent_progress>` instead.
+* `<tool_state>` should focus on active tools, recent decisive results, and unfinished follow-ups. Omit stale one-off tool history.
+* `<open_loops>` should contain only real unresolved tasks, blockers, or unanswered questions. Do not invent speculative future work just to fill the section.
+* Do not create personality traits, long-term interests, or durable preferences unless the conversation explicitly supports them.
+* Keep the output useful for both general conversation continuity and multi-step tool workflows.
+
+<compression_input>
+{previous_summary_block}<conversation>
+{new_conversation_text}
+</conversation>
+</compression_input>
+
+Return only the XML working memory:
+"""
+
+    def _extract_provider_error(self, response: Any) -> Optional[str]:
+        """Extract upstream provider error details from non-standard response dicts."""
+        if not isinstance(response, dict):
+            return None
+
+        if isinstance(response.get("choices"), list) and response.get("choices"):
+            return None
+
+        if "error" in response:
+            error = response.get("error")
+            if isinstance(error, dict):
+                parts = []
+                for key in ("message", "type", "code", "status", "detail"):
+                    value = error.get(key)
+                    if value in (None, "", []):
+                        continue
+                    parts.append(str(value) if key == "message" else f"{key}={value}")
+                return "; ".join(parts) or json.dumps(error, ensure_ascii=False)
+            if error not in (None, "", []):
+                return str(error)
+
+        for key in ("detail", "message", "error_message", "error_msg"):
+            value = response.get(key)
+            if value in (None, "", []):
+                continue
+            if isinstance(value, dict):
+                return json.dumps(value, ensure_ascii=False)
+            return str(value)
+
+        return None
 
     async def _call_summary_llm(
         self,
@@ -3227,57 +4438,9 @@ class Filter:
             event_call=__event_call__,
         )
 
-        # Build summary prompt (Optimized for State/Working Memory and Tool Calling)
-        previous_summary_block = (
-            f"<previous_working_memory>\n{previous_summary}\n</previous_working_memory>\n\n"
-            if previous_summary
-            else ""
+        summary_prompt = self._build_summary_prompt(
+            new_conversation_text, previous_summary=previous_summary
         )
-        summary_prompt = f"""You are an expert Context Compression Engine. Produce a high-fidelity, maximally dense "Working Memory" snapshot from the inputs below.
-
-### Processing Rules
-1.  **State-Aware Merging**: If `<previous_working_memory>` is provided, you MUST merge it with the new conversation. Preserve facts that are still true; UPDATE or SUPERSEDE facts whose state has changed (e.g., "bug X exists" → "bug X fixed in commit abc"); REMOVE facts fully resolved with no future relevance.
-2.  **Goal Tracking**: Reflect the LATEST user intent as "Current Goal". If the goal has shifted, move the old goal to Working Memory as "Prior Goal (completed/abandoned)".
-3.  **Tool-Call Decompression**: From raw JSON tool arguments/results, extract ONLY: definitive facts, concrete return values, error codes, root causes. Discard structural boilerplate.
-4.  **Error & Exception Verbatim**: Stack traces, error messages, exception types, and exit codes MUST be quoted exactly — they are primary debugging artifacts.
-5.  **Ruthless Denoising**: Delete greetings, apologies, acknowledgments, and any phrase that carries zero information.
-6.  **Verbatim Retention**: Code snippets, shell commands, file paths, config values, and Message IDs (e.g., [ID: ...]) MUST appear character-for-character.
-7.  **Causal Chain**: For each tool call or action, record: trigger → operation → outcome (one line per event).
-
-### Output Constraints
-*   **Format**: Follow the Required Structure below — omit a section only if it has zero content.
-*   **Token Budget**: Stay under {self.valves.max_summary_tokens} tokens. Prioritize recency and actionability when trimming.
-*   **Tone**: Terse, robotic, third-person where applicable.
-*   **Language**: Match the dominant language of the conversation.
-*   **Forbidden**: No preamble, no closing remarks, no meta-commentary. Start directly with the first section header.
-
-### Required Output Structure
-## Current Goal
-(Single sentence: what the user is trying to achieve RIGHT NOW)
-
-## Working Memory & Facts
-(Bullet list — each item: one established fact, constraint, or parsed tool result. Mark superseded items as ~~old~~ → new. Cite [ID: ...] when critical.)
-
-## Code & Artifacts
-(Only if present. Exact code blocks with language tags. File paths as inline code.)
-
-## Causal Log
-(Chronological. Format: `[MSG_ID?] action → result`. One line per event. Keep only the last N events that remain causally relevant.)
-
-## Errors & Exceptions
-(Only if unresolved. Exact quoted text. Include error type, message, and last known stack frame.)
-
-## Pending / Next Steps
-(Ordered list. First item = most immediate action.)
-
----
-{previous_summary_block}<new_conversation>
-{new_conversation_text}
-</new_conversation>
----
-
-Generate the Working Memory:
-"""
         # Determine the model to use
         model = self._clean_model_id(self.valves.summary_model) or self._clean_model_id(
             body.get("model")
@@ -3293,12 +4456,16 @@ Generate the Working Memory:
 
         await self._log(f"[🤖 LLM Call] Model: {model}", event_call=__event_call__)
 
+        max_context_tokens = self._get_summary_model_context_limit(model)
+        request_limits = self._compute_summary_request_limits(max_context_tokens)
+        max_output_tokens = request_limits["max_output_tokens"]
+
         # Build payload
         payload = {
             "model": model,
             "messages": [{"role": "user", "content": summary_prompt}],
             "stream": False,
-            "max_tokens": self.valves.max_summary_tokens,
+            "max_tokens": max_output_tokens,
             "temperature": self.valves.summary_temperature,
         }
 
@@ -3339,6 +4506,17 @@ Generate the Working Memory:
                 except Exception:
                     raise ValueError(f"Failed to parse JSONResponse body: {response}")
 
+            provider_error = self._extract_provider_error(response)
+            if provider_error:
+                try:
+                    response_repr = json.dumps(response, ensure_ascii=False, indent=2)
+                except Exception:
+                    response_repr = repr(response)
+                raise ValueError(
+                    f"Upstream provider error: {provider_error}\n"
+                    f"Full response:\n{response_repr}"
+                )
+
             if (
                 not response
                 or not isinstance(response, dict)
@@ -3346,7 +4524,7 @@ Generate the Working Memory:
                 or not response["choices"]
             ):
                 try:
-                    response_repr = json_module.dumps(response, ensure_ascii=False, indent=2)
+                    response_repr = json.dumps(response, ensure_ascii=False, indent=2)
                 except Exception:
                     response_repr = repr(response)
                 raise ValueError(
@@ -3377,10 +4555,19 @@ Generate the Working Memory:
                     "If this is a pipeline (Pipe) model or an incompatible model, please specify a compatible summary model (e.g., 'gemini-2.5-flash') in the configuration."
                 )
 
+            if __event_call__:
+                await self._emit_frontend_console_log(
+                    f"[🤖 LLM Call] ❌ {error_message}",
+                    log_type="error",
+                    event_call=__event_call__,
+                    force=True,
+                )
             await self._log(
                 f"[🤖 LLM Call] ❌ {error_message}",
                 log_type="error",
-                event_call=__event_call__,
+                event_call=None,
             )
 
-            raise Exception(error_message)
+            wrapped_error = Exception(error_message)
+            setattr(wrapped_error, "_frontend_logged", True)
+            raise wrapped_error
