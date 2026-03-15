@@ -8,7 +8,7 @@
 
 - 一键安装：单个命令安装所有插件
 - 自动更新：自动更新之前安装过的插件
-- GitHub 支持：从任意 GitHub 仓库安装插件
+- 公开 GitHub 支持：支持从任何公开 GitHub 仓库安装插件
 - 多类型支持：支持 Pipe、Action、Filter 和 Tool 插件
 - 安装确认：安装前显示插件列表，支持选择性安装
 - 国际化：支持 11 种语言
@@ -51,68 +51,91 @@
 ## 使用方法
 
 1. 打开 OpenWebUI，进入 **Workspace > Tools**
-2. 从官方市场安装 **Batch Install Plugins from GitHub**
+2. 从市场安装 **Batch Install Plugins from GitHub**
 3. 为你的模型/对话启用此工具
-4. 让模型调用工具方法
+4. 让模型调用工具来安装插件
+
+## 交互式安装工作流
+
+每次请求处理一个仓库。如需混合多个来源，请在上一次安装完成后再发起下一次请求。
+
+### 安装序列示例
+
+1. **先从我的合集开始**
+   ```
+   "安装 Fu-Jie/openwebui-extensions 中的所有插件"
+   ```
+   查看确认对话框，批准后插件开始安装。
+
+2. **再添加社区合集**
+   ```
+   "从 iChristGit/OpenWebui-Tools 安装所有插件"
+   ```
+   从不同仓库添加更多插件。已安装的插件会无缝更新。
+
+3. **按类型继续安装**
+   ```
+   "从 Haervwe/open-webui-tools 仅安装 pipe 插件"
+   ```
+   从另一个仓库选择特定类型的插件，或排除某些关键词。
+
+4. **使用你自己的仓库**
+   ```
+   "从 your-username/your-collection 安装所有插件"
+   ```
+   支持任何公开的 GitHub 仓库，格式为 `owner/repo`。
 
 ## 使用示例
 
+下面每一行都是一次独立请求：
+
 ```
+# 从默认合集安装
 "安装所有插件"
-"从 github.com/username/repo 安装所有插件"
-"只安装 pipe 插件"
-"安装 action 和 filter 插件"
-"安装所有插件, exclude_keywords=copilot"
-```
 
-## 热门插件仓库
-
-这些是包含大量插件的热门仓库，你可以从中安装插件：
-
-### 社区合集
-
-```
-# 从 iChristGit 的集合安装所有插件
+# 在下一次请求中加入其他仓库
 "从 iChristGit/OpenWebui-Tools 安装所有插件"
 
-# 从 Haervwe 的工具集合只安装工具
-"从 Haervwe/open-webui-tools 安装所有插件"
+# 从其他仓库只安装工具
+"从 Haervwe/open-webui-tools 仅安装 tool 插件"
 
-# 从 Classic298 的仓库安装所有插件
-"从 Classic298/open-webui-plugins 安装所有插件"
+# 再继续补充另一类插件
+"从 Classic298/open-webui-plugins 安装仅 action 插件"
 
-# 从 suurt8ll 的集合安装所有函数
-"从 suurt8ll/open_webui_functions 安装所有插件"
-
-# 只安装特定类型的插件（比如只安装工具）
-"从 iChristGit/OpenWebui-Tools 只安装 tool 插件"
-
-# 安装时排除特定关键词
+# 过滤不想安装的插件
 "从 Haervwe/open-webui-tools 安装所有插件, exclude_keywords=test,deprecated"
+
+# 从你自己的公开仓库安装
+"从 your-username/my-plugin-collection 安装所有插件"
 ```
 
-### 支持的仓库
+## 热门公开仓库
 
-- `Fu-Jie/openwebui-extensions` - 默认的官方插件集合
+该工具支持任何公开 GitHub 仓库，格式为 `owner/repo`。这些都是不错的起点：
+
+- `Fu-Jie/openwebui-extensions` - 我的个人合集，也是默认来源
 - `iChristGit/OpenWebui-Tools` - 全面的工具和插件集合
-- `Haervwe/open-webui-tools` - 专业的工具和实用程序
-- `Classic298/open-webui-plugins` - 各种插件实现
-- `suurt8ll/open_webui_functions` - 基于函数的插件
+- `Haervwe/open-webui-tools` - 偏工具型的扩展集合
+- `Classic298/open-webui-plugins` - 混合型社区插件集合
+- `suurt8ll/open_webui_functions` - 基于函数的插件集合
+- `rbb-dev/Open-WebUI-OpenRouter-pipe` - OpenRouter pipe 集成
+
+如需混合多个来源，请在上一次安装完成后，换一个 `repo` 再调用一次工具。
 
 ## 默认仓库
 
-未指定仓库时，默认为 `Fu-Jie/openwebui-extensions`。
+未指定仓库时，工具会使用 `Fu-Jie/openwebui-extensions`（我的个人合集）。
 
 ## 插件检测规则
 
 ### Fu-Jie/openwebui-extensions（严格模式）
 
-默认仓库的插件必须满足：
+对于默认仓库，工具会采用更严格的筛选规则：
 1. 包含 `class Tools:`、`class Filter:`、`class Pipe:` 或 `class Action:` 的 `.py` 文件
-2. Docstring 中包含 `title:`、`description:` 和 **`openwebui_id:`** 字段
+2. Docstring 中包含 `title:`、`description:` 和 **`openwebui_id:`** 元数据
 3. 文件名不能以 `_cn` 结尾
 
-### 其他 GitHub 仓库
+### 其他公开 GitHub 仓库
 
 其他仓库的插件必须满足：
 1. 包含 `class Tools:`、`class Filter:`、`class Pipe:` 或 `class Action:` 的 `.py` 文件

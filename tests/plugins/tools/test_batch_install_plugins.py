@@ -74,6 +74,17 @@ class FakeAsyncClient:
         return response
 
 
+class FakeGithubAsyncClient:
+    def __init__(self, *args, **kwargs):
+        pass
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb):
+        return False
+
+
 @pytest.mark.asyncio
 async def test_install_all_plugins_only_installs_filtered_candidates(monkeypatch):
     keep = make_candidate("Keep Plugin", "plugins/tools/keep/keep.py", "keep_plugin")
@@ -300,3 +311,94 @@ async def test_install_all_plugins_emits_frontend_debug_logs_on_connect_error(
     assert any("http://localhost:3000" in code for code in execute_codes)
     assert events[-1]["type"] == "notification"
     assert events[-1]["data"]["type"] == "error"
+
+
+def test_extract_metadata_supports_crlf_and_folded_yaml_docstrings():
+    content = (
+        '"""\r\n'
+        "title: Persona Selector\r\n"
+        "author: ichrist\r\n"
+        "description: >\r\n"
+        "  Two-step persona picker. Step 1: numbered category list (16 categories).\r\n"
+        "  Step 2: numbered persona list (10 per category). 160 personas + Custom.\r\n"
+        "version: 6.0.2\r\n"
+        '"""\r\n\r\n'
+        "class Tools:\r\n"
+        "    pass\r\n"
+    )
+
+    metadata = batch_install_plugins.extract_metadata(content)
+
+    assert metadata["title"] == "Persona Selector"
+    assert metadata["author"] == "ichrist"
+    assert metadata["version"] == "6.0.2"
+    assert metadata["description"] == (
+        "Two-step persona picker. Step 1: numbered category list (16 categories). "
+        "Step 2: numbered persona list (10 per category). 160 personas + Custom."
+    )
+
+
+@pytest.mark.asyncio
+async def test_discover_plugins_supports_community_repo_crlf_docstrings(monkeypatch):
+    tree = [
+        {"type": "blob", "path": "Tools/ask-user.py"},
+        {"type": "blob", "path": "Tools/persona.py"},
+        {"type": "blob", "path": "Tools/orchestrator.py"},
+    ]
+    contents = {
+        "Tools/ask-user.py": (
+            '"""\r\n'
+            "title: Ask User\r\n"
+            "author: ichrist\r\n"
+            "version: 1.0\r\n"
+            "description: Allows the LLM to autonomously trigger 1-5 interactive pop-up questions.\r\n"
+            '"""\r\n\r\n'
+            "class Tools:\r\n"
+            "    pass\r\n"
+        ),
+        "Tools/persona.py": (
+            '"""\r\n'
+            "title: Persona Selector\r\n"
+            "author: ichrist\r\n"
+            "description: >\r\n"
+            "  Two-step persona picker. Step 1: numbered category list (16 categories).\r\n"
+            "  Step 2: numbered persona list (10 per category). 160 personas + Custom.\r\n"
+            "version: 6.0.2\r\n"
+            '"""\r\n\r\n'
+            "class Tools:\r\n"
+            "    pass\r\n"
+        ),
+        "Tools/orchestrator.py": (
+            '"""\r\n'
+            "title: 🌌 The Omniscient Orchestrator\r\n"
+            "author: ichrist\r\n"
+            "version: 2.0\r\n"
+            "description: A high-polish, multi-stage workflow engine.\r\n"
+            '"""\r\n\r\n'
+            "class Tools:\r\n"
+            "    pass\r\n"
+        ),
+    }
+
+    async def fake_fetch_tree(client, owner, repo, branch):
+        assert (owner, repo, branch) == ("iChristGit", "OpenWebui-Tools", "main")
+        return tree
+
+    async def fake_fetch_file(client, owner, repo, branch, path):
+        return contents[path]
+
+    monkeypatch.setattr(batch_install_plugins.httpx, "AsyncClient", FakeGithubAsyncClient)
+    monkeypatch.setattr(batch_install_plugins, "fetch_github_tree", fake_fetch_tree)
+    monkeypatch.setattr(batch_install_plugins, "fetch_github_file", fake_fetch_file)
+
+    candidates, skipped = await batch_install_plugins.discover_plugins(
+        "https://github.com/iChristGit/OpenWebui-Tools/",
+        batch_install_plugins.DEFAULT_SKIP_KEYWORDS,
+    )
+
+    assert sorted(candidate.title for candidate in candidates) == [
+        "Ask User",
+        "Persona Selector",
+        "🌌 The Omniscient Orchestrator",
+    ]
+    assert skipped == []

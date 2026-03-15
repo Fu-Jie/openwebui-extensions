@@ -7,11 +7,13 @@ version: 1.0.0
 description: One-click batch install plugins from GitHub repositories to your OpenWebUI instance.
 """
 
+import ast
 import asyncio
 import json
 import logging
 import os
 import re
+import textwrap
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -33,9 +35,10 @@ SELF_EXCLUDE_TERMS = (
     SELF_EXCLUDE_HINT,
     "batch install plugins from github",
 )
-DOCSTRING_PATTERN = re.compile(r'^\s*"""\n(.*?)\n"""', re.DOTALL)
+DOCSTRING_PATTERN = re.compile(r'^\s*(?P<quote>"""|\'\'\')\s*(.*?)\s*(?P=quote)', re.DOTALL)
 CLASS_PATTERN = re.compile(r'^class (Tools|Filter|Pipe|Action)\s*[\(:]', re.MULTILINE)
 EMOJI_PATTERN = re.compile(r'[\U00010000-\U0010ffff]', re.UNICODE)
+METADATA_KEY_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_-]*$")
 
 TRANSLATIONS = {
     "en-US": {
@@ -476,17 +479,107 @@ class PluginCandidate:
 
 
 def extract_metadata(content: str) -> Dict[str, str]:
-    match = DOCSTRING_PATTERN.search(content)
-    if not match:
+    docstring = _extract_module_docstring(content)
+    if not docstring:
         return {}
+
     metadata: Dict[str, str] = {}
-    for raw_line in match.group(1).splitlines():
-        line = raw_line.strip()
-        if not line or line.startswith("#") or ":" not in line:
+    lines = docstring.splitlines()
+    index = 0
+
+    while index < len(lines):
+        raw_line = lines[index]
+        stripped = raw_line.strip()
+
+        if not stripped or stripped.startswith("#"):
+            index += 1
             continue
-        key, value = line.split(":", 1)
-        metadata[key.strip().lower()] = value.strip()
+
+        if raw_line[:1].isspace() or ":" not in raw_line:
+            index += 1
+            continue
+
+        key, value = raw_line.split(":", 1)
+        key = key.strip().lower()
+        if not METADATA_KEY_PATTERN.match(key):
+            index += 1
+            continue
+
+        value = value.strip()
+        if value and value[0] in {">", "|"}:
+            block_lines, index = _consume_indented_block(lines, index + 1)
+            metadata[key] = (
+                _fold_yaml_block(block_lines)
+                if value[0] == ">"
+                else _preserve_yaml_block(block_lines)
+            )
+            continue
+
+        metadata[key] = value
+        index += 1
+
     return metadata
+
+
+def _extract_module_docstring(content: str) -> str:
+    normalized = content.lstrip("\ufeff")
+
+    try:
+        module = ast.parse(normalized)
+    except SyntaxError:
+        module = None
+
+    if module is not None:
+        docstring = ast.get_docstring(module, clean=False)
+        if isinstance(docstring, str):
+            return docstring
+
+    fallback = normalized.replace("\r\n", "\n").replace("\r", "\n")
+    match = DOCSTRING_PATTERN.search(fallback)
+    return match.group(2) if match else ""
+
+
+def _consume_indented_block(lines: List[str], start_index: int) -> Tuple[List[str], int]:
+    block: List[str] = []
+    index = start_index
+
+    while index < len(lines):
+        line = lines[index]
+        if not line.strip():
+            block.append("")
+            index += 1
+            continue
+        if line[:1].isspace():
+            block.append(line)
+            index += 1
+            continue
+        break
+
+    dedented = textwrap.dedent("\n".join(block)).splitlines()
+    return dedented, index
+
+
+def _fold_yaml_block(lines: List[str]) -> str:
+    paragraphs: List[str] = []
+    current: List[str] = []
+
+    for line in lines:
+        stripped = line.strip()
+        if not stripped:
+            if current:
+                paragraphs.append(" ".join(current))
+                current = []
+            continue
+        current.append(stripped)
+
+    if current:
+        paragraphs.append(" ".join(current))
+
+    return "\n\n".join(paragraphs).strip()
+
+
+def _preserve_yaml_block(lines: List[str]) -> str:
+    return "\n".join(line.rstrip() for line in lines).strip()
 
 
 def detect_plugin_type(content: str) -> Optional[str]:
@@ -767,7 +860,7 @@ async def discover_plugins(
                 skipped.append((item_path, "missing title/description"))
                 continue
 
-            if has_emoji(metadata.get("title", "")):
+            if is_default_repo and has_emoji(metadata.get("title", "")):
                 skipped.append((item_path, "title contains emoji"))
                 continue
 
