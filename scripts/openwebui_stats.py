@@ -89,11 +89,14 @@ class OpenWebUIStats:
         "action",
         "filter",
         "pipe",
+        "pipeline",
         "tool",
         "function",
         "prompt",
         "model",
     ]
+
+    NON_PLUGIN_TYPES = {"post", "review", "comment"}
 
     TYPE_ALIASES = {
         "tools": "tool",
@@ -103,6 +106,11 @@ class OpenWebUIStats:
         """Normalize post type to avoid synonym type splitting in statistics."""
         normalized = str(post_type or "").strip().lower()
         return self.TYPE_ALIASES.get(normalized, normalized)
+
+    def _is_published_plugin(self, post_type: str, downloads: int) -> bool:
+        """Treat marketplace items with downloads > 0 as published plugins."""
+        normalized = self._normalize_post_type(post_type)
+        return downloads > 0 and normalized not in self.NON_PLUGIN_TYPES
 
     def load_history(self) -> list:
         """Load history records (merge Gist + local file, keep the one with more records)"""
@@ -199,7 +207,10 @@ class OpenWebUIStats:
             "total_saves": stats["total_saves"],
             "followers": stats.get("user", {}).get("followers", 0),
             "points": stats.get("user", {}).get("total_points", 0),
-            "contributions": stats.get("user", {}).get("contributions", 0),
+            "contributions": stats.get(
+                "plugin_contributions",
+                stats.get("user", {}).get("contributions", 0),
+            ),
             "posts": {p["slug"]: p["downloads"] for p in stats.get("posts", [])},
         }
 
@@ -268,8 +279,11 @@ class OpenWebUIStats:
             - prev.get("followers", 0),
             "points": stats.get("user", {}).get("total_points", 0)
             - prev.get("points", 0),
-            "contributions": stats.get("user", {}).get("contributions", 0)
-            - prev.get("contributions", 0),
+            "contributions": stats.get(
+                "plugin_contributions",
+                stats.get("user", {}).get("contributions", 0),
+            )
+            - prev.get("contributions", prev.get("plugin_contributions", 0)),
             "posts": {
                 p["slug"]: p["downloads"]
                 - prev.get("posts", {}).get(p["slug"], p["downloads"])
@@ -601,6 +615,7 @@ class OpenWebUIStats:
             "total_downvotes": 0,
             "total_saves": 0,
             "total_comments": 0,
+            "plugin_contributions": 0,
             "by_type": {},
             "posts": [],
             "user": {},  # User info
@@ -629,19 +644,21 @@ class OpenWebUIStats:
             meta = plugin_obj.get("meta", {}) or {}
             manifest = meta.get("manifest", {}) or {}
 
-            # Accumulate statistics
             post_downloads = post.get("downloads", 0)
             post_views = post.get("views", 0)
+            post_saves = post.get("saveCount", 0)
+            is_published_plugin = self._is_published_plugin(post_type, post_downloads)
 
-            stats["total_downloads"] += post_downloads
             stats["total_upvotes"] += post.get("upvotes", 0)
             stats["total_downvotes"] += post.get("downvotes", 0)
-            stats["total_saves"] += post.get("saveCount", 0)
             stats["total_comments"] += post.get("commentCount", 0)
 
-            # Key: only count views for posts with actual downloads (exclude post/review types)
-            if post_type not in ("post", "review") and post_downloads > 0:
+            # Plugin-only marketplace totals: published items with downloads > 0.
+            if is_published_plugin:
+                stats["total_downloads"] += post_downloads
                 stats["total_views"] += post_views
+                stats["total_saves"] += post_saves
+                stats["plugin_contributions"] += 1
                 if post_type not in stats["by_type"]:
                     stats["by_type"][post_type] = 0
                 stats["by_type"][post_type] += 1
@@ -661,8 +678,9 @@ class OpenWebUIStats:
                     "downloads": post.get("downloads", 0),
                     "views": post.get("views", 0),
                     "upvotes": post.get("upvotes", 0),
-                    "saves": post.get("saveCount", 0),
+                    "saves": post_saves,
                     "comments": post.get("commentCount", 0),
+                    "is_published_plugin": is_published_plugin,
                     "created_at": created_at.strftime("%Y-%m-%d"),
                     "updated_at": updated_at.strftime("%Y-%m-%d"),
                     "url": f"https://openwebui.com/posts/{post.get('slug', '')}",
@@ -688,10 +706,11 @@ class OpenWebUIStats:
         print("📈 Overview")
         print("-" * 40)
         print(f"  📝 Posts: {stats['total_posts']}")
-        print(f"  ⬇️  Total Downloads: {stats['total_downloads']}")
-        print(f"  👁️  Total Views: {stats['total_views']}")
+        print(f"  🧩 Published Plugins: {stats['plugin_contributions']}")
+        print(f"  ⬇️  Plugin Downloads: {stats['total_downloads']}")
+        print(f"  👁️  Plugin Views: {stats['total_views']}")
         print(f"  👍 Total Upvotes: {stats['total_upvotes']}")
-        print(f"  💾 Total Saves: {stats['total_saves']}")
+        print(f"  💾 Plugin Saves: {stats['total_saves']}")
         print(f"  💬 Total Comments: {stats['total_comments']}")
         print()
 
@@ -745,13 +764,14 @@ class OpenWebUIStats:
                 "overview_title": "## 📈 总览",
                 "overview_header": "| 指标 | 数值 |",
                 "posts": "📝 发布数量",
-                "downloads": "⬇️ 总下载量",
-                "views": "👁️ 总浏览量",
+                "downloads": "⬇️ 插件总下载量",
+                "views": "👁️ 插件总浏览量",
                 "upvotes": "👍 总点赞数",
-                "saves": "💾 总收藏数",
+                "saves": "💾 插件总收藏数",
                 "comments": "💬 总评论数",
                 "author_points": "⭐ 作者总积分",
                 "author_followers": "👥 粉丝数量",
+                "author_contributions": "🧩 已发布插件数",
                 "type_title": "## 📂 按类型分类",
                 "list_title": "## 📋 发布列表",
                 "list_header": "| 排名 | 标题 | 类型 | 版本 | 下载 | 浏览 | 点赞 | 收藏 | 更新日期 |",
@@ -762,13 +782,14 @@ class OpenWebUIStats:
                 "overview_title": "## 📈 Overview",
                 "overview_header": "| Metric | Value |",
                 "posts": "📝 Total Posts",
-                "downloads": "⬇️ Total Downloads",
-                "views": "👁️ Total Views",
+                "downloads": "⬇️ Total Plugin Downloads",
+                "views": "👁️ Total Plugin Views",
                 "upvotes": "👍 Total Upvotes",
-                "saves": "💾 Total Saves",
+                "saves": "💾 Total Plugin Saves",
                 "comments": "💬 Total Comments",
                 "author_points": "⭐ Author Points",
                 "author_followers": "👥 Followers",
+                "author_contributions": "🧩 Published Plugins",
                 "type_title": "## 📂 By Type",
                 "list_title": "## 📋 Posts List",
                 "list_header": "| Rank | Title | Type | Version | Downloads | Views | Upvotes | Saves | Updated |",
@@ -814,6 +835,9 @@ class OpenWebUIStats:
             )
             md.append(
                 f"| {t['author_followers']} | {self.get_badge('followers', stats, user, delta)} |"
+            )
+            md.append(
+                f"| {t['author_contributions']} | {self.get_badge('contributions', stats, user, delta)} |"
             )
 
         md.append("")
@@ -914,6 +938,12 @@ class OpenWebUIStats:
                 "color": "blue",
                 "namedLogo": "openwebui",
             },
+            "views": {
+                "schemaVersion": 1,
+                "label": "views",
+                "message": format_number(stats["total_views"]),
+                "color": "blueviolet",
+            },
             "plugins": {
                 "schemaVersion": 1,
                 "label": "plugins",
@@ -931,6 +961,18 @@ class OpenWebUIStats:
                 "label": "points",
                 "message": format_number(stats.get("user", {}).get("total_points", 0)),
                 "color": "orange",
+            },
+            "saves": {
+                "schemaVersion": 1,
+                "label": "saves",
+                "message": format_number(stats["total_saves"]),
+                "color": "lightgrey",
+            },
+            "contributions": {
+                "schemaVersion": 1,
+                "label": "contributions",
+                "message": str(stats.get("plugin_contributions", 0)),
+                "color": "green",
             },
             "upvotes": {
                 "schemaVersion": 1,
@@ -960,8 +1002,6 @@ class OpenWebUIStats:
         if not (self.gist_token and self.gist_id):
             return
 
-        delta = self.get_stat_delta(stats)
-
         # Define badge config {key: (label, value, color)}
         badges_config = {
             "downloads": ("Downloads", stats["total_downloads"], "brightgreen"),
@@ -980,7 +1020,7 @@ class OpenWebUIStats:
             ),
             "contributions": (
                 "Contributions",
-                stats.get("user", {}).get("contributions", 0),
+                stats.get("plugin_contributions", 0),
                 "green",
             ),
             "posts": ("Posts", stats["total_posts"], "informational"),
@@ -988,22 +1028,12 @@ class OpenWebUIStats:
 
         files_payload = {}
         for key, (label, val, color) in badges_config.items():
-            diff = delta.get(key, 0)
-            if isinstance(diff, dict):
-                diff = 0  # Avoid dict vs int comparison error with 'posts' key
-
-            message = f"{val}"
-            if diff > 0:
-                message += f" (+{diff}🚀)"
-            elif diff < 0:
-                message += f" ({diff})"
-
             # Build Shields.io endpoint JSON
             # 参考: https://shields.io/badges/endpoint-badge
             badge_data = {
                 "schemaVersion": 1,
                 "label": label,
-                "message": message,
+                "message": f"{val}",
                 "color": color,
             }
 
@@ -1013,22 +1043,18 @@ class OpenWebUIStats:
             }
 
         # Generate top 6 plugins badges (based on slots p1, p2...)
-        post_deltas = delta.get("posts", {})
-        for i, post in enumerate(stats.get("posts", [])[:6]):
+        top_plugin_posts = [
+            post for post in stats.get("posts", []) if post.get("is_published_plugin")
+        ][:6]
+        for i, post in enumerate(top_plugin_posts):
             idx = i + 1
-            diff = post_deltas.get(post["slug"], 0)
-
-            # Downloads badge
-            dl_msg = f"{post['downloads']}"
-            if diff > 0:
-                dl_msg += f" (+{diff}🚀)"
 
             files_payload[f"badge_p{idx}_dl.json"] = {
                 "content": json.dumps(
                     {
                         "schemaVersion": 1,
                         "label": "Downloads",
-                        "message": dl_msg,
+                        "message": f"{post['downloads']}",
                         "color": "brightgreen",
                     }
                 )
@@ -1062,19 +1088,13 @@ class OpenWebUIStats:
         # 生成所有帖子的个体徽章 (用于详细报表)
         for post in stats.get("posts", []):
             slug_hash = self._safe_key(post["slug"])
-            diff = post_deltas.get(post["slug"], 0)
-
-            # 1. Downloads
-            dl_msg = f"{post['downloads']}"
-            if diff > 0:
-                dl_msg += f" (+{diff}🚀)"
 
             files_payload[f"badge_post_{slug_hash}_dl.json"] = {
                 "content": json.dumps(
                     {
                         "schemaVersion": 1,
                         "label": "Downloads",
-                        "message": dl_msg,
+                        "message": f"{post['downloads']}",
                         "color": "brightgreen",
                     }
                 )
@@ -1163,18 +1183,10 @@ class OpenWebUIStats:
         is_post: bool = False,
         style: str = "flat",
     ) -> str:
-        """获取 Shields.io 徽章 URL (包含增量显示)"""
+        """获取 Shields.io 徽章 URL。"""
         import urllib.parse
 
         gist_user = "Fu-Jie"
-
-        def _fmt_delta(k: str) -> str:
-            val = delta.get(k, 0)
-            if isinstance(val, dict):
-                return ""
-            if val > 0:
-                return f" <br><sub>(+{val}🚀)</sub>"
-            return ""
 
         if not self.gist_id:
             if is_post:
@@ -1185,14 +1197,14 @@ class OpenWebUIStats:
             if key == "points":
                 val = user.get("total_points", 0)
             if key == "contributions":
-                val = user.get("contributions", 0)
+                val = stats.get("plugin_contributions", user.get("contributions", 0))
             if key == "posts":
                 val = stats.get("total_posts", 0)
             if key == "saves":
                 val = stats.get("total_saves", 0)
             if key.startswith("updated"):
                 return f"🕐 {get_beijing_time().strftime('%Y-%m-%d %H:%M')}"
-            return f"**{val}**{_fmt_delta(key)}"
+            return f"**{val}**"
 
         raw_url = f"https://gist.githubusercontent.com/{gist_user}/{self.gist_id}/raw/badge_{key}.json"
         encoded_url = urllib.parse.quote(raw_url, safe="")
@@ -1208,30 +1220,26 @@ class OpenWebUIStats:
             stats: 统计数据
             lang: 语言 ("zh" 中文, "en" 英文)
         """
-        # 获取 Top 6 插件
-        top_plugins = stats["posts"][:6]
+        # 获取 Top 6 已发布插件
+        top_plugins = [
+            post for post in stats["posts"] if post.get("is_published_plugin")
+        ][:6]
         delta = self.get_stat_delta(stats)
-
-        def fmt_delta(key: str) -> str:
-            val = delta.get(key, 0)
-            if val > 0:
-                return f" <br><sub>(+{val}🚀)</sub>"
-            return ""
 
         # 中英文文本
         texts = {
             "zh": {
                 "title": "## 📊 社区统计",
-                "author_header": "| 👤 作者 | 👥 粉丝 | ⭐ 积分 | 🏆 贡献 |",
-                "header": "| 📝 发布 | ⬇️ 下载 | 👁️ 浏览 | 👍 点赞 | 💾 收藏 |",
+                "author_header": "| 👤 作者 | 👥 粉丝 | ⭐ 积分 | 🧩 插件贡献 |",
+                "header": "| 📝 发布 | ⬇️ 插件下载 | 👁️ 插件浏览 | 👍 点赞 | 💾 插件收藏 |",
                 "top6_title": "### 🔥 热门插件 Top 6",
                 "top6_header": "| 排名 | 插件 | 版本 | 下载 | 浏览 | 📅 更新 |",
                 "full_stats": "*完整统计与趋势图请查看 [社区统计报告](./docs/community-stats.zh.md)*",
             },
             "en": {
                 "title": "## 📊 Community Stats",
-                "author_header": "| 👤 Author | 👥 Followers | ⭐ Points | 🏆 Contributions |",
-                "header": "| 📝 Posts | ⬇️ Downloads | 👁️ Views | 👍 Upvotes | 💾 Saves |",
+                "author_header": "| 👤 Author | 👥 Followers | ⭐ Points | 🧩 Plugin Contributions |",
+                "header": "| 📝 Posts | ⬇️ Plugin Downloads | 👁️ Plugin Views | 👍 Upvotes | 💾 Plugin Saves |",
                 "top6_title": "### 🔥 Top 6 Popular Plugins",
                 "top6_header": "| Rank | Plugin | Version | Downloads | Views | 📅 Updated |",
                 "full_stats": "*See full stats and charts in [Community Stats Report](./docs/community-stats.md)*",
