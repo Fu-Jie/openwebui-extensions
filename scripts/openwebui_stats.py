@@ -271,6 +271,7 @@ class OpenWebUIStats:
             return {}
 
         return {
+            "total_posts": stats["total_posts"] - prev.get("total_posts", 0),
             "downloads": stats["total_downloads"] - prev.get("total_downloads", 0),
             "views": stats["total_views"] - prev.get("total_views", 0),
             "upvotes": stats["total_upvotes"] - prev.get("total_upvotes", 0),
@@ -745,6 +746,49 @@ class OpenWebUIStats:
 
         return hashlib.md5(key.encode("utf-8")).hexdigest()
 
+    def _summary_value(self, key: str, stats: dict, user: dict) -> int:
+        """Resolve summary badge values, supporting home_* variants."""
+        base_key = key.removeprefix("home_")
+
+        if base_key == "followers":
+            return user.get("followers", 0)
+        if base_key == "points":
+            return user.get("total_points", 0)
+        if base_key == "contributions":
+            return stats.get("plugin_contributions", user.get("contributions", 0))
+        if base_key == "posts":
+            return stats.get("total_posts", 0)
+        if base_key == "saves":
+            return stats.get("total_saves", 0)
+
+        return stats.get(f"total_{base_key}", 0)
+
+    def _summary_delta_value(self, key: str, delta: dict) -> int:
+        """Resolve delta values for summary badges, supporting home_* variants."""
+        base_key = key.removeprefix("home_")
+
+        if base_key == "posts":
+            return delta.get("total_posts", 0)
+
+        value = delta.get(base_key, 0)
+        return 0 if isinstance(value, dict) else value
+
+    def _format_badge_message(
+        self, value: int, diff: int = 0, include_delta: bool = False
+    ) -> str:
+        """Format badge message, optionally appending delta text."""
+        message = f"{value}"
+
+        if not include_delta:
+            return message
+
+        if diff > 0:
+            return f"{message} (+{diff}🚀)"
+        if diff < 0:
+            return f"{message} ({diff})"
+
+        return message
+
     def generate_markdown(self, stats: dict, lang: str = "zh") -> str:
         """
         Generate Markdown format report (fully dynamic badges and Kroki charts)
@@ -1002,6 +1046,8 @@ class OpenWebUIStats:
         if not (self.gist_token and self.gist_id):
             return
 
+        delta = self.get_stat_delta(stats)
+
         # Define badge config {key: (label, value, color)}
         badges_config = {
             "downloads": ("Downloads", stats["total_downloads"], "brightgreen"),
@@ -1028,33 +1074,43 @@ class OpenWebUIStats:
 
         files_payload = {}
         for key, (label, val, color) in badges_config.items():
-            # Build Shields.io endpoint JSON
-            # 参考: https://shields.io/badges/endpoint-badge
-            badge_data = {
-                "schemaVersion": 1,
-                "label": label,
-                "message": f"{val}",
-                "color": color,
-            }
+            for badge_key, include_delta in (
+                (key, False),
+                (f"home_{key}", True),
+            ):
+                badge_data = {
+                    "schemaVersion": 1,
+                    "label": label,
+                    "message": self._format_badge_message(
+                        val,
+                        self._summary_delta_value(badge_key, delta),
+                        include_delta=include_delta,
+                    ),
+                    "color": color,
+                }
 
-            filename = f"badge_{key}.json"
-            files_payload[filename] = {
-                "content": json.dumps(badge_data, ensure_ascii=False)
-            }
+                filename = f"badge_{badge_key}.json"
+                files_payload[filename] = {
+                    "content": json.dumps(badge_data, ensure_ascii=False)
+                }
 
         # Generate top 6 plugins badges (based on slots p1, p2...)
         top_plugin_posts = [
             post for post in stats.get("posts", []) if post.get("is_published_plugin")
         ][:6]
+        post_deltas = delta.get("posts", {})
         for i, post in enumerate(top_plugin_posts):
             idx = i + 1
+            diff = post_deltas.get(post["slug"], 0)
 
             files_payload[f"badge_p{idx}_dl.json"] = {
                 "content": json.dumps(
                     {
                         "schemaVersion": 1,
                         "label": "Downloads",
-                        "message": f"{post['downloads']}",
+                        "message": self._format_badge_message(
+                            post["downloads"], diff, include_delta=True
+                        ),
                         "color": "brightgreen",
                     }
                 )
@@ -1191,20 +1247,11 @@ class OpenWebUIStats:
         if not self.gist_id:
             if is_post:
                 return "**-**"
-            val = stats.get(f"total_{key}", 0)
-            if key == "followers":
-                val = user.get("followers", 0)
-            if key == "points":
-                val = user.get("total_points", 0)
-            if key == "contributions":
-                val = stats.get("plugin_contributions", user.get("contributions", 0))
-            if key == "posts":
-                val = stats.get("total_posts", 0)
-            if key == "saves":
-                val = stats.get("total_saves", 0)
             if key.startswith("updated"):
                 return f"🕐 {get_beijing_time().strftime('%Y-%m-%d %H:%M')}"
-            return f"**{val}**"
+            val = self._summary_value(key, stats, user)
+            diff = self._summary_delta_value(key, delta)
+            return f"**{self._format_badge_message(val, diff, key.startswith('home_'))}**"
 
         raw_url = f"https://gist.githubusercontent.com/{gist_user}/{self.gist_id}/raw/badge_{key}.json"
         encoded_url = urllib.parse.quote(raw_url, safe="")
@@ -1266,8 +1313,8 @@ class OpenWebUIStats:
             lines.append(t["author_header"])
             lines.append("| :---: | :---: | :---: | :---: |")
             lines.append(
-                f"| [{username}]({profile_url}) | {self.get_badge('followers', stats, user, delta)} | "
-                f"{self.get_badge('points', stats, user, delta)} | {self.get_badge('contributions', stats, user, delta)} |"
+                f"| [{username}]({profile_url}) | {self.get_badge('home_followers', stats, user, delta)} | "
+                f"{self.get_badge('home_points', stats, user, delta)} | {self.get_badge('home_contributions', stats, user, delta)} |"
             )
             lines.append("")
 
@@ -1275,8 +1322,8 @@ class OpenWebUIStats:
         lines.append(t["header"])
         lines.append("| :---: | :---: | :---: | :---: | :---: |")
         lines.append(
-            f"| {self.get_badge('posts', stats, user, delta)} | {self.get_badge('downloads', stats, user, delta)} | "
-            f"{self.get_badge('views', stats, user, delta)} | {self.get_badge('upvotes', stats, user, delta)} | {self.get_badge('saves', stats, user, delta)} |"
+            f"| {self.get_badge('home_posts', stats, user, delta)} | {self.get_badge('home_downloads', stats, user, delta)} | "
+            f"{self.get_badge('home_views', stats, user, delta)} | {self.get_badge('home_upvotes', stats, user, delta)} | {self.get_badge('home_saves', stats, user, delta)} |"
         )
         lines.append("")
         lines.append("")
