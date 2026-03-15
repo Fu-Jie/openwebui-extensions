@@ -2,128 +2,67 @@
 
 [English](./README.md) | 中文
 
-此目录包含 OpenWebUI 的三种类型的插件：
+这里是 OpenWebUI Extensions 的“仓库侧插件入口”。如果你想先高效发现适合自己的插件，建议先看 [插件中心](../docs/plugins/index.zh.md)；当你需要查看源码目录、本地 README 或 repo-only 条目时，再回到这里。
 
-- **Filters（过滤器）**: 在将用户输入发送给 LLM 前进行处理
-- **Actions（动作）**: 从聊天中触发自定义功能
-- **Pipes（管道）**: 在显示给用户前增强 LLM 响应
+## 推荐浏览方式
 
-## 📦 插件类型概览
+1. 先用 [插件中心](../docs/plugins/index.zh.md) 看精选推荐和当前目录
+2. 当你已经知道自己需要 Action / Filter / Pipe / Tool / Pipeline 时，再进入对应类型目录
+3. 当你需要源码文件、本地 README 或 repo-only 说明时，再打开具体插件文件夹
 
-### 🔧 Filters（过滤器）(`/filters`)
+## 按目标走入口
 
-过滤器在用户输入到达 LLM 前修改它。用途包括：
+| 我想要... | 去这里 | 你会看到 |
+| --- | --- | --- |
+| 做可视化与交互输出 | [Actions](../docs/plugins/actions/index.zh.md) | 思维导图、信息图、闪记卡、精读与导出类插件 |
+| 提升上下文与输出质量 | [Filters](../docs/plugins/filters/index.zh.md) | 压缩、格式清理、上下文注入、repo 感知辅助能力 |
+| 搭建自主工作流 | [Pipes](../docs/plugins/pipes/index.zh.md) | 高级模型集成与更偏 Agent 风格的运行时能力 |
+| 让工具跨模型复用 | [Tools](../docs/plugins/tools/index.zh.md) | Skills 管理、主动生成思维导图、批量安装辅助工具 |
+| 从发现路径完整浏览全部 | [插件中心](../docs/plugins/index.zh.md) | 精选推荐、当前目录、repo-only 条目说明 |
 
-- 输入验证和规范化
-- 添加系统提示或上下文
-- 压缩长对话
-- 预处理和格式化
+## 插件类型
 
-[查看过滤器 →](./filters/README_CN.md)
+- [Actions](./actions/README_CN.md) — 负责按钮交互、导出、可视化和用户侧聊天体验
+- [Filters](./filters/README_CN.md) — 负责消息链路中的上下文处理、格式清理与质量控制
+- [Pipes](./pipes/README_CN.md) — 负责模型集成与高级工作流运行时
+- [Tools](./tools/README_CN.md) — 负责跨模型复用的原生工具能力
+- [Pipelines](../docs/plugins/pipelines/index.zh.md) — 负责编排型参考内容与历史实验项
 
-### 🎬 Actions（动作）(`/actions`)
+## 仓库结构
 
-动作是从聊天中触发的自定义功能。用途包括：
-
-- 生成输出（思维导图、图表等）
-- 与外部 API 交互
-- 数据转换
-- 文件操作和导出
-- 复杂工作流程
-
-[查看动作 →](./actions/README_CN.md)
-
-### 📤 Pipes（管道）(`/pipes`)
-
-管道在 LLM 生成响应后处理它。用途包括：
-
-- 响应格式化
-- 内容增强
-- 翻译和转换
-- 响应过滤
-- 与外部服务集成
-
-[查看管道 →](./pipes/README_CN.md)
-
-## 🚀 快速开始
-
-### 安装插件
-
-1. **下载**所需的插件文件（`.py`）
-2. **打开** OpenWebUI 管理员设置 → 插件（Plugins）
-3. **选择**插件类型（Filters、Actions 或 Pipes）
-4. **上传**文件
-5. **刷新**页面
-6. **配置**聊天设置中的参数
-
-### 使用插件
-
-- **Filters（过滤器）**: 启用后自动应用于所有输入
-- **Actions（动作）**: 在聊天时从动作菜单手动选择
-- **Pipes（管道）**: 启用后自动应用于所有响应
-
-## 📚 插件文档
-
-每个插件目录包含：
-
-- 插件代码（`.py` 文件）
-- 英文文档（`README.md`）
-- 中文文档（`README_CN.md`）
-- 配置和使用指南
-
-## 🛠️ 插件开发
-
-要创建新插件：
-
-1. 选择插件类型（Filter、Action 或 Pipe）
-2. 导航到对应的目录
-3. 为插件创建新文件夹
-4. 编写清晰记录的插件代码
-5. 创建 `README.md` 和 `README_CN.md`
-6. 更新该目录中的主 README
-
-### 插件结构模板
-
-```python
+```text
 plugins/
-├── filters/
-│   ├── my_filter/
-│   │   ├── my_filter.py          # 插件代码
-│   │   ├── my_filter_cn.py       # 可选：中文版本
-│   │   ├── README.md              # 文档
-│   │   └── README_CN.md           # 中文文档
-│   └── README.md
-├── actions/
-│   ├── my_action/
-│   │   ├── my_action.py
-│   │   ├── README.md
-│   │   └── README_CN.md
-│   └── README.md
-└── pipes/
-    ├── my_pipe/
-    │   ├── my_pipe.py
-    │   ├── README.md
-    │   └── README_CN.md
-    └── README.md
+├── actions/<plugin>/
+│   ├── <plugin>.py
+│   ├── README.md
+│   └── README_CN.md
+├── filters/<plugin>/
+│   ├── <plugin>.py
+│   ├── README.md
+│   └── README_CN.md
+├── pipes/<plugin>/
+│   ├── <plugin>.py
+│   ├── README.md
+│   └── README_CN.md
+├── tools/<plugin>/
+│   ├── <plugin>.py
+│   ├── README.md
+│   └── README_CN.md
+└── pipelines/<plugin>/
+    └── ...
 ```
 
-## 📋 文档检查清单
+> **当前仓库规则：** 插件源码保持为**单个 Python 文件 + 内建 i18n**，不要再拆出单独的 `_cn.py` 源码文件。
 
-每个插件应包含：
+## Repo-only 条目
 
-- [ ] 清晰的功能描述
-- [ ] 配置参数及默认值
-- [ ] 安装和设置说明
-- [ ] 使用示例
-- [ ] 故障排除指南
-- [ ] 性能考虑
-- [ ] 版本和作者信息
+有些条目会先在仓库中出现，文档镜像页稍后再补。目前比较典型的有：
 
-## 作者
+- `plugins/pipes/iflow-sdk-pipe/`
+- `plugins/filters/chat-session-mapping-filter/`
 
-Fu-Jie
-GitHub: [Fu-Jie/openwebui-extensions](https://github.com/Fu-Jie/openwebui-extensions)
+## 安装路径
 
----
-
-> **注意**：有关每种插件类型的详细信息，请参阅每个插件类型目录中的相应 README 文件。
+1. **OpenWebUI Community** — 直接从 [Fu-Jie 的主页](https://openwebui.com/u/Fu-Jie) 安装
+2. **文档页 + 仓库源码** — 先用文档选型，再上传对应 `.py` 文件
+3. **本地批量安装** — 配置好 `.env` 后执行 `python scripts/install_all_plugins.py`

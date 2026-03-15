@@ -2,128 +2,67 @@
 
 English | [中文](./README_CN.md)
 
-This directory contains three types of plugins for OpenWebUI:
+This folder is the repository-side hub for plugin source files in OpenWebUI Extensions. If you want the best discovery experience, start with the [Plugin Center](../docs/plugins/index.md) first, then come back here when you want the source tree, local READMEs, or repo-only entries.
 
-- **Filters**: Process user input before sending to LLM
-- **Actions**: Trigger custom functionalities from chat
-- **Pipes**: Enhance LLM responses before displaying to user
+## Best Way to Browse
 
-## 📦 Plugin Types Overview
+1. Use the [Plugin Center](../docs/plugins/index.md) for curated recommendations and the current catalog
+2. Jump into a type folder when you already know you need an Action, Filter, Pipe, Tool, or Pipeline reference
+3. Open the local plugin folder when you need the source file, local README, or repo-only notes
 
-### 🔧 Filters (`/filters`)
+## Choose by Goal
 
-Filters modify user input before it reaches the LLM. They are useful for:
+| I want to... | Go to | What you'll find |
+| --- | --- | --- |
+| Create visual or interactive outputs | [Actions](../docs/plugins/actions/index.md) | Mind maps, infographics, flash cards, deep explainers, exports |
+| Improve context or output quality | [Filters](../docs/plugins/filters/index.md) | Compression, formatting cleanup, context injection, repo-aware helpers |
+| Build autonomous model workflows | [Pipes](../docs/plugins/pipes/index.md) | Advanced model integrations and agent-style behavior |
+| Reuse tools across models | [Tools](../docs/plugins/tools/index.md) | Skills management, proactive mind-map generation, batch installation helpers |
+| Browse everything from a discovery-first view | [Plugin Center](../docs/plugins/index.md) | Curated picks, current catalog, and repo-only entries |
 
-- Input validation and normalization
-- Adding system prompts or context
-- Compressing long conversations
-- Preprocessing and formatting
+## Plugin Types
 
-[View Filters →](./filters/README.md)
+- [Actions](./actions/README.md) — interactive buttons, exports, visualizations, and user-facing chat experiences
+- [Filters](./filters/README.md) — message-pipeline logic for context, cleanup, and response shaping
+- [Pipes](./pipes/README.md) — model integrations and advanced workflow runtimes
+- [Tools](./tools/README.md) — native tools that can be called across models and workflows
+- [Pipelines](../docs/plugins/pipelines/index.md) — orchestration-oriented references and historical experiments
 
-### 🎬 Actions (`/actions`)
+## Repository Structure
 
-Actions are custom functionalities triggered from chat. They are useful for:
-
-- Generating outputs (mind maps, charts, etc.)
-- Interacting with external APIs
-- Data transformations
-- File operations and exports
-- Complex workflows
-
-[View Actions →](./actions/README.md)
-
-### 📤 Pipes (`/pipes`)
-
-Pipes process LLM responses after generation. They are useful for:
-
-- Response formatting
-- Content enhancement
-- Translation and transformation
-- Response filtering
-- Integration with external services
-
-[View Pipes →](./pipes/README.md)
-
-## 🚀 Quick Start
-
-### Installing Plugins
-
-1. **Download** the desired plugin file (`.py`)
-2. **Open** OpenWebUI Admin Settings → Plugins
-3. **Select** the plugin type (Filters, Actions, or Pipes)
-4. **Upload** the file
-5. **Refresh** the page
-6. **Configure** in chat settings
-
-### Using Plugins
-
-- **Filters**: Automatically applied to all inputs when enabled
-- **Actions**: Selected manually from the actions menu during chat
-- **Pipes**: Automatically applied to all responses when enabled
-
-## 📚 Plugin Documentation
-
-Each plugin directory contains:
-
-- Plugin code (`.py` files)
-- English documentation (`README.md`)
-- Chinese documentation (`README_CN.md`)
-- Configuration and usage guides
-
-## 🛠️ Plugin Development
-
-To create a new plugin:
-
-1. Choose the plugin type (Filter, Action, or Pipe)
-2. Navigate to the corresponding directory
-3. Create a new folder for your plugin
-4. Write the plugin code with clear documentation
-5. Create `README.md` and `README_CN.md`
-6. Update the main README in that directory
-
-### Plugin Structure Template
-
-```python
+```text
 plugins/
-├── filters/
-│   ├── my_filter/
-│   │   ├── my_filter.py          # Plugin code
-│   │   ├── my_filter_cn.py       # Optional: Chinese version
-│   │   ├── README.md              # Documentation
-│   │   └── README_CN.md           # Chinese documentation
-│   └── README.md
-├── actions/
-│   ├── my_action/
-│   │   ├── my_action.py
-│   │   ├── README.md
-│   │   └── README_CN.md
-│   └── README.md
-└── pipes/
-    ├── my_pipe/
-    │   ├── my_pipe.py
-    │   ├── README.md
-    │   └── README_CN.md
-    └── README.md
+├── actions/<plugin>/
+│   ├── <plugin>.py
+│   ├── README.md
+│   └── README_CN.md
+├── filters/<plugin>/
+│   ├── <plugin>.py
+│   ├── README.md
+│   └── README_CN.md
+├── pipes/<plugin>/
+│   ├── <plugin>.py
+│   ├── README.md
+│   └── README_CN.md
+├── tools/<plugin>/
+│   ├── <plugin>.py
+│   ├── README.md
+│   └── README_CN.md
+└── pipelines/<plugin>/
+    └── ...
 ```
 
-## 📋 Documentation Checklist
+> **Current repo rule:** plugin source stays in a single Python file with built-in i18n. Do **not** split source into separate `_cn.py` files.
 
-Each plugin should include:
+## Repo-only Entries
 
-- [ ] Clear feature description
-- [ ] Configuration parameters with defaults
-- [ ] Installation and setup instructions
-- [ ] Usage examples
-- [ ] Troubleshooting guide
-- [ ] Performance considerations
-- [ ] Version and author information
+Some items may appear in the repository before a mirrored docs page exists. Right now, notable repo-only entries include:
 
-## Author
+- `plugins/pipes/iflow-sdk-pipe/`
+- `plugins/filters/chat-session-mapping-filter/`
 
-Fu-Jie
-GitHub: [Fu-Jie/openwebui-extensions](https://github.com/Fu-Jie/openwebui-extensions)
+## Installation Paths
 
----
-
-> **Note**: For detailed information about each plugin type, see the respective README files in each plugin type directory.
+1. **OpenWebUI Community** — install directly from [Fu-Jie's profile](https://openwebui.com/u/Fu-Jie)
+2. **Docs + repo source** — use the docs pages to choose, then upload the matching `.py` file
+3. **Bulk install locally** — run `python scripts/install_all_plugins.py` after setting up `.env`

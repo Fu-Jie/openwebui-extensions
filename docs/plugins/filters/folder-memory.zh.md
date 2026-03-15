@@ -1,38 +1,37 @@
 # 文件夹记忆 (Folder Memory)
- 
-**作者:** [Fu-Jie](https://github.com/Fu-Jie/openwebui-extensions) | **版本:** 0.1.0 | **项目:** [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions) | **许可证:** MIT
 
----
+| 作者：[Fu-Jie](https://github.com/Fu-Jie) · v0.1.0 | [⭐ 点个 Star 支持项目](https://github.com/Fu-Jie/openwebui-extensions) |
+| :--- | ---: |
 
-### 📌 0.1.0 版本特性
-- **首个版本发布**：专注于自动化的“项目规则”管理。
-- **文件夹级持久化**：自动将提取的规则回写到文件夹系统提示词中。
-- **性能优化**：采用异步处理机制，并支持 `PRIORITY` 配置，确保与其他过滤器（如上下文压缩）完美协作。
-
----
+| ![followers](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_followers.json&label=%F0%9F%91%A5&style=flat) | ![points](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_points.json&label=%E2%AD%90&style=flat) | ![top](https://img.shields.io/badge/%F0%9F%8F%86-0%25-10b981?style=flat) | ![contributions](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_contributions.json&label=%F0%9F%A7%A9&style=flat) | ![views](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_views.json&label=%F0%9F%91%81%EF%B8%8F&style=flat) | ![downloads](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_downloads.json&label=%E2%AC%87%EF%B8%8F&style=flat) | ![saves](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_saves.json&label=%F0%9F%92%BE&style=flat) |
+| :---: | :---: | :---: | :---: | :---: | :---: | :---: |
 
 **文件夹记忆 (Folder Memory)** 是一个 OpenWebUI 的智能上下文过滤器插件。它能自动从文件夹内的对话中提取一致性的“项目规则”，并将其回写到文件夹的系统提示词中。
 
 这确保了该文件夹内的所有未来对话都能共享相同的进化上下文和规则，无需手动更新。
 
-## 功能特性
+## 🔥 最新更新 v0.1.0
+
+- **首个版本发布**：专注于自动化的“项目规则”管理。
+- **文件夹级持久化**：自动将提取的规则回写到文件夹系统提示词中。
+- **性能优化**：采用异步处理机制，并支持 `PRIORITY` 配置，确保与其他过滤器（如上下文压缩）完美协作。
+
+## ✨ 核心特性
 
 - **自动提取**：每隔 N 条消息分析一次聊天记录，提取项目规则。
 - **无损注入**：仅更新系统提示词中的特定“项目规则”块，保留其他指令。
 - **异步处理**：在后台运行，不阻塞用户的聊天体验。
 - **ORM 集成**：直接使用 OpenWebUI 的内部模型更新文件夹数据，确保可靠性。
 
-## 前置条件
+## 安装与配置
 
-- **对话必须在文件夹内进行。** 此插件仅在聊天属于某个文件夹时触发（即您需要先在 OpenWebUI 中创建一个文件夹，并在其内部开始对话）。
+### 1. 安装
 
-## 安装指南
-
-1. 将 `folder_memory.py` (或中文版 `folder_memory_cn.py`) 复制到 OpenWebUI 的 `plugins/filters/` 目录（或通过管理员 UI 上传）。
+1. 将 `folder_memory.py`（或中文版 `folder_memory_cn.py`）复制到 OpenWebUI 的 `plugins/filters/` 目录（或通过管理员 UI 上传）。
 2. 在 **设置** -> **过滤器** 中启用该插件。
-3. （可选）配置触发阈值（默认：每 10 条消息）。
+3. **前置条件**：对话必须在文件夹内进行（先创建文件夹并在其中开始对话）。
 
-## 配置 (Valves)
+### 2. 配置 (Valves)
 
 | 参数 | 默认值 | 说明 |
 | :--- | :--- | :--- |
@@ -43,7 +42,11 @@
 | `SHOW_DEBUG_LOG` | `False` | 在浏览器控制台显示详细调试日志。 |
 | `UPDATE_ROOT_FOLDER` | `False` | 如果启用，将向上查找并更新根文件夹的规则，而不是当前子文件夹。 |
 
-## 工作原理
+## ⭐ 支持
+
+如果这个插件对你有帮助，欢迎到 [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions) 点个 Star，这将是我持续改进的动力，感谢支持。
+
+## 🛠️ 工作原理
 
 ![Folder Memory Demo](https://raw.githubusercontent.com/Fu-Jie/openwebui-extensions/main/plugins/filters/folder-memory/folder-memory-demo.png)
 
@@ -52,6 +55,15 @@
 3. **综合**：LLM 将新见解与旧规则合并，移除过时的规则。
 4. **更新**：新的规则集替换文件夹系统提示词中的 `<!-- OWUI_PROJECT_RULES_START -->` 块。
 
-## 路线图
+## ⚠️ 注意事项
 
-查看 [ROADMAP](https://github.com/Fu-Jie/openwebui-extensions/blob/main/plugins/filters/folder-memory/ROADMAP.md) 了解未来计划，包括“项目知识”收集功能。
+- 此插件会修改文件夹的 `system_prompt`。
+- 它使用特定标记 `<!-- OWUI_PROJECT_RULES_START -->` 来定位内容。如果您希望插件继续管理该部分，请勿手动删除这些标记。
+
+## 🗺️ 路线图
+
+查看 [ROADMAP.md](./ROADMAP.md) 了解未来计划，包括“项目知识”收集功能。
+
+## 更新日志
+
+完整历史请查看 GitHub 项目： [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions)

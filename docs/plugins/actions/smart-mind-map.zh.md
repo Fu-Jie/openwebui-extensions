@@ -1,101 +1,81 @@
-# Smart Mind Map（智能思维导图）
+# 思维导图 - 思维导图生成插件
 
-<span class="category-badge action">Action</span>
-<span class="version-badge">v1.0.0</span>
+思维导图是一个强大的 OpenWebUI 动作插件，能够智能分析长篇文本内容，自动生成交互式思维导图，帮助用户结构化和可视化知识。
 
-智能分析文本内容，生成交互式思维导图，帮助你更直观地理解信息结构。
+| 作者：[Fu-Jie](https://github.com/Fu-Jie) · v1.0.0 | [⭐ 点个 Star 支持项目](https://github.com/Fu-Jie/openwebui-extensions) |
+| :--- | ---: |
 
-> 🏆 **OpenWebUI 官方推荐** — 获得 OpenWebUI 社区 Newsletter 官方推荐：[2026 年 2 月 3 日](https://openwebui.com/blog/open-webui-community-newsletter-february-3rd-2026)
+| ![followers](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_followers.json&label=%F0%9F%91%A5&style=flat) | ![points](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_points.json&label=%E2%AD%90&style=flat) | ![top](https://img.shields.io/badge/%F0%9F%8F%86-0%25-10b981?style=flat) | ![contributions](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_contributions.json&label=%F0%9F%A7%A9&style=flat) | ![views](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_views.json&label=%F0%9F%91%81%EF%B8%8F&style=flat) | ![downloads](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_downloads.json&label=%E2%AC%87%EF%B8%8F&style=flat) | ![saves](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_saves.json&label=%F0%9F%92%BE&style=flat) |
+| :---: | :---: | :---: | :---: | :---: | :---: | :---: |
 
----
+> 🏆 **OpenWebUI 官方推荐** — 本插件获得 OpenWebUI 社区 Newsletter 官方推荐：[2026 年 2 月 3 日](https://openwebui.com/blog/open-webui-community-newsletter-february-3rd-2026)
 
-## 概览
+## v1.0.0 最新更新
 
-Smart Mind Map 会将文本转换成漂亮的交互式思维导图。插件会用 AI 分析内容结构，生成层级化的可视化，帮助快速梳理复杂信息。
+### 嵌入式直出与 UI 细节全线重构
 
-## 功能特性
+- **原生多语言界面 (Native i18n)**：插件界面（按钮、设置说明、状态提示）现在会根据您浏览器的语言设置自动适配系统语言。
+- **原生态嵌入模式 (Direct Embed)**：针对 Open WebUI 0.8.0+ 的前端架构支持了纯正的内容内联（Inline）直出模式，不再受气泡和 Markdown 隔离，真正撑满屏幕宽度。
+- **自动响应边界 (Auto-Sizing)**：突破以前高度僵死的问题。思维导图现在可以根据您的当前屏幕大小弹性伸缩（动态 `clamp()` 高度），彻底消灭丑陋的局部滚动条与白边。
+- **极简专业 UI (Compact UI)**：推倒重做了头部的菜单栏，统一使用了一套干净、单行的极简全透明微拟物 Toolbar 设计，为导图画布省下极大的垂直空间。
+- **模式配置自由**：为了照顾阅读流连贯的习惯，新增了 `ENABLE_DIRECT_EMBED_MODE` 配置开关。您必须在设置中显式开启才能体验宽广内联全屏模式。
 
-- :material-brain: **LLM 分析**：可配置模型，提取核心概念与层级
-- :material-gesture-swipe: **丰富控制**：缩放/重置、展开层级（全部/2/3 级）与全屏
-- :material-palette: **主题感知**：自动检测 OpenWebUI 亮/暗色主题并支持手动切换
-- :material-download: **一键导出**：下载高分辨率 PNG、复制 SVG 或 Markdown
-- :material-translate: **内置 i18n 语言识别**：单个文件自动检测控制台前端语言，无需繁杂的各种语言包版本。
-- :material-arrow-all: **直出全屏版体验 (需配置开启)**：新版直出渲染抛开沙盒限制，纵情铺满屏幕，享受原生的图表体验。
+## 核心特性 🔑
 
----
+- ✅ **智能文本分析**：自动识别文本的核心主题、关键概念和层次结构。
+- ✅ **原生多语言界面**：根据系统语言自动切换界面语言 (i18n)，提供原生交互体验。
+- ✅ **交互式可视化**：基于 Markmap.js 生成美观的交互式思维导图。
+- ✅ **直出全景内嵌 (Direct Embed)**：(可选开关) 对于 Open WebUI 0.8.0+，直接填补整个前端宽度，去除气泡剥离感。
+- ✅ **高分辨率 PNG 导出**：导出高质量的 PNG 图片（9 倍分辨率）。
+- ✅ **完整控制面板**：极简清爽的单行大屏缩放控制、展开层级选择、全局全屏等核心操作。
+- ✅ **主题切换**：手动主题切换按钮与自动主题检测。
+- ✅ **图片输出模式**：生成静态 SVG 图片直接嵌入 Markdown，聊天记录更简洁。
 
-## 安装
+## 使用方法 🛠️
 
-1. 下载插件文件：[`smart_mind_map.py`](https://github.com/Fu-Jie/openwebui-extensions/tree/main/plugins/actions/smart-mind-map)
-2. 上传到 OpenWebUI：**Admin Panel** → **Settings** → **Functions**（Actions）
-3. 启用插件，并可在设置中允许 iframe same-origin 以启用主题自动检测
+1. **安装**: 在 OpenWebUI 管理员设置 -> 插件 -> 动作中上传 `smart_mind_map_cn.py`。
+2. **配置**: 确保配置了 LLM 模型（如 `gemini-2.5-flash`）。
+3. **触发**: 在聊天设置中启用“思维导图”动作，并发送文本（至少 100 字符）。
+4. **结果**: 思维导图将在聊天界面中直接渲染显示。
 
----
+## 配置参数 (Valves) ⚙️
 
-## 使用方法
+| 参数 | 默认值 | 描述 |
+| :--- | :--- | :--- |
+| `show_status` | `true` | 是否在聊天界面显示操作状态更新。 |
+| `LLM_MODEL_ID` | `gemini-2.5-flash` | 用于文本分析的 LLM 模型 ID。 |
+| `MIN_TEXT_LENGTH` | `100` | 进行思维导图分析所需的最小文本长度。 |
+| `CLEAR_PREVIOUS_HTML` | `false` | 在生成新的思维导图时，是否清除之前的 HTML 内容。 |
+| `MESSAGE_COUNT` | `1` | 用于生成思维导图的最近消息数量（1-5）。 |
+| `OUTPUT_MODE` | `html` | 输出模式：`html`（交互式）或 `image`（静态图片）。 |
+| `ENABLE_DIRECT_EMBED_MODE` | `false` | 是否开启沉浸式直出嵌入模式（需要 Open WebUI v0.8.0+ 环境）。如果保持 `false` 将会维持旧版的对话流 Markdown 渲染模式。 |
 
-1. 在聊天设置中启用 **Smart Mind Map**，提供不少于约 100 字符的文本
-2. 点击消息操作栏中的 **Mind Map** 动作按钮触发生成
-3. 交互使用：
-   - **缩放与重置**：滚轮或使用 + / - / ↻ 控制
-   - **展开层级**：切换“全部 / 2 级 / 3 级”
-   - **主题与全屏**：手动切换亮/暗色或进入全屏
-4. 一键导出：**PNG**、**复制 SVG**、**复制 Markdown**
+## ⭐ 支持
 
----
+如果这个插件对你有帮助，欢迎到 [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions) 点个 Star，这将是我持续改进的动力，感谢支持。
 
-## 配置项
+## 故障排除 (Troubleshooting) ❓
 
-| 选项 | 类型 | 默认值 | 说明 |
-|--------|------|---------|-------------|
-| `SHOW_STATUS` | boolean | `true` | 是否在聊天中显示状态更新 |
-| `MODEL_ID` | string | `""` | 内置 LLM 模型 ID（留空使用当前聊天模型） |
-| `MIN_TEXT_LENGTH` | integer | `100` | 开始分析所需的最少字符数 |
-| `CLEAR_PREVIOUS_HTML` | boolean | `false` | 生成新导图时是否清除之前的插件 HTML |
-| `MESSAGE_COUNT` | integer | `1` | 用于生成的最近消息数量（1–5） |
-| `ENABLE_DIRECT_EMBED_MODE` | boolean | `false` | 是否开启沉浸式直出模式 (需要 Open WebUI 0.8.0+ ) |
-
----
-
-## 输出示例
-
-插件会在聊天中嵌入交互式 HTML 思维导图：
-
-```
-📊 Mind Map Generated
-├── Main Topic
-│   ├── Subtopic 1
-│   │   ├── Detail A
-│   │   └── Detail B
-│   ├── Subtopic 2
-│   └── Subtopic 3
-└── Related Concepts
-```
+- **插件无法启动**：检查 OpenWebUI 日志，确认插件已正确上传并启用。
+- **文本内容过短**：确保输入的文本至少包含 100 个字符。
+- **渲染失败**：检查浏览器控制台，确认 Markmap.js 和 D3.js 库是否正确加载。
+- **提交 Issue**: 如果遇到任何问题，请在 GitHub 上提交 Issue：[OpenWebUI Extensions Issues](https://github.com/Fu-Jie/openwebui-extensions/issues)
 
 ---
 
-## 运行要求
+## 技术架构
 
-!!! note "前置条件"
-    - OpenWebUI v0.3.0 及以上
-    - 无需额外 Python 依赖
-    - 如需自动匹配主题/提高 PNG 导出准确性，请在 **User Settings → Interface → Artifacts** 中允许 iframe same-origin 访问
+- **Markmap.js**：开源的思维导图渲染引擎。
+- **PNG 导出技术**：9 倍缩放因子，输出打印级质量。
+- **主题检测机制**：4 级优先级检测（手动 > Meta > Class > 系统）。
+- **安全性增强**：XSS 防护与输入验证。
 
----
+## 最佳实践
 
-## 常见问题
+1. **文本准备**：提供结构清晰、层次分明的文本内容。
+2. **模型选择**：日常使用推荐 `gemini-2.5-flash` 等快速模型。
+3. **导出质量**：PNG 适合演示分享，SVG 适合进一步矢量编辑。
 
-??? question "思维导图不显示？"
-    - 确认输入文本达到 `MIN_TEXT_LENGTH`
-    - 确保已配置可用的 `MODEL_ID`（或留空使用当前模型）
-    - 启用插件后刷新页面再试
+## 更新日志
 
-??? question "主题不匹配或 PNG 为空白？"
-    - 在设置中开启 iframe same-origin 以读取父页面主题
-    - 等待导图完全渲染后再导出
-
----
-
-## 源码
-
-[:fontawesome-brands-github: 在 GitHub 查看](https://github.com/Fu-Jie/openwebui-extensions/tree/main/plugins/actions/smart-mind-map){ .md-button }
+完整历史请查看 GitHub 项目： [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions)

@@ -1,6 +1,10 @@
 # GitHub Copilot SDK Pipe for OpenWebUI
 
-**Author:** [Fu-Jie](https://github.com/Fu-Jie) | **Version:** 0.10.0 | **Project:** [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions) | **License:** MIT
+| By [Fu-Jie](https://github.com/Fu-Jie) · v0.10.0 | [⭐ Star this repo](https://github.com/Fu-Jie/openwebui-extensions) |
+| :--- | ---: |
+
+| ![followers](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_followers.json&label=%F0%9F%91%A5&style=flat) | ![points](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_points.json&label=%E2%AD%90&style=flat) | ![top](https://img.shields.io/badge/%F0%9F%8F%86-0%25-10b981?style=flat) | ![contributions](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_contributions.json&label=%F0%9F%A7%A9&style=flat) | ![views](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_views.json&label=%F0%9F%91%81%EF%B8%8F&style=flat) | ![downloads](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_downloads.json&label=%E2%AC%87%EF%B8%8F&style=flat) | ![saves](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_saves.json&label=%F0%9F%92%BE&style=flat) |
+| :---: | :---: | :---: | :---: | :---: | :---: | :---: |
 
 This is a powerful **GitHub Copilot SDK** Pipe for **OpenWebUI** that provides a unified **Agentic experience**. It goes beyond simple model access by enabling autonomous **Intent Recognition**, **Web Search**, and **Context Compaction**. It seamlessly reuses your existing **Tools, MCP servers, OpenAPI servers, and Skills** from OpenWebUI to create a truly integrated ecosystem.
 
@@ -22,7 +26,7 @@ This is a powerful **GitHub Copilot SDK** Pipe for **OpenWebUI** that provides a
 
 ## ✨ v0.10.0: Native Prompt Restoration, Live TODO Widget & SDK v0.1.30
 
-- **⌨️ Authentic Prompt Restoration**: Most native Copilot CLI prompts have been restored to ensure authentic behavior and enhanced capabilities across the Agentic workflow.
+- **⌨️ Authentic Prompt Restoration**: Restored the native Copilot CLI **Plan Mode** for complex task orchestration and native SQLite-backed session management for robust state persistence.
 - **📋 Live TODO Widget**: Added a compact real-time task tracking widget synchronized with `session.db`, keeping in-progress work visible without cluttering the chat history.
 - **🧩 OpenWebUI Tool Call Fixes**: Fixed custom tool invocation by syncing injected context with OpenWebUI 0.8.x expectations, including `__request__`, `request`, `body`, `__messages__`, `__metadata__`, `__files__`, `__task__`, and session/chat/message IDs.
 - **🔒 SDK v0.1.30 + Adaptive Workstyle**: Upgraded the pipe to `github-copilot-sdk==0.1.30`, moving workflow logic into the system prompt for autonomous "Plan-vs-Execute" decisions.
