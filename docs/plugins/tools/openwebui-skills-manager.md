@@ -265,7 +265,7 @@ All installations enforce:
 | `SHOW_STATUS` | `True` | Show operation status updates in OpenWebUI status bar. |
 | `ALLOW_OVERWRITE_ON_CREATE` | `False` | Allow `create_skill`/`install_skill` to overwrite same-name skill by default. |
 | `INSTALL_FETCH_TIMEOUT` | `12.0` | URL fetch timeout in seconds for skill installation. |
-| `TRUSTED_DOMAINS` | `github.com,huggingface.co,githubusercontent.com` | Comma-separated list of primary trusted domains for downloads (always enforced). Subdomains automatically allowed (e.g., `github.com` allows `api.github.com`). See [Domain Whitelist Guide](docs/DOMAIN_WHITELIST.md). |
+| `TRUSTED_DOMAINS` | `github.com,huggingface.co,githubusercontent.com` | Comma-separated list of primary trusted domains for downloads (always enforced). Subdomains automatically allowed (e.g., `github.com` allows `api.github.com`). See [Domain Whitelist Guide](https://github.com/Fu-Jie/openwebui-extensions/blob/main/plugins/tools/openwebui-skills-manager/docs/DOMAIN_WHITELIST.md). |
 
 ## Supported Tool Methods
 

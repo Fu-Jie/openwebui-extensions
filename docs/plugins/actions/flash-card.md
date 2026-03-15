@@ -53,7 +53,7 @@ If this plugin has been useful, a star on [OpenWebUI Extensions](https://github.
 
 ## Preview 📸
 
-![Flash Card Example](flash_card.png)
+![Flash Card Example](https://raw.githubusercontent.com/Fu-Jie/openwebui-extensions/main/plugins/actions/flash-card/flash_card.png)
 
 ## Changelog
 

@@ -62,7 +62,7 @@
 
 ## 🗺️ 路线图
 
-查看 [ROADMAP.md](./ROADMAP.md) 了解未来计划，包括“项目知识”收集功能。
+查看 [ROADMAP.md](https://github.com/Fu-Jie/openwebui-extensions/blob/main/plugins/filters/folder-memory/ROADMAP.md) 了解未来计划，包括“项目知识”收集功能。
 
 ## 更新日志
 

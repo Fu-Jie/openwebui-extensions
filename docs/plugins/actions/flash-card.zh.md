@@ -51,7 +51,7 @@
 
 ## 预览 📸
 
-![闪记卡示例](flash_card_cn.png)
+![闪记卡示例](https://raw.githubusercontent.com/Fu-Jie/openwebui-extensions/main/plugins/actions/flash-card/flash_card_cn.png)
 
 ## 更新日志
 

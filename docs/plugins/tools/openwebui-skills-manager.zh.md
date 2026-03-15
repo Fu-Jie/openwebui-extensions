@@ -265,7 +265,7 @@ description: "做一些有用的事"
 | `SHOW_STATUS` | `True` | 是否在 OpenWebUI 状态栏显示操作状态。 |
 | `ALLOW_OVERWRITE_ON_CREATE` | `False` | 是否允许 `create_skill`/`install_skill` 默认覆盖同名技能。 |
 | `INSTALL_FETCH_TIMEOUT` | `12.0` | 从 URL 安装技能时的请求超时时间（秒）。 |
-| `TRUSTED_DOMAINS` | `github.com,huggingface.co,githubusercontent.com` | 逗号分隔的主信任域名清单（**必须启用**）。子域名会自动放行（如 `github.com` 允许 `api.github.com`）。详见 [域名白名单指南](docs/DOMAIN_WHITELIST.md)。 |
+| `TRUSTED_DOMAINS` | `github.com,huggingface.co,githubusercontent.com` | 逗号分隔的主信任域名清单（**必须启用**）。子域名会自动放行（如 `github.com` 允许 `api.github.com`）。详见 [域名白名单指南](https://github.com/Fu-Jie/openwebui-extensions/blob/main/plugins/tools/openwebui-skills-manager/docs/DOMAIN_WHITELIST.md)。 |
 
 ## 支持的方法
 

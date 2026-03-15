@@ -196,6 +196,6 @@ flowchart TD
 
 ## 更新日志
 
-请查看 [`v1.5.0` 版本发布说明](./v1.5.0_CN.md) 获取本次版本的独立发布摘要。
+请查看 [`v1.5.0` 版本发布说明](https://github.com/Fu-Jie/openwebui-extensions/blob/main/plugins/filters/async-context-compression/v1.5.0_CN.md) 获取本次版本的独立发布摘要。
 
 完整历史请查看 GitHub 项目： [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions)

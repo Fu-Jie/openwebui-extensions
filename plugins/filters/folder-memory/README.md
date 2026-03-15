@@ -60,7 +60,7 @@ If this plugin has been useful, a star on [OpenWebUI Extensions](https://github.
 
 ## 🗺️ Roadmap
 
-See [ROADMAP.md](./ROADMAP.md) for future plans, including "Project Knowledge" collection.
+See [ROADMAP.md](https://github.com/Fu-Jie/openwebui-extensions/blob/main/plugins/filters/folder-memory/ROADMAP.md) for future plans, including "Project Knowledge" collection.
 
 ## Changelog
 

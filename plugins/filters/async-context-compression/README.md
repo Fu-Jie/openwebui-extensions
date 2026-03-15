@@ -158,6 +158,6 @@ If this plugin has been useful, a star on [OpenWebUI Extensions](https://github.
 
 ## Changelog
 
-See [`v1.5.0` Release Notes](./v1.5.0.md) for the release-specific summary.
+See [`v1.5.0` Release Notes](https://github.com/Fu-Jie/openwebui-extensions/blob/main/plugins/filters/async-context-compression/v1.5.0.md) for the release-specific summary.
 
 See the full history on GitHub: [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions)

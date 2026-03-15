@@ -18,6 +18,7 @@
 
 ---
 
+<a id="1-插件开发快速入门"></a>
 ## 1. 插件开发快速入门
 
 ### 1.1 什么是 OpenWebUI 插件？
@@ -67,6 +68,7 @@ class Action:
 
 ---
 
+<a id="2-核心概念与-sdk-详解"></a>
 ## 2. 核心概念与 SDK 详解
 
 ### 2.1 ⚠️ 重要：同步与异步
@@ -111,8 +113,10 @@ class Filter:
 
 ---
 
+<a id="3-插件类型深度解析"></a>
 ## 3. 插件类型深度解析
 
+<a id="31-action-动作"></a>
 ### 3.1 Action (动作)
 
 **定位**：在消息下方添加按钮，用户点击触发。
@@ -138,6 +142,7 @@ async def action(self, body, __event_call__):
     await __event_call__({"type": "execute", "data": {"code": js}})
 ```
 
+<a id="32-filter-过滤器"></a>
 ### 3.2 Filter (过滤器)
 
 **定位**：中间件，拦截并修改请求/响应。
@@ -159,6 +164,7 @@ async def inlet(self, body, __metadata__):
     return body
 ```
 
+<a id="33-pipe-管道"></a>
 ### 3.3 Pipe (管道)
 
 **定位**：自定义模型/代理。
@@ -181,6 +187,7 @@ class Pipe:
 
 ---
 
+<a id="4-高级开发模式"></a>
 ## 4. 高级开发模式
 
 ### 4.1 Pipe 与 Filter 协同
@@ -208,6 +215,7 @@ async def background_job(self, chat_id):
 
 ---
 
+<a id="5-最佳实践与设计原则"></a>
 ## 5. 最佳实践与设计原则
 
 ### 5.1 命名与定位
@@ -237,6 +245,7 @@ except Exception as e:
 
 ---
 
+<a id="6-仓库规范openwebui-extensions"></a>
 ## 6. 仓库规范（openwebui-extensions）
 
 ### 6.1 单文件 i18n 规范
@@ -325,6 +334,7 @@ except Exception as e:
 
 ---
 
+<a id="7-自定义-agents-设计建议"></a>
 ## 7. 自定义 Agents 设计建议
 
 ### 7.1 推荐架构（适合你的项目）
@@ -356,6 +366,7 @@ except Exception as e:
 
 ---
 
+<a id="8-故障排查"></a>
 ## 8. 故障排查
 
 * **HTML 不显示？** 确保包裹在 ` ```html ... ``` ` 代码块中。
