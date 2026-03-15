@@ -690,6 +690,29 @@ CSS_TEMPLATE_MINDMAP = """
             text-decoration: none;
             border-bottom: 1px dotted var(--link-color);
         }
+        .star-btn {
+            background: transparent !important;
+            border: none !important;
+            color: #fbbf24 !important;
+            display: inline-flex !important;
+            align-items: center;
+            justify-content: center;
+            padding: 4px 8px !important;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-decoration: none;
+            height: 28px;
+        }
+        .star-btn:hover {
+            color: #f59e0b !important;
+            transform: scale(1.15);
+            filter: drop-shadow(0 0 4px rgba(251, 191, 36, 0.5));
+        }
+        .star-btn svg {
+            width: 18px !important;
+            height: 18px !important;
+            fill: currentColor !important;
+        }
         
         .content-area {
             padding: 0;
@@ -846,6 +869,11 @@ CONTENT_TEMPLATE_MINDMAP = """
                             <button id="download-png-btn-{unique_id}" class="control-btn primary" title="{t_ui_download_png}">PNG</button>
                             <button id="download-svg-btn-{unique_id}" class="control-btn" title="{t_ui_download_svg}">SVG</button>
                             <button id="download-md-btn-{unique_id}" class="control-btn" title="{t_ui_download_md}">MD</button>
+                            <a href="https://github.com/Fu-Jie/openwebui-extensions" target="_blank" rel="noopener noreferrer" title="Star on GitHub" class="control-btn star-btn">
+                                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="width: 18px; height: 18px;">
+                                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" fill="currentColor"/>
+                                </svg>
+                            </a>
                         </div>
                         <div class="btn-group">
                             <button id="zoom-out-btn-{unique_id}" class="control-btn" title="{t_ui_zoom_out}">－</button>
@@ -1439,8 +1467,8 @@ class Action:
             description="Whether to print debug logs in the browser console.",
         )
         ENABLE_DIRECT_EMBED_MODE: bool = Field(
-            default=False,
-            description="Enable Direct Embed Mode (v0.8.0+ layout) instead of Legacy Mode. Defaults to False (Legacy Mode).",
+            default=True,
+            description="Enable Direct Embed Mode (v0.8.0+ layout) instead of Legacy Mode. Defaults to True (Direct Embed Mode).",
         )
 
     def __init__(self):
@@ -2369,6 +2397,11 @@ class Action:
                             <button id="download-png-btn-{unique_id}" class="control-btn primary" title="{t_ui_download_png}">PNG</button>
                             <button id="download-svg-btn-{unique_id}" class="control-btn" title="{t_ui_download_svg}">SVG</button>
                             <button id="download-md-btn-{unique_id}" class="control-btn" title="{t_ui_download_md}">MD</button>
+                            <a href="https://github.com/Fu-Jie/openwebui-extensions" target="_blank" rel="noopener noreferrer" title="Star on GitHub" class="control-btn star-btn">
+                                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="width: 18px; height: 18px;">
+                                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" fill="currentColor"/>
+                                </svg>
+                            </a>
                         </div>
                         <div class="btn-group">
                             <button id="zoom-out-btn-{unique_id}" class="control-btn" title="{t_ui_zoom_out}">－</button>
