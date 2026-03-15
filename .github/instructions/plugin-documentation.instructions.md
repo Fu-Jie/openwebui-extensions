@@ -40,7 +40,7 @@ English example:
 
 `| :--- | ---: |`
 
-`| ![followers](...) | ![points](...) | ![top](...) | ![contributions](...) | ![views](...) | ![downloads](...) | ![saves](...) |`
+`| ![followers](...) | ![points](...) | ![top](...) | ![contributions](...) | ![downloads](...) | ![saves](...) | ![views](...) |`
 
 `| :---: | :---: | :---: | :---: | :---: | :---: | :---: |`
 
@@ -50,7 +50,7 @@ Chinese example:
 
 `| :--- | ---: |`
 
-`| ![followers](...) | ![points](...) | ![top](...) | ![contributions](...) | ![views](...) | ![downloads](...) | ![saves](...) |`
+`| ![followers](...) | ![points](...) | ![top](...) | ![contributions](...) | ![downloads](...) | ![saves](...) | ![views](...) |`
 
 `| :---: | :---: | :---: | :---: | :---: | :---: | :---: |`
 
@@ -59,8 +59,8 @@ Guidelines:
 - Keep the author link pointing to `https://github.com/Fu-Jie`
 - Keep the star link pointing to the repository root
 - Put the version on the left-side author line as plain text (`vx.y.z`), not as a badge
-- Use live badges for followers, points, plugin contribution count, total plugin views, total plugin downloads, and total plugin saves
-- Keep the `Top` badge compact; use the current project standard for its source
+- Use live badges for followers, points, plugin contribution count, total plugin downloads, total plugin saves, and total plugin views
+- Keep the `Top` badge compact and use the project standard wording (`Top <1%`)
 - Do not add a visible label header row above the badges
 
 ## Support Section

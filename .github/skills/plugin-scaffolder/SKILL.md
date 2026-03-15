@@ -17,4 +17,4 @@ Generates compliant OpenWebUI plugin templates with built-in i18n, common utilit
 - `_get_user_context` with JS fallback and timeout
 - `_emit_status` and `_emit_debug_log` methods
 - Standardized docstring metadata
-- README header must use a two-column line with `By/作者 + vX.Y.Z` on the left and the Star link on the right, followed by a compact live badge row for followers, points, top, plugin contributions, plugin views, plugin downloads, and plugin saves
+- README header must use a two-column line with `By/作者 + vX.Y.Z` on the left and the Star link on the right, followed by a compact live badge row for followers, points, top (`Top <1%`), plugin contributions (`📦`), plugin downloads, plugin saves, and plugin views
