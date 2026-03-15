@@ -59,68 +59,47 @@ User Input
 
 Each request handles one repository. To mix repositories, send another request after the previous installation completes.
 
-### Example Installation Sequence
+## Quick Start: Install Popular Collections
 
-1. **Start with My Collection**
-   ```
-   "Install all plugins from Fu-Jie/openwebui-extensions"
-   ```
-   Review the confirmation dialog, approve, and the plugins are installed.
+Copy any of these prompts and paste them into your chat:
 
-2. **Add a Community Collection**
-   ```
-   "Install all plugins from iChristGit/OpenWebui-Tools"
-   ```
-   Add more plugins from a different repository. Already installed plugins are updated seamlessly.
+```
+# Install all from my collection (default)
+Install all plugins
 
-3. **Install a Specific Type**
-   ```
-   "Install only pipe plugins from Haervwe/open-webui-tools"
-   ```
-   Pick specific plugin types from another repository, or exclude certain keywords.
+# Add popular community tools
+Install all plugins from iChristGit/OpenWebui-Tools
 
-4. **Use Your Own Repository**
-   ```
-   "Install all plugins from your-username/your-collection"
-   ```
-   Works with any public GitHub repository in `owner/repo` format.
+# Add utility-focused extensions
+Install all plugins from Haervwe/open-webui-tools
+
+# Add mixed community implementations
+Install all plugins from Classic298/open-webui-plugins
+
+# Add function-based plugins
+Install all plugins from suurt8ll/open_webui_functions
+
+# Add OpenRouter pipe integration
+Install all plugins from rbb-dev/Open-WebUI-OpenRouter-pipe
+```
+
+Each line is a separate request. Already installed plugins are automatically updated.
 
 ## Usage Examples
 
-Each line below is a separate request:
+For more advanced usage patterns:
 
 ```
-# Install from my default collection
-"Install all plugins"
-
-# Add another repository in a new request
-"Install all plugins from iChristGit/OpenWebui-Tools"
-
-# Add only tools from a different repository
-"Install only tool plugins from Haervwe/open-webui-tools"
-
-# Continue building your setup with another request
+# Filter by plugin type
+"Install only tool plugins from iChristGit/OpenWebui-Tools"
 "Install only action plugins from Classic298/open-webui-plugins"
 
-# Filter out unwanted plugins
+# Exclude specific plugins
 "Install all plugins from Haervwe/open-webui-tools, exclude_keywords=test,deprecated"
 
-# Install from your own public repository
+# Install from your own repository
 "Install all plugins from your-username/my-plugin-collection"
 ```
-
-## Popular Public Repositories
-
-The tool works with any public GitHub repository in `owner/repo` format. Popular starting points include:
-
-- `Fu-Jie/openwebui-extensions` - My personal collection and the default source
-- `iChristGit/OpenWebui-Tools` - Comprehensive tools and plugins
-- `Haervwe/open-webui-tools` - Utility-focused extensions
-- `Classic298/open-webui-plugins` - Mixed community plugins
-- `suurt8ll/open_webui_functions` - Function-based plugins
-- `rbb-dev/Open-WebUI-OpenRouter-pipe` - OpenRouter pipe integration
-
-To combine repositories, run the tool again with a different `repo` after the previous installation completes.
 
 ## Default Repository
 
@@ -157,4 +136,4 @@ User confirmation dialogs have a default timeout of **2 minutes (120 seconds)**,
 
 ## Support
 
-If this plugin has been useful, a star on [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions) is a big motivation for me. Thank you for the support.
+⭐ If this plugin has been useful, a star on [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions) is a big motivation for me. Thank you for the support.

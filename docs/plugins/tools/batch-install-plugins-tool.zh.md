@@ -59,68 +59,47 @@
 
 每次请求处理一个仓库。如需混合多个来源，请在上一次安装完成后再发起下一次请求。
 
-### 安装序列示例
+## 快速开始：安装热门插件集
 
-1. **先从我的合集开始**
-   ```
-   "安装 Fu-Jie/openwebui-extensions 中的所有插件"
-   ```
-   查看确认对话框，批准后插件开始安装。
+复制以下任一提示词，粘贴到你的对话框中：
 
-2. **再添加社区合集**
-   ```
-   "从 iChristGit/OpenWebui-Tools 安装所有插件"
-   ```
-   从不同仓库添加更多插件。已安装的插件会无缝更新。
+```
+# 安装我的默认集合
+安装所有插件
 
-3. **按类型继续安装**
-   ```
-   "从 Haervwe/open-webui-tools 仅安装 pipe 插件"
-   ```
-   从另一个仓库选择特定类型的插件，或排除某些关键词。
+# 添加热门社区工具
+从 iChristGit/OpenWebui-Tools 安装所有插件
 
-4. **使用你自己的仓库**
-   ```
-   "从 your-username/your-collection 安装所有插件"
-   ```
-   支持任何公开的 GitHub 仓库，格式为 `owner/repo`。
+# 添加实用工具扩展
+从 Haervwe/open-webui-tools 安装所有插件
+
+# 添加混合社区实现
+从 Classic298/open-webui-plugins 安装所有插件
+
+# 添加基于函数的插件
+从 suurt8ll/open_webui_functions 安装所有插件
+
+# 添加 OpenRouter 管道集成
+从 rbb-dev/Open-WebUI-OpenRouter-pipe 安装所有插件
+```
+
+每一行是一个独立的请求。已安装的插件会自动更新。
 
 ## 使用示例
 
-下面每一行都是一次独立请求：
+更多高级用法：
 
 ```
-# 从默认合集安装
-"安装所有插件"
+# 按插件类型过滤
+"从 iChristGit/OpenWebui-Tools 仅安装 tool 插件"
+"从 Classic298/open-webui-plugins 仅安装 action 插件"
 
-# 在下一次请求中加入其他仓库
-"从 iChristGit/OpenWebui-Tools 安装所有插件"
-
-# 从其他仓库只安装工具
-"从 Haervwe/open-webui-tools 仅安装 tool 插件"
-
-# 再继续补充另一类插件
-"从 Classic298/open-webui-plugins 安装仅 action 插件"
-
-# 过滤不想安装的插件
+# 排除特定插件
 "从 Haervwe/open-webui-tools 安装所有插件, exclude_keywords=test,deprecated"
 
-# 从你自己的公开仓库安装
+# 从你自己的仓库安装
 "从 your-username/my-plugin-collection 安装所有插件"
 ```
-
-## 热门公开仓库
-
-该工具支持任何公开 GitHub 仓库，格式为 `owner/repo`。这些都是不错的起点：
-
-- `Fu-Jie/openwebui-extensions` - 我的个人合集，也是默认来源
-- `iChristGit/OpenWebui-Tools` - 全面的工具和插件集合
-- `Haervwe/open-webui-tools` - 偏工具型的扩展集合
-- `Classic298/open-webui-plugins` - 混合型社区插件集合
-- `suurt8ll/open_webui_functions` - 基于函数的插件集合
-- `rbb-dev/Open-WebUI-OpenRouter-pipe` - OpenRouter pipe 集成
-
-如需混合多个来源，请在上一次安装完成后，换一个 `repo` 再调用一次工具。
 
 ## 默认仓库
 
@@ -157,4 +136,4 @@
 
 ## 支持
 
-如果这个插件对你有帮助，欢迎到 [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions) 点个 Star，这将是我持续改进的动力，感谢支持。
+⭐ 如果这个插件对你有帮助，欢迎到 [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions) 点个 Star，这将是我持续改进的动力，感谢支持。
