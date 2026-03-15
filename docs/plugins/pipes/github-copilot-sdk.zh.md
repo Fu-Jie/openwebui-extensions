@@ -1,6 +1,6 @@
 # GitHub Copilot Official SDK Pipe
 
-| 作者：[Fu-Jie](https://github.com/Fu-Jie) · v0.10.0 | [⭐ 点个 Star 支持项目](https://github.com/Fu-Jie/openwebui-extensions) |
+| 作者：[Fu-Jie](https://github.com/Fu-Jie) · v0.10.1 | [⭐ 点个 Star 支持项目](https://github.com/Fu-Jie/openwebui-extensions) |
 | :--- | ---: |
 
 | ![followers](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_followers.json&label=%F0%9F%91%A5&style=flat) | ![points](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_points.json&label=%E2%AD%90&style=flat) | ![top](https://img.shields.io/badge/%F0%9F%8F%86-Top%20%3C1%25-10b981?style=flat) | ![contributions](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_contributions.json&label=%F0%9F%93%A6&style=flat) | ![downloads](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_downloads.json&label=%E2%AC%87%EF%B8%8F&style=flat) | ![saves](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_saves.json&label=%F0%9F%92%BE&style=flat) | ![views](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_views.json&label=%F0%9F%91%81%EF%B8%8F&style=flat) |
@@ -22,6 +22,16 @@
 > [!TIP]
 > **BYOK 模式无需订阅**
 > 如果您使用自带的 API Key (BYOK 模式对接 OpenAI/Anthropic)，**您不需要 GitHub Copilot 官方订阅**。只有在访问 GitHub 官方模型时才需要订阅。
+
+---
+
+---
+
+## ✨ v0.10.1：RichUI 默认展示与 HTML 渲染改进
+
+- **🎨 RichUI 默认 HTML 显示**：将默认 HTML 嵌入类型从 'artifacts' 改为 'richui'，在 OpenWebUI 聊天界面中实现直观无缝的渲染效果
+- **📝 增强系统提示词**：更新系统提示词指导，默认推荐 RichUI 模式展示 HTML 内容，仅当用户显式请求时使用 artifacts 模式
+- **⚡ 更顺畅的工作流**：消除不必要的弹窗交互，让 Agent 能直接在对话中展示交互式组件
 
 ---
 

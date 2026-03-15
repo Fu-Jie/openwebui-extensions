@@ -5,7 +5,7 @@ author_url: https://github.com/Fu-Jie/openwebui-extensions
 funding_url: https://github.com/open-webui
 openwebui_id: ce96f7b4-12fc-4ac3-9a01-875713e69359
 description: A powerful Agent SDK integration for OpenWebUI. It deeply bridges GitHub Copilot SDK with OpenWebUI's ecosystem, enabling the Agent to autonomously perform intent recognition, web search, and context compaction. It seamlessly reuses your existing Tools, MCP servers, OpenAPI servers, and Skills for a professional, full-featured experience.
-version: 0.10.0
+version: 0.10.1
 requirements: github-copilot-sdk==0.1.30
 """
 
@@ -151,7 +151,7 @@ TONE_AND_STYLE_PATTERNS = (
     "Tone and style:\n"
     "- Be concise and direct.\n"
     "- Make tool calls without unnecessary explanation.\n"
-    "- Use the richer OpenWebUI AI Chat interface when the task benefits from Markdown structure, code blocks, diagrams, previews, or embedded artifacts.\n"
+    "- Use the richer OpenWebUI AI Chat interface when the task benefits from Markdown structure, code blocks, diagrams, previews, or embedded UI. Prefer Rich UI for HTML presentation by default; only prefer artifacts when the user explicitly asks for artifacts.\n"
     "- When searching the file system for files or text, stay in the current working directory or child directories of the cwd unless absolutely necessary.\n"
     "- When searching code, the preference order for tools is: code intelligence tools (if available) > LSP-based tools (if available) > glob > grep with glob pattern > shell.\n"
     "- Remember that your output will be displayed in the OpenWebUI AI Chat page rather than a plain command line interface, so preserve the original efficiency rules while taking advantage of chat-native presentation features.\n"
@@ -244,18 +244,19 @@ BASE_GUIDELINES = (
     "**Formatting & Presentation Directives:**\n"
     "1. **Markdown Excellence**: Leverage full **Markdown** capabilities (headers, bold, italics, tables, lists) to structure your response professionally for the chat interface.\n"
     "2. **Advanced Visualization**: Use **Mermaid** for flowcharts/diagrams and **LaTeX** for math. **IMPORTANT**: Always wrap Mermaid code within a standard ` ```mermaid ` code block to ensure it is rendered correctly by the UI.\n"
-    "3. **Interactive Artifacts (HTML)**: **Premium Delivery Protocol**: For web applications, you MUST perform two actions:\n"
+    "3. **Interactive HTML Delivery**: **Premium Delivery Protocol**: For web applications, you MUST perform two actions:\n"
     "   - 1. **Persist**: Create the file in the workspace (e.g., `index.html`) for project structure.\n"
     "   - 2. **Publish & Embed**: Call `publish_file_from_workspace(filename='your_file.html')`. This will automatically trigger the **Premium Experience** by directly embedding the interactive component using the action-style return.\n"
     "   - **CRITICAL ANTI-INLINE RULE**: Never output your *own* raw HTML source code directly in the chat. You MUST ALWAYS persist the HTML to a file and call `publish_file_from_workspace`.\n"
+    "   - **Preferred default**: Use **Rich UI mode** (`embed_type='richui'`) for HTML presentation unless the user explicitly asks for **artifacts**.\n"
     "   - **CRITICAL**: When using this protocol in **Rich UI mode** (`embed_type='richui'`), **DO NOT** output the raw HTML code in a code block. Provide ONLY the **[Preview]** and **[Download]** links returned by the tool. The interactive embed will appear automatically after your message finishes.\n"
-    "   - **Artifacts mode** (`embed_type='artifacts'`): You MUST provide the **[Preview]** and **[Download]** links. DO NOT output HTML code block. The system will automatically append the HTML visualization to the chat string.\n"
+    "   - **Artifacts mode** (`embed_type='artifacts'`): Use this when the user explicitly asks for artifacts. You MUST provide the **[Preview]** and **[Download]** links. DO NOT output HTML code block. The system will automatically append the HTML visualization to the chat string.\n"
     "   - **Process Visibility**: While raw code is often replaced by links/frames, you SHOULD provide a **very brief Markdown summary** of the component's structure or key features (e.g., 'Generated login form with validation') before publishing. This keeps the user informed of the 'processing' progress.\n"
     "   - **Game/App Controls**: If your HTML includes keyboard controls (e.g., arrow keys, spacebar for games), you MUST include `event.preventDefault()` in your `keydown` listeners to prevent the parent browser page from scrolling.\n"
     "4. **Media & Files**: ALWAYS embed generated images, GIFs, and videos directly using `![caption](url)`. Supported formats like PNG, JPG, GIF, MOV, and MP4 should be shown as visual assets. Never provide plain text links for visual media.\n"
     "5. **File Delivery Protocol (Dual-Channel Delivery)**:\n"
     "     - **Definition**: **Artifacts** = content/code-block driven visual output in chat (typically with `html_embed`). **Rich UI** = tool/action returned embedded UI rendered by emitter in a persistent sandboxed iframe.\n"
-    "     - **Philosophy**: Visual Artifacts (HTML/Mermaid) and Downloadable Files are **COMPLEMENTARY**. Always aim to provide BOTH: instant visual insight in the chat AND a persistent file for the user to keep.\n"
+    "     - **Philosophy**: Prefer **Rich UI** as the default HTML presentation because it shows the effect more directly in OpenWebUI. Use **Artifacts** only when the user explicitly asks for artifacts. Downloadable files remain **COMPLEMENTARY** and should still be published when needed.\n"
     "     - **The Rule**: When the user needs to *possess* data (download/export), you MUST publish it. Creating a local file alone is useless because the user cannot access your container.\n"
     "     - **Implicit Requests**: If asked to 'export', 'get link', or 'save', automatically trigger this sequence.\n"
     "     - **Execution Sequence**: 1. **Write Local**: Create file. 2. **Publish**: Call `publish_file_from_workspace`. 3. **Response Structure**:\n"
@@ -266,7 +267,7 @@ BASE_GUIDELINES = (
     "     - **Invalid Link Examples (Forbidden)**: Any handcrafted variants such as `/files/...`, `/api/files/...`, `/api/v1/file/...`, missing `/content`, manually appended custom routes, or local-workspace style paths like `/c/...`, `./...`, `../...`, `file://...` are INVALID and MUST NOT be output.\n"
     "     - **Auto-Correction Rule**: If you generated a non-whitelisted link (including `/c/...`), you MUST discard it, run/confirm `publish_file_from_workspace`, and only output the returned whitelisted URL.\n"
     "        - **For PDF files**: You MUST output ONLY Markdown links from the tool output (preview + download). **CRITICAL: NEVER output iframe/html_embed for PDF.**\n"
-    "        - **For HTML files**: Choose mode by complexity. **Artifacts mode** (`embed_type='artifacts'`): REQUIRED for dashboards, reports, and large/long UI since it has unlimited height. Output ONLY [Preview]/[Download]; do NOT output any iframe/html block because the protocol will automatically append the html code block via emitter. **Rich UI mode** (`embed_type='richui'`): For small widgets ONLY. If you MUST use Rich UI for long content, you MUST add a clickable 'Full Screen' button inside your HTML design to allow expanding. Output ONLY [Preview]/[Download]; do NOT output HTML block because Rich UI will render automatically via emitter.\n"
+    "        - **For HTML files**: Prefer **Rich UI mode** (`embed_type='richui'`) by default so the effect is shown directly in chat. Output ONLY [Preview]/[Download]; do NOT output HTML block because Rich UI will render automatically via emitter. If the HTML may need more space, add a clickable 'Full Screen' button inside your HTML design. Use **Artifacts mode** (`embed_type='artifacts'`) only when the user explicitly asks for artifacts; in that case, still output ONLY [Preview]/[Download], and do NOT output any iframe/html block because the protocol will automatically append the html code block via emitter.\n"
     "     - **URL Format**: You MUST use the **ABSOLUTE URLs** provided in the tool output, copied verbatim. NEVER modify, concatenate, or reconstruct them manually.\n"
     "     - **Bypass RAG**: This protocol automatically handles S3 storage and bypasses RAG, ensuring 100% accurate data delivery.\n"
     "6. **TODO Visibility**: When TODO state changes, prefer the environment's embedded TODO widget and lightweight status surfaces. Do not repeat the full TODO list in the main answer unless the user explicitly asks for a textual TODO list or the text itself is the requested deliverable. When using SQL instead of `update_todo`, follow the environment's default workflow: create descriptive todo rows in `todos`, mark them `in_progress` before execution, mark them `done` after completion, and record blocking relationships in `todo_deps`.\n"
@@ -1571,11 +1572,11 @@ class Pipe:
                 ),
             )
             embed_type: Literal["artifacts", "richui"] = Field(
-                default="artifacts",
+                default="richui",
                 description=(
                     "Rendering style for HTML files. For PDF files, embedding is disabled and you MUST only provide preview/download Markdown links from tool output. "
-                    "Use 'artifacts' for large UI, dashboards, or long content (Default: output html_embed iframe inside a ```html code block; no height limit). "
-                    "Use 'richui' ONLY for small/compact widgets (emitter-based integrated preview). DO NOT output html_embed in richui mode. If richui is used for long content, you MUST add a 'Full Screen' expansion button in the HTML logic. "
+                    "Default to 'richui' so the HTML effect is shown directly in OpenWebUI. DO NOT output html_embed in richui mode. If richui is used for long content, you MUST add a 'Full Screen' expansion button in the HTML logic. "
+                    "Use 'artifacts' only when the user explicitly asks for artifacts. "
                     "Only 'artifacts' and 'richui' are supported."
                 ),
             )
@@ -1587,16 +1588,16 @@ class Pipe:
             """
             try:
                 # 1. Robust Parameter Extraction
-                embed_type = "artifacts"
+                embed_type = "richui"
                 # Case A: filename is a Pydantic model (common when using params_type)
                 if hasattr(filename, "model_dump"):  # Pydantic v2
                     data = filename.model_dump()
                     filename = data.get("filename")
-                    embed_type = data.get("embed_type", "artifacts")
+                    embed_type = data.get("embed_type", "richui")
                 elif hasattr(filename, "dict"):  # Pydantic v1
                     data = filename.dict()
                     filename = data.get("filename")
-                    embed_type = data.get("embed_type", "artifacts")
+                    embed_type = data.get("embed_type", "richui")
 
                 # Case B: filename is a dict
                 if isinstance(filename, dict):
@@ -1624,7 +1625,7 @@ class Pipe:
                             pass
 
                 if embed_type not in ("artifacts", "richui"):
-                    embed_type = "artifacts"
+                    embed_type = "richui"
 
                 # 2. Final String Validation
                 if (
