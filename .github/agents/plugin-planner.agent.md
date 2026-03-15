@@ -3,7 +3,6 @@ name: Plugin Planner
 description: Analyze requirements and produce a safe implementation plan for OpenWebUI plugins
 argument-hint: Describe the plugin goal, constraints, and target files
 tools: ['read/readFile', 'search', 'web', 'web/githubRepo', 'read/terminalLastCommand', 'read/terminalSelection', 'agent']
-infer: true
 handoffs:
   - label: Start Implementation
     agent: Plugin Implementer

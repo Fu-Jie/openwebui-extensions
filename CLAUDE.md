@@ -1,13 +1,32 @@
-# 🤖 Claude Multi-Agent Protocol (MACP)
-
-## 🚀 Mandatory Startup
-1. **Check Hub**: `python3 scripts/agent_sync.py status`
-2. **Register**: `python3 scripts/agent_sync.py register claude-code "Claude" "Handling user request"`
-3. **Lock**: `python3 scripts/agent_sync.py lock claude-code <file_path>`
-4. **Handoff**: Use `python3 scripts/agent_sync.py note` for collaborative findings.
+# 🤖 OpenWebUI Extensions
 
 ## 🤝 Project Standards
 Read these BEFORE writing any code:
 - `.agent/rules/plugin_standards.md`
-- `.agent/rules/agent_protocol.md`
-- `COOPERATION.md`
+
+## 📖 Development Guidelines
+
+### Writing Documentation
+- All plugins MUST have both English (`README.md`) and Chinese (`README_CN.md`) documentation
+- Follow the template at `docs/PLUGIN_README_TEMPLATE.md`
+- Keep versions in sync across all files
+
+### Code Standards
+- Use logging instead of print
+- Implement Valves for configuration
+- Use Lucide icons
+- Include i18n support
+
+### Release Process
+- Update version numbers in ALL relevant files (code, READMEs, docs)
+- Use Conventional Commits format (`feat`, `fix`, `docs`, etc.)
+- Create PRs using GitHub CLI (`gh pr create`)
+
+## Author
+
+Fu-Jie  
+GitHub: [Fu-Jie/openwebui-extensions](https://github.com/Fu-Jie/openwebui-extensions)
+
+## License
+
+MIT License
