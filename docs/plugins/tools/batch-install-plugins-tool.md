@@ -11,7 +11,7 @@ One-click batch install plugins from GitHub repositories to your OpenWebUI insta
 - **Public GitHub Support**: Install plugins from one or many public GitHub repositories
 - **Multi-Type Support**: Supports Pipe, Action, Filter, and Tool plugins
 - **Multi-Repository Picker**: Combine multiple repositories in one request and review them in a single grouped dialog
-- **Interactive Selection Dialog**: Filter by type, search by keyword, review plugin descriptions, then install only the checked subset
+- **Interactive Selection Dialog**: Filter by repository and type, search by keyword, review plugin descriptions, then install only the checked subset
 - **i18n**: Supports 11 languages
 
 ## Flow
@@ -60,7 +60,7 @@ User Input
 
 The `repo` parameter accepts one or more `owner/repo` values separated by commas, semicolons, or new lines.
 
-After plugin discovery and filtering, OpenWebUI opens a browser dialog built with the `execute` event. The dialog merges results from every requested repository, groups them by repository, supports type filters and keyword search, and lets you check exactly which plugins to install before the API calls start.
+After plugin discovery and filtering, OpenWebUI opens a browser dialog built with the `execute` event. The dialog merges results from every requested repository, groups them by repository, supports repository tags, type filters, and keyword search, and lets you check exactly which plugins to install before the API calls start.
 
 If one user request mentions multiple repositories, keep them in the same request so the model can pass them into a single tool call.
 
