@@ -1147,6 +1147,8 @@ def _build_selection_dialog_js(
         "        });",
         "        searchInput.addEventListener('input', () => {",
         "            searchTerm = searchInput.value.trim().toLowerCase();",
+        "            selected.clear();",
+        "            getVisibleOptions().forEach((item) => selected.add(item.id));",
         "            renderList();",
         "        });",
         "        cancelBtn.addEventListener('click', () => finish(false));",
