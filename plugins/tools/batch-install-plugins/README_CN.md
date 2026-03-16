@@ -1,6 +1,6 @@
 # Batch Install Plugins from GitHub
 
-| 作者：[Fu-Jie](https://github.com/Fu-Jie) · v1.0.0 | [⭐ 点个 Star 支持项目](https://github.com/Fu-Jie/openwebui-extensions) |
+| 作者：[Fu-Jie](https://github.com/Fu-Jie) · v1.1.0 | [⭐ 点个 Star 支持项目](https://github.com/Fu-Jie/openwebui-extensions) |
 | :--- | ---: |
 
 | ![followers](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_followers.json&label=%F0%9F%91%A5&style=flat) | ![points](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_points.json&label=%E2%AD%90&style=flat) | ![top](https://img.shields.io/badge/%F0%9F%8F%86-Top%20%3C1%25-10b981?style=flat) | ![contributions](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_contributions.json&label=%F0%9F%93%A6&style=flat) | ![downloads](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_downloads.json&label=%E2%AC%87%EF%B8%8F&style=flat) | ![saves](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_saves.json&label=%F0%9F%92%BE&style=flat) | ![views](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_views.json&label=%F0%9F%91%81%EF%B8%8F&style=flat) |
@@ -12,9 +12,10 @@
 
 - 一键安装：单个命令安装所有插件
 - 自动更新：自动更新之前安装过的插件
-- 公开 GitHub 支持：支持从任何公开 GitHub 仓库安装插件
+- 公开 GitHub 支持：支持从一个或多个公开 GitHub 仓库安装插件
 - 多类型支持：支持 Pipe、Action、Filter 和 Tool 插件
-- 安装确认：安装前显示插件列表，支持选择性安装
+- 多仓库选择器：一次请求可合并多个仓库，并在同一个分组对话框中查看
+- 交互式选择对话框：先按仓库和类型筛选、按关键词搜索并查看描述信息，再勾选要安装的插件，只安装所选子集
 - 国际化：支持 11 种语言
 
 ## 流程
@@ -24,7 +25,7 @@
     │
     ▼
 ┌─────────────────────────────────────┐
-│  从 GitHub 发现插件                  │
+│  从 GitHub 多仓库发现插件            │
 │  (获取文件树 + 解析 .py 文件)        │
 └─────────────────────────────────────┘
     │
@@ -36,8 +37,8 @@
     │
     ▼
 ┌─────────────────────────────────────┐
-│  显示确认对话框                      │
-│  (插件列表 + 排除提示)              │
+│  显示选择对话框                      │
+│  (仓库分组 + 筛选 + 搜索)            │
 └─────────────────────────────────────┘
     │
     ├── [取消] → 结束
@@ -61,49 +62,23 @@
 
 ## 交互式安装工作流
 
-每次请求处理一个仓库。如需混合多个来源，请在上一次安装完成后再发起下一次请求。
+`repo` 参数现在支持多个 `owner/repo`，可用逗号、分号或换行分隔。
+
+在插件发现和过滤完成后，OpenWebUI 会通过 `execute` 事件打开浏览器选择对话框。对话框会合并所有目标仓库的结果，按仓库分组展示，并支持仓库标签、类型筛选、关键词搜索和描述查看，再开始调用安装 API。
+
+如果一次用户请求里提到了多个仓库，尽量保持在同一次请求里，让模型把它们合并到一次工具调用中。
 
 ## 快速开始：安装热门插件集
 
-复制以下任一提示词，粘贴到你的对话框中：
+复制下面这条提示词，粘贴到你的对话框中：
 
 ```
-# 安装我的默认集合
-安装所有插件
-
-# 添加热门社区工具
-从 iChristGit/OpenWebui-Tools 安装所有插件
-
-# 添加实用工具扩展
-从 Haervwe/open-webui-tools 安装所有插件
-
-# 添加混合社区实现
-从 Classic298/open-webui-plugins 安装所有插件
-
-# 添加基于函数的插件
-从 suurt8ll/open_webui_functions 安装所有插件
-
-# 添加 OpenRouter 管道集成
-从 rbb-dev/Open-WebUI-OpenRouter-pipe 安装所有插件
+从 Fu-Jie/openwebui-extensions、iChristGit/OpenWebui-Tools、Haervwe/open-webui-tools、Classic298/open-webui-plugins、suurt8ll/open_webui_functions、rbb-dev/Open-WebUI-OpenRouter-pipe 安装所有插件
 ```
 
-每一行是一个独立的请求。已安装的插件会自动更新。
+弹窗出现后，直接用里面的仓库标签、类型筛选和关键词搜索来缩小范围再安装。已安装的插件会自动更新。
 
-## 使用示例
-
-更多高级用法：
-
-```
-# 按插件类型过滤
-"从 iChristGit/OpenWebui-Tools 仅安装 tool 插件"
-"从 Classic298/open-webui-plugins 仅安装 action 插件"
-
-# 排除特定插件
-"从 Haervwe/open-webui-tools 安装所有插件, exclude_keywords=test,deprecated"
-
-# 从你自己的仓库安装
-"从 your-username/my-plugin-collection 安装所有插件"
-```
+需要时，你也可以把这串仓库替换成你自己的插件仓库组合。
 
 ## 默认仓库
 
@@ -131,11 +106,11 @@
 | `SKIP_KEYWORDS` | `test,verify,example,template,mock` | 逗号分隔的跳过关键词 |
 | `TIMEOUT` | `20` | 请求超时时间（秒）|
 
-## 确认超时时间
+## 选择对话框超时时间
 
-用户确认对话框的默认超时时间为 **2 分钟（120 秒）**，为用户提供充足的时间来：
+插件选择对话框的默认超时时间为 **2 分钟（120 秒）**，为用户提供充足的时间来：
 - 阅读和查看插件列表
-- 做出安装决定
+- 勾选或取消勾选想安装的插件
 - 处理网络延迟
 
 ## 支持

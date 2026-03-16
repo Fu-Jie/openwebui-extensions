@@ -3,8 +3,9 @@ title: Batch Install Plugins from GitHub
 author: Fu-Jie
 author_url: https://github.com/Fu-Jie/openwebui-extensions
 funding_url: https://github.com/open-webui
-version: 1.0.0
-description: One-click batch install plugins from GitHub repositories to your OpenWebUI instance.
+version: 1.1.0
+openwebui_id: c9fd6e80-d58f-4312-8fbb-214d86bbe599
+description: One-click batch install plugins from one or more GitHub repositories to your OpenWebUI instance. If a user mentions multiple repositories in one request, combine them into a single tool call.
 """
 
 import ast
@@ -15,7 +16,7 @@ import os
 import re
 import textwrap
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 import httpx
 from pydantic import BaseModel, Field
@@ -298,6 +299,207 @@ TRANSLATIONS = {
 
 FALLBACK_MAP = {"zh": "zh-CN", "zh-TW": "zh-TW", "zh-HK": "zh-HK", "en": "en-US", "ko": "ko-KR", "ja": "ja-JP", "fr": "fr-FR", "de": "de-DE", "es": "es-ES", "it": "it-IT", "vi": "vi-VN"}
 
+SELECTION_DIALOG_TEXTS = {
+    "en-US": {
+        "select_all": "Select all",
+        "clear_all": "Clear all",
+        "quick_select": "Filter by type",
+        "all_types": "All",
+        "repo_filter": "Filter by repository",
+        "all_repos": "All repositories",
+        "search_label": "Search",
+        "search_placeholder": "Search title, description, file path...",
+        "no_results": "No plugins match the current filter.",
+        "selected_count": "{count} selected",
+        "install_selected": "Install Selected",
+        "cancel": "Cancel",
+        "version_label": "Version",
+        "file_label": "File",
+        "description_label": "Description",
+        "repo_label": "Repository",
+    },
+    "zh-CN": {
+        "select_all": "全选",
+        "clear_all": "清空",
+        "quick_select": "按类型筛选",
+        "all_types": "全部",
+        "repo_filter": "按仓库筛选",
+        "all_repos": "全部仓库",
+        "search_label": "搜索",
+        "search_placeholder": "搜索标题、描述、文件路径...",
+        "no_results": "当前筛选条件下没有匹配的插件。",
+        "selected_count": "已选 {count} 项",
+        "install_selected": "安装所选插件",
+        "cancel": "取消",
+        "version_label": "版本",
+        "file_label": "文件",
+        "description_label": "描述",
+        "repo_label": "仓库",
+    },
+    "zh-HK": {
+        "select_all": "全選",
+        "clear_all": "清空",
+        "quick_select": "按類型篩選",
+        "all_types": "全部",
+        "repo_filter": "按倉庫篩選",
+        "all_repos": "全部倉庫",
+        "search_label": "搜尋",
+        "search_placeholder": "搜尋標題、描述、檔案路徑...",
+        "no_results": "目前篩選條件下沒有相符的外掛。",
+        "selected_count": "已選 {count} 項",
+        "install_selected": "安裝所選外掛",
+        "cancel": "取消",
+        "version_label": "版本",
+        "file_label": "檔案",
+        "description_label": "描述",
+        "repo_label": "倉庫",
+    },
+    "zh-TW": {
+        "select_all": "全選",
+        "clear_all": "清空",
+        "quick_select": "按類型篩選",
+        "all_types": "全部",
+        "repo_filter": "按倉庫篩選",
+        "all_repos": "全部倉庫",
+        "search_label": "搜尋",
+        "search_placeholder": "搜尋標題、描述、檔案路徑...",
+        "no_results": "目前篩選條件下沒有符合的外掛。",
+        "selected_count": "已選 {count} 項",
+        "install_selected": "安裝所選外掛",
+        "cancel": "取消",
+        "version_label": "版本",
+        "file_label": "檔案",
+        "description_label": "描述",
+        "repo_label": "倉庫",
+    },
+    "ko-KR": {
+        "select_all": "전체 선택",
+        "clear_all": "선택 해제",
+        "quick_select": "유형별 필터",
+        "all_types": "전체",
+        "repo_filter": "저장소별 필터",
+        "all_repos": "전체 저장소",
+        "search_label": "검색",
+        "search_placeholder": "제목, 설명, 파일 경로 검색...",
+        "no_results": "현재 필터와 일치하는 플러그인이 없습니다.",
+        "selected_count": "{count}개 선택됨",
+        "install_selected": "선택한 플러그인 설치",
+        "cancel": "취소",
+        "version_label": "버전",
+        "file_label": "파일",
+        "description_label": "설명",
+        "repo_label": "저장소",
+    },
+    "ja-JP": {
+        "select_all": "すべて選択",
+        "clear_all": "クリア",
+        "quick_select": "タイプで絞り込み",
+        "all_types": "すべて",
+        "repo_filter": "リポジトリで絞り込み",
+        "all_repos": "すべてのリポジトリ",
+        "search_label": "検索",
+        "search_placeholder": "タイトル、説明、ファイルパスを検索...",
+        "no_results": "現在の条件に一致するプラグインはありません。",
+        "selected_count": "{count}件を選択",
+        "install_selected": "選択したプラグインをインストール",
+        "cancel": "キャンセル",
+        "version_label": "バージョン",
+        "file_label": "ファイル",
+        "description_label": "説明",
+        "repo_label": "リポジトリ",
+    },
+    "fr-FR": {
+        "select_all": "Tout sélectionner",
+        "clear_all": "Tout effacer",
+        "quick_select": "Filtrer par type",
+        "all_types": "Tous",
+        "repo_filter": "Filtrer par dépôt",
+        "all_repos": "Tous les dépôts",
+        "search_label": "Rechercher",
+        "search_placeholder": "Rechercher par titre, description, fichier...",
+        "no_results": "Aucun plugin ne correspond au filtre actuel.",
+        "selected_count": "{count} sélectionnés",
+        "install_selected": "Installer la sélection",
+        "cancel": "Annuler",
+        "version_label": "Version",
+        "file_label": "Fichier",
+        "description_label": "Description",
+        "repo_label": "Dépôt",
+    },
+    "de-DE": {
+        "select_all": "Alle auswählen",
+        "clear_all": "Auswahl löschen",
+        "quick_select": "Nach Typ filtern",
+        "all_types": "Alle",
+        "repo_filter": "Nach Repository filtern",
+        "all_repos": "Alle Repositories",
+        "search_label": "Suchen",
+        "search_placeholder": "Titel, Beschreibung, Dateipfad durchsuchen...",
+        "no_results": "Keine Plugins entsprechen dem aktuellen Filter.",
+        "selected_count": "{count} ausgewählt",
+        "install_selected": "Auswahl installieren",
+        "cancel": "Abbrechen",
+        "version_label": "Version",
+        "file_label": "Datei",
+        "description_label": "Beschreibung",
+        "repo_label": "Repository",
+    },
+    "es-ES": {
+        "select_all": "Seleccionar todo",
+        "clear_all": "Limpiar",
+        "quick_select": "Filtrar por tipo",
+        "all_types": "Todos",
+        "repo_filter": "Filtrar por repositorio",
+        "all_repos": "Todos los repositorios",
+        "search_label": "Buscar",
+        "search_placeholder": "Buscar por titulo, descripcion o archivo...",
+        "no_results": "Ningun plugin coincide con el filtro actual.",
+        "selected_count": "{count} seleccionados",
+        "install_selected": "Instalar seleccionados",
+        "cancel": "Cancelar",
+        "version_label": "Versión",
+        "file_label": "Archivo",
+        "description_label": "Descripción",
+        "repo_label": "Repositorio",
+    },
+    "it-IT": {
+        "select_all": "Seleziona tutto",
+        "clear_all": "Cancella",
+        "quick_select": "Filtra per tipo",
+        "all_types": "Tutti",
+        "repo_filter": "Filtra per repository",
+        "all_repos": "Tutti i repository",
+        "search_label": "Cerca",
+        "search_placeholder": "Cerca per titolo, descrizione o file...",
+        "no_results": "Nessun plugin corrisponde al filtro attuale.",
+        "selected_count": "{count} selezionati",
+        "install_selected": "Installa selezionati",
+        "cancel": "Annulla",
+        "version_label": "Versione",
+        "file_label": "File",
+        "description_label": "Descrizione",
+        "repo_label": "Repository",
+    },
+    "vi-VN": {
+        "select_all": "Chọn tất cả",
+        "clear_all": "Bỏ chọn",
+        "quick_select": "Lọc theo loại",
+        "all_types": "Tất cả",
+        "repo_filter": "Lọc theo kho",
+        "all_repos": "Tất cả kho",
+        "search_label": "Tìm kiếm",
+        "search_placeholder": "Tìm theo tiêu đề, mô tả, đường dẫn tệp...",
+        "no_results": "Không có plugin nào khớp với bộ lọc hiện tại.",
+        "selected_count": "Đã chọn {count}",
+        "install_selected": "Cài đặt mục đã chọn",
+        "cancel": "Hủy",
+        "version_label": "Phiên bản",
+        "file_label": "Tệp",
+        "description_label": "Mô tả",
+        "repo_label": "Kho",
+    },
+}
+
 
 def _resolve_language(user_language: str) -> str:
     value = str(user_language or "").strip()
@@ -314,6 +516,19 @@ def _resolve_language(user_language: str) -> str:
 def _t(lang: str, key: str, **kwargs) -> str:
     lang_key = _resolve_language(lang)
     text = TRANSLATIONS.get(lang_key, TRANSLATIONS["en-US"]).get(key, key)
+    if kwargs:
+        try:
+            text = text.format(**kwargs)
+        except KeyError:
+            pass
+    return text
+
+
+def _selection_t(lang: str, key: str, **kwargs) -> str:
+    lang_key = _resolve_language(lang)
+    text = SELECTION_DIALOG_TEXTS.get(
+        lang_key, SELECTION_DIALOG_TEXTS["en-US"]
+    ).get(key, SELECTION_DIALOG_TEXTS["en-US"][key])
     if kwargs:
         try:
             text = text.format(**kwargs)
@@ -462,12 +677,14 @@ class PluginCandidate:
         metadata: Dict[str, str],
         content: str,
         function_id: str,
+        source_repo: str,
     ):
         self.plugin_type = plugin_type
         self.file_path = file_path
         self.metadata = metadata
         self.content = content
         self.function_id = function_id
+        self.source_repo = source_repo
 
     @property
     def title(self) -> str:
@@ -476,6 +693,10 @@ class PluginCandidate:
     @property
     def version(self) -> str:
         return self.metadata.get("version", "unknown")
+
+    @property
+    def selection_id(self) -> str:
+        return f"{self.source_repo}::{self.file_path}::{self.function_id}"
 
 
 def extract_metadata(content: str) -> Dict[str, str]:
@@ -691,23 +912,64 @@ def _candidate_debug_data(candidate: PluginCandidate) -> Dict[str, str]:
     return {
         "title": candidate.title,
         "type": candidate.plugin_type,
+        "source_repo": candidate.source_repo,
         "file_path": candidate.file_path,
         "function_id": candidate.function_id,
         "version": candidate.version,
     }
 
 
+def _parse_repo_inputs(repo_value: str) -> List[str]:
+    parts = re.split(r"[\n,;，；、]+", str(repo_value or DEFAULT_REPO))
+    repos: List[str] = []
+    seen: Set[str] = set()
+
+    for part in parts:
+        candidate = part.strip().strip("/")
+        if not candidate:
+            continue
+        normalized = candidate.lower()
+        if normalized in seen:
+            continue
+        seen.add(normalized)
+        repos.append(candidate)
+
+    return repos or [DEFAULT_REPO]
+
+
+def _sort_candidates_by_repo_order(
+    candidates: List[PluginCandidate],
+    repos: List[str],
+) -> List[PluginCandidate]:
+    repo_order = {repo.lower(): index for index, repo in enumerate(repos)}
+    fallback_index = len(repo_order)
+    return sorted(
+        candidates,
+        key=lambda item: (
+            repo_order.get(item.source_repo.lower(), fallback_index),
+            item.source_repo.lower(),
+            item.plugin_type,
+            item.file_path,
+        ),
+    )
+
+
 def _filter_candidates(
     candidates: List[PluginCandidate],
     plugin_types: List[str],
-    repo: str,
+    repos: List[str],
     exclude_keywords: str = "",
 ) -> List[PluginCandidate]:
     allowed_types = {item.strip().lower() for item in plugin_types if item.strip()}
     filtered = [c for c in candidates if c.plugin_type.lower() in allowed_types]
 
-    if repo.lower() == DEFAULT_REPO.lower():
-        filtered = [c for c in filtered if not _matches_self_plugin(c)]
+    includes_default_repo = any(item.lower() == DEFAULT_REPO.lower() for item in repos)
+    if includes_default_repo:
+        filtered = [
+            c
+            for c in filtered
+            if not (c.source_repo.lower() == DEFAULT_REPO.lower() and _matches_self_plugin(c))
+        ]
 
     exclude_list = [item.strip().lower() for item in exclude_keywords.split(",") if item.strip()]
     if exclude_list:
@@ -724,7 +986,8 @@ def _filter_candidates(
 
 
 def _build_confirmation_hint(lang: str, repo: str, exclude_keywords: str) -> str:
-    is_default_repo = repo.lower() == DEFAULT_REPO.lower()
+    repo_list = _parse_repo_inputs(repo)
+    is_default_repo = any(item.lower() == DEFAULT_REPO.lower() for item in repo_list)
     excluded_parts: List[str] = []
 
     if exclude_keywords:
@@ -735,38 +998,400 @@ def _build_confirmation_hint(lang: str, repo: str, exclude_keywords: str) -> str
     if excluded_parts:
         return _t(lang, "confirm_excluded_hint", excluded=", ".join(excluded_parts))
 
-    return _t(lang, "confirm_copy_exclude_hint", keywords=SELF_EXCLUDE_HINT)
+    return ""
 
 
-async def _request_confirmation(
+def _build_selection_dialog_js(
+    options: List[Dict[str, str]],
+    ui_text: Dict[str, str],
+) -> str:
+    lines = [
+        "return new Promise((resolve) => {",
+        "    try {",
+        f"        const options = {json.dumps(options, ensure_ascii=False)};",
+        f"        const ui = {json.dumps(ui_text, ensure_ascii=False)};",
+        "        const dialogId = 'batch-install-plugin-selector';",
+        "        const body = typeof document !== 'undefined' ? document.body : null;",
+        "        const existing = body ? document.getElementById(dialogId) : null;",
+        "        if (existing) { existing.remove(); }",
+        "        if (!body) {",
+        "            resolve({ confirmed: false, error: 'document.body unavailable', selected_ids: [] });",
+        "            return;",
+        "        }",
+        "        const selected = new Set(options.map((item) => item.id));",
+        "        let activeFilter = '';",
+        "        let activeRepoFilter = '';",
+        "        let searchTerm = '';",
+        "        const escapeHtml = (value) => String(value ?? '').replace(/[&<>\"']/g, (char) => ({",
+        "            '&': '&amp;',",
+        "            '<': '&lt;',",
+        "            '>': '&gt;',",
+        "            '\"': '&quot;',",
+        "            \"'\": '&#39;',",
+        "        }[char]));",
+        "        const overlay = document.createElement('div');",
+        "        overlay.id = dialogId;",
+        "        overlay.style.cssText = [",
+        "            'position:fixed',",
+        "            'inset:0',",
+        "            'padding:24px',",
+        "            'background:rgba(15,23,42,0.52)',",
+        "            'backdrop-filter:blur(3px)',",
+        "            'display:flex',",
+        "            'align-items:center',",
+        "            'justify-content:center',",
+        "            'z-index:9999',",
+        "            'box-sizing:border-box',",
+        "        ].join(';');",
+        "        overlay.innerHTML = `",
+        "            <div style=\"width:min(920px,100%);max-height:min(88vh,900px);overflow:hidden;border-radius:18px;background:#ffffff;box-shadow:0 30px 80px rgba(15,23,42,0.28);display:flex;flex-direction:column;font-family:ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif\">",
+        "                <div style=\"padding:22px 24px 16px;border-bottom:1px solid #e5e7eb\">",
+        "                    <div>",
+        "                        <div style=\"font-size:22px;font-weight:700;color:#0f172a\">${escapeHtml(ui.title)}</div>",
+        "                        <div style=\"margin-top:8px;font-size:14px;color:#475569\">${escapeHtml(ui.list_title)}</div>",
+        "                    </div>",
+        "                    <div id=\"batch-install-plugin-selector-hint\" style=\"margin-top:14px;padding:12px 14px;border-radius:12px;background:#f8fafc;color:#334155;font-size:13px;line-height:1.5;white-space:pre-wrap\"></div>",
+        "                </div>",
+        "                <div style=\"padding:16px 24px 0;display:grid;gap:12px\">",
+        "                    <div style=\"display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap\">",
+        "                        <div style=\"display:flex;gap:8px;flex-wrap:wrap\">",
+        "                        <button id=\"batch-install-plugin-selector-select-all\" style=\"padding:8px 12px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;color:#0f172a;font-size:13px;cursor:pointer\">${escapeHtml(ui.select_all)}</button>",
+        "                        <button id=\"batch-install-plugin-selector-clear-all\" style=\"padding:8px 12px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;color:#0f172a;font-size:13px;cursor:pointer\">${escapeHtml(ui.clear_all)}</button>",
+        "                        </div>",
+        "                        <div id=\"batch-install-plugin-selector-count\" style=\"font-size:13px;font-weight:600;color:#475569\"></div>",
+        "                    </div>",
+        "                    <div style=\"display:grid;gap:10px\">",
+        "                        <div style=\"display:flex;gap:10px;align-items:center;flex-wrap:wrap\">",
+        "                            <div style=\"font-size:12px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.04em\">${escapeHtml(ui.quick_select)}</div>",
+        "                            <div id=\"batch-install-plugin-selector-types\" style=\"display:flex;gap:8px;flex-wrap:wrap\"></div>",
+        "                        </div>",
+        "                        <div id=\"batch-install-plugin-selector-repo-row\" style=\"display:flex;gap:10px;align-items:center;flex-wrap:wrap\">",
+        "                            <div style=\"font-size:12px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.04em\">${escapeHtml(ui.repo_filter)}</div>",
+        "                            <div id=\"batch-install-plugin-selector-repos\" style=\"display:flex;gap:8px;flex-wrap:wrap\"></div>",
+        "                        </div>",
+        "                        <div style=\"display:grid;gap:6px\">",
+        "                            <div style=\"font-size:12px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.04em\">${escapeHtml(ui.search_label)}</div>",
+        "                            <input id=\"batch-install-plugin-selector-search\" type=\"text\" placeholder=\"${escapeHtml(ui.search_placeholder)}\" style=\"width:100%;padding:10px 12px;border:1px solid #cbd5e1;border-radius:12px;background:#fff;color:#0f172a;font-size:14px;outline:none;box-sizing:border-box\" />",
+        "                        </div>",
+        "                    </div>",
+        "                </div>",
+        "                <div id=\"batch-install-plugin-selector-list\" style=\"padding:16px 24px 0;overflow:auto;display:grid;gap:12px;flex:1;min-height:0\"></div>",
+        "                <div style=\"padding:18px 24px 24px;border-top:1px solid #e5e7eb;margin-top:18px;display:flex;justify-content:flex-end;gap:12px;flex-wrap:wrap\">",
+        "                    <button id=\"batch-install-plugin-selector-cancel\" style=\"padding:10px 16px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;color:#0f172a;font-weight:600;cursor:pointer\">${escapeHtml(ui.cancel)}</button>",
+        "                    <button id=\"batch-install-plugin-selector-submit\" style=\"padding:10px 16px;border:none;border-radius:10px;background:#0f172a;color:#fff;font-weight:600;cursor:pointer\">${escapeHtml(ui.install_selected)}</button>",
+        "                </div>",
+        "            </div>",
+        "        `;",
+        "        body.appendChild(overlay);",
+        "        const previousOverflow = body.style.overflow;",
+        "        body.style.overflow = 'hidden';",
+        "        const listEl = overlay.querySelector('#batch-install-plugin-selector-list');",
+        "        const countEl = overlay.querySelector('#batch-install-plugin-selector-count');",
+        "        const hintEl = overlay.querySelector('#batch-install-plugin-selector-hint');",
+        "        const typesEl = overlay.querySelector('#batch-install-plugin-selector-types');",
+        "        const repoRowEl = overlay.querySelector('#batch-install-plugin-selector-repo-row');",
+        "        const reposEl = overlay.querySelector('#batch-install-plugin-selector-repos');",
+        "        const searchInput = overlay.querySelector('#batch-install-plugin-selector-search');",
+        "        const submitBtn = overlay.querySelector('#batch-install-plugin-selector-submit');",
+        "        const cancelBtn = overlay.querySelector('#batch-install-plugin-selector-cancel');",
+        "        const selectAllBtn = overlay.querySelector('#batch-install-plugin-selector-select-all');",
+        "        const clearAllBtn = overlay.querySelector('#batch-install-plugin-selector-clear-all');",
+        "        const typeMap = options.reduce((groups, item) => {",
+        "            if (!groups[item.type]) {",
+        "                groups[item.type] = [];",
+        "            }",
+        "            groups[item.type].push(item);",
+        "            return groups;",
+        "        }, {});",
+        "        const repoMap = options.reduce((groups, item) => {",
+        "            if (!groups[item.repo]) {",
+        "                groups[item.repo] = [];",
+        "            }",
+        "            groups[item.repo].push(item);",
+        "            return groups;",
+        "        }, {});",
+        "        const typeEntries = Object.entries(typeMap);",
+        "        const repoEntries = Object.entries(repoMap);",
+        "        const matchesSearch = (item) => {",
+        "            const haystack = [item.title, item.description, item.file_path, item.type, item.repo].join(' ').toLowerCase();",
+        "            return !searchTerm || haystack.includes(searchTerm);",
+        "        };",
+        "        const getVisibleOptions = () => options.filter((item) => {",
+        "            const matchesType = !activeFilter || item.type === activeFilter;",
+        "            const matchesRepo = !activeRepoFilter || item.repo === activeRepoFilter;",
+        "            return matchesType && matchesRepo && matchesSearch(item);",
+        "        });",
+        "        const syncSelectionToVisible = () => {",
+        "            selected.clear();",
+        "            getVisibleOptions().forEach((item) => selected.add(item.id));",
+        "        };",
+        "        const formatMultilineText = (value) => escapeHtml(value).replace(/\\n+/g, '<br />');",
+        "        hintEl.textContent = ui.hint || '';",
+        "        hintEl.style.display = ui.hint ? 'block' : 'none';",
+        "        const renderTypeButtons = () => {",
+        "            const scopedOptions = options.filter((item) => {",
+        "                const matchesRepo = !activeRepoFilter || item.repo === activeRepoFilter;",
+        "                return matchesRepo && matchesSearch(item);",
+        "            });",
+        "            const filterEntries = [['', scopedOptions], ...typeEntries.map(([type]) => [type, scopedOptions.filter((item) => item.type === type)])];",
+        "            typesEl.innerHTML = filterEntries.map(([type, items]) => {",
+        "                const isActive = activeFilter === type;",
+        "                const background = isActive ? '#0f172a' : '#ffffff';",
+        "                const color = isActive ? '#ffffff' : '#0f172a';",
+        "                const border = isActive ? '#0f172a' : '#cbd5e1';",
+        "                const label = type || ui.all_types;",
+        "                return `",
+        "                    <button type=\"button\" data-plugin-type=\"${escapeHtml(type)}\" style=\"padding:7px 12px;border:1px solid ${border};border-radius:999px;background:${background};color:${color};font-size:12px;font-weight:700;cursor:pointer;display:inline-flex;gap:8px;align-items:center\">",
+        "                        <span>${escapeHtml(label)}</span>",
+        "                        <span style=\"display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:${isActive ? 'rgba(255,255,255,0.16)' : '#e2e8f0'};color:${isActive ? '#ffffff' : '#334155'}\">${items.length}</span>",
+        "                    </button>",
+        "                `;",
+        "            }).join('');",
+        "            typesEl.querySelectorAll('button[data-plugin-type]').forEach((button) => {",
+        "                button.addEventListener('click', () => {",
+        "                    const pluginType = button.getAttribute('data-plugin-type') || '';",
+        "                    activeFilter = activeFilter === pluginType ? '' : pluginType;",
+        "                    syncSelectionToVisible();",
+        "                    renderList();",
+        "                });",
+        "            });",
+        "        };",
+        "        const renderRepoButtons = () => {",
+        "            if (repoEntries.length <= 1) {",
+        "                repoRowEl.style.display = 'none';",
+        "                reposEl.innerHTML = '';",
+        "                activeRepoFilter = '';",
+        "                return;",
+        "            }",
+        "            repoRowEl.style.display = 'flex';",
+        "            const scopedOptions = options.filter((item) => {",
+        "                const matchesType = !activeFilter || item.type === activeFilter;",
+        "                return matchesType && matchesSearch(item);",
+        "            });",
+        "            const filterEntries = [['', scopedOptions], ...repoEntries.map(([repoName]) => [repoName, scopedOptions.filter((item) => item.repo === repoName)])];",
+        "            reposEl.innerHTML = filterEntries.map(([repoName, items]) => {",
+        "                const isActive = activeRepoFilter === repoName;",
+        "                const background = isActive ? '#1d4ed8' : '#ffffff';",
+        "                const color = isActive ? '#ffffff' : '#1d4ed8';",
+        "                const border = isActive ? '#1d4ed8' : '#bfdbfe';",
+        "                const label = repoName || ui.all_repos;",
+        "                return `",
+        "                    <button type=\"button\" data-plugin-repo=\"${escapeHtml(repoName)}\" style=\"padding:7px 12px;border:1px solid ${border};border-radius:999px;background:${background};color:${color};font-size:12px;font-weight:700;cursor:pointer;display:inline-flex;gap:8px;align-items:center\">",
+        "                        <span>${escapeHtml(label)}</span>",
+        "                        <span style=\"display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:${isActive ? 'rgba(255,255,255,0.16)' : '#dbeafe'};color:${isActive ? '#ffffff' : '#1e3a8a'}\">${items.length}</span>",
+        "                    </button>",
+        "                `;",
+        "            }).join('');",
+        "            reposEl.querySelectorAll('button[data-plugin-repo]').forEach((button) => {",
+        "                button.addEventListener('click', () => {",
+        "                    const repoName = button.getAttribute('data-plugin-repo') || '';",
+        "                    activeRepoFilter = activeRepoFilter === repoName ? '' : repoName;",
+        "                    syncSelectionToVisible();",
+        "                    renderList();",
+        "                });",
+        "            });",
+        "        };",
+        "        const updateState = () => {",
+        "            countEl.textContent = ui.selected_count.replace('{count}', String(selected.size));",
+        "            submitBtn.disabled = selected.size === 0;",
+        "            submitBtn.style.opacity = selected.size === 0 ? '0.45' : '1';",
+        "            submitBtn.style.cursor = selected.size === 0 ? 'not-allowed' : 'pointer';",
+        "            renderTypeButtons();",
+        "            renderRepoButtons();",
+        "        };",
+        "        const renderOptionCard = (item) => {",
+        "            const checked = selected.has(item.id) ? 'checked' : '';",
+        "            const description = item.description ? `",
+        "                <div style=\"display:grid;gap:4px\">",
+        "                    <div style=\"font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.04em\">${escapeHtml(ui.description_label)}</div>",
+        "                    <div style=\"font-size:13px;color:#334155;line-height:1.55;word-break:break-word\">${formatMultilineText(item.description)}</div>",
+        "                </div>",
+        "            ` : '';",
+        "            return `",
+        "                <label style=\"display:flex;gap:14px;align-items:flex-start;padding:14px;border:1px solid #e2e8f0;border-radius:14px;background:#fff;cursor:pointer\">",
+        "                    <input type=\"checkbox\" data-plugin-id=\"${escapeHtml(item.id)}\" ${checked} style=\"margin-top:3px;width:16px;height:16px;accent-color:#0f172a;flex-shrink:0\" />",
+        "                    <div style=\"min-width:0;display:grid;gap:6px\">",
+        "                        <div style=\"display:flex;gap:10px;align-items:center;flex-wrap:wrap\">",
+        "                            <span style=\"display:inline-flex;align-items:center;padding:2px 8px;border-radius:999px;background:#f1f5f9;color:#334155;font-size:12px;font-weight:700;text-transform:uppercase\">${escapeHtml(item.type)}</span>",
+        "                            <span style=\"display:inline-flex;align-items:center;padding:2px 8px;border-radius:999px;background:#eff6ff;color:#1d4ed8;font-size:12px;font-weight:700\">${escapeHtml(item.repo)}</span>",
+        "                            <span style=\"font-size:15px;font-weight:700;color:#0f172a;word-break:break-word\">${escapeHtml(item.title)}</span>",
+        "                        </div>",
+        "                        <div style=\"font-size:12px;color:#475569;word-break:break-word\">${escapeHtml(ui.version_label)}: ${escapeHtml(item.version)} · ${escapeHtml(ui.file_label)}: ${escapeHtml(item.file_path)}</div>",
+        "                        ${description}",
+        "                    </div>",
+        "                </label>",
+        "            `;",
+        "        };",
+        "        const renderList = () => {",
+        "            const visibleOptions = getVisibleOptions();",
+        "            if (!visibleOptions.length) {",
+        "                listEl.innerHTML = `<div style=\"padding:24px;border:1px dashed #cbd5e1;border-radius:14px;background:#f8fafc;color:#475569;font-size:14px;text-align:center\">${escapeHtml(ui.no_results)}</div>`;",
+        "                updateState();",
+        "                return;",
+        "            }",
+        "            const groups = visibleOptions.reduce((bucket, item) => {",
+        "                if (!bucket[item.repo]) {",
+        "                    bucket[item.repo] = [];",
+        "                }",
+        "                bucket[item.repo].push(item);",
+        "                return bucket;",
+        "            }, {});",
+        "            listEl.innerHTML = Object.entries(groups).map(([repoName, items]) => `",
+        "                <section style=\"display:grid;gap:10px\">",
+        "                    <div style=\"display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;padding:0 2px\">",
+        "                        <div style=\"display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border-radius:999px;background:#eff6ff;color:#1d4ed8;font-size:12px;font-weight:700;word-break:break-word\">${escapeHtml(repoName)}</div>",
+        "                        <div style=\"display:inline-flex;align-items:center;gap:8px;padding:4px 10px;border-radius:999px;background:#f8fafc;color:#475569;font-size:12px;font-weight:600\">${items.length}</div>",
+        "                    </div>",
+        "                    <div style=\"display:grid;gap:12px\">${items.map((item) => renderOptionCard(item)).join('')}</div>",
+        "                </section>",
+        "            `).join('');",
+        "            listEl.querySelectorAll('input[data-plugin-id]').forEach((input) => {",
+        "                input.addEventListener('change', () => {",
+        "                    const pluginId = input.getAttribute('data-plugin-id') || '';",
+        "                    if (input.checked) {",
+        "                        selected.add(pluginId);",
+        "                    } else {",
+        "                        selected.delete(pluginId);",
+        "                    }",
+        "                    updateState();",
+        "                });",
+        "            });",
+        "            updateState();",
+        "        };",
+        "        const cleanup = () => {",
+        "            body.style.overflow = previousOverflow;",
+        "            window.removeEventListener('keydown', onKeyDown, true);",
+        "            overlay.remove();",
+        "        };",
+        "        const finish = (confirmed) => {",
+        "            const selectedIds = confirmed ? options.filter((item) => selected.has(item.id)).map((item) => item.id) : [];",
+        "            cleanup();",
+        "            resolve({ confirmed, selected_ids: selectedIds });",
+        "        };",
+        "        const onKeyDown = (event) => {",
+        "            if (event.key === 'Escape') {",
+        "                event.preventDefault();",
+        "                finish(false);",
+        "            }",
+        "        };",
+        "        overlay.addEventListener('click', (event) => {",
+        "            if (event.target === overlay) {",
+        "                finish(false);",
+        "            }",
+        "        });",
+        "        selectAllBtn.addEventListener('click', () => {",
+        "            getVisibleOptions().forEach((item) => selected.add(item.id));",
+        "            renderList();",
+        "        });",
+        "        clearAllBtn.addEventListener('click', () => {",
+        "            getVisibleOptions().forEach((item) => selected.delete(item.id));",
+        "            renderList();",
+        "        });",
+        "        searchInput.addEventListener('input', () => {",
+        "            searchTerm = searchInput.value.trim().toLowerCase();",
+        "            syncSelectionToVisible();",
+        "            renderList();",
+        "        });",
+        "        cancelBtn.addEventListener('click', () => finish(false));",
+        "        submitBtn.addEventListener('click', () => {",
+        "            if (selected.size === 0) {",
+        "                updateState();",
+        "                return;",
+        "            }",
+        "            finish(true);",
+        "        });",
+        "        window.addEventListener('keydown', onKeyDown, true);",
+        "        renderList();",
+        "    } catch (error) {",
+        "        console.error('[Batch Install] Plugin selection dialog failed', error);",
+        "        resolve({",
+        "            confirmed: false,",
+        "            error: error instanceof Error ? error.message : String(error),",
+        "            selected_ids: [],",
+        "        });",
+        "    }",
+        "});",
+    ]
+    return "\n".join(lines)
+
+
+async def _request_plugin_selection(
     event_call: Optional[Any],
     lang: str,
-    message: str,
-) -> Tuple[bool, Optional[str]]:
+    candidates: List[PluginCandidate],
+    hint: str,
+) -> Tuple[Optional[List[PluginCandidate]], Optional[str]]:
     if not event_call:
-        return True, None
+        return candidates, None
+
+    options = [
+        {
+            "id": candidate.selection_id,
+            "title": candidate.title,
+            "type": candidate.plugin_type,
+            "repo": candidate.source_repo,
+            "version": candidate.version,
+            "file_path": candidate.file_path,
+            "description": candidate.metadata.get("description", ""),
+        }
+        for candidate in candidates
+    ]
+    ui_text = {
+        "title": _t(lang, "confirm_title"),
+        "list_title": _t(lang, "status_list_title", count=len(candidates)),
+        "repo_label": _selection_t(lang, "repo_label"),
+        "hint": hint.strip(),
+        "select_all": _selection_t(lang, "select_all"),
+        "clear_all": _selection_t(lang, "clear_all"),
+        "quick_select": _selection_t(lang, "quick_select"),
+        "all_types": _selection_t(lang, "all_types"),
+        "repo_filter": _selection_t(lang, "repo_filter"),
+        "all_repos": _selection_t(lang, "all_repos"),
+        "search_label": _selection_t(lang, "search_label"),
+        "search_placeholder": _selection_t(lang, "search_placeholder"),
+        "no_results": _selection_t(lang, "no_results"),
+        "selected_count": _selection_t(lang, "selected_count", count="{count}"),
+        "install_selected": _selection_t(lang, "install_selected"),
+        "cancel": _selection_t(lang, "cancel"),
+        "version_label": _selection_t(lang, "version_label"),
+        "file_label": _selection_t(lang, "file_label"),
+        "description_label": _selection_t(lang, "description_label"),
+    }
+    js_code = _build_selection_dialog_js(options, ui_text)
 
     try:
-        confirmed = await asyncio.wait_for(
-            event_call(
-                {
-                    "type": "confirmation",
-                    "data": {
-                        "title": _t(lang, "confirm_title"),
-                        "message": message,
-                    },
-                }
-            ),
+        result = await asyncio.wait_for(
+            event_call({"type": "execute", "data": {"code": js_code}}),
             timeout=CONFIRMATION_TIMEOUT,
         )
     except asyncio.TimeoutError:
-        logger.warning("Installation confirmation timed out.")
-        return False, _t(lang, "err_confirm_unavailable")
+        logger.warning("Installation selection dialog timed out.")
+        return None, _t(lang, "err_confirm_unavailable")
     except Exception as exc:
-        logger.warning("Installation confirmation failed: %s", exc)
-        return False, _t(lang, "err_confirm_unavailable")
+        logger.warning("Installation selection dialog failed: %s", exc)
+        return None, _t(lang, "err_confirm_unavailable")
 
-    return bool(confirmed), None
+    if not isinstance(result, dict):
+        logger.warning("Unexpected selection dialog result: %r", result)
+        return None, _t(lang, "err_confirm_unavailable")
+
+    if result.get("error"):
+        logger.warning("Selection dialog returned error: %s", result.get("error"))
+        return None, _t(lang, "err_confirm_unavailable")
+
+    if not result.get("confirmed"):
+        return [], None
+
+    selected_ids = result.get("selected_ids")
+    if not isinstance(selected_ids, list):
+        logger.warning("Selection dialog returned invalid selected_ids: %r", selected_ids)
+        return None, _t(lang, "err_confirm_unavailable")
+
+    selected_id_set = {str(item).strip() for item in selected_ids if str(item).strip()}
+    selected_candidates = [
+        candidate for candidate in candidates if candidate.selection_id in selected_id_set
+    ]
+    return selected_candidates, None
 
 
 def parse_github_url(url: str) -> Optional[Tuple[str, str, str]]:
@@ -811,11 +1436,13 @@ async def fetch_github_file(
 async def discover_plugins(
     url: str,
     skip_keywords: str = "test",
+    source_repo: str = "",
 ) -> Tuple[List[PluginCandidate], List[Tuple[str, str]]]:
     parsed = parse_github_url(url)
     if not parsed:
         return [], [("url", "invalid github url")]
     owner, repo, branch = parsed
+    resolved_repo = source_repo or f"{owner}/{repo}"
 
     is_default_repo = (owner.lower() == "fu-jie" and repo.lower() == "openwebui-extensions")
 
@@ -880,6 +1507,7 @@ async def discover_plugins(
                     metadata=metadata,
                     content=content,
                     function_id=build_function_id(item_path, metadata),
+                    source_repo=resolved_repo,
                 )
             )
 
@@ -887,10 +1515,30 @@ async def discover_plugins(
     return candidates, skipped
 
 
+async def discover_plugins_from_repos(
+    repos: List[str],
+    skip_keywords: str = "test",
+) -> Tuple[List[PluginCandidate], List[Tuple[str, str]]]:
+    tasks = [
+        discover_plugins(f"https://github.com/{repo}", skip_keywords, source_repo=repo)
+        for repo in repos
+    ]
+    results = await asyncio.gather(*tasks)
+
+    all_candidates: List[PluginCandidate] = []
+    all_skipped: List[Tuple[str, str]] = []
+
+    for repo, (candidates, skipped) in zip(repos, results):
+        all_candidates.extend(candidates)
+        all_skipped.extend([(f"{repo}:{path}", reason) for path, reason in skipped])
+
+    return _sort_candidates_by_repo_order(all_candidates, repos), all_skipped
+
+
 class ListParams(BaseModel):
     repo: str = Field(
         default=DEFAULT_REPO,
-        description="GitHub repository (owner/repo)",
+        description="One or more GitHub repositories (owner/repo), separated by commas, semicolons, or new lines. If the user mentions multiple repositories in one request, combine them here and call the tool once.",
     )
     plugin_types: List[str] = Field(
         default=["pipe", "action", "filter", "tool"],
@@ -901,7 +1549,7 @@ class ListParams(BaseModel):
 class InstallParams(BaseModel):
     repo: str = Field(
         default=DEFAULT_REPO,
-        description="GitHub repository (owner/repo)",
+        description="One or more GitHub repositories (owner/repo), separated by commas, semicolons, or new lines. If the user mentions multiple repositories in one request, combine them here and call the tool once instead of making separate calls.",
     )
     plugin_types: List[str] = Field(
         default=["pipe", "action", "filter", "tool"],
@@ -936,6 +1584,11 @@ class Tools:
         repo: str = DEFAULT_REPO,
         plugin_types: List[str] = ["pipe", "action", "filter", "tool"],
     ) -> str:
+        """List plugins from one or more repositories in a single call.
+
+        If a user request mentions multiple repositories, combine them into the
+        `repo` argument instead of calling this tool multiple times.
+        """
         user_ctx = await _get_user_context(__user__, __event_call__, __request__)
         lang = user_ctx.get("user_language", "en-US")
 
@@ -943,18 +1596,22 @@ class Tools:
         if valves and hasattr(valves, "SKIP_KEYWORDS") and valves.SKIP_KEYWORDS:
             skip_keywords = valves.SKIP_KEYWORDS
 
-        repo_url = f"https://github.com/{repo}"
-        candidates, _ = await discover_plugins(repo_url, skip_keywords)
+        repo_list = _parse_repo_inputs(repo)
+        candidates, _ = await discover_plugins_from_repos(repo_list, skip_keywords)
 
         if not candidates:
             return _t(lang, "err_no_plugins")
 
-        filtered = _filter_candidates(candidates, plugin_types, repo)
+        filtered = _filter_candidates(candidates, plugin_types, repo_list)
         if not filtered:
             return _t(lang, "err_no_match")
 
         lines = [f"## {_t(lang, 'status_list_title', count=len(filtered))}\n"]
+        current_repo = ""
         for c in filtered:
+            if c.source_repo != current_repo:
+                lines.append(f"\n### {c.source_repo}")
+                current_repo = c.source_repo
             lines.append(
                 _t(lang, "list_item", type=c.plugin_type, title=c.title)
             )
@@ -973,6 +1630,12 @@ class Tools:
         exclude_keywords: str = "",
         timeout: int = DEFAULT_TIMEOUT,
     ) -> str:
+        """Install plugins from one or more repositories in a single call.
+
+        If a user request mentions multiple repositories, combine them into the
+        `repo` argument and call this tool once instead of making parallel
+        calls for each repository.
+        """
         user_ctx = await _get_user_context(__user__, __event_call__, __request__)
         lang = user_ctx.get("user_language", "en-US")
         event_emitter = __event_emitter__ or emitter
@@ -1024,39 +1687,30 @@ class Tools:
 
         await _emit_status(event_emitter, _t(lang, "status_fetching"), done=False)
 
-        repo_url = f"https://github.com/{repo}"
-        candidates, _ = await discover_plugins(repo_url, skip_keywords)
+        repo_list = _parse_repo_inputs(repo)
+        candidates, _ = await discover_plugins_from_repos(repo_list, skip_keywords)
 
         if not candidates:
             return await _finalize_message(
                 event_emitter, _t(lang, "err_no_plugins"), notification_type="error"
             )
 
-        filtered = _filter_candidates(candidates, plugin_types, repo, exclude_keywords)
+        filtered = _filter_candidates(candidates, plugin_types, repo_list, exclude_keywords)
 
         if not filtered:
             return await _finalize_message(
                 event_emitter, _t(lang, "err_no_match"), notification_type="warning"
             )
 
-        plugin_list = "\n".join([f"- [{c.plugin_type}] {c.title}" for c in filtered])
         hint_msg = _build_confirmation_hint(lang, repo, exclude_keywords)
-        confirm_msg = _t(
-            lang,
-            "confirm_message",
-            count=len(filtered),
-            plugin_list=plugin_list,
-            hint=hint_msg,
-        )
-
-        confirmed, confirm_error = await _request_confirmation(
-            __event_call__, lang, confirm_msg
+        selected_candidates, confirm_error = await _request_plugin_selection(
+            __event_call__, lang, filtered, hint_msg
         )
         if confirm_error:
             return await _finalize_message(
                 event_emitter, confirm_error, notification_type="warning"
             )
-        if not confirmed:
+        if not selected_candidates:
             return await _finalize_message(
                 event_emitter,
                 _t(lang, "confirm_cancelled"),
@@ -1068,9 +1722,10 @@ class Tools:
             "Starting OpenWebUI install requests",
             {
                 "repo": repo,
+                "repos": repo_list,
                 "base_url": base_url,
                 "note": "Backend uses default port 8080 (containerized environment)",
-                "plugin_count": len(filtered),
+                "plugin_count": len(selected_candidates),
                 "plugin_types": plugin_types,
                 "exclude_keywords": exclude_keywords,
                 "timeout": timeout,
@@ -1092,7 +1747,7 @@ class Tools:
         async with httpx.AsyncClient(
             timeout=httpx.Timeout(timeout), follow_redirects=True
         ) as client:
-            for candidate in filtered:
+            for candidate in selected_candidates:
                 await _emit_status(
                     event_emitter,
                     _t(
@@ -1341,12 +1996,17 @@ class Tools:
                         )
                     )
 
-        summary = _t(lang, "status_done", success=success_count, total=len(filtered))
+        summary = _t(
+            lang,
+            "status_done",
+            success=success_count,
+            total=len(selected_candidates),
+        )
         output = "\n".join(results + [summary])
         notification_type = "success"
         if success_count == 0:
             notification_type = "error"
-        elif success_count < len(filtered):
+        elif success_count < len(selected_candidates):
             notification_type = "warning"
 
         await _emit_status(event_emitter, summary, done=True)

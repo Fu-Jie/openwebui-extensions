@@ -90,6 +90,13 @@ A collection of enhancements, plugins, and prompts for [open-webui](https://gith
 
 **Maximize your context window.** Intelligently compresses chat history using LLM logic to save tokens and costs while maintaining a high-quality reasoning chain.
 
+### 6. [Batch Install Plugins from GitHub](https://openwebui.com/posts/batch_install_plugins_install_popular_plugins_in_s_c9fd6e80) [![Market](https://img.shields.io/badge/Get-Market-blue?style=flat-square&logo=openwebui)](https://openwebui.com/posts/batch_install_plugins_install_popular_plugins_in_s_c9fd6e80)
+
+**Faster plugin onboarding across community repositories.** Pull plugins from multiple GitHub repositories in one request, then narrow the result set inside an interactive dialog with repository tags, type filters, keyword search, and descriptions before installing only the subset you want.
+
+![Batch Install Plugins Dialog](./plugins/tools/batch-install-plugins/install.png)
+> *A single install dialog can merge multiple repositories and let you filter visually before anything is installed.*
+
 ## 📦 Project Contents
 
 <!-- markdownlint-disable MD033 -->
@@ -111,6 +118,7 @@ Located in the `plugins/` directory, containing Python-based enhancements:
 
 - **Smart Mind Map Tool** (`smart-mind-map-tool`): The tool version of Smart Mind Map, enabling AI proactive/autonomous invocation.
 - **OpenWebUI Skills Manager Tool** (`openwebui-skills-manager-tool`): Native tool for managing OpenWebUI skills.
+- **Batch Install Plugins from GitHub** (`batch-install-plugins`): Discovers plugins from multiple GitHub repositories and installs them through an interactive repository/type-filtered selection dialog.
 
 ### Filters
 
