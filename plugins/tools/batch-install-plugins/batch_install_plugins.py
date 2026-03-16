@@ -5,7 +5,7 @@ author_url: https://github.com/Fu-Jie/openwebui-extensions
 funding_url: https://github.com/open-webui
 version: 1.1.0
 openwebui_id: c9fd6e80-d58f-4312-8fbb-214d86bbe599
-description: One-click batch install plugins from GitHub repositories to your OpenWebUI instance.
+description: One-click batch install plugins from one or more GitHub repositories to your OpenWebUI instance. If a user mentions multiple repositories in one request, combine them into a single tool call.
 """
 
 import ast
@@ -1470,7 +1470,7 @@ async def discover_plugins_from_repos(
 class ListParams(BaseModel):
     repo: str = Field(
         default=DEFAULT_REPO,
-        description="One or more GitHub repositories (owner/repo), separated by commas, semicolons, or new lines",
+        description="One or more GitHub repositories (owner/repo), separated by commas, semicolons, or new lines. If the user mentions multiple repositories in one request, combine them here and call the tool once.",
     )
     plugin_types: List[str] = Field(
         default=["pipe", "action", "filter", "tool"],
@@ -1481,7 +1481,7 @@ class ListParams(BaseModel):
 class InstallParams(BaseModel):
     repo: str = Field(
         default=DEFAULT_REPO,
-        description="One or more GitHub repositories (owner/repo), separated by commas, semicolons, or new lines",
+        description="One or more GitHub repositories (owner/repo), separated by commas, semicolons, or new lines. If the user mentions multiple repositories in one request, combine them here and call the tool once instead of making separate calls.",
     )
     plugin_types: List[str] = Field(
         default=["pipe", "action", "filter", "tool"],
@@ -1516,6 +1516,11 @@ class Tools:
         repo: str = DEFAULT_REPO,
         plugin_types: List[str] = ["pipe", "action", "filter", "tool"],
     ) -> str:
+        """List plugins from one or more repositories in a single call.
+
+        If a user request mentions multiple repositories, combine them into the
+        `repo` argument instead of calling this tool multiple times.
+        """
         user_ctx = await _get_user_context(__user__, __event_call__, __request__)
         lang = user_ctx.get("user_language", "en-US")
 
@@ -1557,6 +1562,12 @@ class Tools:
         exclude_keywords: str = "",
         timeout: int = DEFAULT_TIMEOUT,
     ) -> str:
+        """Install plugins from one or more repositories in a single call.
+
+        If a user request mentions multiple repositories, combine them into the
+        `repo` argument and call this tool once instead of making parallel
+        calls for each repository.
+        """
         user_ctx = await _get_user_context(__user__, __event_call__, __request__)
         lang = user_ctx.get("user_language", "en-US")
         event_emitter = __event_emitter__ or emitter

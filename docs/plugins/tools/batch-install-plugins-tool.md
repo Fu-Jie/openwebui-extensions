@@ -62,6 +62,8 @@ The `repo` parameter accepts one or more `owner/repo` values separated by commas
 
 After plugin discovery and filtering, OpenWebUI opens a browser dialog built with the `execute` event. The dialog merges results from every requested repository, groups them by repository, supports type filters and keyword search, and lets you check exactly which plugins to install before the API calls start.
 
+If one user request mentions multiple repositories, keep them in the same request so the model can pass them into a single tool call.
+
 ## Quick Start: Install Popular Collections
 
 Copy any of these prompts and paste them into your chat:
@@ -89,7 +91,7 @@ Install all plugins from rbb-dev/Open-WebUI-OpenRouter-pipe
 Install all plugins from Fu-Jie/openwebui-extensions, Classic298/open-webui-plugins
 ```
 
-Use any line as-is, or combine repositories in one request. Already installed plugins are automatically updated.
+Use any line as-is, or combine repositories in one request. If you want plugins from multiple repositories, prefer one combined request instead of sending separate lines. Already installed plugins are automatically updated.
 
 ## Usage Examples
 
