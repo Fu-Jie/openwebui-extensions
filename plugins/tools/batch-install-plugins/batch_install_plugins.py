@@ -1061,6 +1061,8 @@ def _build_selection_dialog_js(
         "                button.addEventListener('click', () => {",
         "                    const pluginType = button.getAttribute('data-plugin-type') || '';",
         "                    activeFilter = activeFilter === pluginType ? '' : pluginType;",
+        "                    selected.clear();",
+        "                    getVisibleOptions().forEach((item) => selected.add(item.id));",
         "                    renderList();",
         "                });",
         "            });",
