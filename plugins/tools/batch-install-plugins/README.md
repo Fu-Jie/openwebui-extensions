@@ -14,7 +14,7 @@ One-click batch install plugins from GitHub repositories to your OpenWebUI insta
 - **Auto-Update**: Automatically updates previously installed plugins
 - **Public GitHub Support**: Install plugins from any public GitHub repository
 - **Multi-Type Support**: Supports Pipe, Action, Filter, and Tool plugins
-- **Interactive Selection Dialog**: Review the filtered list, check the plugins you want, then install only that subset
+- **Interactive Selection Dialog**: Review the filtered list with type tags and plugin descriptions, then install only the checked subset
 - **i18n**: Supports 11 languages
 
 ## Flow
@@ -37,7 +37,7 @@ User Input
     ▼
 ┌─────────────────────────────────────┐
 │  Show Selection Dialog              │
-│  (checkbox list + exclude hint)     │
+│  (checkbox list + type tags + desc) │
 └─────────────────────────────────────┘
     │
     ├── [Cancel] → End
@@ -63,7 +63,7 @@ User Input
 
 Each request handles one repository. To mix repositories, send another request after the previous installation completes.
 
-After plugin discovery and filtering, OpenWebUI opens a browser dialog built with the `execute` event so you can check exactly which plugins to install before the API calls start.
+After plugin discovery and filtering, OpenWebUI opens a browser dialog built with the `execute` event so you can review plugin descriptions, use type tags for quick batch selection, and check exactly which plugins to install before the API calls start.
 
 ## Quick Start: Install Popular Collections
 

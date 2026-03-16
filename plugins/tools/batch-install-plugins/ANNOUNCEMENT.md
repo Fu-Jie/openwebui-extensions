@@ -10,12 +10,13 @@ Installing plugins in OpenWebUI should not feel like an all-or-nothing jump. Wit
 
 ### 🚀 Interactive Plugin Selection
 - Uses the OpenWebUI `execute` event to open a custom browser dialog
-- Displays the filtered plugin list with checkboxes, repository context, and exclude hints
+- Displays the filtered plugin list with checkboxes, type tags, plugin descriptions, and repository context
 - Installs only the plugins the user keeps selected
 
 ### ✅ Smart Safety Features
 - Replaces the basic confirmation event with a richer selective install flow
 - Users can uncheck plugins they do not want without rewriting the request
+- Removes the noisy copy-to-exclude helper when it is not needed
 - Automatically excludes the tool itself from installation
 
 ### 🌍 Multi-Repository Support
