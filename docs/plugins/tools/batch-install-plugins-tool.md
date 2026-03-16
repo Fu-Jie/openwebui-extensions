@@ -1,6 +1,6 @@
 # Batch Install Plugins from GitHub
 
-**Author:** [Fu-Jie](https://github.com/Fu-Jie) | **Version:** 1.0.0 | **Project:** [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions)
+**Author:** [Fu-Jie](https://github.com/Fu-Jie) | **Version:** 1.1.0 | **Project:** [OpenWebUI Extensions](https://github.com/Fu-Jie/openwebui-extensions)
 
 One-click batch install plugins from GitHub repositories to your OpenWebUI instance.
 
@@ -10,7 +10,7 @@ One-click batch install plugins from GitHub repositories to your OpenWebUI insta
 - **Auto-Update**: Automatically updates previously installed plugins
 - **Public GitHub Support**: Install plugins from any public GitHub repository
 - **Multi-Type Support**: Supports Pipe, Action, Filter, and Tool plugins
-- **Confirmation**: Shows plugin list before installing, allows selective installation
+- **Interactive Selection Dialog**: Review the filtered list, check the plugins you want, then install only that subset
 - **i18n**: Supports 11 languages
 
 ## Flow
@@ -32,8 +32,8 @@ User Input
     │
     ▼
 ┌─────────────────────────────────────┐
-│  Show Confirmation Dialog           │
-│  (list plugins + exclude hint)      │
+│  Show Selection Dialog              │
+│  (checkbox list + exclude hint)     │
 └─────────────────────────────────────┘
     │
     ├── [Cancel] → End
@@ -58,6 +58,8 @@ User Input
 ## Interactive Installation Workflow
 
 Each request handles one repository. To mix repositories, send another request after the previous installation completes.
+
+After plugin discovery and filtering, OpenWebUI opens a browser dialog built with the `execute` event so you can check exactly which plugins to install before the API calls start.
 
 ## Quick Start: Install Popular Collections
 
@@ -127,11 +129,11 @@ For other repositories:
 | `SKIP_KEYWORDS` | `test,verify,example,template,mock` | Comma-separated keywords to skip |
 | `TIMEOUT` | `20` | Request timeout in seconds |
 
-## Confirmation Timeout
+## Selection Dialog Timeout
 
-User confirmation dialogs have a default timeout of **2 minutes (120 seconds)**, allowing sufficient time for users to:
+The plugin selection dialog has a default timeout of **2 minutes (120 seconds)**, allowing sufficient time for users to:
 - Read and review the plugin list
-- Make installation decisions
+- Check or uncheck the plugins they want
 - Handle network delays
 
 ## Support

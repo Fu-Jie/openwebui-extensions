@@ -1,6 +1,6 @@
 # Batch Install Plugins from GitHub
 
-| By [Fu-Jie](https://github.com/Fu-Jie) · v1.0.0 | [⭐ Star this repo](https://github.com/Fu-Jie/openwebui-extensions) |
+| By [Fu-Jie](https://github.com/Fu-Jie) · v1.1.0 | [⭐ Star this repo](https://github.com/Fu-Jie/openwebui-extensions) |
 | :--- | ---: |
 
 | ![followers](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_followers.json&label=%F0%9F%91%A5&style=flat) | ![points](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_points.json&label=%E2%AD%90&style=flat) | ![top](https://img.shields.io/badge/%F0%9F%8F%86-Top%20%3C1%25-10b981?style=flat) | ![contributions](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_contributions.json&label=%F0%9F%93%A6&style=flat) | ![downloads](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_downloads.json&label=%E2%AC%87%EF%B8%8F&style=flat) | ![saves](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_saves.json&label=%F0%9F%92%BE&style=flat) | ![views](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_views.json&label=%F0%9F%91%81%EF%B8%8F&style=flat) |
@@ -14,7 +14,7 @@ One-click batch install plugins from GitHub repositories to your OpenWebUI insta
 - **Auto-Update**: Automatically updates previously installed plugins
 - **Public GitHub Support**: Install plugins from any public GitHub repository
 - **Multi-Type Support**: Supports Pipe, Action, Filter, and Tool plugins
-- **Confirmation**: Shows plugin list before installing, allows selective installation
+- **Interactive Selection Dialog**: Review the filtered list, check the plugins you want, then install only that subset
 - **i18n**: Supports 11 languages
 
 ## Flow
@@ -36,8 +36,8 @@ User Input
     │
     ▼
 ┌─────────────────────────────────────┐
-│  Show Confirmation Dialog           │
-│  (list plugins + exclude hint)      │
+│  Show Selection Dialog              │
+│  (checkbox list + exclude hint)     │
 └─────────────────────────────────────┘
     │
     ├── [Cancel] → End
@@ -62,6 +62,8 @@ User Input
 ## Interactive Installation Workflow
 
 Each request handles one repository. To mix repositories, send another request after the previous installation completes.
+
+After plugin discovery and filtering, OpenWebUI opens a browser dialog built with the `execute` event so you can check exactly which plugins to install before the API calls start.
 
 ## Quick Start: Install Popular Collections
 
@@ -131,11 +133,11 @@ For other repositories:
 | `SKIP_KEYWORDS` | `test,verify,example,template,mock` | Comma-separated keywords to skip |
 | `TIMEOUT` | `20` | Request timeout in seconds |
 
-## Confirmation Timeout
+## Selection Dialog Timeout
 
-User confirmation dialogs have a default timeout of **2 minutes (120 seconds)**, allowing sufficient time for users to:
+The plugin selection dialog has a default timeout of **2 minutes (120 seconds)**, allowing sufficient time for users to:
 - Read and review the plugin list
-- Make installation decisions
+- Check or uncheck the plugins they want
 - Handle network delays
 
 ## Support

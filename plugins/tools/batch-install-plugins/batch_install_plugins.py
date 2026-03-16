@@ -3,7 +3,8 @@ title: Batch Install Plugins from GitHub
 author: Fu-Jie
 author_url: https://github.com/Fu-Jie/openwebui-extensions
 funding_url: https://github.com/open-webui
-version: 1.0.0
+version: 1.1.0
+openwebui_id: c9fd6e80-d58f-4312-8fbb-214d86bbe599
 description: One-click batch install plugins from GitHub repositories to your OpenWebUI instance.
 """
 
@@ -298,6 +299,119 @@ TRANSLATIONS = {
 
 FALLBACK_MAP = {"zh": "zh-CN", "zh-TW": "zh-TW", "zh-HK": "zh-HK", "en": "en-US", "ko": "ko-KR", "ja": "ja-JP", "fr": "fr-FR", "de": "de-DE", "es": "es-ES", "it": "it-IT", "vi": "vi-VN"}
 
+SELECTION_DIALOG_TEXTS = {
+    "en-US": {
+        "select_all": "Select all",
+        "clear_all": "Clear all",
+        "selected_count": "{count} selected",
+        "install_selected": "Install Selected",
+        "cancel": "Cancel",
+        "version_label": "Version",
+        "file_label": "File",
+        "repo_label": "Repository",
+    },
+    "zh-CN": {
+        "select_all": "全选",
+        "clear_all": "清空",
+        "selected_count": "已选 {count} 项",
+        "install_selected": "安装所选插件",
+        "cancel": "取消",
+        "version_label": "版本",
+        "file_label": "文件",
+        "repo_label": "仓库",
+    },
+    "zh-HK": {
+        "select_all": "全選",
+        "clear_all": "清空",
+        "selected_count": "已選 {count} 項",
+        "install_selected": "安裝所選外掛",
+        "cancel": "取消",
+        "version_label": "版本",
+        "file_label": "檔案",
+        "repo_label": "倉庫",
+    },
+    "zh-TW": {
+        "select_all": "全選",
+        "clear_all": "清空",
+        "selected_count": "已選 {count} 項",
+        "install_selected": "安裝所選外掛",
+        "cancel": "取消",
+        "version_label": "版本",
+        "file_label": "檔案",
+        "repo_label": "倉庫",
+    },
+    "ko-KR": {
+        "select_all": "전체 선택",
+        "clear_all": "선택 해제",
+        "selected_count": "{count}개 선택됨",
+        "install_selected": "선택한 플러그인 설치",
+        "cancel": "취소",
+        "version_label": "버전",
+        "file_label": "파일",
+        "repo_label": "저장소",
+    },
+    "ja-JP": {
+        "select_all": "すべて選択",
+        "clear_all": "クリア",
+        "selected_count": "{count}件を選択",
+        "install_selected": "選択したプラグインをインストール",
+        "cancel": "キャンセル",
+        "version_label": "バージョン",
+        "file_label": "ファイル",
+        "repo_label": "リポジトリ",
+    },
+    "fr-FR": {
+        "select_all": "Tout sélectionner",
+        "clear_all": "Tout effacer",
+        "selected_count": "{count} sélectionnés",
+        "install_selected": "Installer la sélection",
+        "cancel": "Annuler",
+        "version_label": "Version",
+        "file_label": "Fichier",
+        "repo_label": "Dépôt",
+    },
+    "de-DE": {
+        "select_all": "Alle auswählen",
+        "clear_all": "Auswahl löschen",
+        "selected_count": "{count} ausgewählt",
+        "install_selected": "Auswahl installieren",
+        "cancel": "Abbrechen",
+        "version_label": "Version",
+        "file_label": "Datei",
+        "repo_label": "Repository",
+    },
+    "es-ES": {
+        "select_all": "Seleccionar todo",
+        "clear_all": "Limpiar",
+        "selected_count": "{count} seleccionados",
+        "install_selected": "Instalar seleccionados",
+        "cancel": "Cancelar",
+        "version_label": "Versión",
+        "file_label": "Archivo",
+        "repo_label": "Repositorio",
+    },
+    "it-IT": {
+        "select_all": "Seleziona tutto",
+        "clear_all": "Cancella",
+        "selected_count": "{count} selezionati",
+        "install_selected": "Installa selezionati",
+        "cancel": "Annulla",
+        "version_label": "Versione",
+        "file_label": "File",
+        "repo_label": "Repository",
+    },
+    "vi-VN": {
+        "select_all": "Chọn tất cả",
+        "clear_all": "Bỏ chọn",
+        "selected_count": "Đã chọn {count}",
+        "install_selected": "Cài đặt mục đã chọn",
+        "cancel": "Hủy",
+        "version_label": "Phiên bản",
+        "file_label": "Tệp",
+        "repo_label": "Kho",
+    },
+}
+
 
 def _resolve_language(user_language: str) -> str:
     value = str(user_language or "").strip()
@@ -314,6 +428,19 @@ def _resolve_language(user_language: str) -> str:
 def _t(lang: str, key: str, **kwargs) -> str:
     lang_key = _resolve_language(lang)
     text = TRANSLATIONS.get(lang_key, TRANSLATIONS["en-US"]).get(key, key)
+    if kwargs:
+        try:
+            text = text.format(**kwargs)
+        except KeyError:
+            pass
+    return text
+
+
+def _selection_t(lang: str, key: str, **kwargs) -> str:
+    lang_key = _resolve_language(lang)
+    text = SELECTION_DIALOG_TEXTS.get(
+        lang_key, SELECTION_DIALOG_TEXTS["en-US"]
+    ).get(key, SELECTION_DIALOG_TEXTS["en-US"][key])
     if kwargs:
         try:
             text = text.format(**kwargs)
@@ -738,35 +865,242 @@ def _build_confirmation_hint(lang: str, repo: str, exclude_keywords: str) -> str
     return _t(lang, "confirm_copy_exclude_hint", keywords=SELF_EXCLUDE_HINT)
 
 
-async def _request_confirmation(
+def _build_selection_dialog_js(
+    options: List[Dict[str, str]],
+    ui_text: Dict[str, str],
+) -> str:
+    lines = [
+        "return new Promise((resolve) => {",
+        "    try {",
+        f"        const options = {json.dumps(options, ensure_ascii=False)};",
+        f"        const ui = {json.dumps(ui_text, ensure_ascii=False)};",
+        "        const dialogId = 'batch-install-plugin-selector';",
+        "        const body = typeof document !== 'undefined' ? document.body : null;",
+        "        const existing = body ? document.getElementById(dialogId) : null;",
+        "        if (existing) { existing.remove(); }",
+        "        if (!body) {",
+        "            resolve({ confirmed: false, error: 'document.body unavailable', selected_ids: [] });",
+        "            return;",
+        "        }",
+        "        const selected = new Set(options.map((item) => item.id));",
+        "        const escapeHtml = (value) => String(value ?? '').replace(/[&<>\"']/g, (char) => ({",
+        "            '&': '&amp;',",
+        "            '<': '&lt;',",
+        "            '>': '&gt;',",
+        "            '\"': '&quot;',",
+        "            \"'\": '&#39;',",
+        "        }[char]));",
+        "        const overlay = document.createElement('div');",
+        "        overlay.id = dialogId;",
+        "        overlay.style.cssText = [",
+        "            'position:fixed',",
+        "            'inset:0',",
+        "            'padding:24px',",
+        "            'background:rgba(15,23,42,0.52)',",
+        "            'backdrop-filter:blur(3px)',",
+        "            'display:flex',",
+        "            'align-items:center',",
+        "            'justify-content:center',",
+        "            'z-index:9999',",
+        "            'box-sizing:border-box',",
+        "        ].join(';');",
+        "        overlay.innerHTML = `",
+        "            <div style=\"width:min(920px,100%);max-height:min(88vh,900px);overflow:hidden;border-radius:18px;background:#ffffff;box-shadow:0 30px 80px rgba(15,23,42,0.28);display:flex;flex-direction:column;font-family:ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif\">",
+        "                <div style=\"padding:22px 24px 16px;border-bottom:1px solid #e5e7eb\">",
+        "                    <div style=\"display:flex;justify-content:space-between;gap:16px;align-items:flex-start;flex-wrap:wrap\">",
+        "                        <div>",
+        "                            <div style=\"font-size:22px;font-weight:700;color:#0f172a\">${escapeHtml(ui.title)}</div>",
+        "                            <div style=\"margin-top:8px;font-size:14px;color:#475569\">${escapeHtml(ui.list_title)}</div>",
+        "                        </div>",
+        "                        <div style=\"display:inline-flex;align-items:center;gap:8px;border-radius:999px;background:#eff6ff;color:#1d4ed8;padding:8px 12px;font-size:12px;font-weight:600\">",
+        "                            <span>${escapeHtml(ui.repo_label)}</span>",
+        "                            <span>${escapeHtml(ui.repo)}</span>",
+        "                        </div>",
+        "                    </div>",
+        "                    <div id=\"batch-install-plugin-selector-hint\" style=\"margin-top:14px;padding:12px 14px;border-radius:12px;background:#f8fafc;color:#334155;font-size:13px;line-height:1.5;white-space:pre-wrap\"></div>",
+        "                </div>",
+        "                <div style=\"padding:16px 24px 0;display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap\">",
+        "                    <div style=\"display:flex;gap:8px;flex-wrap:wrap\">",
+        "                        <button id=\"batch-install-plugin-selector-select-all\" style=\"padding:8px 12px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;color:#0f172a;font-size:13px;cursor:pointer\">${escapeHtml(ui.select_all)}</button>",
+        "                        <button id=\"batch-install-plugin-selector-clear-all\" style=\"padding:8px 12px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;color:#0f172a;font-size:13px;cursor:pointer\">${escapeHtml(ui.clear_all)}</button>",
+        "                    </div>",
+        "                    <div id=\"batch-install-plugin-selector-count\" style=\"font-size:13px;font-weight:600;color:#475569\"></div>",
+        "                </div>",
+        "                <div id=\"batch-install-plugin-selector-list\" style=\"padding:16px 24px 0;overflow:auto;display:grid;gap:12px;flex:1;min-height:0\"></div>",
+        "                <div style=\"padding:18px 24px 24px;border-top:1px solid #e5e7eb;margin-top:18px;display:flex;justify-content:flex-end;gap:12px;flex-wrap:wrap\">",
+        "                    <button id=\"batch-install-plugin-selector-cancel\" style=\"padding:10px 16px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;color:#0f172a;font-weight:600;cursor:pointer\">${escapeHtml(ui.cancel)}</button>",
+        "                    <button id=\"batch-install-plugin-selector-submit\" style=\"padding:10px 16px;border:none;border-radius:10px;background:#0f172a;color:#fff;font-weight:600;cursor:pointer\">${escapeHtml(ui.install_selected)}</button>",
+        "                </div>",
+        "            </div>",
+        "        `;",
+        "        body.appendChild(overlay);",
+        "        const previousOverflow = body.style.overflow;",
+        "        body.style.overflow = 'hidden';",
+        "        const listEl = overlay.querySelector('#batch-install-plugin-selector-list');",
+        "        const countEl = overlay.querySelector('#batch-install-plugin-selector-count');",
+        "        const hintEl = overlay.querySelector('#batch-install-plugin-selector-hint');",
+        "        const submitBtn = overlay.querySelector('#batch-install-plugin-selector-submit');",
+        "        const cancelBtn = overlay.querySelector('#batch-install-plugin-selector-cancel');",
+        "        const selectAllBtn = overlay.querySelector('#batch-install-plugin-selector-select-all');",
+        "        const clearAllBtn = overlay.querySelector('#batch-install-plugin-selector-clear-all');",
+        "        hintEl.textContent = ui.hint || '';",
+        "        hintEl.style.display = ui.hint ? 'block' : 'none';",
+        "        const updateState = () => {",
+        "            countEl.textContent = ui.selected_count.replace('{count}', String(selected.size));",
+        "            submitBtn.disabled = selected.size === 0;",
+        "            submitBtn.style.opacity = selected.size === 0 ? '0.45' : '1';",
+        "            submitBtn.style.cursor = selected.size === 0 ? 'not-allowed' : 'pointer';",
+        "        };",
+        "        const renderList = () => {",
+        "            listEl.innerHTML = options.map((item) => {",
+        "                const checked = selected.has(item.id) ? 'checked' : '';",
+        "                return `",
+        "                    <label style=\"display:flex;gap:14px;align-items:flex-start;padding:14px;border:1px solid #e2e8f0;border-radius:14px;background:#fff;cursor:pointer\">",
+        "                        <input type=\"checkbox\" data-plugin-id=\"${escapeHtml(item.id)}\" ${checked} style=\"margin-top:3px;width:16px;height:16px;accent-color:#0f172a;flex-shrink:0\" />",
+        "                        <div style=\"min-width:0;display:grid;gap:6px\">",
+        "                            <div style=\"display:flex;gap:10px;align-items:center;flex-wrap:wrap\">",
+        "                                <span style=\"display:inline-flex;align-items:center;padding:2px 8px;border-radius:999px;background:#f1f5f9;color:#334155;font-size:12px;font-weight:700;text-transform:uppercase\">${escapeHtml(item.type)}</span>",
+        "                                <span style=\"font-size:15px;font-weight:700;color:#0f172a;word-break:break-word\">${escapeHtml(item.title)}</span>",
+        "                            </div>",
+        "                            <div style=\"font-size:12px;color:#475569;word-break:break-word\">${escapeHtml(ui.version_label)}: ${escapeHtml(item.version)} · ${escapeHtml(ui.file_label)}: ${escapeHtml(item.file_path)}</div>",
+        "                        </div>",
+        "                    </label>",
+        "                `;",
+        "            }).join('');",
+        "            listEl.querySelectorAll('input[data-plugin-id]').forEach((input) => {",
+        "                input.addEventListener('change', () => {",
+        "                    const pluginId = input.getAttribute('data-plugin-id') || '';",
+        "                    if (input.checked) {",
+        "                        selected.add(pluginId);",
+        "                    } else {",
+        "                        selected.delete(pluginId);",
+        "                    }",
+        "                    updateState();",
+        "                });",
+        "            });",
+        "            updateState();",
+        "        };",
+        "        const cleanup = () => {",
+        "            body.style.overflow = previousOverflow;",
+        "            window.removeEventListener('keydown', onKeyDown, true);",
+        "            overlay.remove();",
+        "        };",
+        "        const finish = (confirmed) => {",
+        "            const selectedIds = confirmed ? options.filter((item) => selected.has(item.id)).map((item) => item.id) : [];",
+        "            cleanup();",
+        "            resolve({ confirmed, selected_ids: selectedIds });",
+        "        };",
+        "        const onKeyDown = (event) => {",
+        "            if (event.key === 'Escape') {",
+        "                event.preventDefault();",
+        "                finish(false);",
+        "            }",
+        "        };",
+        "        overlay.addEventListener('click', (event) => {",
+        "            if (event.target === overlay) {",
+        "                finish(false);",
+        "            }",
+        "        });",
+        "        selectAllBtn.addEventListener('click', () => {",
+        "            options.forEach((item) => selected.add(item.id));",
+        "            renderList();",
+        "        });",
+        "        clearAllBtn.addEventListener('click', () => {",
+        "            selected.clear();",
+        "            renderList();",
+        "        });",
+        "        cancelBtn.addEventListener('click', () => finish(false));",
+        "        submitBtn.addEventListener('click', () => {",
+        "            if (selected.size === 0) {",
+        "                updateState();",
+        "                return;",
+        "            }",
+        "            finish(true);",
+        "        });",
+        "        window.addEventListener('keydown', onKeyDown, true);",
+        "        renderList();",
+        "    } catch (error) {",
+        "        console.error('[Batch Install] Plugin selection dialog failed', error);",
+        "        resolve({",
+        "            confirmed: false,",
+        "            error: error instanceof Error ? error.message : String(error),",
+        "            selected_ids: [],",
+        "        });",
+        "    }",
+        "});",
+    ]
+    return "\n".join(lines)
+
+
+async def _request_plugin_selection(
     event_call: Optional[Any],
     lang: str,
-    message: str,
-) -> Tuple[bool, Optional[str]]:
+    repo: str,
+    candidates: List[PluginCandidate],
+    hint: str,
+) -> Tuple[Optional[List[PluginCandidate]], Optional[str]]:
     if not event_call:
-        return True, None
+        return candidates, None
+
+    options = [
+        {
+            "id": candidate.function_id,
+            "title": candidate.title,
+            "type": candidate.plugin_type,
+            "version": candidate.version,
+            "file_path": candidate.file_path,
+        }
+        for candidate in candidates
+    ]
+    ui_text = {
+        "title": _t(lang, "confirm_title"),
+        "list_title": _t(lang, "status_list_title", count=len(candidates)),
+        "repo_label": _selection_t(lang, "repo_label"),
+        "repo": repo,
+        "hint": hint.strip(),
+        "select_all": _selection_t(lang, "select_all"),
+        "clear_all": _selection_t(lang, "clear_all"),
+        "selected_count": _selection_t(lang, "selected_count", count="{count}"),
+        "install_selected": _selection_t(lang, "install_selected"),
+        "cancel": _selection_t(lang, "cancel"),
+        "version_label": _selection_t(lang, "version_label"),
+        "file_label": _selection_t(lang, "file_label"),
+    }
+    js_code = _build_selection_dialog_js(options, ui_text)
 
     try:
-        confirmed = await asyncio.wait_for(
-            event_call(
-                {
-                    "type": "confirmation",
-                    "data": {
-                        "title": _t(lang, "confirm_title"),
-                        "message": message,
-                    },
-                }
-            ),
+        result = await asyncio.wait_for(
+            event_call({"type": "execute", "data": {"code": js_code}}),
             timeout=CONFIRMATION_TIMEOUT,
         )
     except asyncio.TimeoutError:
-        logger.warning("Installation confirmation timed out.")
-        return False, _t(lang, "err_confirm_unavailable")
+        logger.warning("Installation selection dialog timed out.")
+        return None, _t(lang, "err_confirm_unavailable")
     except Exception as exc:
-        logger.warning("Installation confirmation failed: %s", exc)
-        return False, _t(lang, "err_confirm_unavailable")
+        logger.warning("Installation selection dialog failed: %s", exc)
+        return None, _t(lang, "err_confirm_unavailable")
 
-    return bool(confirmed), None
+    if not isinstance(result, dict):
+        logger.warning("Unexpected selection dialog result: %r", result)
+        return None, _t(lang, "err_confirm_unavailable")
+
+    if result.get("error"):
+        logger.warning("Selection dialog returned error: %s", result.get("error"))
+        return None, _t(lang, "err_confirm_unavailable")
+
+    if not result.get("confirmed"):
+        return [], None
+
+    selected_ids = result.get("selected_ids")
+    if not isinstance(selected_ids, list):
+        logger.warning("Selection dialog returned invalid selected_ids: %r", selected_ids)
+        return None, _t(lang, "err_confirm_unavailable")
+
+    selected_id_set = {str(item).strip() for item in selected_ids if str(item).strip()}
+    selected_candidates = [
+        candidate for candidate in candidates if candidate.function_id in selected_id_set
+    ]
+    return selected_candidates, None
 
 
 def parse_github_url(url: str) -> Optional[Tuple[str, str, str]]:
@@ -1039,24 +1373,15 @@ class Tools:
                 event_emitter, _t(lang, "err_no_match"), notification_type="warning"
             )
 
-        plugin_list = "\n".join([f"- [{c.plugin_type}] {c.title}" for c in filtered])
         hint_msg = _build_confirmation_hint(lang, repo, exclude_keywords)
-        confirm_msg = _t(
-            lang,
-            "confirm_message",
-            count=len(filtered),
-            plugin_list=plugin_list,
-            hint=hint_msg,
-        )
-
-        confirmed, confirm_error = await _request_confirmation(
-            __event_call__, lang, confirm_msg
+        selected_candidates, confirm_error = await _request_plugin_selection(
+            __event_call__, lang, repo, filtered, hint_msg
         )
         if confirm_error:
             return await _finalize_message(
                 event_emitter, confirm_error, notification_type="warning"
             )
-        if not confirmed:
+        if not selected_candidates:
             return await _finalize_message(
                 event_emitter,
                 _t(lang, "confirm_cancelled"),
@@ -1070,7 +1395,7 @@ class Tools:
                 "repo": repo,
                 "base_url": base_url,
                 "note": "Backend uses default port 8080 (containerized environment)",
-                "plugin_count": len(filtered),
+                "plugin_count": len(selected_candidates),
                 "plugin_types": plugin_types,
                 "exclude_keywords": exclude_keywords,
                 "timeout": timeout,
@@ -1092,7 +1417,7 @@ class Tools:
         async with httpx.AsyncClient(
             timeout=httpx.Timeout(timeout), follow_redirects=True
         ) as client:
-            for candidate in filtered:
+            for candidate in selected_candidates:
                 await _emit_status(
                     event_emitter,
                     _t(
@@ -1341,12 +1666,17 @@ class Tools:
                         )
                     )
 
-        summary = _t(lang, "status_done", success=success_count, total=len(filtered))
+        summary = _t(
+            lang,
+            "status_done",
+            success=success_count,
+            total=len(selected_candidates),
+        )
         output = "\n".join(results + [summary])
         notification_type = "success"
         if success_count == 0:
             notification_type = "error"
-        elif success_count < len(filtered):
+        elif success_count < len(selected_candidates):
             notification_type = "warning"
 
         await _emit_status(event_emitter, summary, done=True)

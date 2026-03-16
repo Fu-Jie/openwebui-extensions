@@ -1,21 +1,21 @@
-# 🎉 Introducing Batch Install Plugins v1.0.0
+# 🎉 Batch Install Plugins v1.1.0
 
 ## Headline
-**One-Click Batch Installation of OpenWebUI Plugins - Solving the Plugin Setup Headache**
+**Interactive Plugin Picker for OpenWebUI Batch Installation**
 
 ## Introduction
-Installing plugins in OpenWebUI used to be tedious: searching for plugins, downloading them one by one, and hoping everything works in your environment. Today, we're excited to announce **Batch Install Plugins from GitHub** v1.0.0 — a powerful new tool that transforms plugin installation from a chore into a single command.
+Installing plugins in OpenWebUI should not feel like an all-or-nothing jump. With **Batch Install Plugins from GitHub** v1.1.0, the workflow now opens an interactive browser dialog so users can review the filtered list and choose exactly which plugins to install before the API requests begin.
 
 ## Key Highlights
 
-### 🚀 One-Click Bulk Installation
-- Install multiple plugins from any public GitHub repository with a single command
-- Automatically discovers plugins and validates them
-- Updates previously installed plugins seamlessly
+### 🚀 Interactive Plugin Selection
+- Uses the OpenWebUI `execute` event to open a custom browser dialog
+- Displays the filtered plugin list with checkboxes, repository context, and exclude hints
+- Installs only the plugins the user keeps selected
 
 ### ✅ Smart Safety Features
-- Shows a confirmation dialog with the plugin list before installation
-- Users can review and approve before proceeding
+- Replaces the basic confirmation event with a richer selective install flow
+- Users can uncheck plugins they do not want without rewriting the request
 - Automatically excludes the tool itself from installation
 
 ### 🌍 Multi-Repository Support
@@ -43,7 +43,7 @@ Each request handles one repository. To combine multiple repositories, send anot
    ```
    "Install all plugins from Fu-Jie/openwebui-extensions"
    ```
-   Review the confirmation dialog, approve, and the plugins are installed.
+   Review the selection dialog, keep the plugins you want checked, and then install them.
 
 2. **Add a Community Collection**
    ```
@@ -110,8 +110,8 @@ Each line below is a separate request:
 
 - **Async Architecture**: Non-blocking I/O for better performance
 - **httpx Integration**: Modern async HTTP client with timeout protection
-- **Comprehensive Tests**: 8 regression tests with 100% pass rate
-- **Full Event Support**: Proper OpenWebUI event injection with fallback handling
+- **Selective Install Flow**: The install loop now runs only for the checked plugin subset
+- **Full Event Support**: Proper OpenWebUI `execute` event handling with fallback behavior
 
 ## Installation
 
@@ -123,7 +123,7 @@ Each line below is a separate request:
 ## Links
 
 - **GitHub Repository**: https://github.com/Fu-Jie/openwebui-extensions/tree/main/plugins/tools/batch-install-plugins
-- **Release Notes**: https://github.com/Fu-Jie/openwebui-extensions/blob/main/plugins/tools/batch-install-plugins/v1.0.0.md
+- **Release Notes**: https://github.com/Fu-Jie/openwebui-extensions/blob/main/plugins/tools/batch-install-plugins/v1.1.0.md
 
 ## Community Love
 

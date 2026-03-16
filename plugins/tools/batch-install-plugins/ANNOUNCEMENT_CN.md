@@ -1,21 +1,21 @@
-# 🎉 Batch Install Plugins 首发 v1.0.0
+# 🎉 Batch Install Plugins v1.1.0
 
 ## 标题
-**一键批量安装 OpenWebUI 插件 - 解决装机烦恼**
+**为 OpenWebUI 批量安装带来可勾选的交互式插件选择器**
 
 ## 前言
-在 OpenWebUI 中安装插件曾经很麻烦：逐个搜索、逐个下载、祈祷一切顺利。今天，我们欣然宣布 **Batch Install Plugins from GitHub** v1.0.0 的问世 — 一款强大的新工具，让插件安装从苦差事变成一条简单命令。
+批量安装不应该是“全装或不装”的二选一。现在，**Batch Install Plugins from GitHub** v1.1.0 新增了基于浏览器的交互式选择对话框，用户可以先查看过滤后的插件列表，再勾选真正要安装的插件，然后才开始调用安装 API。
 
 ## 核心特性
 
-### 🚀 一键批量安装
-- 从任意公开 GitHub 仓库用一条命令安装多个插件
-- 自动发现插件并进行验证
-- 无缝更新已安装的插件
+### 🚀 交互式插件选择
+- 基于 OpenWebUI 的 `execute` 事件打开自定义浏览器选择对话框
+- 显示过滤后的插件列表、仓库信息与排除提示
+- 只安装用户保留勾选的插件
 
 ### ✅ 智能安全保障
-- 安装前显示插件列表确认对话框
-- 用户可在安装前查看和审批
+- 用更丰富的选择流程替代基础 confirmation 事件
+- 用户无需改写请求，也能取消勾选不想安装的插件
 - 自动排除工具自身，避免重复安装
 
 ### 🌍 多仓库支持
@@ -43,7 +43,7 @@
    ```
    "安装 Fu-Jie/openwebui-extensions 中的所有插件"
    ```
-   查看确认对话框，批准后开始安装。
+   查看选择对话框，保留想安装的勾选项后开始安装。
 
 2. **再添加社区合集**
    ```
@@ -110,8 +110,8 @@ OpenRouter API pipe 集成，提供高级模型访问。
 
 - **异步架构**：非阻塞 I/O，性能更优
 - **httpx 集成**：现代化异步 HTTP 客户端，包含超时保护
-- **完整测试**：8 个回归测试，100% 通过率
-- **完整事件支持**：正确处理 OpenWebUI 事件注入，提供回退机制
+- **选择性安装流程**：安装循环只会处理用户最终勾选的插件子集
+- **完整事件支持**：正确处理 OpenWebUI `execute` 事件，并保留回退行为
 
 ## 安装方法
 
@@ -123,7 +123,7 @@ OpenRouter API pipe 集成，提供高级模型访问。
 ## 相关链接
 
 - **GitHub 仓库**：https://github.com/Fu-Jie/openwebui-extensions/tree/main/plugins/tools/batch-install-plugins
-- **发布说明**：https://github.com/Fu-Jie/openwebui-extensions/blob/main/plugins/tools/batch-install-plugins/v1.0.0_CN.md
+- **发布说明**：https://github.com/Fu-Jie/openwebui-extensions/blob/main/plugins/tools/batch-install-plugins/v1.1.0_CN.md
 
 ## 社区支持
 

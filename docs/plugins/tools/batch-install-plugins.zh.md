@@ -1,6 +1,6 @@
 # Batch Install Plugins from GitHub
 
-| 作者：[Fu-Jie](https://github.com/Fu-Jie) · v1.0.0 | [⭐ 点个 Star 支持项目](https://github.com/Fu-Jie/openwebui-extensions) |
+| 作者：[Fu-Jie](https://github.com/Fu-Jie) · v1.1.0 | [⭐ 点个 Star 支持项目](https://github.com/Fu-Jie/openwebui-extensions) |
 | :--- | ---: |
 
 | ![followers](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_followers.json&label=%F0%9F%91%A5&style=flat) | ![points](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_points.json&label=%E2%AD%90&style=flat) | ![top](https://img.shields.io/badge/%F0%9F%8F%86-Top%20%3C1%25-10b981?style=flat) | ![contributions](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_contributions.json&label=%F0%9F%93%A6&style=flat) | ![downloads](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_downloads.json&label=%E2%AC%87%EF%B8%8F&style=flat) | ![saves](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_saves.json&label=%F0%9F%92%BE&style=flat) | ![views](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_views.json&label=%F0%9F%91%81%EF%B8%8F&style=flat) |
@@ -14,7 +14,7 @@
 - 自动更新：自动更新之前安装过的插件
 - 公开 GitHub 支持：支持从任何公开 GitHub 仓库安装插件
 - 多类型支持：支持 Pipe、Action、Filter 和 Tool 插件
-- 安装确认：安装前显示插件列表，支持选择性安装
+- 交互式选择对话框：先查看过滤后的列表，再勾选要安装的插件，只安装所选子集
 - 国际化：支持 11 种语言
 
 ## 流程
@@ -36,8 +36,8 @@
     │
     ▼
 ┌─────────────────────────────────────┐
-│  显示确认对话框                      │
-│  (插件列表 + 排除提示)              │
+│  显示选择对话框                      │
+│  (复选列表 + 排除提示)              │
 └─────────────────────────────────────┘
     │
     ├── [取消] → 结束
@@ -62,6 +62,8 @@
 ## 交互式安装工作流
 
 每次请求处理一个仓库。如需混合多个来源，请在上一次安装完成后再发起下一次请求。
+
+在插件发现和过滤完成后，OpenWebUI 会通过 `execute` 事件打开浏览器选择对话框，你可以先勾选真正想安装的插件，再开始调用安装 API。
 
 ## 快速开始：安装热门插件集
 
@@ -131,11 +133,11 @@
 | `SKIP_KEYWORDS` | `test,verify,example,template,mock` | 逗号分隔的跳过关键词 |
 | `TIMEOUT` | `20` | 请求超时时间（秒）|
 
-## 确认超时时间
+## 选择对话框超时时间
 
-用户确认对话框的默认超时时间为 **2 分钟（120 秒）**，为用户提供充足的时间来：
+插件选择对话框的默认超时时间为 **2 分钟（120 秒）**，为用户提供充足的时间来：
 - 阅读和查看插件列表
-- 做出安装决定
+- 勾选或取消勾选想安装的插件
 - 处理网络延迟
 
 ## 支持
