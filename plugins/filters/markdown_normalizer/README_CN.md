@@ -14,6 +14,19 @@
 
 ---
 
+## 使用 Batch Install Plugins 安装
+
+如果你已经安装了 [Batch Install Plugins from GitHub](https://github.com/Fu-Jie/openwebui-extensions/tree/main/plugins/tools/batch-install-plugins)，可以用下面这句来安装或更新当前插件：
+
+```text
+从 Fu-Jie/openwebui-extensions 安装插件
+```
+
+当选择弹窗打开后，搜索当前插件，勾选后继续安装即可。
+
+> [!IMPORTANT]
+> 如果你已经安装了 OpenWebUI 官方社区里的同名版本，请先删除旧版本，否则重新安装时可能报错。删除后，Batch Install Plugins 后续就可以继续负责更新这个插件。
+
 ## 🔥 最新更新 v1.2.8
 * **“默认安全”策略 (Safe-by-Default)**：`enable_escape_fix` 功能现在**默认禁用**。这能有效防止插件在未经授权的情况下误改 Windows 路径 (`C:\new\test`) 或复杂的 LaTeX 公式。
 * **LaTeX 解析优化**：重构了显示数学公式 (`$$ ... $$`) 的识别逻辑。修复了 LaTeX 命令如果以 `\n` 开头（如 `\nabla`）会被错误识别为换行符的 Bug。

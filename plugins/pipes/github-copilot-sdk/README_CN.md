@@ -27,6 +27,19 @@
 
 ---
 
+## 使用 Batch Install Plugins 安装
+
+如果你已经安装了 [Batch Install Plugins from GitHub](https://github.com/Fu-Jie/openwebui-extensions/tree/main/plugins/tools/batch-install-plugins)，可以用下面这句来安装或更新当前插件：
+
+```text
+从 Fu-Jie/openwebui-extensions 安装插件
+```
+
+当选择弹窗打开后，搜索当前插件，勾选后继续安装即可。
+
+> [!IMPORTANT]
+> 如果你已经安装了 OpenWebUI 官方社区里的同名版本，请先删除旧版本，否则重新安装时可能报错。删除后，Batch Install Plugins 后续就可以继续负责更新这个插件。
+
 ## ✨ v0.10.1：RichUI 默认展示与 HTML 渲染改进
 
 - **🎨 RichUI 默认 HTML 显示**：将默认 HTML 嵌入类型从 'artifacts' 改为 'richui'，在 OpenWebUI 聊天界面中实现直观无缝的渲染效果

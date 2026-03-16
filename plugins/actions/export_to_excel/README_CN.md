@@ -8,6 +8,19 @@
 
 将对话历史直接导出为 Excel (.xlsx) 文件。
 
+## 使用 Batch Install Plugins 安装
+
+如果你已经安装了 [Batch Install Plugins from GitHub](https://github.com/Fu-Jie/openwebui-extensions/tree/main/plugins/tools/batch-install-plugins)，可以用下面这句来安装或更新当前插件：
+
+```text
+从 Fu-Jie/openwebui-extensions 安装插件
+```
+
+当选择弹窗打开后，搜索当前插件，勾选后继续安装即可。
+
+> [!IMPORTANT]
+> 如果你已经安装了 OpenWebUI 官方社区里的同名版本，请先删除旧版本，否则重新安装时可能报错。删除后，Batch Install Plugins 后续就可以继续负责更新这个插件。
+
 ## 🔥 最新更新 v0.3.6
 
 - **OpenWebUI 风格主题**：现代深灰表头（#1f2937）与浅灰斑马纹，提升可读性。

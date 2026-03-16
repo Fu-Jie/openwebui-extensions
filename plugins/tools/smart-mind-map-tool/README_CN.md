@@ -12,6 +12,19 @@
 
 ---
 
+## 使用 Batch Install Plugins 安装
+
+如果你已经安装了 [Batch Install Plugins from GitHub](https://github.com/Fu-Jie/openwebui-extensions/tree/main/plugins/tools/batch-install-plugins)，可以用下面这句来安装或更新当前插件：
+
+```text
+从 Fu-Jie/openwebui-extensions 安装插件
+```
+
+当选择弹窗打开后，搜索当前插件，勾选后继续安装即可。
+
+> [!IMPORTANT]
+> 如果你已经安装了 OpenWebUI 官方社区里的同名版本，请先删除旧版本，否则重新安装时可能报错。删除后，Batch Install Plugins 后续就可以继续负责更新这个插件。
+
 ## 🚀 为什么会有工具（Tool）版本？
 
 1. **得益于 OpenWebUI 0.8.0 的 Rich UI 特性**：在以前的版本中，是不支持直接将自定义的 HTML/iframe 嵌入到对话流中的。而从 0.8.0 开始，平台不仅支持了这种顺滑的前端组件直出（Rich UI），而且同时对 **Action** 和 **Tool** 开放了该能力。

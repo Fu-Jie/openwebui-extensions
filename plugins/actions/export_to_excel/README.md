@@ -8,6 +8,19 @@
 
 Export chat history to an Excel (.xlsx) file directly from the chat interface.
 
+## Install with Batch Install Plugins
+
+If you already use [Batch Install Plugins from GitHub](https://github.com/Fu-Jie/openwebui-extensions/tree/main/plugins/tools/batch-install-plugins), you can install or update this plugin with:
+
+```text
+Install plugin from Fu-Jie/openwebui-extensions
+```
+
+When the selection dialog opens, search for this plugin, check it, and continue.
+
+> [!IMPORTANT]
+> If the official OpenWebUI Community version is already installed, remove it first. After that, Batch Install Plugins can keep this plugin updated in future runs.
+
 ## 🔥 What's New in v0.3.6
 
 - **OpenWebUI-Style Theme**: Modern dark header (#1f2937) with light gray zebra striping for better readability.

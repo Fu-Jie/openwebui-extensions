@@ -8,6 +8,19 @@
 
 一键将 GitHub 仓库中的插件批量安装到你的 OpenWebUI 实例。
 
+## 使用 Batch Install Plugins 安装
+
+当你已经安装过一次 [Batch Install Plugins from GitHub](https://github.com/Fu-Jie/openwebui-extensions/tree/main/plugins/tools/batch-install-plugins) 后，也可以用同一句来重新安装或更新它自己：
+
+```text
+从 Fu-Jie/openwebui-extensions 安装插件
+```
+
+当选择弹窗打开后，搜索当前插件，勾选后继续安装即可。
+
+> [!IMPORTANT]
+> 如果你已经安装了 OpenWebUI 官方社区里的同名版本，请先删除旧版本，否则重新安装时可能报错。删除后，Batch Install Plugins 后续就可以继续负责更新这个插件。
+
 ## 主要功能
 
 - 一键安装：单个命令安装所有插件

@@ -10,6 +10,19 @@
 
 > 🏆 **OpenWebUI 官方推荐** — 本插件获得 OpenWebUI 社区 Newsletter 官方推荐：[2026 年 2 月 3 日](https://openwebui.com/blog/open-webui-community-newsletter-february-3rd-2026)
 
+## 使用 Batch Install Plugins 安装
+
+如果你已经安装了 [Batch Install Plugins from GitHub](https://github.com/Fu-Jie/openwebui-extensions/tree/main/plugins/tools/batch-install-plugins)，可以用下面这句来安装或更新当前插件：
+
+```text
+从 Fu-Jie/openwebui-extensions 安装插件
+```
+
+当选择弹窗打开后，搜索当前插件，勾选后继续安装即可。
+
+> [!IMPORTANT]
+> 如果你已经安装了 OpenWebUI 官方社区里的同名版本，请先删除旧版本，否则重新安装时可能报错。删除后，Batch Install Plugins 后续就可以继续负责更新这个插件。
+
 ## v1.0.0 最新更新
 
 ### 嵌入式直出与 UI 细节全线重构

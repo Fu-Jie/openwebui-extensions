@@ -12,6 +12,19 @@ Smart Mind Map Tool is the tool version of the popular Smart Mind Map action plu
 
 ---
 
+## Install with Batch Install Plugins
+
+If you already use [Batch Install Plugins from GitHub](https://github.com/Fu-Jie/openwebui-extensions/tree/main/plugins/tools/batch-install-plugins), you can install or update this plugin with:
+
+```text
+Install plugin from Fu-Jie/openwebui-extensions
+```
+
+When the selection dialog opens, search for this plugin, check it, and continue.
+
+> [!IMPORTANT]
+> If the official OpenWebUI Community version is already installed, remove it first. After that, Batch Install Plugins can keep this plugin updated in future runs.
+
 ## Why is there a Tool version?
 
 1. **Powered by OpenWebUI 0.8.0 Rich UI**: Previous versions of OpenWebUI did not support embedding custom HTML/iframes directly into the chat stream. Starting with 0.8.0, the platform introduced full Rich UI rendering support for **both Actions and Tools**, unleashing interactive frontend possibilities.

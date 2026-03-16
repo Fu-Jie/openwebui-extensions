@@ -10,6 +10,19 @@
 
 本过滤器通过智能摘要和消息压缩技术，在保持对话连贯性的同时，显著降低长对话的 Token 消耗。
 
+## 使用 Batch Install Plugins 安装
+
+如果你已经安装了 [Batch Install Plugins from GitHub](https://github.com/Fu-Jie/openwebui-extensions/tree/main/plugins/tools/batch-install-plugins)，可以用下面这句来安装或更新当前插件：
+
+```text
+从 Fu-Jie/openwebui-extensions 安装插件
+```
+
+当选择弹窗打开后，搜索当前插件，勾选后继续安装即可。
+
+> [!IMPORTANT]
+> 如果你已经安装了 OpenWebUI 官方社区里的同名版本，请先删除旧版本，否则重新安装时可能报错。删除后，Batch Install Plugins 后续就可以继续负责更新这个插件。
+
 ## 1.5.0 版本更新
 
 - **外部聊天引用摘要**: 新增对引用聊天上下文的摘要支持。现在可以复用缓存摘要、直接注入较小引用聊天，或先为较大的引用聊天生成摘要再注入。

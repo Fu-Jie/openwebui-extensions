@@ -8,6 +8,19 @@
 
 将对话导出为 Word (.docx)，支持**代码语法高亮**、**原生数学公式**、**Mermaid 图表**、**引用参考**和**增强表格格式**。
 
+## 使用 Batch Install Plugins 安装
+
+如果你已经安装了 [Batch Install Plugins from GitHub](https://github.com/Fu-Jie/openwebui-extensions/tree/main/plugins/tools/batch-install-plugins)，可以用下面这句来安装或更新当前插件：
+
+```text
+从 Fu-Jie/openwebui-extensions 安装插件
+```
+
+当选择弹窗打开后，搜索当前插件，勾选后继续安装即可。
+
+> [!IMPORTANT]
+> 如果你已经安装了 OpenWebUI 官方社区里的同名版本，请先删除旧版本，否则重新安装时可能报错。删除后，Batch Install Plugins 后续就可以继续负责更新这个插件。
+
 ## 🔥 v0.4.4 更新内容
 
 - 🧹 **内容清理加强**: 增强了对 `<details>` 块（通常包含工具调用或思考过程）的清理，确保最终文档整洁。

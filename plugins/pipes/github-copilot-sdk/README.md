@@ -26,6 +26,19 @@ This is a powerful **GitHub Copilot SDK** Pipe for **OpenWebUI** that provides a
 
 ---
 
+## Install with Batch Install Plugins
+
+If you already use [Batch Install Plugins from GitHub](https://github.com/Fu-Jie/openwebui-extensions/tree/main/plugins/tools/batch-install-plugins), you can install or update this plugin with:
+
+```text
+Install plugin from Fu-Jie/openwebui-extensions
+```
+
+When the selection dialog opens, search for this plugin, check it, and continue.
+
+> [!IMPORTANT]
+> If the official OpenWebUI Community version is already installed, remove it first. After that, Batch Install Plugins can keep this plugin updated in future runs.
+
 ## ✨ v0.10.1: RichUI Default & Improved HTML Display
 
 - **🎨 RichUI Default HTML Display**: Changed default HTML embed type from 'artifacts' to 'richui' for direct, seamless rendering in OpenWebUI chat interface

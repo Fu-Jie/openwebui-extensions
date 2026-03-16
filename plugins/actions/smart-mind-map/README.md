@@ -10,6 +10,19 @@ Smart Mind Map is a powerful OpenWebUI action plugin that intelligently analyzes
 
 > 🏆 **Featured by OpenWebUI Official** — This plugin was recommended in the official OpenWebUI Community Newsletter: [February 3, 2026](https://openwebui.com/blog/open-webui-community-newsletter-february-3rd-2026)
 
+## Install with Batch Install Plugins
+
+If you already use [Batch Install Plugins from GitHub](https://github.com/Fu-Jie/openwebui-extensions/tree/main/plugins/tools/batch-install-plugins), you can install or update this plugin with:
+
+```text
+Install plugin from Fu-Jie/openwebui-extensions
+```
+
+When the selection dialog opens, search for this plugin, check it, and continue.
+
+> [!IMPORTANT]
+> If the official OpenWebUI Community version is already installed, remove it first. After that, Batch Install Plugins can keep this plugin updated in future runs.
+
 ## What's New in v1.0.0
 
 ### Direct Embed & UI Refinements

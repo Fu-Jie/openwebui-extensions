@@ -10,6 +10,19 @@
 
 它的核心使命是：**保护用户上传的文件不被 OpenWebUI 核心系统“抢先处理”，确保 Copilot Agent 能够接收到原始文件并进行自主分析。**
 
+## 使用 Batch Install Plugins 安装
+
+如果你已经安装了 [Batch Install Plugins from GitHub](https://github.com/Fu-Jie/openwebui-extensions/tree/main/plugins/tools/batch-install-plugins)，可以用下面这句来安装或更新当前插件：
+
+```text
+从 Fu-Jie/openwebui-extensions 安装插件
+```
+
+当选择弹窗打开后，搜索当前插件，勾选后继续安装即可。
+
+> [!IMPORTANT]
+> 如果你已经安装了 OpenWebUI 官方社区里的同名版本，请先删除旧版本，否则重新安装时可能报错。删除后，Batch Install Plugins 后续就可以继续负责更新这个插件。
+
 ## ✨ 0.1.3 更新内容 (What's New)
 
 - **🔍 BYOK 模型 ID 匹配修复**: 新增前缀匹配（`github_copilot_official_sdk_pipe.xxx` 格式），修复 BYOK 模型无法被正确识别的问题，关键词兜底保持向后兼容。(v0.1.3)

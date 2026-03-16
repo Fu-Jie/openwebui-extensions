@@ -8,6 +8,19 @@
 
 A standalone OpenWebUI Tool plugin to manage native **Workspace > Skills** for any model.
 
+## Install with Batch Install Plugins
+
+If you already use [Batch Install Plugins from GitHub](https://github.com/Fu-Jie/openwebui-extensions/tree/main/plugins/tools/batch-install-plugins), you can install or update this plugin with:
+
+```text
+Install plugin from Fu-Jie/openwebui-extensions
+```
+
+When the selection dialog opens, search for this plugin, check it, and continue.
+
+> [!IMPORTANT]
+> If the official OpenWebUI Community version is already installed, remove it first. After that, Batch Install Plugins can keep this plugin updated in future runs.
+
 ## What's New
 
 - **🤖 Automatic Repo Root Discovery**: Install any GitHub repo by providing just the root URL (e.g., `https://github.com/owner/repo`). System auto-converts to discovery mode and installs all skills.

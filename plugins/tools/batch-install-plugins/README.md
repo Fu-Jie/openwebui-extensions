@@ -8,6 +8,19 @@
 
 One-click batch install plugins from GitHub repositories to your OpenWebUI instance.
 
+## Install with Batch Install Plugins
+
+After you install [Batch Install Plugins from GitHub](https://github.com/Fu-Jie/openwebui-extensions/tree/main/plugins/tools/batch-install-plugins) once, you can also use it to reinstall or update itself with:
+
+```text
+Install plugin from Fu-Jie/openwebui-extensions
+```
+
+When the selection dialog opens, search for this plugin, check it, and continue.
+
+> [!IMPORTANT]
+> If the official OpenWebUI Community version is already installed, remove it first. After that, Batch Install Plugins can keep this plugin updated in future runs.
+
 ## Key Features
 
 - **One-Click Install**: Install all plugins with a single command
