@@ -10,7 +10,7 @@ Installing plugins in OpenWebUI should not feel like an all-or-nothing jump. Wit
 
 ### 🚀 Interactive Plugin Selection
 - Uses the OpenWebUI `execute` event to open a custom browser dialog
-- Displays the filtered plugin list with checkboxes, type tags, plugin descriptions, and repository context
+- Displays the filtered plugin list with checkboxes, type filters, keyword search, plugin descriptions, and repository context
 - Installs only the plugins the user keeps selected
 
 ### ✅ Smart Safety Features
