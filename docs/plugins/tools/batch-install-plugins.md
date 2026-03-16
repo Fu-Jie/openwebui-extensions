@@ -108,7 +108,7 @@ For other repositories:
 
 ## Selection Dialog Timeout
 
-The plugin selection dialog has a default timeout of **2 minutes (120 seconds)**, allowing sufficient time for users to:
+The plugin selection dialog has a default timeout of **15 minutes (900 seconds)**, allowing sufficient time for users to:
 - Read and review the plugin list
 - Check or uncheck the plugins they want
 - Handle network delays
