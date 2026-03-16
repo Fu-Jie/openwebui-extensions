@@ -21,10 +21,10 @@
 
 ### 🌍 多仓库支持
 支持从**任意公开 GitHub 仓库**安装插件，包括你自己的社区合集：
-- 每次请求处理一个仓库，需要时可再次调用工具来组合多个来源
+- 一次请求即可组合多个仓库，并在同一个分组选择器中查看
 - **默认**：Fu-Jie/openwebui-extensions（我的个人合集）
-- 支持公开仓库，格式为 `owner/repo`
-- 混合搭配：先从我的合集安装，再通过后续调用添加社区合集
+- 支持公开仓库，格式为 `owner/repo`，可用逗号、分号或换行分隔
+- 混合搭配：安装前就能在同一个对话框中选择多个来源的插件
 
 ### 🔧 容器友好
 - 自动处理容器部署中的端口映射问题
@@ -38,7 +38,7 @@
 
 ## 工作流程：交互式安装
 
-每次请求处理一个仓库。如需组合多个仓库，请在上一次安装完成后再发起下一次请求。
+`repo` 参数现在支持多个 `owner/repo`，可用逗号、分号或换行分隔。
 
 1. **先从我的合集开始**
    ```
@@ -46,17 +46,17 @@
    ```
    查看选择对话框，保留想安装的勾选项后开始安装。
 
-2. **再添加社区合集**
+2. **混合加入社区合集**
    ```
-   "从 iChristGit/OpenWebui-Tools 安装所有插件"
+   "从 Fu-Jie/openwebui-extensions、iChristGit/OpenWebui-Tools 安装所有插件"
    ```
-   从不同仓库添加更多插件。已安装的插件会无缝更新。
+   在一个按仓库分组的选择对话框里查看两个来源，再安装真正需要的子集。
 
-3. **按类型继续安装**
+3. **跨仓库按类型继续安装**
    ```
-   "从 Haervwe/open-webui-tools 仅安装 pipe 插件"
+   "从 Haervwe/open-webui-tools、Classic298/open-webui-plugins 仅安装 pipe 插件"
    ```
-   从另一个仓库选择特定类型的插件，或排除某些关键词。
+   一次性在多个仓库里选择特定类型的插件，或排除某些关键词。
 
 4. **使用你自己的公开仓库**
    ```
@@ -85,23 +85,23 @@ OpenRouter API pipe 集成，提供高级模型访问。
 
 ## 使用示例
 
-下面每一行都是一次独立请求：
+下面每一行都可以直接使用，其中第三行演示了单次请求组合多个仓库：
 
 ```
 # 先从我的合集开始
 "安装所有插件"
 
-# 在下一次请求中加入社区插件
+# 添加社区插件
 "从 iChristGit/OpenWebui-Tools 安装所有插件"
 
-# 从其他仓库只安装某一种类型
-"从 Haervwe/open-webui-tools 仅安装 tool 插件"
+# 在同一个选择器里组合多个仓库
+"从 Fu-Jie/openwebui-extensions、Classic298/open-webui-plugins 安装所有插件"
 
-# 继续补充你的插件组合
-"从 Classic298/open-webui-plugins 安装仅 action 插件"
+# 从多个仓库只安装某一种类型
+"从 Haervwe/open-webui-tools、Classic298/open-webui-plugins 仅安装 tool 插件"
 
 # 过滤不想安装的插件
-"从 Haervwe/open-webui-tools 安装所有插件，exclude_keywords=test,deprecated"
+"从 Haervwe/open-webui-tools、Classic298/open-webui-plugins 安装所有插件，exclude_keywords=test,deprecated"
 
 # 从你自己的公开仓库安装
 "从 your-username/my-plugin-collection 安装所有插件"

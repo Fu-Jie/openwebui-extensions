@@ -16,7 +16,7 @@ import os
 import re
 import textwrap
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 import httpx
 from pydantic import BaseModel, Field
@@ -655,12 +655,14 @@ class PluginCandidate:
         metadata: Dict[str, str],
         content: str,
         function_id: str,
+        source_repo: str,
     ):
         self.plugin_type = plugin_type
         self.file_path = file_path
         self.metadata = metadata
         self.content = content
         self.function_id = function_id
+        self.source_repo = source_repo
 
     @property
     def title(self) -> str:
@@ -669,6 +671,10 @@ class PluginCandidate:
     @property
     def version(self) -> str:
         return self.metadata.get("version", "unknown")
+
+    @property
+    def selection_id(self) -> str:
+        return f"{self.source_repo}::{self.file_path}::{self.function_id}"
 
 
 def extract_metadata(content: str) -> Dict[str, str]:
@@ -884,23 +890,72 @@ def _candidate_debug_data(candidate: PluginCandidate) -> Dict[str, str]:
     return {
         "title": candidate.title,
         "type": candidate.plugin_type,
+        "source_repo": candidate.source_repo,
         "file_path": candidate.file_path,
         "function_id": candidate.function_id,
         "version": candidate.version,
     }
 
 
+def _parse_repo_inputs(repo_value: str) -> List[str]:
+    parts = re.split(r"[\n,;，；、]+", str(repo_value or DEFAULT_REPO))
+    repos: List[str] = []
+    seen: Set[str] = set()
+
+    for part in parts:
+        candidate = part.strip().strip("/")
+        if not candidate:
+            continue
+        normalized = candidate.lower()
+        if normalized in seen:
+            continue
+        seen.add(normalized)
+        repos.append(candidate)
+
+    return repos or [DEFAULT_REPO]
+
+
+def _format_repo_summary(repos: List[str]) -> str:
+    if not repos:
+        return DEFAULT_REPO
+    if len(repos) <= 2:
+        return ", ".join(repos)
+    return f"{repos[0]}, {repos[1]} +{len(repos) - 2}"
+
+
+def _sort_candidates_by_repo_order(
+    candidates: List[PluginCandidate],
+    repos: List[str],
+) -> List[PluginCandidate]:
+    repo_order = {repo.lower(): index for index, repo in enumerate(repos)}
+    fallback_index = len(repo_order)
+    return sorted(
+        candidates,
+        key=lambda item: (
+            repo_order.get(item.source_repo.lower(), fallback_index),
+            item.source_repo.lower(),
+            item.plugin_type,
+            item.file_path,
+        ),
+    )
+
+
 def _filter_candidates(
     candidates: List[PluginCandidate],
     plugin_types: List[str],
-    repo: str,
+    repos: List[str],
     exclude_keywords: str = "",
 ) -> List[PluginCandidate]:
     allowed_types = {item.strip().lower() for item in plugin_types if item.strip()}
     filtered = [c for c in candidates if c.plugin_type.lower() in allowed_types]
 
-    if repo.lower() == DEFAULT_REPO.lower():
-        filtered = [c for c in filtered if not _matches_self_plugin(c)]
+    includes_default_repo = any(item.lower() == DEFAULT_REPO.lower() for item in repos)
+    if includes_default_repo:
+        filtered = [
+            c
+            for c in filtered
+            if not (c.source_repo.lower() == DEFAULT_REPO.lower() and _matches_self_plugin(c))
+        ]
 
     exclude_list = [item.strip().lower() for item in exclude_keywords.split(",") if item.strip()]
     if exclude_list:
@@ -917,7 +972,8 @@ def _filter_candidates(
 
 
 def _build_confirmation_hint(lang: str, repo: str, exclude_keywords: str) -> str:
-    is_default_repo = repo.lower() == DEFAULT_REPO.lower()
+    repo_list = _parse_repo_inputs(repo)
+    is_default_repo = any(item.lower() == DEFAULT_REPO.lower() for item in repo_list)
     excluded_parts: List[str] = []
 
     if exclude_keywords:
@@ -1035,7 +1091,7 @@ def _build_selection_dialog_js(
         "        const typeEntries = Object.entries(typeMap);",
         "        const getVisibleOptions = () => options.filter((item) => {",
         "            const matchesType = !activeFilter || item.type === activeFilter;",
-        "            const haystack = [item.title, item.description, item.file_path, item.type].join(' ').toLowerCase();",
+        "            const haystack = [item.title, item.description, item.file_path, item.type, item.repo].join(' ').toLowerCase();",
         "            const matchesSearch = !searchTerm || haystack.includes(searchTerm);",
         "            return matchesType && matchesSearch;",
         "        });",
@@ -1074,6 +1130,28 @@ def _build_selection_dialog_js(
         "            submitBtn.style.cursor = selected.size === 0 ? 'not-allowed' : 'pointer';",
         "            renderTypeButtons();",
         "        };",
+        "        const renderOptionCard = (item) => {",
+        "            const checked = selected.has(item.id) ? 'checked' : '';",
+        "            const description = item.description ? `",
+        "                <div style=\"display:grid;gap:4px\">",
+        "                    <div style=\"font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.04em\">${escapeHtml(ui.description_label)}</div>",
+        "                    <div style=\"font-size:13px;color:#334155;line-height:1.55;word-break:break-word\">${formatMultilineText(item.description)}</div>",
+        "                </div>",
+        "            ` : '';",
+        "            return `",
+        "                <label style=\"display:flex;gap:14px;align-items:flex-start;padding:14px;border:1px solid #e2e8f0;border-radius:14px;background:#fff;cursor:pointer\">",
+        "                    <input type=\"checkbox\" data-plugin-id=\"${escapeHtml(item.id)}\" ${checked} style=\"margin-top:3px;width:16px;height:16px;accent-color:#0f172a;flex-shrink:0\" />",
+        "                    <div style=\"min-width:0;display:grid;gap:6px\">",
+        "                        <div style=\"display:flex;gap:10px;align-items:center;flex-wrap:wrap\">",
+        "                            <span style=\"display:inline-flex;align-items:center;padding:2px 8px;border-radius:999px;background:#f1f5f9;color:#334155;font-size:12px;font-weight:700;text-transform:uppercase\">${escapeHtml(item.type)}</span>",
+        "                            <span style=\"font-size:15px;font-weight:700;color:#0f172a;word-break:break-word\">${escapeHtml(item.title)}</span>",
+        "                        </div>",
+        "                        <div style=\"font-size:12px;color:#475569;word-break:break-word\">${escapeHtml(ui.repo_label)}: ${escapeHtml(item.repo)} · ${escapeHtml(ui.version_label)}: ${escapeHtml(item.version)} · ${escapeHtml(ui.file_label)}: ${escapeHtml(item.file_path)}</div>",
+        "                        ${description}",
+        "                    </div>",
+        "                </label>",
+        "            `;",
+        "        };",
         "        const renderList = () => {",
         "            const visibleOptions = getVisibleOptions();",
         "            if (!visibleOptions.length) {",
@@ -1081,28 +1159,22 @@ def _build_selection_dialog_js(
         "                updateState();",
         "                return;",
         "            }",
-        "            listEl.innerHTML = visibleOptions.map((item) => {",
-        "                const checked = selected.has(item.id) ? 'checked' : '';",
-        "                const description = item.description ? `",
-        "                    <div style=\"display:grid;gap:4px\">",
-        "                        <div style=\"font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.04em\">${escapeHtml(ui.description_label)}</div>",
-        "                        <div style=\"font-size:13px;color:#334155;line-height:1.55;word-break:break-word\">${formatMultilineText(item.description)}</div>",
+        "            const groups = visibleOptions.reduce((bucket, item) => {",
+        "                if (!bucket[item.repo]) {",
+        "                    bucket[item.repo] = [];",
+        "                }",
+        "                bucket[item.repo].push(item);",
+        "                return bucket;",
+        "            }, {});",
+        "            listEl.innerHTML = Object.entries(groups).map(([repoName, items]) => `",
+        "                <section style=\"display:grid;gap:10px\">",
+        "                    <div style=\"display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;padding:0 2px\">",
+        "                        <div style=\"font-size:13px;font-weight:700;color:#0f172a;word-break:break-word\">${escapeHtml(repoName)}</div>",
+        "                        <div style=\"display:inline-flex;align-items:center;gap:8px;padding:4px 10px;border-radius:999px;background:#f8fafc;color:#475569;font-size:12px;font-weight:600\">${items.length}</div>",
         "                    </div>",
-        "                ` : '';",
-        "                return `",
-        "                    <label style=\"display:flex;gap:14px;align-items:flex-start;padding:14px;border:1px solid #e2e8f0;border-radius:14px;background:#fff;cursor:pointer\">",
-        "                        <input type=\"checkbox\" data-plugin-id=\"${escapeHtml(item.id)}\" ${checked} style=\"margin-top:3px;width:16px;height:16px;accent-color:#0f172a;flex-shrink:0\" />",
-        "                        <div style=\"min-width:0;display:grid;gap:6px\">",
-        "                            <div style=\"display:flex;gap:10px;align-items:center;flex-wrap:wrap\">",
-        "                                <span style=\"display:inline-flex;align-items:center;padding:2px 8px;border-radius:999px;background:#f1f5f9;color:#334155;font-size:12px;font-weight:700;text-transform:uppercase\">${escapeHtml(item.type)}</span>",
-        "                                <span style=\"font-size:15px;font-weight:700;color:#0f172a;word-break:break-word\">${escapeHtml(item.title)}</span>",
-        "                            </div>",
-        "                            <div style=\"font-size:12px;color:#475569;word-break:break-word\">${escapeHtml(ui.version_label)}: ${escapeHtml(item.version)} · ${escapeHtml(ui.file_label)}: ${escapeHtml(item.file_path)}</div>",
-        "                            ${description}",
-        "                        </div>",
-        "                    </label>",
-        "                `;",
-        "            }).join('');",
+        "                    <div style=\"display:grid;gap:12px\">${items.map((item) => renderOptionCard(item)).join('')}</div>",
+        "                </section>",
+        "            `).join('');",
         "            listEl.querySelectorAll('input[data-plugin-id]').forEach((input) => {",
         "                input.addEventListener('change', () => {",
         "                    const pluginId = input.getAttribute('data-plugin-id') || '';",
@@ -1184,11 +1256,13 @@ async def _request_plugin_selection(
     if not event_call:
         return candidates, None
 
+    repo_list = _parse_repo_inputs(repo)
     options = [
         {
-            "id": candidate.function_id,
+            "id": candidate.selection_id,
             "title": candidate.title,
             "type": candidate.plugin_type,
+            "repo": candidate.source_repo,
             "version": candidate.version,
             "file_path": candidate.file_path,
             "description": candidate.metadata.get("description", ""),
@@ -1199,7 +1273,7 @@ async def _request_plugin_selection(
         "title": _t(lang, "confirm_title"),
         "list_title": _t(lang, "status_list_title", count=len(candidates)),
         "repo_label": _selection_t(lang, "repo_label"),
-        "repo": repo,
+        "repo": _format_repo_summary(repo_list),
         "hint": hint.strip(),
         "select_all": _selection_t(lang, "select_all"),
         "clear_all": _selection_t(lang, "clear_all"),
@@ -1247,7 +1321,7 @@ async def _request_plugin_selection(
 
     selected_id_set = {str(item).strip() for item in selected_ids if str(item).strip()}
     selected_candidates = [
-        candidate for candidate in candidates if candidate.function_id in selected_id_set
+        candidate for candidate in candidates if candidate.selection_id in selected_id_set
     ]
     return selected_candidates, None
 
@@ -1294,11 +1368,13 @@ async def fetch_github_file(
 async def discover_plugins(
     url: str,
     skip_keywords: str = "test",
+    source_repo: str = "",
 ) -> Tuple[List[PluginCandidate], List[Tuple[str, str]]]:
     parsed = parse_github_url(url)
     if not parsed:
         return [], [("url", "invalid github url")]
     owner, repo, branch = parsed
+    resolved_repo = source_repo or f"{owner}/{repo}"
 
     is_default_repo = (owner.lower() == "fu-jie" and repo.lower() == "openwebui-extensions")
 
@@ -1363,6 +1439,7 @@ async def discover_plugins(
                     metadata=metadata,
                     content=content,
                     function_id=build_function_id(item_path, metadata),
+                    source_repo=resolved_repo,
                 )
             )
 
@@ -1370,10 +1447,30 @@ async def discover_plugins(
     return candidates, skipped
 
 
+async def discover_plugins_from_repos(
+    repos: List[str],
+    skip_keywords: str = "test",
+) -> Tuple[List[PluginCandidate], List[Tuple[str, str]]]:
+    tasks = [
+        discover_plugins(f"https://github.com/{repo}", skip_keywords, source_repo=repo)
+        for repo in repos
+    ]
+    results = await asyncio.gather(*tasks)
+
+    all_candidates: List[PluginCandidate] = []
+    all_skipped: List[Tuple[str, str]] = []
+
+    for repo, (candidates, skipped) in zip(repos, results):
+        all_candidates.extend(candidates)
+        all_skipped.extend([(f"{repo}:{path}", reason) for path, reason in skipped])
+
+    return _sort_candidates_by_repo_order(all_candidates, repos), all_skipped
+
+
 class ListParams(BaseModel):
     repo: str = Field(
         default=DEFAULT_REPO,
-        description="GitHub repository (owner/repo)",
+        description="One or more GitHub repositories (owner/repo), separated by commas, semicolons, or new lines",
     )
     plugin_types: List[str] = Field(
         default=["pipe", "action", "filter", "tool"],
@@ -1384,7 +1481,7 @@ class ListParams(BaseModel):
 class InstallParams(BaseModel):
     repo: str = Field(
         default=DEFAULT_REPO,
-        description="GitHub repository (owner/repo)",
+        description="One or more GitHub repositories (owner/repo), separated by commas, semicolons, or new lines",
     )
     plugin_types: List[str] = Field(
         default=["pipe", "action", "filter", "tool"],
@@ -1426,18 +1523,22 @@ class Tools:
         if valves and hasattr(valves, "SKIP_KEYWORDS") and valves.SKIP_KEYWORDS:
             skip_keywords = valves.SKIP_KEYWORDS
 
-        repo_url = f"https://github.com/{repo}"
-        candidates, _ = await discover_plugins(repo_url, skip_keywords)
+        repo_list = _parse_repo_inputs(repo)
+        candidates, _ = await discover_plugins_from_repos(repo_list, skip_keywords)
 
         if not candidates:
             return _t(lang, "err_no_plugins")
 
-        filtered = _filter_candidates(candidates, plugin_types, repo)
+        filtered = _filter_candidates(candidates, plugin_types, repo_list)
         if not filtered:
             return _t(lang, "err_no_match")
 
         lines = [f"## {_t(lang, 'status_list_title', count=len(filtered))}\n"]
+        current_repo = ""
         for c in filtered:
+            if c.source_repo != current_repo:
+                lines.append(f"\n### {c.source_repo}")
+                current_repo = c.source_repo
             lines.append(
                 _t(lang, "list_item", type=c.plugin_type, title=c.title)
             )
@@ -1507,15 +1608,15 @@ class Tools:
 
         await _emit_status(event_emitter, _t(lang, "status_fetching"), done=False)
 
-        repo_url = f"https://github.com/{repo}"
-        candidates, _ = await discover_plugins(repo_url, skip_keywords)
+        repo_list = _parse_repo_inputs(repo)
+        candidates, _ = await discover_plugins_from_repos(repo_list, skip_keywords)
 
         if not candidates:
             return await _finalize_message(
                 event_emitter, _t(lang, "err_no_plugins"), notification_type="error"
             )
 
-        filtered = _filter_candidates(candidates, plugin_types, repo, exclude_keywords)
+        filtered = _filter_candidates(candidates, plugin_types, repo_list, exclude_keywords)
 
         if not filtered:
             return await _finalize_message(
@@ -1542,6 +1643,7 @@ class Tools:
             "Starting OpenWebUI install requests",
             {
                 "repo": repo,
+                "repos": repo_list,
                 "base_url": base_url,
                 "note": "Backend uses default port 8080 (containerized environment)",
                 "plugin_count": len(selected_candidates),

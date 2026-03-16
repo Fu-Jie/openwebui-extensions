@@ -21,10 +21,10 @@ Installing plugins in OpenWebUI should not feel like an all-or-nothing jump. Wit
 
 ### 🌍 Multi-Repository Support
 Install plugins from **any public GitHub repository**, including your own community collections:
-- Use one request per repository, then call the tool again to combine multiple sources
+- Use one request to combine multiple repositories in a single grouped picker
 - **Default**: Fu-Jie/openwebui-extensions (my personal collection)
-- Works with public repositories in `owner/repo` format
-- Mix and match plugins: install from my collection first, then add community collections in subsequent calls
+- Works with public repositories in `owner/repo` format, separated by commas, semicolons, or new lines
+- Mix and match plugins from multiple sources before installation starts
 
 ### 🔧 Container-Friendly
 - Automatically handles port mapping issues in containerized deployments
@@ -38,7 +38,7 @@ Install plugins from **any public GitHub repository**, including your own commun
 
 ## How It Works: Interactive Installation Workflow
 
-Each request handles one repository. To combine multiple repositories, send another request after the previous installation completes.
+The `repo` parameter now accepts one or more `owner/repo` values separated by commas, semicolons, or new lines.
 
 1. **Start with My Collection**
    ```
@@ -46,17 +46,17 @@ Each request handles one repository. To combine multiple repositories, send anot
    ```
    Review the selection dialog, keep the plugins you want checked, and then install them.
 
-2. **Add a Community Collection**
+2. **Mix in a Community Collection**
    ```
-   "Install all plugins from iChristGit/OpenWebui-Tools"
+   "Install all plugins from Fu-Jie/openwebui-extensions, iChristGit/OpenWebui-Tools"
    ```
-   Add more plugins from a different repository. Already installed plugins are updated seamlessly.
+   Review both repositories in one grouped dialog, then install only the subset you want.
 
-3. **Install a Specific Type**
+3. **Install a Specific Type Across Repositories**
    ```
-   "Install only pipe plugins from Haervwe/open-webui-tools"
+   "Install only pipe plugins from Haervwe/open-webui-tools, Classic298/open-webui-plugins"
    ```
-   Pick specific plugin types from another repository, or exclude certain keywords.
+   Pick specific plugin types across repositories, or exclude certain keywords.
 
 4. **Use Your Own Public Repository**
    ```
@@ -85,23 +85,23 @@ OpenRouter API pipe integration for advanced model access.
 
 ## Usage Examples
 
-Each line below is a separate request:
+Each line below can be used directly. The third example combines repositories in one request:
 
 ```
 # Start with my collection
 "Install all plugins"
 
-# Add community plugins in a new request
+# Add community plugins
 "Install all plugins from iChristGit/OpenWebui-Tools"
 
-# Add only one plugin type from another repository
-"Install only tool plugins from Haervwe/open-webui-tools"
+# Combine repositories in one picker
+"Install all plugins from Fu-Jie/openwebui-extensions, Classic298/open-webui-plugins"
 
-# Continue building your setup
-"Install only action plugins from Classic298/open-webui-plugins"
+# Add only one plugin type from multiple repositories
+"Install only tool plugins from Haervwe/open-webui-tools, Classic298/open-webui-plugins"
 
 # Filter out unwanted plugins
-"Install all plugins from Haervwe/open-webui-tools, exclude_keywords=test,deprecated"
+"Install all plugins from Haervwe/open-webui-tools, Classic298/open-webui-plugins, exclude_keywords=test,deprecated"
 
 # Install from your own public repository
 "Install all plugins from your-username/my-plugin-collection"

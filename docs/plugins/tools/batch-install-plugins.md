@@ -12,8 +12,9 @@ One-click batch install plugins from GitHub repositories to your OpenWebUI insta
 
 - **One-Click Install**: Install all plugins with a single command
 - **Auto-Update**: Automatically updates previously installed plugins
-- **Public GitHub Support**: Install plugins from any public GitHub repository
+- **Public GitHub Support**: Install plugins from one or many public GitHub repositories
 - **Multi-Type Support**: Supports Pipe, Action, Filter, and Tool plugins
+- **Multi-Repository Picker**: Combine multiple repositories in one request and review them in a single grouped dialog
 - **Interactive Selection Dialog**: Filter by type, search by keyword, review plugin descriptions, then install only the checked subset
 - **i18n**: Supports 11 languages
 
@@ -24,7 +25,7 @@ User Input
     │
     ▼
 ┌─────────────────────────────────────┐
-│  Discover Plugins from GitHub       │
+│  Discover Plugins from GitHub Repos │
 │  (fetch file tree + parse .py)     │
 └─────────────────────────────────────┘
     │
@@ -37,7 +38,7 @@ User Input
     ▼
 ┌─────────────────────────────────────┐
 │  Show Selection Dialog              │
-│  (type filter + search + desc)      │
+│  (repo groups + filters + search)   │
 └─────────────────────────────────────┘
     │
     ├── [Cancel] → End
@@ -61,9 +62,9 @@ User Input
 
 ## Interactive Installation Workflow
 
-Each request handles one repository. To mix repositories, send another request after the previous installation completes.
+The `repo` parameter accepts one or more `owner/repo` values separated by commas, semicolons, or new lines.
 
-After plugin discovery and filtering, OpenWebUI opens a browser dialog built with the `execute` event so you can filter by plugin type, search by keyword, review plugin descriptions, and check exactly which plugins to install before the API calls start.
+After plugin discovery and filtering, OpenWebUI opens a browser dialog built with the `execute` event. The dialog merges results from every requested repository, groups them by repository, supports type filters and keyword search, and lets you check exactly which plugins to install before the API calls start.
 
 ## Quick Start: Install Popular Collections
 
@@ -87,21 +88,27 @@ Install all plugins from suurt8ll/open_webui_functions
 
 # Add OpenRouter pipe integration
 Install all plugins from rbb-dev/Open-WebUI-OpenRouter-pipe
+
+# Mix multiple repositories in one request
+Install all plugins from Fu-Jie/openwebui-extensions, Classic298/open-webui-plugins
 ```
 
-Each line is a separate request. Already installed plugins are automatically updated.
+Use any line as-is, or combine repositories in one request. Already installed plugins are automatically updated.
 
 ## Usage Examples
 
 For more advanced usage patterns:
 
 ```
+# Combine repositories in one request
+"Install all plugins from Fu-Jie/openwebui-extensions, iChristGit/OpenWebui-Tools"
+
 # Filter by plugin type
 "Install only tool plugins from iChristGit/OpenWebui-Tools"
-"Install only action plugins from Classic298/open-webui-plugins"
+"Install only action plugins from Classic298/open-webui-plugins, Haervwe/open-webui-tools"
 
 # Exclude specific plugins
-"Install all plugins from Haervwe/open-webui-tools, exclude_keywords=test,deprecated"
+"Install all plugins from Haervwe/open-webui-tools, Classic298/open-webui-plugins, exclude_keywords=test,deprecated"
 
 # Install from your own repository
 "Install all plugins from your-username/my-plugin-collection"
@@ -109,7 +116,7 @@ For more advanced usage patterns:
 
 ## Default Repository
 
-When no repository is specified, the tool uses `Fu-Jie/openwebui-extensions` (my personal collection).
+When no repository is specified, the tool uses `Fu-Jie/openwebui-extensions` (my personal collection). You can also combine it with additional repositories in the same request.
 
 ## Plugin Detection Rules
 

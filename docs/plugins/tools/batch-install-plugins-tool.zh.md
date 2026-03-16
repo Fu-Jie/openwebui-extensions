@@ -8,8 +8,9 @@
 
 - 一键安装：单个命令安装所有插件
 - 自动更新：自动更新之前安装过的插件
-- 公开 GitHub 支持：支持从任何公开 GitHub 仓库安装插件
+- 公开 GitHub 支持：支持从一个或多个公开 GitHub 仓库安装插件
 - 多类型支持：支持 Pipe、Action、Filter 和 Tool 插件
+- 多仓库选择器：一次请求可合并多个仓库，并在同一个分组对话框中查看
 - 交互式选择对话框：先按类型筛选、按关键词搜索并查看描述信息，再勾选要安装的插件，只安装所选子集
 - 国际化：支持 11 种语言
 
@@ -20,7 +21,7 @@
     │
     ▼
 ┌─────────────────────────────────────┐
-│  从 GitHub 发现插件                  │
+│  从 GitHub 多仓库发现插件            │
 │  (获取文件树 + 解析 .py 文件)        │
 └─────────────────────────────────────┘
     │
@@ -33,7 +34,7 @@
     ▼
 ┌─────────────────────────────────────┐
 │  显示选择对话框                      │
-│  (类型筛选 + 搜索 + 描述)            │
+│  (仓库分组 + 筛选 + 搜索)            │
 └─────────────────────────────────────┘
     │
     ├── [取消] → 结束
@@ -57,9 +58,9 @@
 
 ## 交互式安装工作流
 
-每次请求处理一个仓库。如需混合多个来源，请在上一次安装完成后再发起下一次请求。
+`repo` 参数现在支持多个 `owner/repo`，可用逗号、分号或换行分隔。
 
-在插件发现和过滤完成后，OpenWebUI 会通过 `execute` 事件打开浏览器选择对话框。你可以先按类型筛选、通过关键词搜索、查看插件描述，再开始调用安装 API。
+在插件发现和过滤完成后，OpenWebUI 会通过 `execute` 事件打开浏览器选择对话框。对话框会合并所有目标仓库的结果，按仓库分组展示，并支持类型筛选、关键词搜索和描述查看，再开始调用安装 API。
 
 ## 快速开始：安装热门插件集
 
@@ -83,21 +84,27 @@
 
 # 添加 OpenRouter 管道集成
 从 rbb-dev/Open-WebUI-OpenRouter-pipe 安装所有插件
+
+# 一次请求混合多个仓库
+从 Fu-Jie/openwebui-extensions、Classic298/open-webui-plugins 安装所有插件
 ```
 
-每一行是一个独立的请求。已安装的插件会自动更新。
+你可以直接使用任意一行，也可以在一次请求里组合多个仓库。已安装的插件会自动更新。
 
 ## 使用示例
 
 更多高级用法：
 
 ```
+# 一次请求组合多个仓库
+"从 Fu-Jie/openwebui-extensions、iChristGit/OpenWebui-Tools 安装所有插件"
+
 # 按插件类型过滤
 "从 iChristGit/OpenWebui-Tools 仅安装 tool 插件"
-"从 Classic298/open-webui-plugins 仅安装 action 插件"
+"从 Classic298/open-webui-plugins、Haervwe/open-webui-tools 仅安装 action 插件"
 
 # 排除特定插件
-"从 Haervwe/open-webui-tools 安装所有插件, exclude_keywords=test,deprecated"
+"从 Haervwe/open-webui-tools、Classic298/open-webui-plugins 安装所有插件, exclude_keywords=test,deprecated"
 
 # 从你自己的仓库安装
 "从 your-username/my-plugin-collection 安装所有插件"
@@ -105,7 +112,7 @@
 
 ## 默认仓库
 
-未指定仓库时，工具会使用 `Fu-Jie/openwebui-extensions`（我的个人合集）。
+未指定仓库时，工具会使用 `Fu-Jie/openwebui-extensions`（我的个人合集）。你也可以在同一次请求里把它和其他仓库一起传入。
 
 ## 插件检测规则
 
