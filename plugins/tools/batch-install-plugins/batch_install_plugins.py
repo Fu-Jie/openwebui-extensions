@@ -937,14 +937,6 @@ def _parse_repo_inputs(repo_value: str) -> List[str]:
     return repos or [DEFAULT_REPO]
 
 
-def _format_repo_summary(repos: List[str]) -> str:
-    if not repos:
-        return DEFAULT_REPO
-    if len(repos) <= 2:
-        return ", ".join(repos)
-    return f"{repos[0]}, {repos[1]} +{len(repos) - 2}"
-
-
 def _sort_candidates_by_repo_order(
     candidates: List[PluginCandidate],
     repos: List[str],
@@ -1054,15 +1046,9 @@ def _build_selection_dialog_js(
         "        overlay.innerHTML = `",
         "            <div style=\"width:min(920px,100%);max-height:min(88vh,900px);overflow:hidden;border-radius:18px;background:#ffffff;box-shadow:0 30px 80px rgba(15,23,42,0.28);display:flex;flex-direction:column;font-family:ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif\">",
         "                <div style=\"padding:22px 24px 16px;border-bottom:1px solid #e5e7eb\">",
-        "                    <div style=\"display:flex;justify-content:space-between;gap:16px;align-items:flex-start;flex-wrap:wrap\">",
-        "                        <div>",
-        "                            <div style=\"font-size:22px;font-weight:700;color:#0f172a\">${escapeHtml(ui.title)}</div>",
-        "                            <div style=\"margin-top:8px;font-size:14px;color:#475569\">${escapeHtml(ui.list_title)}</div>",
-        "                        </div>",
-        "                        <div style=\"display:inline-flex;align-items:center;gap:8px;border-radius:999px;background:#eff6ff;color:#1d4ed8;padding:8px 12px;font-size:12px;font-weight:600\">",
-        "                            <span>${escapeHtml(ui.repo_label)}</span>",
-        "                            <span>${escapeHtml(ui.repo)}</span>",
-        "                        </div>",
+        "                    <div>",
+        "                        <div style=\"font-size:22px;font-weight:700;color:#0f172a\">${escapeHtml(ui.title)}</div>",
+        "                        <div style=\"margin-top:8px;font-size:14px;color:#475569\">${escapeHtml(ui.list_title)}</div>",
         "                    </div>",
         "                    <div id=\"batch-install-plugin-selector-hint\" style=\"margin-top:14px;padding:12px 14px;border-radius:12px;background:#f8fafc;color:#334155;font-size:13px;line-height:1.5;white-space:pre-wrap\"></div>",
         "                </div>",
@@ -1332,14 +1318,12 @@ def _build_selection_dialog_js(
 async def _request_plugin_selection(
     event_call: Optional[Any],
     lang: str,
-    repo: str,
     candidates: List[PluginCandidate],
     hint: str,
 ) -> Tuple[Optional[List[PluginCandidate]], Optional[str]]:
     if not event_call:
         return candidates, None
 
-    repo_list = _parse_repo_inputs(repo)
     options = [
         {
             "id": candidate.selection_id,
@@ -1356,7 +1340,6 @@ async def _request_plugin_selection(
         "title": _t(lang, "confirm_title"),
         "list_title": _t(lang, "status_list_title", count=len(candidates)),
         "repo_label": _selection_t(lang, "repo_label"),
-        "repo": _format_repo_summary(repo_list),
         "hint": hint.strip(),
         "select_all": _selection_t(lang, "select_all"),
         "clear_all": _selection_t(lang, "clear_all"),
@@ -1721,7 +1704,7 @@ class Tools:
 
         hint_msg = _build_confirmation_hint(lang, repo, exclude_keywords)
         selected_candidates, confirm_error = await _request_plugin_selection(
-            __event_call__, lang, repo, filtered, hint_msg
+            __event_call__, lang, filtered, hint_msg
         )
         if confirm_error:
             return await _finalize_message(
