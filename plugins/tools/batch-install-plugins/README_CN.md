@@ -70,55 +70,19 @@
 
 ## 快速开始：安装热门插件集
 
-复制以下任一提示词，粘贴到你的对话框中：
+复制下面这条提示词，粘贴到你的对话框中：
 
 ```
-# 安装我的默认集合
-安装所有插件
-
-# 添加热门社区工具
-从 iChristGit/OpenWebui-Tools 安装所有插件
-
-# 添加实用工具扩展
-从 Haervwe/open-webui-tools 安装所有插件
-
-# 添加混合社区实现
-从 Classic298/open-webui-plugins 安装所有插件
-
-# 添加基于函数的插件
-从 suurt8ll/open_webui_functions 安装所有插件
-
-# 添加 OpenRouter 管道集成
-从 rbb-dev/Open-WebUI-OpenRouter-pipe 安装所有插件
-
-# 一次请求混合多个仓库
-从 Fu-Jie/openwebui-extensions、Classic298/open-webui-plugins 安装所有插件
+从 Fu-Jie/openwebui-extensions、iChristGit/OpenWebui-Tools、Haervwe/open-webui-tools、Classic298/open-webui-plugins、suurt8ll/open_webui_functions、rbb-dev/Open-WebUI-OpenRouter-pipe 安装所有插件
 ```
 
-你可以直接使用任意一行，也可以在一次请求里组合多个仓库。如果想安装多个仓库的插件，优先使用一条合并后的请求，而不是分成多行单独发送。已安装的插件会自动更新。
+弹窗出现后，直接用里面的仓库标签、类型筛选和关键词搜索来缩小范围再安装。已安装的插件会自动更新。
 
-## 使用示例
-
-更多高级用法：
-
-```
-# 一次请求组合多个仓库
-"从 Fu-Jie/openwebui-extensions、iChristGit/OpenWebui-Tools 安装所有插件"
-
-# 按插件类型过滤
-"从 iChristGit/OpenWebui-Tools 仅安装 tool 插件"
-"从 Classic298/open-webui-plugins、Haervwe/open-webui-tools 仅安装 action 插件"
-
-# 排除特定插件
-"从 Haervwe/open-webui-tools、Classic298/open-webui-plugins 安装所有插件, exclude_keywords=test,deprecated"
-
-# 从你自己的仓库安装
-"从 your-username/my-plugin-collection 安装所有插件"
-```
+需要时，你也可以把这串仓库替换成你自己的插件仓库组合。
 
 ## 默认仓库
 
-未指定仓库时，工具会使用 `Fu-Jie/openwebui-extensions`（我的个人合集）。你也可以在同一次请求里把它和其他仓库一起传入。
+未指定仓库时，工具会使用 `Fu-Jie/openwebui-extensions`（我的个人合集）。
 
 ## 插件检测规则
 

@@ -66,55 +66,19 @@ If one user request mentions multiple repositories, keep them in the same reques
 
 ## Quick Start: Install Popular Collections
 
-Copy any of these prompts and paste them into your chat:
+Paste this prompt into your chat:
 
 ```
-# Install all from my collection (default)
-Install all plugins
-
-# Add popular community tools
-Install all plugins from iChristGit/OpenWebui-Tools
-
-# Add utility-focused extensions
-Install all plugins from Haervwe/open-webui-tools
-
-# Add mixed community implementations
-Install all plugins from Classic298/open-webui-plugins
-
-# Add function-based plugins
-Install all plugins from suurt8ll/open_webui_functions
-
-# Add OpenRouter pipe integration
-Install all plugins from rbb-dev/Open-WebUI-OpenRouter-pipe
-
-# Mix multiple repositories in one request
-Install all plugins from Fu-Jie/openwebui-extensions, Classic298/open-webui-plugins
+Install all plugins from Fu-Jie/openwebui-extensions, iChristGit/OpenWebui-Tools, Haervwe/open-webui-tools, Classic298/open-webui-plugins, suurt8ll/open_webui_functions, rbb-dev/Open-WebUI-OpenRouter-pipe
 ```
 
-Use any line as-is, or combine repositories in one request. If you want plugins from multiple repositories, prefer one combined request instead of sending separate lines. Already installed plugins are automatically updated.
+Once the dialog opens, use the repository tags, type filters, and keyword search to narrow the list before installing. Already installed plugins are automatically updated.
 
-## Usage Examples
-
-For more advanced usage patterns:
-
-```
-# Combine repositories in one request
-"Install all plugins from Fu-Jie/openwebui-extensions, iChristGit/OpenWebui-Tools"
-
-# Filter by plugin type
-"Install only tool plugins from iChristGit/OpenWebui-Tools"
-"Install only action plugins from Classic298/open-webui-plugins, Haervwe/open-webui-tools"
-
-# Exclude specific plugins
-"Install all plugins from Haervwe/open-webui-tools, Classic298/open-webui-plugins, exclude_keywords=test,deprecated"
-
-# Install from your own repository
-"Install all plugins from your-username/my-plugin-collection"
-```
+You can replace that repository list with your own collections whenever needed.
 
 ## Default Repository
 
-When no repository is specified, the tool uses `Fu-Jie/openwebui-extensions` (my personal collection). You can also combine it with additional repositories in the same request.
+When no repository is specified, the tool uses `Fu-Jie/openwebui-extensions` (my personal collection).
 
 ## Plugin Detection Rules
 
