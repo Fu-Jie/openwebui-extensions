@@ -14,9 +14,9 @@ The Chinese version (README_CN.md) MUST be translated from this file so both ver
 
 ## Preview
 
-![Plugin Preview](./preview.png)
-
-<!-- If you do not have a screenshot yet, replace the image with one short sentence explaining what users will see. -->
+<!-- Add a screenshot or description here -->
+<!-- If you have a screenshot, add it as: ![Plugin Preview](./preview.png) -->
+<!-- If you do not have a screenshot yet, replace with one short sentence explaining what users will see. -->
 
 ## Install with Batch Install Plugins
 
