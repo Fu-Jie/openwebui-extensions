@@ -1,6 +1,6 @@
 # GitHub Copilot Official SDK Pipe
 
-| 作者：[Fu-Jie](https://github.com/Fu-Jie) · v0.10.1 | [⭐ 点个 Star 支持项目](https://github.com/Fu-Jie/openwebui-extensions) |
+| 作者：[Fu-Jie](https://github.com/Fu-Jie) · v0.11.0 | [⭐ 点个 Star 支持项目](https://github.com/Fu-Jie/openwebui-extensions) |
 | :--- | ---: |
 
 | ![followers](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_followers.json&label=%F0%9F%91%A5&style=flat) | ![points](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_points.json&label=%E2%AD%90&style=flat) | ![top](https://img.shields.io/badge/%F0%9F%8F%86-Top%20%3C1%25-10b981?style=flat) | ![contributions](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_contributions.json&label=%F0%9F%93%A6&style=flat) | ![downloads](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_downloads.json&label=%E2%AC%87%EF%B8%8F&style=flat) | ![saves](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_saves.json&label=%F0%9F%92%BE&style=flat) | ![views](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_views.json&label=%F0%9F%91%81%EF%B8%8F&style=flat) |
@@ -27,11 +27,27 @@
 
 ---
 
-## ✨ v0.10.1：RichUI 默认展示与 HTML 渲染改进
+## 使用 Batch Install Plugins 安装
 
-- **🎨 RichUI 默认 HTML 显示**：将默认 HTML 嵌入类型从 'artifacts' 改为 'richui'，在 OpenWebUI 聊天界面中实现直观无缝的渲染效果
-- **📝 增强系统提示词**：更新系统提示词指导，默认推荐 RichUI 模式展示 HTML 内容，仅当用户显式请求时使用 artifacts 模式
-- **⚡ 更顺畅的工作流**：消除不必要的弹窗交互，让 Agent 能直接在对话中展示交互式组件
+如果你已经安装了 [Batch Install Plugins from GitHub](https://github.com/Fu-Jie/openwebui-extensions/tree/main/plugins/tools/batch-install-plugins)，可以用下面这句来安装或更新当前插件：
+
+```text
+从 Fu-Jie/openwebui-extensions 安装插件
+```
+
+当选择弹窗打开后，搜索当前插件，勾选后继续安装即可。
+
+> [!IMPORTANT]
+> 如果你已经安装了 OpenWebUI 官方社区里的同名版本，请先删除旧版本，否则重新安装时可能报错。删除后，Batch Install Plugins 后续就可以继续负责更新这个插件。
+
+## ✨ v0.11.0：单例进程池修复、纯 BYOK 模式与 RichUI 高度稳定性
+
+- **🚀 共享进程池修复**：修复了 `stream_response` 误停止单例客户端的重大 Bug，显著提升多轮对话响应速度。
+- **🔑 支持纯 BYOK 模式**：现在支持仅配置自带密钥（BYOK）而不提供 `GH_TOKEN` 的运行模式。
+- **🛡️ 并发环境隔离**：重构环境变量注入逻辑，实现用户级 Token 隔离，杜绝高并发下的信息污染。
+- **📏 RichUI 稳定性增强**：彻底解决了嵌入式组件高度计算循环导致的页面无限变高问题。
+- **🩺 智能防挂死检测**：引入 `client.ping()` 探测机制，有效减少复杂任务（如长时间运行的脚本）被误杀的概率。
+- **🧹 智能 TODO 显隐**：当 TODO 任务全部完成后，下一次对话将自动隐藏 UI，保持界面整洁。
 
 ---
 
@@ -45,6 +61,59 @@
 - **🧾 嵌入结果与文档更新**：改进 HTML/嵌入式工具结果处理，同步中英 README 与 docs 镜像页，确保发布状态一致。
 
 ---
+
+## 🚀 最短上手路径（先看这里）
+
+如果你现在最关心的是“这个插件到底怎么用”，建议按这个顺序阅读：
+
+1. **最短上手路径**
+2. **日常怎么用**
+3. **核心配置**
+
+其他章节都属于补充说明或进阶内容。
+
+1. **安装 Pipe**
+   - **推荐**：使用 **Batch Install Plugins** 安装并勾选当前插件。
+   - **手动**：OpenWebUI -> **Workspace** -> **Functions** -> 新建 Function -> 粘贴 `github_copilot_sdk.py`。
+2. **如果你要处理上传文件**，再安装配套的 `GitHub Copilot SDK Files Filter`。
+3. **至少配置一种凭据**
+   - `GH_TOKEN`：使用 GitHub 官方 Copilot 模型
+   - `BYOK_API_KEY`：使用 OpenAI / Anthropic 自带 Key
+4. **新建对话后直接正常提需求**
+   - 选择当前 Pipe 的模型
+   - 像平时一样描述任务
+   - 需要时上传文件
+
+## 🧭 日常怎么用
+
+大多数情况下，你**不需要**主动提 tools、skills、内部参数或 RichUI 语法，直接自然描述任务即可。
+
+| 场景 | 你怎么做 | 示例 |
+| :--- | :--- | :--- |
+| 日常编码 / 排错 | 直接在聊天里提需求 | `修复失败的测试，并解释根因。` |
+| 文件分析 | 上传文件后直接提需求 | `总结这个 Excel，并画出每月趋势图。` |
+| 长任务 | 只要说出目标即可；Pipe 会自动处理规划、状态提示和 TODO 跟踪 | `重构这个插件，并同步更新文档。` |
+| HTML 报告 / 看板 | 直接让 Agent 生成交互式报告或看板 | `帮我生成这个仓库的交互式架构总览。` |
+
+> [!TIP]
+> 普通用户只要记住一条：如果你让 Agent 生成交互式 HTML 结果，这个 Pipe 通常会自动使用 **RichUI**。只有当你明确想要 artifacts 风格时，才需要特别说明。
+
+## 💡 RichUI 到底是什么意思？
+
+**RichUI = Agent 生成的 HTML 页面，会直接显示在聊天窗口里。**
+
+你可以把它理解为：**对话里面直接出现一个可交互的小网页 / 小看板**。
+
+- 如果 Agent 生成的是看板、报告、时间线、架构图页面或说明型页面，你就可能会看到 RichUI。
+- 如果你只是正常问代码问题、调试、写文档、分析文件，其实可以完全忽略 RichUI。
+- 你**不需要**自己写 XML、HTML 标签或任何特殊 RichUI 属性，直接描述你想要的结果即可。
+
+| 你怎么说 | 系统会怎么做 |
+| :--- | :--- |
+| `修复这个失败测试` | 正常聊天回复，这时 RichUI 基本不重要。 |
+| `帮我生成一个交互式仓库看板` | 默认使用 RichUI。 |
+| `请用 artifacts 形式生成` | 改用 artifacts，而不是 RichUI。 |
+| `如果做成页面更清楚，就帮我做成页面` | AI 会自己判断页面是否更合适。 |
 
 ## ✨ 核心能力 (Key Capabilities)
 
@@ -69,6 +138,25 @@
 > “请安装此技能：<https://github.com/nicobailon/visual-explainer”。>
 > 该技能专为生成高质量可视化组件而设计，能够与本 Pipe 完美协作。
 
+### 🎛️ RichUI 在日常使用里怎么理解
+
+对普通用户来说，规则很简单：
+
+1. 直接说出你想要的结果。
+2. AI 会自己判断普通聊天回复是否已经足够。
+3. 如果做成页面、看板或可视化会更清楚，AI 会自动生成并直接显示在聊天里。
+
+你**不需要**自己写 XML 标签、HTML 片段或 RichUI 属性。
+
+例如：
+
+- `请解释这个仓库的结构。`
+- `如果用交互式架构页更清楚，就做成页面。`
+- `把这个 CSV 做成一个简单看板。`
+
+> [!TIP]
+> 只有当你明确想要 **artifacts 风格** 时，才需要特别说明。其他情况下，直接让 AI 自动选择最合适的展示方式即可。
+
 ---
 
 ## 🧩 配套 Files Filter（原始文件必备）
@@ -76,7 +164,7 @@
 `GitHub Copilot SDK Files Filter` 是本 Pipe 的配套插件，用于阻止 OpenWebUI 默认 RAG 在 Pipe 接手前抢先处理上传文件。
 
 - **作用**: 将上传文件移动到 `copilot_files`，让 Pipe 能直接读取原始二进制。
-- **必要性**: 若未安装，文件可能被提前解析/向量化，Agent 拿到原始文件。
+- **必要性**: 若未安装，文件可能被提前解析/向量化，Agent 可能拿不到原始文件。
 - **v0.1.3 重点**:
   - 修复 BYOK 模型 ID 识别（支持 `github_copilot_official_sdk_pipe.xxx` 前缀匹配）。
   - 新增双通道调试日志（`show_debug_log`）：后端 logger + 浏览器控制台。
@@ -158,6 +246,28 @@
 - `BYOK_API_KEY`（OpenAI / Anthropic 自带 Key 路线）。
 
 如果两者都未配置，模型列表将不会显示。
+
+---
+
+## 📤 HTML 结果展示方式（进阶）
+
+如果你没有直接使用 `publish_file_from_workspace(...)`，这一节可以跳过。
+
+先用一句人话解释：
+
+- `richui` = 生成的 HTML 直接显示在聊天里
+- `artifacts` = 你明确想要 artifacts 风格时使用的另一种 HTML 交付方式
+
+在内部实现上，这个行为由 `publish_file_from_workspace(..., embed_type=...)` 控制。
+
+- **RichUI 模式（`richui`，HTML 默认）**：Agent 只返回 `[Preview]` + `[Download]`，聊天结束后由 OpenWebUI 自动渲染交互预览。
+- **Artifacts 模式（`artifacts`）**：只有在你明确想要 artifacts 风格展示时再使用。
+- **PDF 安全规则**：PDF 只返回 Markdown 链接，不要用 iframe / HTML block 嵌入。
+- **双通道发布**：同时兼顾对话内查看与持久下载。
+- **状态提示**：发布过程会同步显示在 OpenWebUI 状态栏。
+
+> [!TIP]
+> 如果你只是日常使用这个 Pipe，通常不需要手动提 `embed_type`。直接说“生成一个交互式报告 / 看板”即可；只有你明确想要 artifacts 风格时再特别说明。如果你并没有直接调用 `publish_file_from_workspace(...)`，那通常可以忽略这个参数。
 
 ---
 

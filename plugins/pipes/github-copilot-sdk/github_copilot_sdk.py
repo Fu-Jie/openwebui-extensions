@@ -5,13 +5,14 @@ author_url: https://github.com/Fu-Jie/openwebui-extensions
 funding_url: https://github.com/open-webui
 openwebui_id: ce96f7b4-12fc-4ac3-9a01-875713e69359
 description: A powerful Agent SDK integration for OpenWebUI. It deeply bridges GitHub Copilot SDK with OpenWebUI's ecosystem, enabling the Agent to autonomously perform intent recognition, web search, and context compaction. It seamlessly reuses your existing Tools, MCP servers, OpenAPI servers, and Skills for a professional, full-featured experience.
-version: 0.10.1
+version: 0.11.0
 requirements: github-copilot-sdk==0.1.30
 """
 
 import os
 import re
 import json
+import html as html_lib
 import sqlite3
 import base64
 import tempfile
@@ -71,6 +72,1234 @@ except ImportError:
 
 # Setup logger
 logger = logging.getLogger(__name__)
+
+RICHUI_BRIDGE_MARKER = 'data-openwebui-richui-bridge="1"'
+RICHUI_BRIDGE_STYLE = """
+<style id="openwebui-richui-bridge-style" data-openwebui-richui-bridge="1">
+:root {
+  color-scheme: light dark;
+}
+html,
+body {
+  background: transparent !important;
+  overflow-x: hidden !important;
+  width: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+body[data-openwebui-richui-fragment="1"] {
+  /* Prevent margin collapse issues that can jitter height */
+  display: block;
+}
+</style>
+"""
+RICHUI_BRIDGE_SCRIPT = r"""
+<script id="openwebui-richui-bridge-script" data-openwebui-richui-bridge="1">
+(function() {
+  if (window.__openWebUIRichUIBridgeInstalled) {
+    return;
+  }
+  window.__openWebUIRichUIBridgeInstalled = true;
+
+  var root = document.documentElement;
+  var heightObserver = null;
+  var domObserver = null;
+  var parentThemeObserver = null;
+  var heightTimer = null;
+  var lastHeight = -1;
+  var lastPromptText = '';
+  var lastPromptAt = 0;
+  var selectionState = {};
+  var bridgeToastTimer = null;
+  var declarativeActionSelector =
+    '[data-openwebui-prompt],[data-prompt],[data-openwebui-link],[data-link],[data-openwebui-action],[data-openwebui-mode],[data-openwebui-copy],[data-copy],[data-openwebui-prompt-template],[data-openwebui-copy-template],[data-openwebui-select]';
+
+  function getParentDocument() {
+    try {
+      if (window.parent && window.parent !== window) {
+        void window.parent.document.documentElement;
+        return window.parent.document;
+      }
+    } catch (e) {}
+    return null;
+  }
+
+  function applyTheme(theme) {
+    if (theme !== 'dark' && theme !== 'light') {
+      return;
+    }
+    root.setAttribute('data-openwebui-applied-theme', theme);
+    root.setAttribute('data-theme', theme);
+    root.classList.toggle('dark', theme === 'dark');
+    root.style.colorScheme = theme;
+  }
+
+  function parseColorLuma(colorStr) {
+    if (!colorStr) {
+      return null;
+    }
+    var normalized = String(colorStr).trim();
+    var match = null;
+    if (/^#[0-9a-f]{3}$/i.test(normalized)) {
+      normalized =
+        '#' +
+        normalized.charAt(1) +
+        normalized.charAt(1) +
+        normalized.charAt(2) +
+        normalized.charAt(2) +
+        normalized.charAt(3) +
+        normalized.charAt(3);
+    }
+    match = normalized.match(/^#?([0-9a-f]{6})$/i);
+    if (match) {
+      var hex = match[1];
+      var r = parseInt(hex.slice(0, 2), 16);
+      var g = parseInt(hex.slice(2, 4), 16);
+      var b = parseInt(hex.slice(4, 6), 16);
+      return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+    }
+    match = normalized.match(
+      /rgba?\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i
+    );
+    if (match) {
+      var rr = parseInt(match[1], 10);
+      var gg = parseInt(match[2], 10);
+      var bb = parseInt(match[3], 10);
+      return (0.2126 * rr + 0.7152 * gg + 0.0722 * bb) / 255;
+    }
+    return null;
+  }
+
+  function getThemeFromMeta(doc) {
+    try {
+      var scopeDoc = doc || document;
+      var metas = scopeDoc.querySelectorAll('meta[name="theme-color"]');
+      if (!metas || !metas.length) {
+        return null;
+      }
+      var color = metas[metas.length - 1].content || '';
+      var luma = parseColorLuma(color);
+      if (luma === null) {
+        return null;
+      }
+      return luma < 0.5 ? 'dark' : 'light';
+    } catch (e) {}
+    return null;
+  }
+
+  function getThemeFromDocument(doc, options) {
+    if (!doc) {
+      return null;
+    }
+    try {
+      var useHtmlSignals = !options || options.useHtmlSignals !== false;
+      var html = doc.documentElement;
+      var body = doc.body;
+      var htmlClass = useHtmlSignals && html ? String(html.className || '') : '';
+      var bodyClass = body ? String(body.className || '') : '';
+      var htmlDataTheme =
+        useHtmlSignals && html ? html.getAttribute('data-theme') : '';
+      var bodyDataTheme = body ? body.getAttribute('data-theme') : '';
+
+      if (
+        htmlDataTheme === 'dark' ||
+        bodyDataTheme === 'dark' ||
+        htmlClass.indexOf('dark') !== -1 ||
+        bodyClass.indexOf('dark') !== -1
+      ) {
+        return 'dark';
+      }
+      if (
+        htmlDataTheme === 'light' ||
+        bodyDataTheme === 'light' ||
+        htmlClass.indexOf('light') !== -1 ||
+        bodyClass.indexOf('light') !== -1
+      ) {
+        return 'light';
+      }
+
+      var metaTheme = getThemeFromMeta(doc);
+      if (metaTheme) {
+        return metaTheme;
+      }
+
+      var computedTarget = useHtmlSignals ? html || body : body || html;
+      if (computedTarget) {
+        var computedScheme = window.getComputedStyle(computedTarget).colorScheme;
+        if (computedScheme === 'dark' || computedScheme === 'light') {
+          return computedScheme;
+        }
+      }
+    } catch (e) {}
+    return null;
+  }
+
+  function resolveTheme() {
+    var parentTheme = getThemeFromDocument(getParentDocument(), {
+      useHtmlSignals: true,
+    });
+    if (parentTheme) {
+      return parentTheme;
+    }
+
+    var localTheme = getThemeFromDocument(document, {
+      useHtmlSignals: false,
+    });
+    if (localTheme) {
+      return localTheme;
+    }
+
+    try {
+      if (
+        window.matchMedia &&
+        window.matchMedia('(prefers-color-scheme: dark)').matches
+      ) {
+        return 'dark';
+      }
+    } catch (e) {}
+
+    return 'light';
+  }
+
+  function syncTheme() {
+    applyTheme(resolveTheme());
+  }
+
+function measureHeight() {
+    var body = document.body;
+    if (!body) {
+      return 0;
+    }
+
+    // 1. Temporarily pause mutation observer to avoid self-triggered sizing Loops
+    if (domObserver) {
+      try { domObserver.disconnect(); } catch(e) {}
+    }
+    if (heightObserver && document.body) {
+      try { heightObserver.unobserve(document.body); } catch(e) {}
+    }
+
+    var previousHeight = body.style.height;
+    
+    // 2. Clear explicit height to let the browser compute natural layout
+    body.style.height = 'auto';
+
+    // 3. Compute the scrollHeight accurately. Use Math.ceil to prevent fractional pixel jitter.
+    var height = Math.ceil(document.documentElement.scrollHeight || body.scrollHeight);
+
+    // If the height hasn't changed, don't update style to avoid triggering observers
+    if (height === lastHeight) {
+       if (previousHeight && previousHeight !== 'auto') {
+          body.style.height = previousHeight;
+       }
+    } else {
+       // Only set explicit height if we are not relying purely on flex/grid sizing.
+       // For typical rich UI content, letting the parent iframe handle it is better.
+       // We skip setting explicit body.style.height back to avoid "infinite growing" bugs.
+    }
+
+    // 4. Resume observer
+    if (heightObserver && document.body) {
+      try { heightObserver.observe(document.body); } catch(e) {}
+    }
+    if (domObserver) {
+      try {
+        domObserver.observe(document.documentElement, {
+          childList: true,
+          subtree: true,
+          characterData: true,
+          attributes: true,
+        });
+      } catch(e) {}
+    }
+
+    return height;
+  }
+
+  function postToParent(message) {
+    try {
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage(message, '*');
+        return true;
+      }
+    } catch (e) {}
+    return false;
+  }
+
+  function emitHeight(force) {
+    var height = measureHeight();
+    if (!force && height === lastHeight) {
+      return height;
+    }
+    lastHeight = height;
+    postToParent({ type: 'iframe:height', height: height });
+    return height;
+  }
+
+  function scheduleHeight(delay, force) {
+    if (heightTimer) {
+      window.clearTimeout(heightTimer);
+    }
+    heightTimer = window.setTimeout(function() {
+      emitHeight(Boolean(force));
+    }, delay || 0);
+  }
+
+  function attachHeightObservers() {
+    if (window.ResizeObserver && document.body && !heightObserver) {
+      heightObserver = new ResizeObserver(function() {
+        scheduleHeight(0, false);
+      });
+      heightObserver.observe(document.body);
+    }
+    if (window.MutationObserver && !domObserver) {
+      domObserver = new MutationObserver(function() {
+        scheduleHeight(0, false);
+      });
+      domObserver.observe(document.documentElement, {
+        childList: true,
+        subtree: true,
+        characterData: true,
+        attributes: true,
+      });
+    }
+  }
+
+  function attachThemeObservers() {
+    var parentDoc = getParentDocument();
+    if (!window.MutationObserver || !parentDoc || parentThemeObserver) {
+      return;
+    }
+    try {
+      parentThemeObserver = new MutationObserver(syncTheme);
+      if (parentDoc.documentElement) {
+        parentThemeObserver.observe(parentDoc.documentElement, {
+          attributes: true,
+          attributeFilter: ['class', 'data-theme', 'style'],
+        });
+      }
+      if (parentDoc.body) {
+        parentThemeObserver.observe(parentDoc.body, {
+          attributes: true,
+          attributeFilter: ['class', 'data-theme', 'style'],
+        });
+      }
+      if (parentDoc.head) {
+        parentThemeObserver.observe(parentDoc.head, {
+          childList: true,
+          subtree: true,
+          attributes: true,
+          attributeFilter: ['content', 'name'],
+        });
+      }
+    } catch (e) {}
+  }
+
+  function sendPrompt(text) {
+    var promptText = text == null ? '' : String(text);
+    var normalizedPrompt = promptText.trim();
+    var now = Date.now ? Date.now() : new Date().getTime();
+    if (
+      normalizedPrompt &&
+      normalizedPrompt === lastPromptText &&
+      now - lastPromptAt < 600
+    ) {
+      return false;
+    }
+    lastPromptText = normalizedPrompt;
+    lastPromptAt = now;
+    return postToParent({ type: 'input:prompt:submit', text: promptText });
+  }
+
+  function fillPrompt(text) {
+    var promptText = text == null ? '' : String(text);
+    return postToParent({ type: 'input:prompt', text: promptText });
+  }
+
+  function submitCurrentPrompt() {
+    return postToParent({ type: 'action:submit', text: '' });
+  }
+
+  function getBridgeLanguage() {
+    var lang =
+      window.__OPENWEBUI_USER_LANG__ ||
+      window.__openwebui_user_lang__ ||
+      (document.documentElement && document.documentElement.getAttribute('lang')) ||
+      navigator.language ||
+      'en-US';
+    return String(lang || 'en-US');
+  }
+
+  function getBridgeMessage(key) {
+    var lang = getBridgeLanguage().toLowerCase();
+    var messages = {
+      copied: 'Copied to clipboard',
+      copy_failed: 'Copy failed',
+    };
+    if (lang.indexOf('zh-hk') === 0 || lang.indexOf('zh-tw') === 0) {
+      messages = {
+        copied: '已複製到剪貼簿',
+        copy_failed: '複製失敗',
+      };
+    } else if (lang.indexOf('zh') === 0) {
+      messages = {
+        copied: '已复制到剪贴板',
+        copy_failed: '复制失败',
+      };
+    } else if (lang.indexOf('ja') === 0) {
+      messages = {
+        copied: 'クリップボードにコピーしました',
+        copy_failed: 'コピーに失敗しました',
+      };
+    } else if (lang.indexOf('ko') === 0) {
+      messages = {
+        copied: '클립보드에 복사됨',
+        copy_failed: '복사에 실패했습니다',
+      };
+    } else if (lang.indexOf('fr') === 0) {
+      messages = {
+        copied: 'Copie dans le presse-papiers',
+        copy_failed: 'Echec de la copie',
+      };
+    } else if (lang.indexOf('de') === 0) {
+      messages = {
+        copied: 'In die Zwischenablage kopiert',
+        copy_failed: 'Kopieren fehlgeschlagen',
+      };
+    } else if (lang.indexOf('es') === 0) {
+      messages = {
+        copied: 'Copiado al portapapeles',
+        copy_failed: 'Error al copiar',
+      };
+    } else if (lang.indexOf('it') === 0) {
+      messages = {
+        copied: 'Copiato negli appunti',
+        copy_failed: 'Copia non riuscita',
+      };
+    } else if (lang.indexOf('ru') === 0) {
+      messages = {
+        copied: 'Скопировано в буфер обмена',
+        copy_failed: 'Не удалось скопировать',
+      };
+    } else if (lang.indexOf('vi') === 0) {
+      messages = {
+        copied: 'Da sao chep vao bo nho tam',
+        copy_failed: 'Sao chep that bai',
+      };
+    } else if (lang.indexOf('id') === 0) {
+      messages = {
+        copied: 'Disalin ke clipboard',
+        copy_failed: 'Gagal menyalin',
+      };
+    }
+    return messages[key] || messages.copied;
+  }
+
+  function dispatchBridgeEvent(name, detail) {
+    try {
+      document.dispatchEvent(
+        new CustomEvent(name, {
+          detail: detail || {},
+        })
+      );
+    } catch (e) {}
+  }
+
+  function ensureBridgeToast() {
+    var toast = document.getElementById('openwebui-richui-toast');
+    if (toast) {
+      return toast;
+    }
+    toast = document.createElement('div');
+    toast.id = 'openwebui-richui-toast';
+    toast.setAttribute('data-openwebui-richui-bridge', '1');
+    toast.style.position = 'fixed';
+    toast.style.right = '16px';
+    toast.style.bottom = '16px';
+    toast.style.zIndex = '2147483647';
+    toast.style.maxWidth = 'min(360px, calc(100vw - 24px))';
+    toast.style.padding = '10px 14px';
+    toast.style.borderRadius = '10px';
+    toast.style.background = 'rgba(15,23,42,0.92)';
+    toast.style.color = '#f8fafc';
+    toast.style.font = '500 13px/1.4 Inter, system-ui, sans-serif';
+    toast.style.boxShadow = '0 10px 30px rgba(15,23,42,0.28)';
+    toast.style.opacity = '0';
+    toast.style.pointerEvents = 'none';
+    toast.style.transform = 'translateY(8px)';
+    toast.style.transition = 'opacity .18s ease, transform .18s ease';
+    document.body.appendChild(toast);
+    return toast;
+  }
+
+  function showBridgeToast(message, tone) {
+    if (!message || !document.body) {
+      return;
+    }
+    var toast = ensureBridgeToast();
+    toast.textContent = String(message);
+    toast.style.background =
+      tone === 'error' ? 'rgba(127,29,29,0.96)' : 'rgba(15,23,42,0.92)';
+    toast.style.opacity = '1';
+    toast.style.transform = 'translateY(0)';
+    if (bridgeToastTimer) {
+      window.clearTimeout(bridgeToastTimer);
+    }
+    bridgeToastTimer = window.setTimeout(function() {
+      toast.style.opacity = '0';
+      toast.style.transform = 'translateY(8px)';
+    }, 1800);
+  }
+
+  function fallbackCopyText(text) {
+    if (!document.body) {
+      return false;
+    }
+    var textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.setAttribute('readonly', 'readonly');
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    textarea.style.pointerEvents = 'none';
+    textarea.style.left = '-9999px';
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+    var copied = false;
+    try {
+      copied = document.execCommand('copy');
+    } catch (e) {}
+    document.body.removeChild(textarea);
+    return copied;
+  }
+
+  function copyText(text) {
+    var copyValue = text == null ? '' : String(text);
+    if (!copyValue) {
+      return false;
+    }
+
+    function onCopied() {
+      showBridgeToast(getBridgeMessage('copied'));
+      dispatchBridgeEvent('openwebui:copy', {
+        text: copyValue,
+        success: true,
+      });
+      return true;
+    }
+
+    function onCopyFailed() {
+      showBridgeToast(getBridgeMessage('copy_failed'), 'error');
+      dispatchBridgeEvent('openwebui:copy', {
+        text: copyValue,
+        success: false,
+      });
+      return false;
+    }
+
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(copyValue).then(onCopied).catch(function() {
+          if (fallbackCopyText(copyValue)) {
+            onCopied();
+            return;
+          }
+          onCopyFailed();
+        });
+        return true;
+      }
+    } catch (e) {}
+
+    if (fallbackCopyText(copyValue)) {
+      return onCopied();
+    }
+    return onCopyFailed();
+  }
+
+  function openLink(url) {
+    try {
+      if (window.parent && window.parent !== window && window.parent.window) {
+        window.parent.window.open(url, '_blank');
+        return true;
+      }
+    } catch (e) {}
+    try {
+      window.open(url, '_blank');
+      return true;
+    } catch (e) {}
+    return false;
+  }
+
+  function reportHeightBridge() {
+    return emitHeight(true);
+  }
+
+  function normalizeBridgeText(value) {
+    return String(value == null ? '' : value).replace(/\s+/g, ' ').trim();
+  }
+
+  function isInteractiveTag(element) {
+    if (!element || !element.tagName) {
+      return false;
+    }
+    var tag = String(element.tagName).toLowerCase();
+    return (
+      tag === 'a' ||
+      tag === 'button' ||
+      tag === 'input' ||
+      tag === 'select' ||
+      tag === 'textarea' ||
+      tag === 'summary'
+    );
+  }
+
+  function getPromptActionValue(element) {
+    if (!element || !element.getAttribute) {
+      return '';
+    }
+    return (
+      element.getAttribute('data-openwebui-prompt') ||
+      element.getAttribute('data-prompt') ||
+      ''
+    ).trim();
+  }
+
+  function getLinkActionValue(element) {
+    if (!element || !element.getAttribute) {
+      return '';
+    }
+    return (
+      element.getAttribute('data-openwebui-link') ||
+      element.getAttribute('data-link') ||
+      ''
+    ).trim();
+  }
+
+  function getCopyActionValue(element) {
+    if (!element || !element.getAttribute) {
+      return '';
+    }
+    return (
+      element.getAttribute('data-openwebui-copy') ||
+      element.getAttribute('data-copy') ||
+      ''
+    ).trim();
+  }
+
+  function getPromptTemplateValue(element) {
+    if (!element || !element.getAttribute) {
+      return '';
+    }
+    return (element.getAttribute('data-openwebui-prompt-template') || '').trim();
+  }
+
+  function getCopyTemplateValue(element) {
+    if (!element || !element.getAttribute) {
+      return '';
+    }
+    return (element.getAttribute('data-openwebui-copy-template') || '').trim();
+  }
+
+  function getSelectionKey(element) {
+    if (!element || !element.getAttribute) {
+      return '';
+    }
+    return (element.getAttribute('data-openwebui-select') || '').trim();
+  }
+
+  function getSelectionValue(element) {
+    if (!element || !element.getAttribute) {
+      return '';
+    }
+    return (
+      element.getAttribute('data-openwebui-value') ||
+      element.getAttribute('data-value') ||
+      ''
+    ).trim();
+  }
+
+  function getSelectionLabel(element) {
+    if (!element || !element.getAttribute) {
+      return '';
+    }
+    return normalizeBridgeText(
+      element.getAttribute('data-openwebui-selection-label') ||
+      element.getAttribute('aria-label') ||
+      element.textContent ||
+      getSelectionValue(element)
+    );
+  }
+
+  function getSelectionMode(element) {
+    if (!element || !element.getAttribute) {
+      return 'single';
+    }
+    var rawMode = (
+      element.getAttribute('data-openwebui-selection-mode') || 'single'
+    ).trim().toLowerCase();
+    if (rawMode === 'toggle') {
+      return 'toggle';
+    }
+    return 'single';
+  }
+
+  function cloneSelectionState() {
+    var output = {};
+    for (var key in selectionState) {
+      if (!Object.prototype.hasOwnProperty.call(selectionState, key)) {
+        continue;
+      }
+      output[key] = {
+        value: selectionState[key].value,
+        label: selectionState[key].label,
+      };
+    }
+    return output;
+  }
+
+  function getSelectionSummary() {
+    var parts = [];
+    for (var key in selectionState) {
+      if (!Object.prototype.hasOwnProperty.call(selectionState, key)) {
+        continue;
+      }
+      var item = selectionState[key] || {};
+      var display = item.label || item.value || '';
+      if (!display) {
+        continue;
+      }
+      parts.push(key + ': ' + display);
+    }
+    return parts.join('; ');
+  }
+
+  function resolveSelectionToken(token) {
+    if (!token) {
+      return '';
+    }
+    var normalized = String(token).trim();
+    if (!normalized) {
+      return '';
+    }
+    if (normalized === 'selection_summary') {
+      return getSelectionSummary();
+    }
+    if (normalized === 'selection_json') {
+      try {
+        return JSON.stringify(cloneSelectionState());
+      } catch (e) {
+        return '';
+      }
+    }
+    var parts = normalized.split('.');
+    var baseKey = parts[0];
+    var item = selectionState[baseKey];
+    if (!item) {
+      return '';
+    }
+    if (parts.length === 1) {
+      return item.label || item.value || '';
+    }
+    if (parts[1] === 'value') {
+      return item.value || '';
+    }
+    if (parts[1] === 'label') {
+      return item.label || item.value || '';
+    }
+    return '';
+  }
+
+  function applySelectionTemplate(template) {
+    if (!template) {
+      return '';
+    }
+    return String(template).replace(
+      /\{\{\s*([a-zA-Z0-9_.-]+)\s*\}\}/g,
+      function(match, token) {
+        return resolveSelectionToken(token) || '';
+      }
+    );
+  }
+
+  function syncSelectionAttributes(selectionKey) {
+    if (!selectionKey || !document.querySelectorAll) {
+      return;
+    }
+    var selector =
+      '[data-openwebui-select="' +
+      String(selectionKey).replace(/"/g, '\\"') +
+      '"]';
+    var elements = document.querySelectorAll(selector);
+    var current = selectionState[selectionKey];
+    for (var i = 0; i < elements.length; i += 1) {
+      var element = elements[i];
+      var isSelected =
+        Boolean(current) &&
+        getSelectionValue(element) === String(current.value || '');
+      if (isSelected) {
+        element.setAttribute('data-openwebui-selected', '1');
+        element.setAttribute('aria-pressed', 'true');
+      } else {
+        element.removeAttribute('data-openwebui-selected');
+        element.setAttribute('aria-pressed', 'false');
+      }
+    }
+  }
+
+  function setSelection(selectionKey, value, options) {
+    var key = normalizeBridgeText(selectionKey);
+    if (!key) {
+      return false;
+    }
+    var opts = options || {};
+    var mode = String(opts.mode || 'single').toLowerCase();
+    var normalizedValue = normalizeBridgeText(value);
+    var normalizedLabel = normalizeBridgeText(
+      opts.label == null ? normalizedValue : opts.label
+    );
+    if (!normalizedValue) {
+      return false;
+    }
+
+    if (mode === 'toggle') {
+      var current = selectionState[key];
+      if (current && String(current.value || '') === normalizedValue) {
+        delete selectionState[key];
+      } else {
+        selectionState[key] = {
+          value: normalizedValue,
+          label: normalizedLabel || normalizedValue,
+        };
+      }
+    } else {
+      selectionState[key] = {
+        value: normalizedValue,
+        label: normalizedLabel || normalizedValue,
+      };
+    }
+
+    syncSelectionAttributes(key);
+    dispatchBridgeEvent('openwebui:selection-change', {
+      key: key,
+      selection: selectionState[key] || null,
+      state: cloneSelectionState(),
+      summary: getSelectionSummary(),
+    });
+    return true;
+  }
+
+  function applySelectionFromElement(element) {
+    var selectionKey = getSelectionKey(element);
+    if (!selectionKey) {
+      return false;
+    }
+    return setSelection(selectionKey, getSelectionValue(element), {
+      label: getSelectionLabel(element),
+      mode: getSelectionMode(element),
+    });
+  }
+
+  function resolvePromptActionValue(element) {
+    var directValue = getPromptActionValue(element);
+    if (directValue) {
+      return directValue;
+    }
+    return applySelectionTemplate(getPromptTemplateValue(element));
+  }
+
+  function resolveCopyActionValue(element) {
+    var directValue = getCopyActionValue(element);
+    if (directValue) {
+      return directValue;
+    }
+    return applySelectionTemplate(getCopyTemplateValue(element));
+  }
+
+  function getDeclarativeActionRaw(element) {
+    if (!element || !element.getAttribute) {
+      return '';
+    }
+    return (
+      element.getAttribute('data-openwebui-action') ||
+      element.getAttribute('data-openwebui-mode') ||
+      ''
+    ).trim().toLowerCase();
+  }
+
+  function getDeclarativeActionType(element, promptValue, linkValue, copyValue) {
+    var rawAction = getDeclarativeActionRaw(element);
+    var hasPrompt = Boolean(promptValue);
+    var hasLink = Boolean(linkValue);
+    var hasCopy = Boolean(copyValue);
+
+    if (!rawAction) {
+      if (hasPrompt) {
+        return 'send_prompt';
+      }
+      if (hasCopy) {
+        return 'copy_text';
+      }
+      if (hasLink) {
+        return 'open_link';
+      }
+      return '';
+    }
+
+    if (
+      rawAction === 'prompt' ||
+      rawAction === 'send' ||
+      rawAction === 'send_prompt' ||
+      rawAction === 'send-prompt' ||
+      rawAction === 'continue'
+    ) {
+      return 'send_prompt';
+    }
+
+    if (
+      rawAction === 'fill' ||
+      rawAction === 'fill_prompt' ||
+      rawAction === 'fill-prompt' ||
+      rawAction === 'input' ||
+      rawAction === 'input_prompt' ||
+      rawAction === 'input-prompt' ||
+      rawAction === 'input:prompt' ||
+      rawAction === 'prefill'
+    ) {
+      return 'fill_prompt';
+    }
+
+    if (
+      rawAction === 'submit' ||
+      rawAction === 'submit_prompt' ||
+      rawAction === 'submit-prompt' ||
+      rawAction === 'submit_current' ||
+      rawAction === 'submit-current' ||
+      rawAction === 'action:submit'
+    ) {
+      return 'submit_prompt';
+    }
+
+    if (
+      rawAction === 'copy' ||
+      rawAction === 'copy_text' ||
+      rawAction === 'copy-text' ||
+      rawAction === 'clipboard'
+    ) {
+      return 'copy_text';
+    }
+
+    if (
+      rawAction === 'link' ||
+      rawAction === 'open' ||
+      rawAction === 'open_link' ||
+      rawAction === 'open-link' ||
+      rawAction === 'url' ||
+      rawAction === 'href'
+    ) {
+      return 'open_link';
+    }
+
+    return '';
+  }
+
+  function hasInlineClickHandler(element) {
+    if (!element || !element.getAttribute) {
+      return false;
+    }
+    return Boolean((element.getAttribute('onclick') || '').trim());
+  }
+
+  function forceDeclarativeBinding(element) {
+    if (!element || !element.getAttribute) {
+      return false;
+    }
+    var rawValue =
+      element.getAttribute('data-openwebui-force-declarative') ||
+      element.getAttribute('data-force-declarative') ||
+      '';
+    return /^(1|true|yes)$/i.test(String(rawValue).trim());
+  }
+
+  function shouldSkipDeclarativeBinding(element) {
+    if (!element || !element.getAttribute) {
+      return false;
+    }
+    if (forceDeclarativeBinding(element)) {
+      return false;
+    }
+    return hasInlineClickHandler(element);
+  }
+
+  function decorateDeclarativeActionElement(element) {
+    if (!element || !element.getAttribute || !element.setAttribute) {
+      return;
+    }
+    var promptValue = resolvePromptActionValue(element);
+    var linkValue = getLinkActionValue(element);
+    var copyValue = resolveCopyActionValue(element);
+    var actionType = getDeclarativeActionType(
+      element,
+      promptValue,
+      linkValue,
+      copyValue
+    );
+    var hasSelection = Boolean(getSelectionKey(element));
+    if (!actionType && !hasSelection) {
+      return;
+    }
+    if (!isInteractiveTag(element)) {
+      if (!element.getAttribute('role')) {
+        element.setAttribute('role', 'button');
+      }
+      if (!element.hasAttribute('tabindex')) {
+        element.setAttribute('tabindex', '0');
+      }
+    }
+    if (!element.style.cursor) {
+      element.style.cursor = 'pointer';
+    }
+  }
+
+  function decorateDeclarativeActionElements(rootNode) {
+    var scope = rootNode && rootNode.querySelectorAll ? rootNode : document;
+    if (!scope) {
+      return;
+    }
+    if (rootNode && rootNode.matches && rootNode.matches(declarativeActionSelector)) {
+      decorateDeclarativeActionElement(rootNode);
+    }
+    var elements = scope.querySelectorAll
+      ? scope.querySelectorAll(declarativeActionSelector)
+      : [];
+    for (var i = 0; i < elements.length; i += 1) {
+      decorateDeclarativeActionElement(elements[i]);
+    }
+  }
+
+  function handleDeclarativeAction(element) {
+    if (!element || shouldSkipDeclarativeBinding(element)) {
+      return false;
+    }
+    var selectionChanged = applySelectionFromElement(element);
+    var promptValue = resolvePromptActionValue(element);
+    var linkValue = getLinkActionValue(element);
+    var copyValue = resolveCopyActionValue(element);
+    var actionType = getDeclarativeActionType(
+      element,
+      promptValue,
+      linkValue,
+      copyValue
+    );
+
+    if (actionType === 'send_prompt' && promptValue) {
+      sendPrompt(promptValue);
+      return true;
+    }
+
+    if (actionType === 'fill_prompt' && promptValue) {
+      fillPrompt(promptValue);
+      return true;
+    }
+
+    if (actionType === 'submit_prompt') {
+      submitCurrentPrompt();
+      return true;
+    }
+
+    if (actionType === 'copy_text' && copyValue) {
+      copyText(copyValue);
+      return true;
+    }
+
+    if (actionType === 'open_link' && linkValue) {
+      openLink(linkValue);
+      return true;
+    }
+    return selectionChanged;
+  }
+
+  function maybeHandleDeclarativeActionFromTarget(target) {
+    if (!target || !target.closest) {
+      return false;
+    }
+    var element = target.closest(declarativeActionSelector);
+    return handleDeclarativeAction(element);
+  }
+
+  function isPrimaryClickEvent(event) {
+    if (!event) {
+      return true;
+    }
+    if (typeof event.button === 'number' && event.button !== 0) {
+      return false;
+    }
+    return !(event.metaKey || event.ctrlKey || event.shiftKey || event.altKey);
+  }
+
+  function stopHandledEvent(event) {
+    if (!event) {
+      return;
+    }
+    if (event.preventDefault) {
+      event.preventDefault();
+    }
+    if (event.stopImmediatePropagation) {
+      event.stopImmediatePropagation();
+    }
+    if (event.stopPropagation) {
+      event.stopPropagation();
+    }
+  }
+
+  function exposeReservedGlobal(name, fn) {
+    try {
+      Object.defineProperty(window, name, {
+        configurable: false,
+        enumerable: false,
+        get: function() {
+          return fn;
+        },
+        set: function() {
+          try {
+            console.warn(
+              '[OpenWebUIBridge] Ignored overwrite attempt for reserved helper:',
+              name
+            );
+          } catch (e) {}
+        },
+      });
+    } catch (e) {
+      window[name] = fn;
+    }
+  }
+
+  exposeReservedGlobal('sendPrompt', sendPrompt);
+  exposeReservedGlobal('submitPrompt', sendPrompt);
+  exposeReservedGlobal('send_prompt', sendPrompt);
+  exposeReservedGlobal('submit_prompt', sendPrompt);
+  exposeReservedGlobal('sendMessage', sendPrompt);
+  exposeReservedGlobal('send_message', sendPrompt);
+  exposeReservedGlobal('fillPrompt', fillPrompt);
+  exposeReservedGlobal('fill_prompt', fillPrompt);
+  exposeReservedGlobal('inputPrompt', fillPrompt);
+  exposeReservedGlobal('input_prompt', fillPrompt);
+  exposeReservedGlobal('submitCurrentPrompt', submitCurrentPrompt);
+  exposeReservedGlobal('submit_current_prompt', submitCurrentPrompt);
+  exposeReservedGlobal('submitChatInput', submitCurrentPrompt);
+  exposeReservedGlobal('submit_chat_input', submitCurrentPrompt);
+  exposeReservedGlobal('copyText', copyText);
+  exposeReservedGlobal('copy_text', copyText);
+  exposeReservedGlobal('openLink', openLink);
+  exposeReservedGlobal('open_link', openLink);
+  exposeReservedGlobal('reportHeight', reportHeightBridge);
+  exposeReservedGlobal('report_height', reportHeightBridge);
+  window.OpenWebUIBridge = {
+    prompt: sendPrompt,
+    fill: fillPrompt,
+    submit: submitCurrentPrompt,
+    copy: copyText,
+    sendPrompt: sendPrompt,
+    fillPrompt: fillPrompt,
+    inputPrompt: fillPrompt,
+    submitCurrentPrompt: submitCurrentPrompt,
+    submitChatInput: submitCurrentPrompt,
+    submitPrompt: sendPrompt,
+    send_prompt: sendPrompt,
+    fill_prompt: fillPrompt,
+    input_prompt: fillPrompt,
+    submit_current_prompt: submitCurrentPrompt,
+    submit_chat_input: submitCurrentPrompt,
+    copyText: copyText,
+    copy_text: copyText,
+    submit_prompt: sendPrompt,
+    sendMessage: sendPrompt,
+    send_message: sendPrompt,
+    openLink: openLink,
+    open_link: openLink,
+    reportHeight: reportHeightBridge,
+    report_height: reportHeightBridge,
+    setSelection: setSelection,
+    getSelection: function(key) {
+      return cloneSelectionState()[String(key || '').trim()] || null;
+    },
+    getSelections: cloneSelectionState,
+    selectionSummary: getSelectionSummary,
+    applyTemplate: applySelectionTemplate,
+    syncTheme: syncTheme,
+    bindInteractions: decorateDeclarativeActionElements,
+    decorateInteractions: decorateDeclarativeActionElements,
+  };
+  window.openWebUI = window.OpenWebUIBridge;
+  window.openwebui = window.OpenWebUIBridge;
+
+  syncTheme();
+  attachThemeObservers();
+  attachHeightObservers();
+
+  window.addEventListener('load', function() {
+    attachHeightObservers();
+    scheduleHeight(0, true);
+  });
+  window.addEventListener('resize', function() {
+    scheduleHeight(0, false);
+  });
+  document.addEventListener(
+    'toggle',
+    function() {
+      scheduleHeight(50, true);
+    },
+    true
+  );
+  document.addEventListener(
+    'click',
+    function(event) {
+      if (!isPrimaryClickEvent(event)) {
+        return;
+      }
+      if (maybeHandleDeclarativeActionFromTarget(event.target)) {
+        stopHandledEvent(event);
+      }
+    },
+    false
+  );
+  document.addEventListener(
+    'keydown',
+    function(event) {
+      var key = event.key || event.code;
+      if (key !== 'Enter' && key !== ' ') {
+        return;
+      }
+      if (event.repeat) {
+        return;
+      }
+      if (maybeHandleDeclarativeActionFromTarget(event.target)) {
+        stopHandledEvent(event);
+      }
+    },
+    false
+  );
+  document.addEventListener('DOMContentLoaded', function() {
+    syncTheme();
+    attachHeightObservers();
+    decorateDeclarativeActionElements(document);
+    scheduleHeight(0, true);
+  });
+
+  decorateDeclarativeActionElements(document);
+
+  try {
+    var themeMedia = window.matchMedia('(prefers-color-scheme: dark)');
+    if (themeMedia && themeMedia.addEventListener) {
+      themeMedia.addEventListener('change', syncTheme);
+    } else if (themeMedia && themeMedia.addListener) {
+      themeMedia.addListener(syncTheme);
+    }
+  } catch (e) {}
+
+  scheduleHeight(0, true);
+})();
+</script>
+"""
 
 
 # Shared SQL Patterns
@@ -199,6 +1428,33 @@ SEARCH_AND_AGENT_PATTERNS = (
     "</search_and_agent_patterns>\n"
 )
 
+RICHUI_VISUALIZATION_PATTERNS = (
+    "\n<richui_visualization_patterns>\n"
+    "When generating Rich UI pages, think like a visualization builder, not a static document writer.\n"
+    "- Rich UI pages should feel like exploration interfaces embedded in chat.\n"
+    "- Keep explanatory prose primarily in your assistant response. Keep the HTML focused on structure, controls, diagrams, metrics, and interactive navigation.\n"
+    "- Use the **recommended interaction contract** to avoid ambiguity: (1) `data-openwebui-prompt=\"...\"` for immediate chat continuation, (2) `data-openwebui-prompt=\"...\" data-openwebui-action=\"fill\"` to prefill the chat input without sending, (3) `data-openwebui-action=\"submit\"` to submit the current chat input, and (4) `data-openwebui-link=\"https://...\"` for external links.\n"
+    "- Treat `data-openwebui-copy`, `data-openwebui-select`, and template placeholders such as `data-openwebui-prompt-template` as **advanced optional patterns**. Use them only when the page truly needs copy buttons or pick-then-act selection flows.\n"
+    "- Only use bridge JavaScript helpers when local state or dynamic code makes declarative attributes awkward. The recommended object methods are `window.OpenWebUIBridge.prompt(text)`, `fill(text)`, `submit()`, `openLink(url)`, and `reportHeight()`.\n"
+    "- Write prompt text as a natural, specific follow-up request. Avoid vague labels like 'More' or 'Explain'. Prefer prompts such as 'Break down the reviewer agent responsibilities and handoff rules.'\n"
+    "- Use local JavaScript only for instant client-side state changes such as tabs, filters, sliders, zoom, and expand/collapse. Use prompt/fill/submit actions when the user is asking the model to explain, compare, personalize, evaluate, or generate next steps.\n"
+    "- Do not mix declarative prompt/link attributes with inline `onclick` on the same element unless you intentionally add `data-openwebui-force-declarative=\"1\"`.\n"
+    "- If a control looks clickable, it must either submit a prompt, prefill the input, open a real URL, or visibly change local state. Do not generate dead controls.\n"
+    "- Prefer actionable labels such as 'Deep dive', 'Compare approaches', 'Draft reply', 'Turn into TODOs', or 'Generate rollout plan'.\n"
+    "- External references should use `openLink(url)` or declarative link attributes rather than plain iframe navigation.\n"
+    "- **Decision guide for controls**: If the user should get an answer immediately, use `data-openwebui-prompt`. If the user should review/edit text first, use `data-openwebui-action=\"fill\"`. If the page is a final review step for already-prepared input, use `data-openwebui-action=\"submit\"`. If the target is outside chat, use `data-openwebui-link`. Only use copy/select/template features for explicit advanced workflows.\n"
+    "- **Avoid choice overload**: For most pages, 2-4 actions are enough. Prefer one primary action style per surface. Example: a dashboard should mostly use prompt actions; a drafting wizard should mostly use fill + submit; a documentation viewer should mostly use links.\n"
+    "- **Multilingual UI rule**: Keep control labels short and concrete in the user's language. Prefer verb-first labels such as 'Explain', 'Draft in input', 'Send draft', 'Open docs', or their direct equivalents in the user's language.\n"
+    "- **Minimal examples**:\n"
+    "  1. Immediate answer: `<button data-openwebui-prompt=\"Explain this diagram step by step\">Explain</button>`\n"
+    "  2. Prefill only: `<button data-openwebui-prompt=\"Draft a migration checklist for this design\" data-openwebui-action=\"fill\">Draft in input</button>`\n"
+    "  3. Submit current draft: `<button data-openwebui-action=\"submit\">Send current draft</button>`\n"
+    "  4. External docs: `<a data-openwebui-link=\"https://docs.example.com\">Open docs</a>`\n"
+    "  5. Advanced copy: `<button data-openwebui-copy=\"npm run build && npm test\">Copy command</button>`\n"
+    "  6. Advanced pick-then-act: `<button data-openwebui-select=\"role\" data-openwebui-value=\"reviewer\">Reviewer</button><button data-openwebui-prompt-template=\"Explain the responsibilities of {{role}}\">Explain selected role</button>`\n"
+    "</richui_visualization_patterns>\n"
+)
+
 # Base guidelines for all users
 BASE_GUIDELINES = (
     "\n\n[Environment & Capabilities Context]\n"
@@ -206,6 +1462,7 @@ BASE_GUIDELINES = (
     "You are an AI assistant operating within a high-capability Linux container environment (OpenWebUI).\n"
     f"{TONE_AND_STYLE_PATTERNS}"
     f"{TOOL_USAGE_EFFICIENCY_PATTERNS}"
+    f"{RICHUI_VISUALIZATION_PATTERNS}"
     "\n"
     "**System Environment & User Privileges:**\n"
     "- **Host Product Context**: The user is interacting with you through the OpenWebUI chat interface. Treat OpenWebUI Tools, Built-in Tools, OpenAPI servers, MCP servers, session state, uploaded files, and installed skills as part of the same active application instance.\n"
@@ -246,10 +1503,15 @@ BASE_GUIDELINES = (
     "2. **Advanced Visualization**: Use **Mermaid** for flowcharts/diagrams and **LaTeX** for math. **IMPORTANT**: Always wrap Mermaid code within a standard ` ```mermaid ` code block to ensure it is rendered correctly by the UI.\n"
     "3. **Interactive HTML Delivery**: **Premium Delivery Protocol**: For web applications, you MUST perform two actions:\n"
     "   - 1. **Persist**: Create the file in the workspace (e.g., `index.html`) for project structure.\n"
-    "   - 2. **Publish & Embed**: Call `publish_file_from_workspace(filename='your_file.html')`. This will automatically trigger the **Premium Experience** by directly embedding the interactive component using the action-style return.\n"
+    "   - 2. **Publish & Embed**: Call `publish_file_from_workspace(filename='your_file.html')` only after the file-writing tool has completed successfully. Never batch the write step and the publish step into the same parallel tool round. This will automatically trigger the **Premium Experience** by directly embedding the interactive component using the action-style return.\n"
     "   - **CRITICAL ANTI-INLINE RULE**: Never output your *own* raw HTML source code directly in the chat. You MUST ALWAYS persist the HTML to a file and call `publish_file_from_workspace`.\n"
     "   - **Preferred default**: Use **Rich UI mode** (`embed_type='richui'`) for HTML presentation unless the user explicitly asks for **artifacts**.\n"
     "   - **CRITICAL**: When using this protocol in **Rich UI mode** (`embed_type='richui'`), **DO NOT** output the raw HTML code in a code block. Provide ONLY the **[Preview]** and **[Download]** links returned by the tool. The interactive embed will appear automatically after your message finishes.\n"
+    "   - **Primary language rule**: The visible UI copy of generated HTML pages must use the **same language as the user's latest message** by default, unless the user explicitly requests another language or the task itself requires multilingual output. This includes titles, buttons, labels, helper text, empty states, and validation messages.\n"
+    "   - **Built-in Rich UI bridge**: Rich UI embeds automatically expose a small recommended API on `window.OpenWebUIBridge`: `prompt(text)` = submit text immediately, `fill(text)` = prefill the chat input without sending, `submit()` = submit the current chat input, `openLink(url)` = open an external URL, and `reportHeight()` = force iframe resizing. Advanced optional helpers also exist for `copy(text)` and structured selection (`setSelection`, `applyTemplate`), but do not use them unless the page genuinely needs those flows. Legacy aliases such as `sendPrompt(...)` remain supported for compatibility, but prefer the object methods above in newly generated pages. Do not redefine these reserved helper names in your page code.\n"
+    "   - **Declarative interaction contract**: Prefer zero-JS bindings on clickable UI elements. Recommended patterns: `data-openwebui-prompt=\"...\"` for immediate continuation, `data-openwebui-prompt=\"...\" data-openwebui-action=\"fill\"` for prefill-only flows, `data-openwebui-action=\"submit\"` to send the current chat input, and `data-openwebui-link=\"https://...\"` for external links. Advanced optional patterns: `data-openwebui-copy=\"...\"` for copy buttons, and `data-openwebui-select=\"key\" data-openwebui-value=\"value\"` plus `data-openwebui-prompt-template=\"...{{key}}...\"` for pick-then-act flows. The Rich UI bridge auto-binds these attributes and adds keyboard accessibility.\n"
+    "   - **Ownership rule**: Do not mix declarative prompt/link attributes with inline `onclick` on the same element unless you intentionally add `data-openwebui-force-declarative=\"1\"`. By default, inline `onclick` owns the click behavior.\n"
+    "   - **No dead controls**: If you generate buttons, cards, tabs, diagram nodes, or CTA blocks that imply a follow-up action, they MUST either continue the chat, prefill the input, submit the current input, open a real URL, or be visibly marked as static. Do not generate decorative controls that do nothing.\n"
     "   - **Artifacts mode** (`embed_type='artifacts'`): Use this when the user explicitly asks for artifacts. You MUST provide the **[Preview]** and **[Download]** links. DO NOT output HTML code block. The system will automatically append the HTML visualization to the chat string.\n"
     "   - **Process Visibility**: While raw code is often replaced by links/frames, you SHOULD provide a **very brief Markdown summary** of the component's structure or key features (e.g., 'Generated login form with validation') before publishing. This keeps the user informed of the 'processing' progress.\n"
     "   - **Game/App Controls**: If your HTML includes keyboard controls (e.g., arrow keys, spacebar for games), you MUST include `event.preventDefault()` in your `keydown` listeners to prevent the parent browser page from scrolling.\n"
@@ -259,7 +1521,7 @@ BASE_GUIDELINES = (
     "     - **Philosophy**: Prefer **Rich UI** as the default HTML presentation because it shows the effect more directly in OpenWebUI. Use **Artifacts** only when the user explicitly asks for artifacts. Downloadable files remain **COMPLEMENTARY** and should still be published when needed.\n"
     "     - **The Rule**: When the user needs to *possess* data (download/export), you MUST publish it. Creating a local file alone is useless because the user cannot access your container.\n"
     "     - **Implicit Requests**: If asked to 'export', 'get link', or 'save', automatically trigger this sequence.\n"
-    "     - **Execution Sequence**: 1. **Write Local**: Create file. 2. **Publish**: Call `publish_file_from_workspace`. 3. **Response Structure**:\n"
+    "     - **Execution Sequence**: 1. **Write Local**: Create file. 2. **Wait for the write tool result**: Confirm the file exists. 3. **Publish**: Call `publish_file_from_workspace` in a later tool round. 4. **Response Structure**:\n"
     "     - **Strict Link Validity Rule (CRITICAL)**: You are FORBIDDEN to fabricate, guess, or handcraft any preview/download URL. Links MUST come directly from a successful `publish_file_from_workspace` tool result in the same turn.\n"
     "     - **Failure Handling**: If publish fails or no tool result is returned, DO NOT output any fake/placeholder link. Instead, explicitly report publish failure and ask to retry publish.\n"
     "     - **No Pre-Publish Linking**: Never output links before running publish. 'Create file' alone is NOT enough to produce a valid user-facing link.\n"
@@ -267,7 +1529,8 @@ BASE_GUIDELINES = (
     "     - **Invalid Link Examples (Forbidden)**: Any handcrafted variants such as `/files/...`, `/api/files/...`, `/api/v1/file/...`, missing `/content`, manually appended custom routes, or local-workspace style paths like `/c/...`, `./...`, `../...`, `file://...` are INVALID and MUST NOT be output.\n"
     "     - **Auto-Correction Rule**: If you generated a non-whitelisted link (including `/c/...`), you MUST discard it, run/confirm `publish_file_from_workspace`, and only output the returned whitelisted URL.\n"
     "        - **For PDF files**: You MUST output ONLY Markdown links from the tool output (preview + download). **CRITICAL: NEVER output iframe/html_embed for PDF.**\n"
-    "        - **For HTML files**: Prefer **Rich UI mode** (`embed_type='richui'`) by default so the effect is shown directly in chat. Output ONLY [Preview]/[Download]; do NOT output HTML block because Rich UI will render automatically via emitter. If the HTML may need more space, add a clickable 'Full Screen' button inside your HTML design. Use **Artifacts mode** (`embed_type='artifacts'`) only when the user explicitly asks for artifacts; in that case, still output ONLY [Preview]/[Download], and do NOT output any iframe/html block because the protocol will automatically append the html code block via emitter.\n"
+    "        - **For HTML files**: Prefer **Rich UI mode** (`embed_type='richui'`) by default so the effect is shown directly in chat. Output ONLY [Preview]/[Download]; do NOT output HTML block because Rich UI will render automatically via emitter. The page's primary language must follow the user's latest message unless the user explicitly asks for another language. If the HTML may need more space, add a clickable 'Full Screen' button inside your HTML design. Prefer the declarative interaction contract for buttons/cards/nodes: immediate send = `data-openwebui-prompt`, prefill-only = `data-openwebui-prompt` + `data-openwebui-action=\\\"fill\\\"`, submit current input = `data-openwebui-action=\\\"submit\\\"`, and external links = `data-openwebui-link`. Use `window.OpenWebUIBridge.prompt/fill/submit/openLink` only when local JavaScript truly needs it. Use copy/select/template capabilities only for explicit advanced needs such as copy buttons or pick-then-act dashboards. Use **Artifacts mode** (`embed_type='artifacts'`) only when the user explicitly asks for artifacts; in that case, still output ONLY [Preview]/[Download], and do NOT output any iframe/html block because the protocol will automatically append the html code block via emitter.\n"
+    "        - **Rich UI interaction examples**: `<button data-openwebui-prompt=\\\"Explain the hotfix workflow step by step\\\">Explain</button>`, `<button data-openwebui-prompt=\\\"Draft a rollout checklist for this design\\\" data-openwebui-action=\\\"fill\\\">Draft in input</button>`, `<button data-openwebui-action=\\\"submit\\\">Send current draft</button>`, `<a data-openwebui-link=\\\"https://git-scm.com/docs/git-worktree\\\">Official docs</a>`, and advanced optional patterns such as `<button data-openwebui-copy=\\\"npm run build && npm test\\\">Copy command</button>` or `<button data-openwebui-select=\\\"role\\\" data-openwebui-value=\\\"reviewer\\\">Reviewer</button><button data-openwebui-prompt-template=\\\"Explain the responsibilities of {{role}}\\\">Explain selected role</button>`. Prefer these declarative attributes when generating cards, tiles, SVG nodes, or dashboard controls because they survive templating better than custom JavaScript.\n"
     "     - **URL Format**: You MUST use the **ABSOLUTE URLs** provided in the tool output, copied verbatim. NEVER modify, concatenate, or reconstruct them manually.\n"
     "     - **Bypass RAG**: This protocol automatically handles S3 storage and bypasses RAG, ensuring 100% accurate data delivery.\n"
     "6. **TODO Visibility**: When TODO state changes, prefer the environment's embedded TODO widget and lightweight status surfaces. Do not repeat the full TODO list in the main answer unless the user explicitly asks for a textual TODO list or the text itself is the requested deliverable. When using SQL instead of `update_todo`, follow the environment's default workflow: create descriptive todo rows in `todos`, mark them `in_progress` before execution, mark them `done` after completion, and record blocking relationships in `todo_deps`.\n"
@@ -538,6 +1801,367 @@ class Pipe:
             return parse_v(open_webui_version) >= parse_v(target)
         except Exception:
             return False
+
+    def _insert_html_before_closing_tag(
+        self, html_content: str, tag: str, insertion: str
+    ) -> Tuple[str, bool]:
+        """Insert content before the first closing tag, if present."""
+        match = re.search(rf"</{tag}\s*>", html_content, re.IGNORECASE)
+        if not match:
+            return html_content, False
+        return (
+            html_content[: match.start()] + insertion + html_content[match.start() :],
+            True,
+        )
+
+    def _insert_html_before_opening_tag(
+        self, html_content: str, tag: str, insertion: str
+    ) -> Tuple[str, bool]:
+        """Insert content before the first opening tag, if present."""
+        match = re.search(rf"<{tag}\b[^>]*>", html_content, re.IGNORECASE)
+        if not match:
+            return html_content, False
+        return (
+            html_content[: match.start()] + insertion + html_content[match.start() :],
+            True,
+        )
+
+    def _insert_html_after_opening_tag(
+        self, html_content: str, tag: str, insertion: str
+    ) -> Tuple[str, bool]:
+        """Insert content right after the first opening tag, if present."""
+        match = re.search(rf"<{tag}\b[^>]*>", html_content, re.IGNORECASE)
+        if not match:
+            return html_content, False
+        return (
+            html_content[: match.end()] + insertion + html_content[match.end() :],
+            True,
+        )
+
+    def _resolve_embed_lang(self, user_language: Optional[str]) -> str:
+        """Return a reasonable HTML lang code for generated RichUI pages."""
+        raw_lang = str(user_language or "").strip()
+        if not raw_lang:
+            return "en-US"
+
+        raw_lang = raw_lang.split(",")[0].split(";")[0].strip().replace("_", "-")
+        raw_lang = re.sub(r"[^A-Za-z0-9-]", "", raw_lang)
+        if not raw_lang:
+            return self._resolve_language(user_language)
+
+        parts = [part for part in raw_lang.split("-") if part]
+        if not parts:
+            return self._resolve_language(user_language)
+
+        normalized_parts = []
+        for index, part in enumerate(parts):
+            if index == 0:
+                normalized_parts.append(part.lower())
+            elif len(part) == 2 and part.isalpha():
+                normalized_parts.append(part.upper())
+            elif len(part) == 4 and part.isalpha():
+                normalized_parts.append(part.title())
+            else:
+                normalized_parts.append(part)
+
+        return "-".join(normalized_parts)
+
+    def _ensure_html_lang_attr(self, html_content: str, lang: str) -> str:
+        """Ensure the root <html> tag carries a lang attribute."""
+        if not lang:
+            return html_content
+
+        match = re.search(r"<html\b([^>]*)>", html_content, re.IGNORECASE)
+        if not match:
+            return html_content
+
+        attrs = match.group(1) or ""
+        if re.search(r"\blang\s*=", attrs, re.IGNORECASE):
+            return html_content
+
+        replacement = f'<html lang="{lang}"{attrs}>'
+        return html_content[: match.start()] + replacement + html_content[match.end() :]
+
+    def _strip_html_to_text(self, html_content: str) -> str:
+        """Best-effort visible-text extraction for heuristics like language inference."""
+        text = re.sub(
+            r"<(script|style)\b[^>]*>[\s\S]*?</\1>",
+            " ",
+            html_content,
+            flags=re.IGNORECASE,
+        )
+        text = re.sub(r"<[^>]+>", " ", text)
+        text = html_lib.unescape(text)
+        return re.sub(r"\s+", " ", text).strip()
+
+    def _infer_lang_from_html_content(self, html_content: str) -> Optional[str]:
+        """Infer language from rendered HTML content when user metadata is too generic."""
+        text = self._strip_html_to_text(html_content)
+        if not text:
+            return None
+
+        japanese = len(re.findall(r"[\u3040-\u30ff]", text))
+        korean = len(re.findall(r"[\uac00-\ud7af]", text))
+        chinese = len(re.findall(r"[\u4e00-\u9fff]", text))
+        cyrillic = len(re.findall(r"[\u0400-\u04ff]", text))
+
+        if japanese >= 3:
+            return "ja-JP"
+        if korean >= 3:
+            return "ko-KR"
+        if chinese >= 6:
+            return "zh-CN"
+        if cyrillic >= 6:
+            return "ru-RU"
+        return None
+
+    def _extract_html_title_or_heading(self, html_content: str) -> str:
+        """Extract a concise human-readable page title for fallback RichUI actions."""
+        patterns = [
+            r"<title\b[^>]*>([\s\S]*?)</title>",
+            r"<h1\b[^>]*>([\s\S]*?)</h1>",
+            r"<h2\b[^>]*>([\s\S]*?)</h2>",
+        ]
+        for pattern in patterns:
+            match = re.search(pattern, html_content, re.IGNORECASE)
+            if not match:
+                continue
+            candidate = self._strip_html_to_text(match.group(1))
+            if candidate:
+                return candidate[:120]
+        return ""
+
+    def _contains_richui_interactions(self, html_content: str) -> bool:
+        """Return True if the page already includes explicit prompt/link interactions."""
+        interaction_patterns = [
+            r"\bOpenWebUIBridge\s*\.\s*prompt\b",
+            r"\bOpenWebUIBridge\s*\.\s*fill\b",
+            r"\bOpenWebUIBridge\s*\.\s*submit\b",
+            r"\bOpenWebUIBridge\s*\.\s*copy\b",
+            r"\bOpenWebUIBridge\s*\.\s*sendPrompt\b",
+            r"\bOpenWebUIBridge\s*\.\s*fillPrompt\b",
+            r"\bOpenWebUIBridge\s*\.\s*submitCurrentPrompt\b",
+            r"\bOpenWebUIBridge\s*\.\s*copyText\b",
+            r"\bOpenWebUIBridge\s*\.\s*setSelection\b",
+            r"\bsendPrompt\s*\(",
+            r"\bsend_prompt\s*\(",
+            r"\bfillPrompt\s*\(",
+            r"\bfill_prompt\s*\(",
+            r"\binputPrompt\s*\(",
+            r"\binput_prompt\s*\(",
+            r"\bsubmitCurrentPrompt\s*\(",
+            r"\bsubmit_current_prompt\s*\(",
+            r"\bcopyText\s*\(",
+            r"\bcopy_text\s*\(",
+            r"\bsubmitPrompt\s*\(",
+            r"\bsubmit_prompt\s*\(",
+            r"\bopenLink\s*\(",
+            r"\bopen_link\s*\(",
+            r"data-openwebui-action\s*=",
+            r"data-openwebui-mode\s*=",
+            r"data-openwebui-copy\s*=",
+            r"data-copy\s*=",
+            r"data-openwebui-prompt-template\s*=",
+            r"data-openwebui-copy-template\s*=",
+            r"data-openwebui-select\s*=",
+            r"data-openwebui-prompt\s*=",
+            r"data-prompt\s*=",
+            r"data-openwebui-link\s*=",
+            r"data-link\s*=",
+        ]
+        return any(
+            re.search(pattern, html_content, re.IGNORECASE)
+            for pattern in interaction_patterns
+        )
+
+    def _richui_default_actions_disabled(self, html_content: str) -> bool:
+        """Allow specific embeds such as widgets to opt out of fallback action buttons."""
+        markers = [
+            r'data-openwebui-no-default-actions\s*=\s*["\']1["\']',
+            r'data-openwebui-static-widget\s*=\s*["\']1["\']',
+        ]
+        return any(
+            re.search(pattern, html_content, re.IGNORECASE) for pattern in markers
+        )
+
+    def _build_richui_default_actions_block(
+        self, html_content: str, user_lang: Optional[str], embed_lang: str
+    ) -> str:
+        """Create a small fallback action bar when a page has no chat interactions."""
+        title = self._extract_html_title_or_heading(html_content) or (
+            "this visualization" if not str(embed_lang).lower().startswith("zh") else "这个页面"
+        )
+        is_zh = str(embed_lang or user_lang or "").lower().startswith("zh")
+
+        if is_zh:
+            heading = "继续探索"
+            button_specs = [
+                (
+                    "深入讲解",
+                    f"请基于《{title}》继续深入解释这个页面里的关键结构、角色分工和工作流。",
+                ),
+                (
+                    "落地方案",
+                    f"请基于《{title}》给我一个可执行的实施方案，包括阶段拆分、技术选型和风险点。",
+                ),
+                (
+                    "转成 TODO",
+                    f"请基于《{title}》把这个设计转换成一个分阶段 TODO 清单，并标出依赖关系。",
+                ),
+            ]
+        else:
+            heading = "Continue exploring"
+            button_specs = [
+                (
+                    "Deep dive",
+                    f"Based on '{title}', explain the key structure, roles, and workflow shown in this page in more detail.",
+                ),
+                (
+                    "Execution plan",
+                    f"Based on '{title}', turn this design into an implementation plan with phases, technical choices, and key risks.",
+                ),
+                (
+                    "Convert to TODOs",
+                    f"Based on '{title}', convert this design into a phased TODO list with dependencies.",
+                ),
+            ]
+
+        button_html = []
+        for label, prompt in button_specs:
+            button_html.append(
+                '<button type="button" class="openwebui-richui-action-btn" '
+                f'data-openwebui-prompt="{html_lib.escape(prompt, quote=True)}">'
+                f"{html_lib.escape(label)}"
+                "</button>"
+            )
+
+        return (
+            "\n"
+            '<section class="openwebui-richui-fallback-actions" data-openwebui-fallback-actions="1">'
+            f'<div class="openwebui-richui-fallback-title">{html_lib.escape(heading)}</div>'
+            '<div class="openwebui-richui-fallback-row">'
+            + "".join(button_html)
+            + "</div></section>\n"
+            "<style>\n"
+            ".openwebui-richui-fallback-actions{margin:20px auto 0;max-width:1200px;padding:14px 16px;border:1px solid rgba(148,163,184,.18);border-radius:14px;background:rgba(15,23,42,.04);}\n"
+            ".openwebui-richui-fallback-title{font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--color-text-secondary, #64748b);margin-bottom:10px;}\n"
+            ".openwebui-richui-fallback-row{display:flex;flex-wrap:wrap;gap:10px;}\n"
+            ".openwebui-richui-action-btn{appearance:none;border:1px solid rgba(148,163,184,.24);background:var(--color-bg-secondary, rgba(255,255,255,.9));color:var(--color-text-primary, #0f172a);border-radius:999px;padding:8px 14px;font:500 13px/1.2 var(--font-sans, system-ui);cursor:pointer;transition:all .18s ease;}\n"
+            ".openwebui-richui-action-btn:hover{transform:translateY(-1px);border-color:rgba(59,130,246,.55);}\n"
+            ".openwebui-richui-action-btn:focus-visible{outline:2px solid rgba(59,130,246,.6);outline-offset:2px;}\n"
+            "</style>\n"
+        )
+
+    def _prepare_richui_embed_html(
+        self, html_content: Any, user_lang: Optional[str] = None
+    ) -> Any:
+        """Inject a shared bridge so rich UI embeds can talk to the parent app."""
+        if isinstance(html_content, (bytes, bytearray)):
+            html_content = html_content.decode("utf-8", errors="replace")
+        if not isinstance(html_content, str):
+            return html_content
+
+        stripped = html_content.strip()
+        if not stripped or RICHUI_BRIDGE_MARKER in html_content:
+            return html_content
+
+        embed_lang = self._resolve_embed_lang(user_lang)
+        inferred_lang = self._infer_lang_from_html_content(html_content)
+        if inferred_lang and (
+            not user_lang or embed_lang.lower().startswith("en")
+        ):
+            embed_lang = inferred_lang
+        lang_json = json.dumps(embed_lang, ensure_ascii=False)
+        lang_head_block = (
+            "\n"
+            '<meta name="openwebui-user-language" content="'
+            f'{embed_lang}'
+            '">\n'
+            '<script id="openwebui-richui-language" data-openwebui-richui-bridge="1">'
+            "(function(){"
+            f"var userLang={lang_json};"
+            "window.__OPENWEBUI_USER_LANG__=userLang;"
+            "window.__openwebui_user_lang__=userLang;"
+            "if(document.documentElement){"
+            "document.documentElement.setAttribute('data-openwebui-user-lang',userLang);"
+            "if(!document.documentElement.getAttribute('lang')){document.documentElement.setAttribute('lang',userLang);}"
+            "}"
+            "})();"
+            "</script>\n"
+        )
+        style_block = "\n" + RICHUI_BRIDGE_STYLE.strip() + "\n"
+        script_block = "\n" + RICHUI_BRIDGE_SCRIPT.strip() + "\n"
+        looks_like_document = bool(
+            re.search(r"<!doctype html|<html\b|<head\b|<body\b", html_content, re.IGNORECASE)
+        )
+
+        if not looks_like_document:
+            return (
+                "<!DOCTYPE html>\n"
+                f'<html lang="{embed_lang}">\n'
+                "<head>\n"
+                '<meta charset="UTF-8">\n'
+                '<meta name="viewport" content="width=device-width, initial-scale=1.0">\n'
+                f"{lang_head_block.strip()}\n"
+                f"{RICHUI_BRIDGE_STYLE.strip()}\n"
+                "</head>\n"
+                f'<body data-openwebui-richui-fragment="1" data-openwebui-user-lang="{embed_lang}">\n'
+                f"{html_content}\n"
+                f"{RICHUI_BRIDGE_SCRIPT.strip()}\n"
+                "</body>\n"
+                "</html>\n"
+            )
+
+        enhanced_html = self._ensure_html_lang_attr(html_content, embed_lang)
+        enhanced_html, inserted = self._insert_html_before_closing_tag(
+            enhanced_html, "head", lang_head_block
+        )
+        if not inserted:
+            head_block = f"<head>{lang_head_block}</head>\n"
+            enhanced_html, inserted = self._insert_html_before_opening_tag(
+                enhanced_html, "body", head_block
+            )
+            if not inserted:
+                enhanced_html, inserted = self._insert_html_after_opening_tag(
+                    enhanced_html, "html", "\n" + head_block
+                )
+            if not inserted:
+                enhanced_html = lang_head_block + enhanced_html
+
+        enhanced_html, inserted = self._insert_html_before_closing_tag(
+            enhanced_html, "head", style_block
+        )
+        if not inserted:
+            head_block = f"<head>{style_block}</head>\n"
+            enhanced_html, inserted = self._insert_html_before_opening_tag(
+                enhanced_html, "body", head_block
+            )
+            if not inserted:
+                enhanced_html, inserted = self._insert_html_after_opening_tag(
+                    enhanced_html, "html", "\n" + head_block
+                )
+            if not inserted:
+                enhanced_html = style_block + enhanced_html
+
+        enhanced_html, inserted = self._insert_html_before_closing_tag(
+            enhanced_html, "body", script_block
+        )
+        if not inserted:
+            enhanced_html += script_block
+
+        if not self._richui_default_actions_disabled(
+            enhanced_html
+        ) and not self._contains_richui_interactions(enhanced_html):
+            action_block = self._build_richui_default_actions_block(
+                enhanced_html, user_lang=user_lang, embed_lang=embed_lang
+            )
+            enhanced_html, inserted = self._insert_html_before_closing_tag(
+                enhanced_html, "body", "\n" + action_block + "\n"
+            )
+            if not inserted:
+                enhanced_html += "\n" + action_block + "\n"
+
+        return enhanced_html
 
     TRANSLATIONS = {
         "en-US": {
@@ -1576,6 +3200,7 @@ class Pipe:
                 description=(
                     "Rendering style for HTML files. For PDF files, embedding is disabled and you MUST only provide preview/download Markdown links from tool output. "
                     "Default to 'richui' so the HTML effect is shown directly in OpenWebUI. DO NOT output html_embed in richui mode. If richui is used for long content, you MUST add a 'Full Screen' expansion button in the HTML logic. "
+                    "For diagrams, dashboards, timelines, architectures, and explainers, make the page interactive by default, but keep the interaction menu simple: use `data-openwebui-prompt` for immediate continuation, add `data-openwebui-action=\"fill\"` only when you want prefill-only behavior, use `data-openwebui-action=\"submit\"` to send the current chat input, and `data-openwebui-link` for external URLs. Prefer declarative bindings over custom JavaScript. "
                     "Use 'artifacts' only when the user explicitly asks for artifacts. "
                     "Only 'artifacts' and 'richui' are supported."
                 ),
@@ -1656,10 +3281,17 @@ class Pipe:
                     }
 
                 if not target_path.exists() or not target_path.is_file():
+                    wait_deadline = time.monotonic() + 2.0
+                    while time.monotonic() < wait_deadline:
+                        await asyncio.sleep(0.1)
+                        if target_path.exists() and target_path.is_file():
+                            break
+
+                if not target_path.exists() or not target_path.is_file():
                     return {
                         "error": f"File not found in workspace: {filename}",
                         "workspace": str(workspace_dir),
-                        "hint": "Ensure the file was successfully written using shell commands or create_file tool before publishing.",
+                        "hint": "Ensure the file was successfully written using shell commands or create_file tool before publishing. If the file is being generated in the current turn, wait for the write tool to finish before calling publish_file_from_workspace.",
                     }
 
                 # 3. Handle Storage & File ID
@@ -1688,7 +3320,31 @@ class Pipe:
                             )
                         return stored_path
 
-                    db_path = await asyncio.to_thread(_upload_via_storage)
+                    try:
+                        db_path = await asyncio.to_thread(_upload_via_storage)
+                    except Exception as e:
+                        error_text = str(e)
+                        logger.error(
+                            f"Publish storage upload failed for '{target_path}': {error_text}"
+                        )
+                        lowered_error = error_text.lower()
+                        if (
+                            "nosuchbucket" in lowered_error
+                            or "specified bucket does not exist" in lowered_error
+                        ):
+                            return {
+                                "error": "OpenWebUI storage upload failed: the configured object-storage bucket does not exist.",
+                                "filename": safe_filename,
+                                "hint": "Your OpenWebUI file storage is pointing at an S3-compatible bucket that is missing or misnamed. Create the bucket or fix the bucket name/endpoint/credentials, then retry publish_file_from_workspace.",
+                                "storage_stage": "upload_file",
+                                "original_error": error_text,
+                            }
+                        return {
+                            "error": f"OpenWebUI storage upload failed: {error_text}",
+                            "filename": safe_filename,
+                            "hint": "Check the OpenWebUI file-storage backend configuration. publish_file_from_workspace depends on Storage.upload_file() succeeding before preview/download links can be created.",
+                            "storage_stage": "upload_file",
+                        }
 
                     file_form = FileForm(
                         id=file_id,
@@ -1753,6 +3409,7 @@ class Pipe:
                     )
                     if embed_type == "richui":
                         hint += "\n\nCRITICAL: You are in 'richui' mode. DO NOT output an HTML code block or iframe in your message. Just output the links above."
+                        hint += "\n\nINTERACTION RULE: If the HTML is a diagram, architecture page, explainer, dashboard, or workflow, it SHOULD behave like an exploration interface instead of a static poster. Prefer the declarative contract and keep it simple: use `data-openwebui-prompt` for immediate continuation, add `data-openwebui-action=\"fill\"` only when prefill-only behavior is needed, use `data-openwebui-action=\"submit\"` to send the current chat input, and `data-openwebui-link` for external links. Only use `data-openwebui-copy`, `data-openwebui-select`, or template placeholders for explicit advanced needs."
                     elif embed_type == "artifacts":
                         hint += "\n\nIMPORTANT: You are in 'artifacts' mode. DO NOT output an HTML code block in your message. The system will automatically inject it after you finish."
                 elif has_preview:
@@ -1801,6 +3458,9 @@ class Pipe:
 
                         if pending_embeds is not None:
                             if embed_type == "richui":
+                                embed_content = self._prepare_richui_embed_html(
+                                    embed_content, user_lang=user_lang
+                                )
                                 pending_embeds.append(
                                     {
                                         "filename": safe_filename,
@@ -2312,6 +3972,7 @@ class Pipe:
         tool_dict: dict,
         __event_emitter__=None,
         __event_call__=None,
+        user_lang: Optional[str] = None,
     ):
         """Convert OpenWebUI tool definition to Copilot SDK tool."""
         # Sanitize tool name to match pattern ^[a-zA-Z0-9_-]+$
@@ -2521,11 +4182,14 @@ class Pipe:
                             "inline"
                             in str(headers.get("Content-Disposition", "")).lower()
                         ):
+                            embed_payload = self._prepare_richui_embed_html(
+                                data, user_lang=user_lang
+                            )
                             if __event_emitter__:
                                 await __event_emitter__(
                                     {
                                         "type": "embeds",
-                                        "data": {"embeds": [data]},
+                                        "data": {"embeds": [embed_payload]},
                                     }
                                 )
                             # Follow OpenWebUI official process_tool_result format
@@ -2568,6 +4232,9 @@ class Pipe:
                             body_data.decode("utf-8", errors="ignore")
                             if isinstance(body_data, (bytes, bytearray))
                             else str(body_data)
+                        )
+                        body_text = self._prepare_richui_embed_html(
+                            body_text, user_lang=user_lang
                         )
 
                         # Extract markdown-source content for diagnostic
@@ -2839,6 +4506,7 @@ class Pipe:
             return []
 
         user_id = user_data.get("id") or user_data.get("user_id")
+        user_lang = user_data.get("language") or "en-US"
         if not user_id:
             return []
 
@@ -3424,6 +5092,7 @@ class Pipe:
                     t_dict,
                     __event_emitter__=__event_emitter__,
                     __event_call__=__event_call__,
+                    user_lang=user_lang,
                 )
                 converted_tools.append(copilot_tool)
             except Exception as e:
@@ -4175,6 +5844,7 @@ class Pipe:
         in_progress = int(stats.get("in_progress", 0))
         done = int(stats.get("done", 0))
         blocked = int(stats.get("blocked", 0))
+        ready_count = int(stats.get("ready_count", 0))
         items = list(stats.get("items", []) or [])
 
         S = {
@@ -4186,6 +5856,10 @@ class Pipe:
 
         # ── header pills ──
         pills = []
+        if ready_count > 0:
+            pills.append(
+                f'<span class="pill ready">{esc(widget_texts["ready_now"].format(ready_count=ready_count))}</span>'
+            )
         if in_progress > 0:
             pills.append(f'<span class="pill prog">🚧 {in_progress}</span>')
         if pending > 0:
@@ -4209,11 +5883,15 @@ class Pipe:
             label = esc(widget_texts.get(f"status_{s}", s))
             title = esc(item.get("title") or item.get("id") or "todo")
             iid = esc(item.get("id") or "")
+            description = esc(item.get("description") or "")
             id_part = f' <span class="rid">{iid}</span>' if iid else ""
+            desc_part = (
+                f'<span class="rdesc">{description}</span>' if description else ""
+            )
             rows_html += (
                 f'<div class="row {cls}">'
                 f'<span class="ricon">{icon}</span>'
-                f'<span class="rtitle">{title}{id_part}</span>'
+                f'<span class="rmain"><span class="rtitle">{title}{id_part}</span>{desc_part}</span>'
                 f'<span class="chip {cls}">{label}</span>'
                 f"</div>"
             )
@@ -4223,6 +5901,7 @@ class Pipe:
         ts = datetime.now().strftime("%H:%M:%S")
         footer = esc(widget_texts["updated_at"].format(time=ts))
         title_text = esc(widget_texts["title"])
+        ready_hint = esc(widget_texts["ready_now"].format(ready_count=ready_count))
 
         return f"""<!DOCTYPE html>
 <html lang="{esc(self._resolve_language(lang))}">
@@ -4247,14 +5926,16 @@ class Pipe:
     --dot:#cba6f7;
   }}
   *{{box-sizing:border-box;margin:0;padding:0}}
+  html,body{{width:100%;height:auto;min-height:0;overflow:hidden}}
   body{{background:transparent;font-family:"Inter","Segoe UI",system-ui,sans-serif;font-size:13px;color:var(--tx)}}
-  .w{{background:var(--bg);border:1px solid var(--bd);border-radius:8px;overflow:hidden}}
+  .w{{background:var(--bg);border:1px solid var(--bd);border-radius:8px;overflow:hidden;display:block}}
   /* ── header ── */
   .hd{{display:flex;align-items:center;gap:8px;padding:7px 10px;border-bottom:1px solid var(--bd)}}
   .ttl{{font-size:11px;font-weight:700;color:var(--mu);letter-spacing:.06em;text-transform:uppercase;white-space:nowrap;flex:0 0 auto}}
   .sep{{width:1px;height:14px;background:var(--bd);flex:0 0 auto}}
   .pills{{display:flex;gap:4px;flex-wrap:wrap}}
   .pill{{font-size:11px;font-weight:700;padding:2px 7px;border-radius:5px;border:1px solid transparent;white-space:nowrap}}
+  .pill.ready{{color:var(--prog-c);background:var(--prog-b);border-color:var(--prog-bd)}}
   .pill.done{{color:var(--done-c);background:var(--done-b);border-color:var(--done-bd)}}
   .pill.prog{{color:var(--prog-c);background:var(--prog-b);border-color:var(--prog-bd)}}
   .pill.pend{{color:var(--pend-c);background:var(--pend-b);border-color:var(--pend-bd)}}
@@ -4262,12 +5943,13 @@ class Pipe:
   .dot{{width:6px;height:6px;border-radius:50%;background:var(--dot);animation:blink 2s ease-in-out infinite;margin-left:auto;flex:0 0 auto}}
   @keyframes blink{{0%,100%{{opacity:1}}50%{{opacity:.2}}}}
   /* ── rows ── */
-  .row{{display:flex;align-items:center;gap:8px;padding:6px 10px;border-bottom:1px solid var(--bd)}}
+  .row{{display:flex;align-items:center;gap:8px;padding:7px 10px;border-bottom:1px solid var(--bd)}}
   .row:last-child{{border-bottom:none}}
-  .row:hover{{background:var(--row-h)}}
   .row.done .rtitle{{color:var(--mu);text-decoration:line-through;text-decoration-color:var(--done-bd)}}
   .ricon{{font-size:13px;flex:0 0 auto;line-height:1}}
-  .rtitle{{flex:1 1 0;min-width:0;font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
+  .rmain{{display:flex;flex:1 1 0;min-width:0;flex-direction:column;gap:2px}}
+  .rtitle{{min-width:0;font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
+  .rdesc{{font-size:10px;color:var(--mu);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
   .rid{{font-size:10px;color:var(--mu);font-family:ui-monospace,monospace;margin-left:5px}}
   .chip{{font-size:10px;font-weight:700;padding:1px 6px;border-radius:4px;flex:0 0 auto;border:1px solid transparent;white-space:nowrap}}
   .chip.done{{color:var(--done-c);background:var(--done-b);border-color:var(--done-bd)}}
@@ -4275,7 +5957,8 @@ class Pipe:
   .chip.pend{{color:var(--pend-c);background:var(--pend-b);border-color:var(--pend-bd)}}
   .chip.blk {{color:var(--blk-c); background:var(--blk-b); border-color:var(--blk-bd)}}
   .empty{{padding:10px;font-size:12px;color:var(--mu)}}
-  .foot{{padding:4px 10px 5px;font-size:10px;color:var(--mu);text-align:right;border-top:1px solid var(--bd)}}
+  .foot{{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:5px 10px;font-size:10px;color:var(--mu);border-top:1px solid var(--bd)}}
+  .foot .hint{{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}}
 </style>
 </head>
 <body>
@@ -4289,33 +5972,11 @@ class Pipe:
   <div>
     {rows_html}
   </div>
-  <div class="foot">{footer}</div>
+  <div class="foot">
+    <span class="hint">{ready_hint}</span>
+    <span>{footer}</span>
+  </div>
 </div>
-<script>
-(function(){{
-  function parseColorLuma(color){{
-    if(!color)return null;color=color.trim();
-    var m=color.match(/^#([0-9a-fA-F]{3})$/);
-    if(m){{var c=m[1];return(0.299*parseInt(c[0]+c[0],16)+0.587*parseInt(c[1]+c[1],16)+0.114*parseInt(c[2]+c[2],16))/255;}}
-    m=color.match(/^#([0-9a-fA-F]{6})$/);
-    if(m)return(0.299*parseInt(m[1].slice(0,2),16)+0.587*parseInt(m[1].slice(2,4),16)+0.114*parseInt(m[1].slice(4,6),16))/255;
-    return null;
-  }}
-  function getThemeFromMeta(doc){{
-    try{{var metas=Array.from(doc.querySelectorAll('meta[name="theme-color"]'));if(!metas.length)return null;var l=parseColorLuma(metas[metas.length-1].content);return l===null?null:l<0.5?'dark':'light';}}catch(e){{return null;}}
-  }}
-  function getThemeFromParentClass(){{
-    try{{if(!window.parent||window.parent===window)return null;var h=window.parent.document.documentElement,b=window.parent.document.body;var dt=h?h.getAttribute('data-theme'):'';var hc=h?h.className:'',bc=b?b.className:'';if(dt==='dark'||hc.includes('dark')||bc.includes('dark'))return'dark';if(dt==='light'||hc.includes('light')||bc.includes('light'))return'light';return null;}}catch(e){{return null;}}
-  }}
-  function applyTheme(){{
-    var pDoc=null;try{{if(window.parent&&window.parent!==window){{void window.parent.document.title;pDoc=window.parent.document;}}}}catch(e){{}}
-    var t=getThemeFromMeta(pDoc)||getThemeFromParentClass()||(window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');
-    document.documentElement.classList.toggle('dark',t==='dark');
-  }}
-  applyTheme();
-  try{{window.matchMedia('(prefers-color-scheme:dark)').addEventListener('change',applyTheme);}}catch(e){{}}
-}})();
-</script>
 </body>
 </html>
 """
@@ -4339,6 +6000,20 @@ class Pipe:
             if stats is not None
             else self._read_todo_status_from_session_db(chat_id)
         )
+        
+        # If there are tasks but they are all done, do not emit the widget.
+        # We also clear the previous hash so if a new task is added later, it will re-trigger.
+        if current_stats:
+            total_tasks = int(current_stats.get("total", 0))
+            done_tasks = int(current_stats.get("done", 0))
+            if total_tasks > 0 and done_tasks == total_tasks:
+                self._write_todo_widget_hash(chat_id, "") # Reset hash
+                return {
+                    "emitted": False,
+                    "changed": False,
+                    "reason": "all_tasks_done",
+                }
+
         snapshot_hash = self._compute_todo_widget_hash(current_stats)
         previous_hash = self._read_todo_widget_hash(chat_id)
         changed = force or snapshot_hash != previous_hash
@@ -4349,7 +6024,10 @@ class Pipe:
                 "reason": "unchanged",
             }
 
-        html_doc = self._build_todo_widget_html(lang, current_stats)
+        html_doc = self._prepare_richui_embed_html(
+            self._build_todo_widget_html(lang, current_stats),
+            user_lang=lang,
+        )
         try:
             await emitter({"type": "embeds", "data": {"embeds": [html_doc]}})
             self._write_todo_widget_hash(chat_id, snapshot_hash)
@@ -4924,13 +6602,10 @@ class Pipe:
         except Exception as e:
             logger.warning(f"[Session Tracking] Failed to persist mapping: {e}")
 
-    def _build_client_config(self, user_id: str = None, chat_id: str = None) -> dict:
+    def _build_client_config(self, user_id: str = None, chat_id: str = None, token: str = None) -> dict:
         """Build CopilotClient config from valves and request body."""
         cwd = self._get_workspace_dir(user_id=user_id, chat_id=chat_id)
         config_dir = self._get_copilot_config_dir()
-
-        # Set environment variable for SDK/CLI to pick up the new config location
-        os.environ["COPILOTSDK_CONFIG_DIR"] = config_dir
 
         client_config = {}
         if os.environ.get("COPILOT_CLI_PATH"):
@@ -4941,11 +6616,14 @@ class Pipe:
         if self.valves.LOG_LEVEL:
             client_config["log_level"] = self.valves.LOG_LEVEL
 
-        if self.valves.LOG_LEVEL:
-            client_config["log_level"] = self.valves.LOG_LEVEL
-
         # Setup persistent CLI tool installation directories
         agent_env = dict(os.environ)
+        
+        # Safely inject token and config dir into the local agent environment
+        agent_env["COPILOTSDK_CONFIG_DIR"] = config_dir
+        if token:
+            agent_env["GH_TOKEN"] = token
+            agent_env["GITHUB_TOKEN"] = token
         if os.path.exists("/app/backend/data"):
             tools_dir = "/app/backend/data/.copilot_tools"
             npm_dir = f"{tools_dir}/npm"
@@ -5216,6 +6894,74 @@ class Pipe:
             logger.debug(f"[Copilot] skill directory debug check failed: {e}")
 
         return SessionConfig(**session_params)
+
+    async def _abort_stale_resumed_turn_if_needed(
+        self,
+        session,
+        __event_call__=None,
+        debug_enabled: bool = False,
+    ) -> bool:
+        """
+        Abort unfinished assistant work left in a resumed session before a new send.
+
+        Without this guard, a resumed chat can continue stale in-flight work from a
+        previous interrupted request, which may cause unrelated extra model turns.
+        """
+        try:
+            history = await session.get_messages()
+        except Exception as e:
+            await self._emit_debug_log(
+                f"Failed to inspect resumed session history: {e}",
+                __event_call__,
+                debug_enabled=debug_enabled,
+            )
+            return False
+
+        if not history:
+            return False
+
+        last_user_index = -1
+        for idx in range(len(history) - 1, -1, -1):
+            if getattr(history[idx], "type", "") == "user.message":
+                last_user_index = idx
+                break
+
+        if last_user_index < 0:
+            return False
+
+        pending_turn_depth = 0
+        for event in history[last_user_index + 1 :]:
+            event_type = getattr(event, "type", "")
+            if event_type == "assistant.turn_start":
+                pending_turn_depth += 1
+            elif event_type == "assistant.turn_end":
+                pending_turn_depth = max(0, pending_turn_depth - 1)
+            elif event_type in {"session.idle", "session.error"}:
+                pending_turn_depth = 0
+
+        if pending_turn_depth <= 0:
+            return False
+
+        await self._emit_debug_log(
+            (
+                "Detected unfinished assistant work in resumed session; "
+                "aborting stale turn before sending the new prompt."
+            ),
+            __event_call__,
+            debug_enabled=debug_enabled,
+        )
+
+        try:
+            await session.abort()
+            await asyncio.sleep(0.1)
+            return True
+        except Exception as e:
+            await self._emit_debug_log(
+                f"Failed to abort stale resumed turn: {e}",
+                __event_call__,
+                debug_enabled=debug_enabled,
+            )
+            return False
 
     def _build_session_hooks(self, cwd: str, __event_call__=None):
         """
@@ -5567,11 +7313,10 @@ class Pipe:
 
     async def _get_client(self, token: str) -> Any:
         """Get or create the persistent CopilotClient from the pool based on token."""
-        if not token:
-            raise ValueError("GitHub Token is required to initialize CopilotClient")
-
-        # Use an MD5 hash of the token as the key for the client pool
-        token_hash = hashlib.md5(token.encode()).hexdigest()
+        # Use an MD5 hash of the token as the key for the client pool.
+        # If no token is provided (BYOK-only mode), use a dedicated cache key.
+        safe_token = token or "byok_only_mode"
+        token_hash = hashlib.md5(safe_token.encode()).hexdigest()
 
         async with self.__class__._shared_client_lock:
             # Check if client exists for this token and is healthy
@@ -5595,7 +7340,7 @@ class Pipe:
                 self._setup_env(token=token)
 
             # Build configuration and start persistent client
-            client_config = self._build_client_config(user_id=None, chat_id=None)
+            client_config = self._build_client_config(user_id=None, chat_id=None, token=token)
             client_config["github_token"] = token
             client_config["auto_start"] = True
 
@@ -5697,10 +7442,10 @@ class Pipe:
     ):
         """Setup environment variables and resolve the deterministic Copilot CLI path."""
 
-        # 1. Real-time Token Injection (Always updates on each call)
+        # 1. Real-time Token Injection
+        # Note: We no longer set os.environ["GH_TOKEN"] globally here to prevent cross-user token pollution.
+        # It is handled securely via CopilotClient configuration and local agent_env.
         effective_token = token or self.valves.GH_TOKEN
-        if effective_token:
-            os.environ["GH_TOKEN"] = os.environ["GITHUB_TOKEN"] = effective_token
 
         if self._env_setup_done:
             return
@@ -6120,13 +7865,18 @@ class Pipe:
 
         live_todo_stats = self._read_todo_status_from_session_db(chat_id or "")
         if live_todo_stats:
-            await self._emit_todo_widget(
-                chat_id=chat_id or "",
-                lang=user_lang,
-                emitter=__event_emitter__,
-                stats=live_todo_stats,
-                force=True,
-            )
+            total_tasks = int(live_todo_stats.get("total", 0))
+            done_tasks = int(live_todo_stats.get("done", 0))
+            
+            # Only show the widget if there are tasks and not ALL of them are done.
+            if total_tasks > 0 and done_tasks < total_tasks:
+                await self._emit_todo_widget(
+                    chat_id=chat_id or "",
+                    lang=user_lang,
+                    emitter=__event_emitter__,
+                    stats=live_todo_stats,
+                    force=True,
+                )
 
         is_streaming = body.get("stream", False)
         await self._emit_debug_log(
@@ -6427,6 +8177,11 @@ class Pipe:
                         f"Successfully resumed session {chat_id} with model {real_model_id}",
                         __event_call__,
                     )
+                    await self._abort_stale_resumed_turn_if_needed(
+                        session,
+                        __event_call__=__event_call__,
+                        debug_enabled=effective_debug,
+                    )
                 except Exception as e:
                     await self._emit_debug_log(
                         f"Session {chat_id} not found or failed to resume ({str(e)}), creating new.",
@@ -6591,6 +8346,7 @@ class Pipe:
         queue = asyncio.Queue()
         done = asyncio.Event()
         SENTINEL = object()
+        stream_start_ts = time.monotonic()
         # Use local state to handle concurrency and tracking
         state = {
             "thinking_started": False,
@@ -6598,14 +8354,17 @@ class Pipe:
             "last_status_desc": None,
             "idle_reached": False,
             "session_finalized": False,
+            "turn_started": False,
+            "turn_started_ts": None,
+            "last_event_ts": stream_start_ts,
             "final_status_desc": self._get_translation(
                 user_lang, "status_task_completed"
             ),
         }
         has_content = False  # Track if any content has been yielded
         active_tools = {}  # Map tool_call_id to tool_name
+        running_tool_calls = set()
         skill_invoked_in_turn = False
-        stream_start_ts = time.monotonic()
         last_wait_status_ts = 0.0
         wait_status_interval = 15.0
 
@@ -6646,6 +8405,7 @@ class Pipe:
             Processes streaming deltas, reasoning, tool events, and session state.
             """
             event_type = get_event_type(event)
+            state["last_event_ts"] = time.monotonic()
 
             # --- Status Emission Helper ---
             async def _emit_status_helper(description: str, is_done: bool = False):
@@ -6719,6 +8479,8 @@ class Pipe:
 
             # === Turn Management Events ===
             if event_type == "assistant.turn_start":
+                state["turn_started"] = True
+                state["turn_started_ts"] = state["last_event_ts"]
                 self._emit_debug_log_sync(
                     "Assistant Turn Started",
                     __event_call__,
@@ -6927,6 +8689,7 @@ class Pipe:
                         "arguments": tool_args,
                         "status_text": tool_status_text if __event_emitter__ else None,
                     }
+                    running_tool_calls.add(tool_call_id)
 
                 # Close thinking tag if open before showing tool
                 if state["thinking_started"]:
@@ -6944,6 +8707,8 @@ class Pipe:
 
             elif event_type == "tool.execution_complete":
                 tool_call_id = safe_get_data_attr(event, "tool_call_id", "")
+                if tool_call_id:
+                    running_tool_calls.discard(tool_call_id)
                 tool_info = active_tools.get(tool_call_id)
 
                 tool_name = "tool"
@@ -7121,7 +8886,13 @@ class Pipe:
                     escape_html_attr(args_json_str) if args_json_str else "{}"
                 )
                 # Use "Success" if result_content is empty to ensure card renders
-                result_for_attr = escape_html_attr(result_content or "Success")
+                # Truncate long results to prevent massive HTML attributes that cause
+                # page height explosion in OpenWebUI (e.g. large crawl/scrape outputs)
+                _max_result_display = 2000
+                _result_raw = result_content or "Success"
+                if len(_result_raw) > _max_result_display:
+                    _result_raw = _result_raw[:_max_result_display] + f"\n... ({len(result_content)} chars total, truncated)"
+                result_for_attr = escape_html_attr(_result_raw)
 
                 # Emit the unified native tool_calls block:
                 # OpenWebUI 0.8.3 frontend regex explicitly expects: name="xxx" arguments="..." result="..." done="true"
@@ -7243,6 +9014,15 @@ class Pipe:
                 )
 
             elif event_type == "assistant.turn_end":
+                # Fallback: clear orphaned tool call tracking to unblock stall detection
+                if running_tool_calls:
+                    self._emit_debug_log_sync(
+                        f"Turn ended with {len(running_tool_calls)} orphaned tool call(s), clearing",
+                        __event_call__,
+                        debug_enabled=debug_enabled,
+                    )
+                    running_tool_calls.clear()
+
                 self._emit_debug_log_sync(
                     "Assistant Turn Ended",
                     __event_call__,
@@ -7291,13 +9071,18 @@ class Pipe:
             elif event_type == "session.idle":
                 # Session finished processing - signal to the generator loop to finalize
                 state["idle_reached"] = True
+                state["turn_started"] = False
                 try:
                     queue.put_nowait(IDLE_SENTINEL)
                 except:
                     pass
 
             elif event_type == "session.error":
+                state["turn_started"] = False
+                # Fallback: clear orphaned tool call tracking on session error
+                running_tool_calls.clear()
                 error_msg = safe_get_data_attr(event, "message", "Unknown Error")
+                state["last_error_msg"] = error_msg
                 emit_status(
                     self._get_translation(
                         user_lang, "status_session_error", error=error_msg
@@ -7345,6 +9130,31 @@ class Pipe:
         # Use asyncio.create_task used to prevent session.send from blocking the stream reading
         # if the SDK implementation waits for completion.
         send_task = asyncio.create_task(session.send(send_payload))
+
+        def _handle_send_task_done(task: asyncio.Task):
+            if done.is_set():
+                return
+            try:
+                exc = task.exception()
+            except asyncio.CancelledError:
+                return
+            except Exception as callback_err:
+                exc = callback_err
+            if not exc:
+                return
+            error_msg = f"Copilot send failed: {exc}"
+            self._emit_debug_log_sync(
+                error_msg,
+                __event_call__,
+                debug_enabled=debug_enabled,
+            )
+            try:
+                queue.put_nowait(f"\n[Error: {error_msg}]")
+                queue.put_nowait(ERROR_SENTINEL)
+            except Exception:
+                pass
+
+        send_task.add_done_callback(_handle_send_task_done)
         self._emit_debug_log_sync(
             f"Prompt sent (async task started)",
             __event_call__,
@@ -7569,13 +9379,14 @@ class Pipe:
 
                     if chunk is ERROR_SENTINEL:
                         # Extract error message if possible or use default
+                        error_desc = state.get("last_error_msg", "Error during processing")
                         if __event_emitter__:
                             try:
                                 await __event_emitter__(
                                     {
                                         "type": "status",
                                         "data": {
-                                            "description": "Error during processing",
+                                            "description": error_desc,
                                             "done": True,
                                         },
                                     }
@@ -7602,6 +9413,109 @@ class Pipe:
                         break
 
                     now_ts = time.monotonic()
+                    no_progress_timeout = min(float(self.valves.TIMEOUT), 90.0)
+                    time_since_last_event = now_ts - state.get("last_event_ts", stream_start_ts)
+
+                    # --- Primary Stall Detection: no content started yet ---
+                    if (
+                        state.get("turn_started")
+                        and not state["content_sent"]
+                        and not state["thinking_started"]
+                        and not running_tool_calls
+                        and time_since_last_event >= no_progress_timeout
+                    ):
+                        # Attempt to rescue via Ping before aborting
+                        try:
+                            await asyncio.wait_for(client.ping(), timeout=5.0)
+                            state["last_event_ts"] = time.monotonic()
+                            self._emit_debug_log_sync(
+                                "Stall detection threshold reached, but client is alive (Ping successful). Extended wait time.",
+                                __event_call__,
+                                debug_enabled=debug_enabled,
+                            )
+                            continue
+                        except Exception as ping_err:
+                            stall_msg = (
+                                f"Copilot stalled after assistant.turn_start. Ping failed ({ping_err}). The request was aborted."
+                            )
+                            self._emit_debug_log_sync(
+                                stall_msg,
+                                __event_call__,
+                                debug_enabled=debug_enabled,
+                            )
+                            try:
+                                await asyncio.wait_for(session.abort(), timeout=5.0)
+                            except asyncio.TimeoutError:
+                                self._emit_debug_log_sync(
+                                    "session.abort() itself timed out (5s) — connection likely dead",
+                                    __event_call__,
+                                    debug_enabled=debug_enabled,
+                                )
+                            except Exception as abort_err:
+                                self._emit_debug_log_sync(
+                                    f"Failed to abort stalled session: {abort_err}",
+                                    __event_call__,
+                                    debug_enabled=debug_enabled,
+                                )
+                            try:
+                                queue.put_nowait(f"\n[Error: {stall_msg}]")
+                                queue.put_nowait(ERROR_SENTINEL)
+                            except Exception:
+                                pass
+                            continue
+
+                    # --- Secondary Absolute Inactivity Guard ---
+                    # If tools are actively running (e.g. long bash crawl task),
+                    # allow the full TIMEOUT before force-aborting.
+                    # Otherwise use a shorter limit for faster recovery.
+                    if running_tool_calls:
+                        absolute_inactivity_limit = float(self.valves.TIMEOUT)
+                    else:
+                        absolute_inactivity_limit = no_progress_timeout * 2.0
+                    if time_since_last_event >= absolute_inactivity_limit:
+                        # Attempt to rescue via Ping before aborting
+                        try:
+                            await asyncio.wait_for(client.ping(), timeout=5.0)
+                            state["last_event_ts"] = time.monotonic()
+                            self._emit_debug_log_sync(
+                                f"Inactivity limit ({absolute_inactivity_limit}s) reached, but client is alive (Ping successful). Extended wait time.",
+                                __event_call__,
+                                debug_enabled=debug_enabled,
+                            )
+                            continue
+                        except Exception as ping_err:
+                            stall_msg = (
+                                f"Copilot session inactive for {int(time_since_last_event)}s "
+                                f"(limit: {int(absolute_inactivity_limit)}s). Ping failed ({ping_err}). "
+                                f"Force-aborting to prevent permanent hang."
+                            )
+                            self._emit_debug_log_sync(
+                                stall_msg,
+                                __event_call__,
+                                debug_enabled=debug_enabled,
+                            )
+                            running_tool_calls.clear()
+                            try:
+                                await asyncio.wait_for(session.abort(), timeout=5.0)
+                            except asyncio.TimeoutError:
+                                self._emit_debug_log_sync(
+                                    "session.abort() itself timed out (5s) — connection likely dead",
+                                    __event_call__,
+                                    debug_enabled=debug_enabled,
+                                )
+                            except Exception as abort_err:
+                                self._emit_debug_log_sync(
+                                    f"Failed to abort inactive session: {abort_err}",
+                                    __event_call__,
+                                    debug_enabled=debug_enabled,
+                                )
+                            try:
+                                queue.put_nowait(f"\n[Error: {stall_msg}]")
+                                queue.put_nowait(ERROR_SENTINEL)
+                            except Exception:
+                                pass
+                            continue
+
                     if __event_emitter__ and (
                         now_ts - last_wait_status_ts >= wait_status_interval
                     ):
@@ -7680,6 +9594,11 @@ class Pipe:
             except:
                 pass  # Connection already closed
         finally:
+            try:
+                if not send_task.done():
+                    send_task.cancel()
+            except Exception:
+                pass
             # Final Status Cleanup: Emergency mark all as done if not already
             if __event_emitter__:
                 try:
@@ -7730,13 +9649,10 @@ class Pipe:
                     pass
 
             unsubscribe()
-            # Cleanup client and session
-            try:
-                # We do not destroy session here to allow persistence,
-                # but we must stop the client.
-                await client.stop()
-            except Exception:
-                pass
+            # In the current architecture, CopilotClient is a persistent singleton
+            # shared across requests to eliminate the 1-2s startup latency.
+            # Therefore, we NEVER stop the client here.
+            # The session remains alive in the SDK for follow-up turns.
 
 
 # Triggering release after CI fix

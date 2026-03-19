@@ -1,6 +1,6 @@
 # GitHub Copilot SDK Pipe for OpenWebUI
 
-| By [Fu-Jie](https://github.com/Fu-Jie) · v0.10.1 | [⭐ Star this repo](https://github.com/Fu-Jie/openwebui-extensions) |
+| By [Fu-Jie](https://github.com/Fu-Jie) · v0.11.0 | [⭐ Star this repo](https://github.com/Fu-Jie/openwebui-extensions) |
 | :--- | ---: |
 
 | ![followers](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_followers.json&label=%F0%9F%91%A5&style=flat) | ![points](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_points.json&label=%E2%AD%90&style=flat) | ![top](https://img.shields.io/badge/%F0%9F%8F%86-Top%20%3C1%25-10b981?style=flat) | ![contributions](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_contributions.json&label=%F0%9F%93%A6&style=flat) | ![downloads](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_downloads.json&label=%E2%AC%87%EF%B8%8F&style=flat) | ![saves](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_saves.json&label=%F0%9F%92%BE&style=flat) | ![views](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_views.json&label=%F0%9F%91%81%EF%B8%8F&style=flat) |
@@ -39,11 +39,14 @@ When the selection dialog opens, search for this plugin, check it, and continue.
 > [!IMPORTANT]
 > If the official OpenWebUI Community version is already installed, remove it first. After that, Batch Install Plugins can keep this plugin updated in future runs.
 
-## ✨ v0.10.1: RichUI Default & Improved HTML Display
+## ✨ v0.11.0: High-Speed Pool Fix, BYOK-only Mode & Stable RichUI
 
-- **🎨 RichUI Default HTML Display**: Changed default HTML embed type from 'artifacts' to 'richui' for direct, seamless rendering in OpenWebUI chat interface
-- **📝 Enhanced System Prompt**: Updated guidance to recommend RichUI mode for HTML presentation by default, with artifacts only when explicitly requested by users
-- **⚡ Smoother Workflow**: Eliminates unnecessary modal interactions, allowing agents to display interactive components directly in conversation
+- **🚀 Shared Client Pool Fix**: Resolved a critical bug where the shared singleton pool was incorrectly stopped, restoring instant response speeds for subsequent turns.
+- **🔑 BYOK-only Mode**: You can now use the plugin with only BYOK settings (OpenAI/Anthropic keys) without requiring a `GH_TOKEN`.
+- **🛡️ Environment Isolation**: Improved security by isolating user-specific environment variables, preventing token pollution in concurrent requests.
+- **📏 RichUI Height Stability**: Fixed the infinite sizing loop bug in embedded components, ensuring precise auto-height calculation.
+- **🩺 Smart Stall Detection**: Integrated `client.ping()` to rescue slow but alive processes from being prematurely aborted during heavy tasks.
+- **🧹 Smart TODO Visibility**: Automatically hides the TODO widget in subsequent chats once all tasks are completed to keep the interface clean.
 
 ---
 
@@ -57,6 +60,59 @@ When the selection dialog opens, search for this plugin, check it, and continue.
 - **🧾 Better Embedded Tool Results**: Improved HTML/embedded tool outcomes and synchronized documentation surface.
 
 ---
+
+## 🚀 Quick Start (Read This First)
+
+If you only want to know how to use this plugin, read these sections in order:
+
+1. **Quick Start**
+2. **How to Use**
+3. **Core Configuration**
+
+Everything else is optional or advanced.
+
+1. **Install the Pipe**
+   - **Recommended**: Use **Batch Install Plugins** and select this plugin.
+   - **Manual**: OpenWebUI -> **Workspace** -> **Functions** -> create a new function -> paste `github_copilot_sdk.py`.
+2. **Install the Companion Files Filter** if you want uploaded files to reach the Pipe as raw files.
+3. **Configure one credential path**
+   - `GH_TOKEN` for official GitHub Copilot models
+   - or `BYOK_API_KEY` for OpenAI / Anthropic
+4. **Start a new chat and use it normally**
+   - Select this Pipe's model
+   - Ask your task in plain language
+   - Upload files when needed
+
+## 🧭 How to Use
+
+You usually **do not** need to mention tools, skills, internal parameters, or RichUI syntax. Just describe the task naturally.
+
+| Scenario | What you do | Example |
+| :--- | :--- | :--- |
+| Daily coding / debugging | Ask normally in chat | `Fix the failing tests and explain the root cause.` |
+| File analysis | Upload files and ask normally | `Summarize this Excel file and chart the monthly trend.` |
+| Long tasks | Ask for the outcome; the Pipe handles planning, status, and TODO tracking automatically | `Refactor this plugin and keep the docs in sync.` |
+| HTML reports / dashboards | Ask the agent to generate a report or dashboard | `Create an interactive architecture overview for this repo.` |
+
+> [!TIP]
+> Ordinary users only need to remember one rule: if you ask for an interactive HTML result, the Pipe will usually use **RichUI** automatically. Only mention **artifacts** when you explicitly want artifacts-style output.
+
+## 💡 What RichUI actually means
+
+**RichUI = the generated HTML page is rendered directly inside the chat window.**
+
+You can think of it as **a small interactive page inside the conversation**.
+
+- If the agent generates a dashboard, report, timeline, architecture page, or explainer page, you may see RichUI.
+- If you are just asking normal coding questions, debugging, writing, or file analysis tasks, you can ignore RichUI completely.
+- You do **not** need to write XML, HTML tags, or special RichUI attributes. Just describe the result you want.
+
+| What you ask for | What happens |
+| :--- | :--- |
+| `Fix this failing test` | Normal chat response. RichUI is not important here. |
+| `Create an interactive dashboard for this repo` | RichUI is used by default. |
+| `Generate this as artifacts` | Artifacts mode is used instead of RichUI. |
+| `Build a project summary page if that helps explain it better` | The agent decides whether a page is useful. |
 
 ## ✨ Key Capabilities
 
@@ -80,6 +136,25 @@ When the selection dialog opens, search for this plugin, check it, and continue.
 > To get the most out of **HTML Artifacts** and **RichUI**, we highly recommend asking the Agent to install the skill via its GitHub URL:
 > "Install this skill: <https://github.com/nicobailon/visual-explainer>".
 > This skill is specifically optimized for generating high-quality visual components and integrates perfectly with this Pipe.
+
+### 🎛️ How RichUI works in normal use
+
+For normal users, the rule is simple:
+
+1. Ask for the result you want.
+2. The AI decides whether a normal chat reply is enough.
+3. If a page or dashboard would explain things better, the AI creates it automatically and shows it in chat.
+
+You do **not** need to write XML tags, HTML snippets, or RichUI attributes yourself.
+
+Examples:
+
+- `Explain this repository structure.`
+- `If useful, present this as an interactive architecture page.`
+- `Turn this CSV into a simple dashboard.`
+
+> [!TIP]
+> Only mention **artifacts** when you explicitly want artifacts-style output. Otherwise, let the AI choose the best presentation automatically.
 
 ---
 
@@ -140,16 +215,26 @@ Standard users can override these settings in their individual Profile/Function 
 
 ---
 
-### 📤 Enhanced Publishing & Interactive Components
+### 📤 HTML result behavior (advanced)
 
-The `publish_file_from_workspace` tool now uses a clearer delivery contract for production use:
+You can skip this section unless you are directly using `publish_file_from_workspace(...)`.
 
-- **Artifacts mode (`artifacts`, default)**: Agent returns `[Preview]` + `[Download]` and may output `html_embed` in a ```html block for direct chat rendering.
-- **Rich UI mode (`richui`)**: Agent returns `[Preview]` + `[Download]` only; integrated preview is rendered automatically via emitter (no iframe block in message).
-- **📄 PDF delivery safety rule**: Always output Markdown links only (`[Preview]` + `[Download]` when available). **Do not embed PDF via iframe/html blocks.**
-- **⚡ Stable dual-channel publishing**: Keeps interactive viewing and persistent file download aligned across local/object-storage backends.
-- **✅ Status integration**: Emits real-time publishing progress and completion feedback to the OpenWebUI status bar.
+In plain language:
+
+- `richui` = show the generated HTML directly inside the chat
+- `artifacts` = use artifacts-style HTML delivery when you explicitly want that style
+
+Internally, this behavior is controlled by the `embed_type` parameter of `publish_file_from_workspace(...)`.
+
+- **Rich UI mode (`richui`, default for HTML)**: The agent returns `[Preview]` + `[Download]` only. OpenWebUI renders the interactive preview automatically after the message.
+- **Artifacts mode (`artifacts`)**: Use this only when you explicitly want artifacts-style HTML delivery.
+- **📄 PDF safety rule**: Always return Markdown links only (`[Preview]` / `[Download]` when available). Do not embed PDFs with iframe or HTML blocks.
+- **⚡ Stable dual-channel publishing**: Keeps interactive viewing and persistent file download aligned across local and object-storage backends.
+- **✅ Status integration**: Emits publishing progress and completion feedback to the OpenWebUI status bar.
 - **📘 Publishing Tool Guide (GitHub)**: [publish_file_from_workspace Guide](https://github.com/Fu-Jie/openwebui-extensions/blob/main/plugins/pipes/github-copilot-sdk/PUBLISH_FILE_FROM_WORKSPACE.md)
+
+> [!TIP]
+> Most users do not need to set `embed_type` manually. Ask for a report or dashboard normally. Only say `use artifacts` when you specifically want artifacts-style presentation. If you are not calling `publish_file_from_workspace(...)` yourself, you can usually ignore this parameter.
 
 ---
 
