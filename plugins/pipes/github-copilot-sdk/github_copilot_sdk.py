@@ -7430,12 +7430,17 @@ class Pipe:
                 ):
                     continue
 
-                # Filter out older iterations of Claude 3.5 Sonnet if 3.7 (newest) is available
-                # Logic: If user says "already have 4.6", they likely mean the latest 3.7 series.
-                # We filter out specific known ID patterns for the older iterations.
-                if "claude-3-5-sonnet" in mid or "claude-3.5-sonnet" in mid:
-                    # Keep only if it's the absolute latest or if 3.7 doesn't exist (safety)
-                    # But based on user request, we explicitly drop the older ones.
+                # Filter out older iterations of Claude Sonnet (3.5, 4.0, 4.5) as 3.7/4.6 is now available.
+                # We target both specific IDs and user-visible names.
+                claude_targets = [
+                    "claude-3-5-sonnet",
+                    "claude-3.5-sonnet",
+                    "claude-4-0-sonnet",
+                    "claude-4.0-sonnet",
+                    "claude-4-5-sonnet",
+                    "claude-4.5-sonnet",
+                ]
+                if any(t in mid or t in mname for t in claude_targets):
                     continue
 
             # 2. User-defined Keyword Filter
