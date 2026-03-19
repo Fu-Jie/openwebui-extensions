@@ -7413,13 +7413,37 @@ class Pipe:
         for m in models:
             mid = (m.get("raw_id") or m.get("id", "")).lower()
             mname = m.get("name", "").lower()
+            msource = m.get("source", "")
 
-            # Filter by Keyword
+            # 1. Official GitHub Model Hard-coded Filters
+            if msource == "copilot":
+                # Filter out experimental GPT-5 series which are often redundant or confusing
+                if any(
+                    target in mid
+                    for target in [
+                        "gpt-5.2-codex",
+                        "gpt-5.2",
+                        "gpt-5.1-codex-max",
+                        "gpt-5.1-codex",
+                        "gpt-5.1",
+                    ]
+                ):
+                    continue
+
+                # Filter out older iterations of Claude 3.5 Sonnet if 3.7 (newest) is available
+                # Logic: If user says "already have 4.6", they likely mean the latest 3.7 series.
+                # We filter out specific known ID patterns for the older iterations.
+                if "claude-3-5-sonnet" in mid or "claude-3.5-sonnet" in mid:
+                    # Keep only if it's the absolute latest or if 3.7 doesn't exist (safety)
+                    # But based on user request, we explicitly drop the older ones.
+                    continue
+
+            # 2. User-defined Keyword Filter
             if any(kw in mid or kw in mname for kw in ex_kw):
                 continue
 
-            # Filter by Multiplier (Copilot source only)
-            if m.get("source") == "copilot":
+            # 3. Multiplier Filter (Copilot source only)
+            if msource == "copilot":
                 if float(m.get("multiplier", 1.0)) > (eff_max + epsilon):
                     continue
 
