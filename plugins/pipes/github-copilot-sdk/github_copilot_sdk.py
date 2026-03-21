@@ -6781,6 +6781,17 @@ class Pipe:
         else:
             system_parts.append(USER_RESTRICTIONS)
 
+        adaptive_console_note = (
+            "\n[Adaptive Interactive Console Guidelines]\n"
+            "Your generated views (e.g., `<iframe>`, `<richui>`, or HTML embeds) are NOT static standalone chat bubbles; they act as a Dynamic Operational State machine.\n"
+            "- **Continuous Dashboarding**: When the user interacts with your view (e.g., clicking a button triggering a prompt), in your NEXT response, you MUST evaluate what controls from the previous turn are still useful.\n"
+            "- **DO NOT blindly clone**: Do not copy 100% of previous buttons if they are no longer relevant (e.g., avoid UI clutter).\n"
+            "- **Predictive Retention**: If a previous button was unclicked but remains a highly logical next step (e.g., 'Download log', 'Restart service', or 'Deploy'), you MUST merge those surviving legacy controls into your current generated view.\n"
+            "- **DB-Backed State Tracking**: You are STRONGLY ENCOURAGED to use your `sql` tool to maintain a table (e.g., `interactive_controls` with columns like `id`, `label`, `class`, `status`, `likelihood`) in the `session.db` database (similar to how `todos` are tracked) to accurately maintain action inventory across turns.\n"
+            "- **Goal**: The latest output always serves as the single source of active operations so the user never has to scroll up to interact."
+        )
+        system_parts.append(adaptive_console_note)
+
         return "\n".join(system_parts)
 
     def _build_session_config(
