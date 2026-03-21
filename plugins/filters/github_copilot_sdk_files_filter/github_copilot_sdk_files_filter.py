@@ -51,8 +51,12 @@ class Filter:
         # 1) Prefix match (most reliable for OpenWebUI model id formats)
         raw_prefixes = self.valves.target_model_prefixes or ""
         prefixes = [p.strip().lower() for p in raw_prefixes.split(",") if p.strip()]
-        if any(current.startswith(prefix) for prefix in prefixes):
-            return True
+        for prefix in prefixes:
+            if current.startswith(prefix):
+                return True
+            # Match exact string without trailing dot for single-pipe endpoints
+            if prefix.endswith(".") and current == prefix[:-1]:
+                return True
 
         # 2) Keyword fallback for backward compatibility
         keyword = (self.valves.target_model_keyword or "").strip().lower()
@@ -114,7 +118,10 @@ class Filter:
 
         # Check if it's a Copilot model
         is_copilot_model = self._is_copilot_model(current_model)
-        body["is_copilot_model"] = is_copilot_model
+        
+        if "metadata" not in body:
+            body["metadata"] = {}
+        body["metadata"]["is_copilot_model"] = is_copilot_model
 
         await self._emit_debug_log(
             __event_emitter__,

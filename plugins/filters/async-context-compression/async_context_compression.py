@@ -2713,7 +2713,8 @@ class Filter:
         Check if compression should be skipped.
         Returns True if:
         """
-        if body.get("is_copilot_model", False):
+        is_copilot = body.get("is_copilot_model", False) or body.get("metadata", {}).get("is_copilot_model", False)
+        if is_copilot:
             return True
         return False
 
