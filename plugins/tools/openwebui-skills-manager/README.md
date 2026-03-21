@@ -10,7 +10,7 @@ A standalone OpenWebUI Tool plugin to manage native **Workspace > Skills** for a
 
 ## Install with Batch Install Plugins
 
-If you already use [Batch Install Plugins from GitHub](https://openwebui.com/t/fujie/batch_install_plugins), you can install or update this plugin with:
+If you already use [Batch Install Plugins from GitHub](https://openwebui.com/posts/batch_install_plugins_install_popular_plugins_in_s_c9fd6e80), you can install or update this plugin with:
 
 ```text
 Install plugin from Fu-Jie/openwebui-extensions
@@ -30,7 +30,7 @@ When the selection dialog opens, search for this plugin, check it, and continue.
 
 > [!TIP]
 > **💡 Looking to batch install global plugins (Actions, Filters, Pipes, Tools)?**
-> This plugin specializes in managing Workspace Skills for your assistants. If you need to install and manage global function-based plugins, use our companion tool [Batch Install Plugins from GitHub](https://openwebui.com/t/fujie/batch_install_plugins) for an optimized installation workflow.
+> This plugin specializes in managing Workspace Skills for your assistants. If you need to install and manage global function-based plugins, use our companion tool [Batch Install Plugins from GitHub](https://openwebui.com/posts/batch_install_plugins_install_popular_plugins_in_s_c9fd6e80) for an optimized installation workflow.
 
 ## Key Features
 

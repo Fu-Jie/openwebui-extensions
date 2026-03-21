@@ -10,7 +10,7 @@
 
 ## 使用 Batch Install Plugins 安装
 
-如果你已经安装了 [Batch Install Plugins from GitHub](https://openwebui.com/t/fujie/batch_install_plugins)，可以用下面这句来安装或更新当前插件：
+如果你已经安装了 [Batch Install Plugins from GitHub](https://openwebui.com/posts/batch_install_plugins_install_popular_plugins_in_s_c9fd6e80)，可以用下面这句来安装或更新当前插件：
 
 ```text
 从 Fu-Jie/openwebui-extensions 安装插件
@@ -30,7 +30,7 @@
 
 > [!TIP]
 > **💡 想要批量安装/管理全局插件 (Actions, Filters, Pipes, Tools)？**
-> 本插件专注管理工作区的 AI 技能 (Skills)。如果你需要安装和管理全局函数型插件，请使用同系列的 [Batch Install Plugins from GitHub](https://openwebui.com/t/fujie/batch_install_plugins) 工具，不仅安装体验极致，而且完美接轨系统扩展体系。
+> 本插件专注管理工作区的 AI 技能 (Skills)。如果你需要安装和管理全局函数型插件，请使用同系列的 [Batch Install Plugins from GitHub](https://openwebui.com/posts/batch_install_plugins_install_popular_plugins_in_s_c9fd6e80) 工具，不仅安装体验极致，而且完美接轨系统扩展体系。
 
 ## 核心特性
 
