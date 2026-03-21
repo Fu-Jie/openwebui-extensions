@@ -9,7 +9,7 @@ SCRIPT_DIR = Path(__file__).parent
 ENV_FILE = SCRIPT_DIR / ".env"
 
 URL = (
-    "http://localhost:3000/api/v1/functions/id/github_copilot_official_sdk_pipe/update"
+    "http://localhost:3003/api/v1/functions/id/github_copilot_official_sdk_pipe/update"
 )
 FILE_PATH = SCRIPT_DIR.parent / "plugins/pipes/github-copilot-sdk/github_copilot_sdk.py"
 
@@ -103,7 +103,7 @@ def deploy_pipe() -> None:
             print(
                 f"⚠️ Update failed with status {response.status_code}, attempting to create instead..."
             )
-            CREATE_URL = "http://localhost:3000/api/v1/functions/create"
+            CREATE_URL = "http://localhost:3003/api/v1/functions/create"
             res_create = requests.post(
                 CREATE_URL, headers=headers, data=json.dumps(payload)
             )
