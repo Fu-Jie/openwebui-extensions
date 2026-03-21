@@ -21,6 +21,10 @@ When the selection dialog opens, search for this plugin, check it, and continue.
 > [!IMPORTANT]
 > If the official OpenWebUI Community version is already installed, remove it first. After that, Batch Install Plugins can keep this plugin updated in future runs.
 
+> [!TIP]
+> **💡 Looking to batch install or manage Workspace Skills?**
+> This plugin specializes in installing global function-based plugins (Pipe, Filter, Tool, Action). If you need to manage your AI assistant's dedicated Skills, use our companion tool [OpenWebUI Skills Manager](https://github.com/Fu-Jie/openwebui-extensions/tree/main/plugins/tools/openwebui-skills-manager), which provides full CRUD capabilities, batch discovery, and interactive selection dialogs.
+
 ## Key Features
 
 - **One-Click Install**: Install all plugins with a single command

@@ -28,6 +28,10 @@ When the selection dialog opens, search for this plugin, check it, and continue.
 - Added GitHub skills-directory auto-discovery for `install_skill` (e.g., `.../tree/main/skills`) to install all child skills in one request.
 - Fixed language detection with robust frontend-first fallback (`__event_call__` + timeout), request header fallback, and profile fallback.
 
+> [!TIP]
+> **💡 Looking to batch install global plugins (Actions, Filters, Pipes, Tools)?**
+> This plugin specializes in managing Workspace Skills for your assistants. If you need to install and manage global function-based plugins, use our companion tool [Batch Install Plugins from GitHub](https://github.com/Fu-Jie/openwebui-extensions/tree/main/plugins/tools/batch-install-plugins) for an optimized installation workflow.
+
 ## Key Features
 
 - **🌐 Model-agnostic**: Can be enabled for any model that supports OpenWebUI Tools.

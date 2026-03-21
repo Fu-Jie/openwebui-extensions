@@ -21,6 +21,10 @@
 > [!IMPORTANT]
 > 如果你已经安装了 OpenWebUI 官方社区里的同名版本，请先删除旧版本，否则重新安装时可能报错。删除后，Batch Install Plugins 后续就可以继续负责更新这个插件。
 
+> [!TIP]
+> **💡 想要批量安装/管理 Workspace 技能 (Skills)？**
+> 本插件专注安装全局函数型插件（Pipe/Filter/Tool/Action）。如果你需要管理 AI 助手的专属技能，请使用同系列的 [OpenWebUI Skills Manager](https://github.com/Fu-Jie/openwebui-extensions/tree/main/plugins/tools/openwebui-skills-manager) 工具，它具备完整的增删改查、批量发现及可视化浮层点选能力。
+
 ## 主要功能
 
 - 一键安装：单个命令安装所有插件

@@ -28,6 +28,10 @@
 - `install_skill` 新增 GitHub 技能目录自动发现（例如 `.../tree/main/skills`），可一键安装目录下所有子技能。
 - 修复语言获取逻辑：前端优先（`__event_call__` + 超时保护），并回退到请求头与用户资料。
 
+> [!TIP]
+> **💡 想要批量安装/管理全局插件 (Actions, Filters, Pipes, Tools)？**
+> 本插件专注管理工作区的 AI 技能 (Skills)。如果你需要安装和管理全局函数型插件，请使用同系列的 [Batch Install Plugins from GitHub](https://github.com/Fu-Jie/openwebui-extensions/tree/main/plugins/tools/batch-install-plugins) 工具，不仅安装体验极致，而且完美接轨系统扩展体系。
+
 ## 核心特性
 
 - **🌐 全模型可用**：只要模型启用了 OpenWebUI Tools，即可调用。
