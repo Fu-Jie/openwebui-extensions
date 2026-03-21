@@ -5614,6 +5614,29 @@ class Pipe:
         os.makedirs(path, exist_ok=True)
         return path
 
+    def _initialize_interactive_controls_table(self, chat_id: str) -> None:
+        """Initialize the interactive_controls table in session.db if not exists."""
+        if not chat_id:
+            return
+        try:
+            metadata_dir = self._get_session_metadata_dir(chat_id)
+            db_path = os.path.join(metadata_dir, "session.db")
+            import sqlite3
+            with sqlite3.connect(db_path) as conn:
+                conn.execute("""
+                    CREATE TABLE IF NOT EXISTS interactive_controls (
+                        id TEXT PRIMARY KEY,
+                        label TEXT NOT NULL,
+                        action TEXT NOT NULL,
+                        status TEXT DEFAULT 'visible',
+                        likelihood REAL DEFAULT 0.5,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                    )
+                """)
+        except Exception as e:
+            logger.warning(f"Failed to initialize interactive_controls table for {chat_id}: {e}")
+
     def _get_plan_file_path(self, chat_id: Optional[str]) -> Optional[str]:
         """Return the canonical plan.md path for the current chat session."""
         if not chat_id:
@@ -6783,12 +6806,14 @@ class Pipe:
 
         adaptive_console_note = (
             "\n[Adaptive Interactive Console Guidelines]\n"
-            "Your generated views (e.g., `<iframe>`, `<richui>`, or HTML embeds) are NOT static standalone chat bubbles; they act as a Dynamic Operational State machine.\n"
-            "- **Continuous Dashboarding**: When the user interacts with your view (e.g., clicking a button triggering a prompt), in your NEXT response, you MUST evaluate what controls from the previous turn are still useful.\n"
-            "- **DO NOT blindly clone**: Do not copy 100% of previous buttons if they are no longer relevant (e.g., avoid UI clutter).\n"
-            "- **Predictive Retention**: If a previous button was unclicked but remains a highly logical next step (e.g., 'Download log', 'Restart service', or 'Deploy'), you MUST merge those surviving legacy controls into your current generated view.\n"
-            "- **DB-Backed State Tracking**: You MUST use your `sql` tool to maintain a strictly **independent table** (e.g., `interactive_controls` with columns like `id`, `label`, `class`, `status`, `likelihood`) in the `session.db` database. **DO NOT merge with the `todos` table**; you are fully responsible for managing the lifecycle of this action state table yourself.\n"
-            "- **Goal**: The latest output always serves as the single source of active operations so the user never has to scroll up to interact."
+            "Your generated views (e.g., `<iframe>`, `<richui>`, or HTML embeds) act as a Dynamic Operational State machine.\n"
+            "- **Continuous Dashboarding**: When the user interacts (clicks), in your NEXT response, evaluate what previous controls are still useful.\n"
+            "- **DO NOT blindly clone**: Do not copy 100% of previous buttons if they aren't relevant.\n"
+            "- **Predictive Retention**: If a previous button was unclicked but is logical next step, merge it into current view.\n"
+            "- **Pre-Initialized State Table**: An `interactive_controls` table has been created for you in the local `session.db` workspace. DO NOT use the `todos` table.\n"
+            "  - **Schema**: `id (TEXT PRIMARY KEY)`, `label (TEXT NOT NULL)`, `action (TEXT NOT NULL)`, `status (TEXT DEFAULT 'visible')`, `likelihood (REAL)`, `created_at`, `updated_at`.\n"
+            "  - **Usage**: You MUST use your `sql` tool to `SELECT`, `INSERT`, or `UPDATE` this table to deterministically model continuous items without relying solely on memory.\n"
+            "- **Goal**: The latest output is always the single source of active operations."
         )
         system_parts.append(adaptive_console_note)
 
@@ -7717,6 +7742,10 @@ class Pipe:
             body, __metadata__, __event_call__, debug_enabled=effective_debug
         )
         chat_id = chat_ctx.get("chat_id") or "default"
+        
+        # Initialize Adaptive Interactive Controls Table pre-emptively
+        if chat_id and chat_id != "default":
+            self._initialize_interactive_controls_table(chat_id)
 
         # Determine effective MCP settings
         effective_mcp = user_valves.ENABLE_MCP_SERVER
