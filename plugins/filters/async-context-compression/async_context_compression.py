@@ -2716,6 +2716,13 @@ class Filter:
         is_copilot = body.get("is_copilot_model", False) or body.get("metadata", {}).get("is_copilot_model", False)
         if is_copilot:
             return True
+        
+        # Fallback for filters or responses (e.g., Outlet) which may clear the metadata payload
+        model_id = body.get("model", "")
+        if isinstance(model_id, str):
+            c = model_id.lower()
+            if "github_copilot_sdk_pipe" in c or "github_copilot_official_sdk_pipe" in c:
+                return True
         return False
 
     async def inlet(
