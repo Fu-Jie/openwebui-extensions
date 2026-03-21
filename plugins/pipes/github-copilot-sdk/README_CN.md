@@ -1,6 +1,6 @@
 # GitHub Copilot Official SDK Pipe
 
-| 作者：[Fu-Jie](https://github.com/Fu-Jie) · v0.11.0 | [⭐ 点个 Star 支持项目](https://github.com/Fu-Jie/openwebui-extensions) |
+| 作者：[Fu-Jie](https://github.com/Fu-Jie) · v0.12.0 | [⭐ 点个 Star 支持项目](https://github.com/Fu-Jie/openwebui-extensions) |
 | :--- | ---: |
 
 | ![followers](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_followers.json&label=%F0%9F%91%A5&style=flat) | ![points](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_points.json&label=%E2%AD%90&style=flat) | ![top](https://img.shields.io/badge/%F0%9F%8F%86-Top%20%3C1%25-10b981?style=flat) | ![contributions](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_contributions.json&label=%F0%9F%93%A6&style=flat) | ![downloads](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_downloads.json&label=%E2%AC%87%EF%B8%8F&style=flat) | ![saves](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_saves.json&label=%F0%9F%92%BE&style=flat) | ![views](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_views.json&label=%F0%9F%91%81%EF%B8%8F&style=flat) |
@@ -40,14 +40,12 @@
 > [!IMPORTANT]
 > 如果你已经安装了 OpenWebUI 官方社区里的同名版本，请先删除旧版本，否则重新安装时可能报错。删除后，Batch Install Plugins 后续就可以继续负责更新这个插件。
 
-## ✨ v0.11.0：单例进程池修复、纯 BYOK 模式与 RichUI 高度稳定性
+## ✨ v0.12.0：自适应动作面板、流排重拦截与全链路 TTFT 测定
 
-- **🚀 共享进程池修复**：修复了 `stream_response` 误停止单例客户端的重大 Bug，显著提升多轮对话响应速度。
-- **🔑 支持纯 BYOK 模式**：现在支持仅配置自带密钥（BYOK）而不提供 `GH_TOKEN` 的运行模式。
-- **🛡️ 并发环境隔离**：重构环境变量注入逻辑，实现用户级 Token 隔离，杜绝高并发下的信息污染。
-- **📏 RichUI 稳定性增强**：彻底解决了嵌入式组件高度计算循环导致的页面无限变高问题。
-- **🩺 智能防挂死检测**：引入 `client.ping()` 探测机制，有效减少复杂任务（如长时间运行的脚本）被误杀的概率。
-- **🧹 智能 TODO 显隐**：当 TODO 任务全部完成后，下一次对话将自动隐藏 UI，保持界面整洁。
+- **📊 连续自适应看板 (Adaptive Actions Console)**：自动在 `interactive_controls` 辅助常驻状态表中追踪动作，引导 LLM 有选择性地在最新输出中展示最可能用到的点击控制面板，实现不翻页连续持久化点击操作。
+- **🛡️ 叠加流排重拦截 (Deduplicate Stream overlap)**：对接 `_dedupe_stream_chunk` 保守重叠裁剪，彻底消除二轮对话流重叠叠加异常。
+- **⏱️ 分段 ⏱️ Profiling 埋点**：拆装本地预热阻断与云端网络 Trip 数据时间，直观测算 Time-to-First-Byte。
+- **🧹 消除冗余解析**：剔除 Resume 过程对 MCP 的二次昂贵循环，提效握手微观时延。
 
 ---
 

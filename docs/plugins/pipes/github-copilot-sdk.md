@@ -1,6 +1,6 @@
 # GitHub Copilot SDK Pipe for OpenWebUI
 
-| By [Fu-Jie](https://github.com/Fu-Jie) · v0.11.0 | [⭐ Star this repo](https://github.com/Fu-Jie/openwebui-extensions) |
+| By [Fu-Jie](https://github.com/Fu-Jie) · v0.12.0 | [⭐ Star this repo](https://github.com/Fu-Jie/openwebui-extensions) |
 | :--- | ---: |
 
 | ![followers](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_followers.json&label=%F0%9F%91%A5&style=flat) | ![points](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_points.json&label=%E2%AD%90&style=flat) | ![top](https://img.shields.io/badge/%F0%9F%8F%86-Top%20%3C1%25-10b981?style=flat) | ![contributions](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_contributions.json&label=%F0%9F%93%A6&style=flat) | ![downloads](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_downloads.json&label=%E2%AC%87%EF%B8%8F&style=flat) | ![saves](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_saves.json&label=%F0%9F%92%BE&style=flat) | ![views](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_views.json&label=%F0%9F%91%81%EF%B8%8F&style=flat) |
@@ -39,14 +39,12 @@ When the selection dialog opens, search for this plugin, check it, and continue.
 > [!IMPORTANT]
 > If the official OpenWebUI Community version is already installed, remove it first. After that, Batch Install Plugins can keep this plugin updated in future runs.
 
-## ✨ v0.11.0: High-Speed Pool Fix, BYOK-only Mode & Stable RichUI
+## ✨ v0.12.0: Adaptive Actions Console, Stream Deduplication & Full TTFT Profiling
 
-- **🚀 Shared Client Pool Fix**: Resolved a critical bug where the shared singleton pool was incorrectly stopped, restoring instant response speeds for subsequent turns.
-- **🔑 BYOK-only Mode**: You can now use the plugin with only BYOK settings (OpenAI/Anthropic keys) without requiring a `GH_TOKEN`.
-- **🛡️ Environment Isolation**: Improved security by isolating user-specific environment variables, preventing token pollution in concurrent requests.
-- **📏 RichUI Height Stability**: Fixed the infinite sizing loop bug in embedded components, ensuring precise auto-height calculation.
-- **🩺 Smart Stall Detection**: Integrated `client.ping()` to rescue slow but alive processes from being prematurely aborted during heavy tasks.
-- **🧹 Smart TODO Visibility**: Automatically hides the TODO widget in subsequent chats once all tasks are completed to keep the interface clean.
+- **📊 Predictive Adaptive Console**: Automatically models continuous decision layouts using `interactive_controls` state tables on the per-session workspace database so visual panels don't go stale.
+- **🛡️ Stream Overlap Deduplication**: Mitigated overlay dual delivery bugs on `assistant.message_delta` frames using conservative overlap trimming rules during turn resumptions.
+- **⏱️ Segmented Profiling Loadtimes**: Fine-grained timers identifying local startup overhead and pure cloud network turnaround time tracking calibration.
+- **🧹 Eliminate Redundancies**: Reduced redundant secondary heavy `_parse_mcp_servers()` loops inside session resumes for faster handshake callbacks.
 
 ---
 
