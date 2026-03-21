@@ -6810,6 +6810,7 @@ class Pipe:
             "- **Continuous Dashboarding**: When the user interacts (clicks), in your NEXT response, evaluate what previous controls are still useful.\n"
             "- **DO NOT blindly clone**: Do not copy 100% of previous buttons if they aren't relevant.\n"
             "- **Predictive Retention**: If a previous button was unclicked but is logical next step, merge it into current view.\n"
+            "- **Selective Recall (有选择地召回)**: You must be highly selective! Just because an item is in the DB does NOT mean it should be rendered. Evaluate the CURRENT state and render ONLY items with high probability of being clicked next to prevent clutter.\n"
             "- **Pre-Initialized State Table**: An `interactive_controls` table has been created for you in the local `session.db` workspace. DO NOT use the `todos` table.\n"
             "  - **Schema**: `id (TEXT PRIMARY KEY)`, `label (TEXT NOT NULL)`, `action (TEXT NOT NULL)`, `status (TEXT DEFAULT 'visible')`, `likelihood (REAL)`, `created_at`, `updated_at`.\n"
             "  - **Usage**: You MUST use your `sql` tool to `SELECT`, `INSERT`, or `UPDATE` this table to deterministically model continuous items without relying solely on memory.\n"
