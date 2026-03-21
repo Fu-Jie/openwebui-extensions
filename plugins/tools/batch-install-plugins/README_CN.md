@@ -10,7 +10,7 @@
 
 ## 使用 Batch Install Plugins 安装
 
-当你已经安装过一次 [Batch Install Plugins from GitHub](https://github.com/Fu-Jie/openwebui-extensions/tree/main/plugins/tools/batch-install-plugins) 后，也可以用同一句来重新安装或更新它自己：
+当你已经安装过一次 [Batch Install Plugins from GitHub](https://openwebui.com/t/fujie/batch_install_plugins) 后，也可以用同一句来重新安装或更新它自己：
 
 ```text
 从 Fu-Jie/openwebui-extensions 安装插件
@@ -23,7 +23,7 @@
 
 > [!TIP]
 > **💡 想要批量安装/管理 Workspace 技能 (Skills)？**
-> 本插件专注安装全局函数型插件（Pipe/Filter/Tool/Action）。如果你需要管理 AI 助手的专属技能，请使用同系列的 [OpenWebUI Skills Manager](https://github.com/Fu-Jie/openwebui-extensions/tree/main/plugins/tools/openwebui-skills-manager) 工具，它具备完整的增删改查、批量发现及可视化浮层点选能力。
+> 本插件专注安装全局函数型插件（Pipe/Filter/Tool/Action）。如果你需要管理 AI 助手的专属技能，请使用同系列的 [OpenWebUI Skills Manager](https://openwebui.com/t/fujie/openwebui_skills_manager) 工具，它具备完整的增删改查、批量发现及可视化浮层点选能力。
 
 ## 主要功能
 

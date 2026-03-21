@@ -10,7 +10,7 @@ One-click batch install plugins from GitHub repositories to your OpenWebUI insta
 
 ## Install with Batch Install Plugins
 
-After you install [Batch Install Plugins from GitHub](https://github.com/Fu-Jie/openwebui-extensions/tree/main/plugins/tools/batch-install-plugins) once, you can also use it to reinstall or update itself with:
+After you install [Batch Install Plugins from GitHub](https://openwebui.com/t/fujie/batch_install_plugins) once, you can also use it to reinstall or update itself with:
 
 ```text
 Install plugin from Fu-Jie/openwebui-extensions
@@ -23,7 +23,7 @@ When the selection dialog opens, search for this plugin, check it, and continue.
 
 > [!TIP]
 > **💡 Looking to batch install or manage Workspace Skills?**
-> This plugin specializes in installing global function-based plugins (Pipe, Filter, Tool, Action). If you need to manage your AI assistant's dedicated Skills, use our companion tool [OpenWebUI Skills Manager](https://github.com/Fu-Jie/openwebui-extensions/tree/main/plugins/tools/openwebui-skills-manager), which provides full CRUD capabilities, batch discovery, and interactive selection dialogs.
+> This plugin specializes in installing global function-based plugins (Pipe, Filter, Tool, Action). If you need to manage your AI assistant's dedicated Skills, use our companion tool [OpenWebUI Skills Manager](https://openwebui.com/t/fujie/openwebui_skills_manager), which provides full CRUD capabilities, batch discovery, and interactive selection dialogs.
 
 ## Key Features
 
