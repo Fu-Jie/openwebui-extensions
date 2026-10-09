@@ -2706,6 +2706,15 @@ class Action:
                 __request__, llm_payload, user_obj
             )
 
+            # Some backends (e.g. non-Ollama connections) return a JSONResponse
+            # instead of a dict; read its JSON body.
+            if hasattr(llm_response, "body"):
+                try:
+                    llm_response = json.loads(llm_response.body.decode("utf-8"))
+                except (ValueError, UnicodeDecodeError) as exc:
+                    raise ValueError("LLM response could not be parsed as JSON.") from exc
+
+
             if (
                 not llm_response
                 or "choices" not in llm_response

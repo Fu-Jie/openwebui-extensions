@@ -1647,6 +1647,13 @@ class Tools:
             }
             user_obj = await _call_db(Users.get_user_by_id, user_ctx["user_id"])
             response = await generate_chat_completion(__request__, payload, user_obj)
+            # Some backends (e.g. non-Ollama connections) return a JSONResponse
+            # instead of a dict; read its JSON body.
+            if hasattr(response, "body"):
+                try:
+                    response = json.loads(response.body.decode("utf-8"))
+                except (ValueError, UnicodeDecodeError) as exc:
+                    raise ValueError("LLM response could not be parsed as JSON.") from exc
             assistant_content = response["choices"][0]["message"]["content"]
             markdown_syntax = _extract_markdown_syntax(assistant_content)
 
