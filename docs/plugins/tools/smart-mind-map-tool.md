@@ -2,7 +2,7 @@
 
 Smart Mind Map Tool is the tool version of the popular Smart Mind Map action plugin for Open WebUI. It allows the model to proactively generate interactive mind maps during conversations by intelligently analyzing context and structuring knowledge into visual hierarchies.
 
-| By [Fu-Jie](https://github.com/Fu-Jie) · v1.0.1 | [⭐ Star this repo](https://github.com/Fu-Jie/openwebui-extensions) |
+| By [Fu-Jie](https://github.com/Fu-Jie) · v1.0.2 | [⭐ Star this repo](https://github.com/Fu-Jie/openwebui-extensions) |
 | :--- | ---: |
 
 | ![followers](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_followers.json&label=%F0%9F%91%A5&style=flat) | ![points](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_points.json&label=%E2%AD%90&style=flat) | ![top](https://img.shields.io/badge/%F0%9F%8F%86-Top%20%3C1%25-10b981?style=flat) | ![contributions](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_contributions.json&label=%F0%9F%93%A6&style=flat) | ![downloads](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_downloads.json&label=%E2%AC%87%EF%B8%8F&style=flat) | ![saves](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_saves.json&label=%F0%9F%92%BE&style=flat) | ![views](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2FFu-Jie%2Fdb3d95687075a880af6f1fba76d679c6%2Fraw%2Fbadge_views.json&label=%F0%9F%91%81%EF%B8%8F&style=flat) |
@@ -11,6 +11,10 @@ Smart Mind Map Tool is the tool version of the popular Smart Mind Map action plu
 > 💡 **Note**: Prefer using the manual trigger button instead? Check out the [Smart Mind Map Action Version](https://openwebui.com/posts/turn_any_text_into_beautiful_mind_maps_3094c59a) here.
 
 ---
+
+## What's New in v1.0.2
+
+- **Read `JSONResponse` results from `generate_chat_completion`**: backends such as OpenAI-compatible connections return a `JSONResponse` instead of a dict, which failed with `argument of type 'JSONResponse' is not iterable` (#117). The body is now decoded as JSON before the `choices` are read.
 
 ## What's New in v1.0.1
 

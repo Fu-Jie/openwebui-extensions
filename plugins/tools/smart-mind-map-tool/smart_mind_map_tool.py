@@ -3,7 +3,7 @@ title: Smart Mind Map Tool
 author: Fu-Jie
 author_url: https://github.com/Fu-Jie/openwebui-extensions
 funding_url: https://github.com/open-webui
-version: 1.0.1
+version: 1.0.2
 required_open_webui_version: 0.8.0
 description: Intelligently analyzes text content and generates interactive mind maps to help users structure and visualize knowledge.
 """
