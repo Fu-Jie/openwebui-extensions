@@ -4,7 +4,7 @@ author: Fu-Jie
 author_url: https://github.com/Fu-Jie/openwebui-extensions
 funding_url: https://github.com/open-webui
 icon_url: data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPgogIDxsaW5lIHgxPSIxMiIgeTE9IjIwIiB4Mj0iMTIiIHkyPSIxMCIgLz4KICA8bGluZSB4MT0iMTgiIHkxPSIyMCIgeDI9IjE4IiB5Mj0iNCIgLz4KICA8bGluZSB4MT0iNiIgeTE9IjIwIiB4Mj0iNiIgeTI9IjE2IiAvPgo8L3N2Zz4=
-version: 1.6.3
+version: 1.6.4
 openwebui_id: ad6f0c7f-c571-4dea-821d-8e71697274cf
 description: AI-powered infographic generator based on AntV Infographic. Supports professional templates, auto-icon matching, and SVG/PNG downloads.
 """
@@ -12,6 +12,7 @@ description: AI-powered infographic generator based on AntV Infographic. Support
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any, Callable, Awaitable
 import logging
+import json
 import time
 import re
 from fastapi import Request
@@ -2282,6 +2283,15 @@ class Action:
             llm_response = await generate_chat_completion(
                 __request__, llm_payload, user_obj
             )
+
+            # Some backends (e.g. non-Ollama connections) return a JSONResponse
+            # instead of a dict; read its JSON body.
+            if hasattr(llm_response, "body"):
+                try:
+                    llm_response = json.loads(llm_response.body.decode("utf-8"))
+                except (ValueError, UnicodeDecodeError) as exc:
+                    raise ValueError("LLM response could not be parsed as JSON.") from exc
+
 
             if (
                 not llm_response
